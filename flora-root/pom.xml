@@ -19,7 +19,7 @@
                 <plugins>
                     <plugin>
                         <groupId>io.gitee.visual0zz</groupId>
-                        <artifactId>flora-ramet-maven-plugin</artifactId>
+                        <artifactId>flora-ramet-plugin</artifactId>
                         <version>${project.version}</version>
                         <executions>
                             <execution>

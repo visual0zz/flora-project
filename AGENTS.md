@@ -1,7 +1,7 @@
 ## Project Architecture
 
 **Flora-project**: Java 26 multi-module Maven project (JPMS), extracted from
-the larger Demiurge monorepo. Root POM aggregates 8 modules with shared
+a larger monorepo. Root POM aggregates 8 modules with shared
 JUnit 5 + JaCoCo config.
 
 ```
@@ -10,8 +10,8 @@ flora-project/            -- Root POM (pom packaging, Java 26)
 ├── addition/             -- Utility scripts, configs, and code review reports
 ├── plugins/              -- IDE & build tool plugins
 │   └── maven-plugins/    -- Maven Mojo plugins
-│       ├── flora-ramet-maven-plugin/   -- Ramet codegen Mojo
-│       └── flora-osmetes-maven-plugin/ -- Encoding checker Mojo
+│       ├── flora-ramet-plugin/   -- Ramet codegen Mojo
+│       └── flora-osmetes-plugin/ -- Encoding checker Mojo
 ├── flora-root/           -- Zero-dependency utility library
 ├── flora-ramet/          -- Template-based code generation engine
 ├── flora-osmetes/        -- Source code analysis & validation library
@@ -25,7 +25,7 @@ flora-project/            -- Root POM (pom packaging, Java 26)
 ### Self-Bootstrapping (Meta-Code Generation)
 
 Template files in `flora-root/src/{main,test}/templates/*.ftl` are rendered by
-the `regenerate` Maven profile (`exec-maven-plugin` → `com.flora.codegen.Ramet`)
+the `regenerate` Maven profile (`flora-ramet-plugin` → `com.flora.codegen.Ramet`)
 to produce the 64 `*FastHashMap` classes. The profile only activates during
 `generate-sources` / `generate-test-sources` phase.
 
@@ -63,6 +63,8 @@ Store code review reports in `addition/codereview/`. Naming:
   module directory, then link them in the Module Documentation section above.
 - **Protected directories**: NEVER modify any files under
   `addition/otherproject/` — those are third-party projects for reference only.
+  (This directory was part of the original monorepo and does not exist in the
+  standalone project.)
 - **Commit & push after each task**: After completing a substantive task and
   verifying tests pass, commit the changes to git and upload via `./push.cmd`.
   Do not batch unrelated work into a single commit.

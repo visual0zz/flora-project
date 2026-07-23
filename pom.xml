@@ -11,7 +11,7 @@
 
     <modules>
         <module>flora-ramet</module>
-        <module>plugins/maven-plugins/flora-ramet-maven-plugin</module>
+        <module>plugins/maven-plugins/flora-ramet-plugin</module>
         <module>flora-osmetes</module>
         <module>flora-root</module>
         <module>flora-garden</module>
@@ -47,6 +47,13 @@
                 <version>1.11.4</version>
                 <scope>test</scope>
             </dependency>
+            <!-- plexus-utils: 修复 CVE-2025-67030（目录遍历，CVSS 8.8）
+                 maven-plugin-api:3.9.11 传递依赖 3.6.0，需覆盖为 3.6.1 -->
+            <dependency>
+                <groupId>org.codehaus.plexus</groupId>
+                <artifactId>plexus-utils</artifactId>
+                <version>3.6.1</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -66,15 +73,6 @@
     </dependencies>
 
     <build>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>exec-maven-plugin</artifactId>
-                    <version>3.5.0</version>
-                </plugin>
-            </plugins>
-        </pluginManagement>
         <plugins>
             <!-- 单元测试运行器：必须显式指定支持 JUnit5 / Java 26 的版本，
                  否则默认 surefire 不识别 jupiter 用例（测试结果恒为 0）。 -->
@@ -118,11 +116,11 @@
             <id>osmetes-plugin</id>
             <activation>
                 <file>
-                    <exists>${user.home}/.m2/repository/com/demiurge/flora-osmetes/0.1/flora-osmetes-0.1.jar</exists>
+                    <exists>${user.home}/.m2/repository/io/gitee/visual0zz/flora-osmetes/0.1/flora-osmetes-0.1.jar</exists>
                 </file>
             </activation>
             <modules>
-                <module>plugins/maven-plugins/flora-osmetes-maven-plugin</module>
+                <module>plugins/maven-plugins/flora-osmetes-plugin</module>
             </modules>
         </profile>
     </profiles>

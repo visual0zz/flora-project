@@ -3,7 +3,7 @@
     <name>flora-ramet Maven Plugin</name>
     <description>flora-ramet code generation engine Maven plugin</description>
     <groupId>io.gitee.visual0zz</groupId>
-    <artifactId>flora-ramet-maven-plugin</artifactId>
+    <artifactId>flora-ramet-plugin</artifactId>
     <version>0.1</version>
     <goalPrefix>ramet</goalPrefix>
     <isolatedRealm>false</isolatedRealm>

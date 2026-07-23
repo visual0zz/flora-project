@@ -2,7 +2,6 @@
  * flora-root 模块定义文件。
  * <p>
  * 该模块导出核心 API 包，并声明对 {@code Converter} SPI 的使用。
- * {@code com.old.*} 包为内部遗留代码，不对外导出。
  */
 import com.flora.java.converter.Converter;
 

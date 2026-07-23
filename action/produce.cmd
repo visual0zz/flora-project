@@ -15,6 +15,7 @@ fi
 
 # ---- IDEA 插件 ----
 printf '%b\n' "${CYAN}\$ (cd plugins/idea-plugins/ramet-language-support && ./gradlew clean buildPlugin -x test)${NC}"
+cd "$(dirname "$0")/.." || exit 1
 if ( cd plugins/idea-plugins/ramet-language-support && ./gradlew clean buildPlugin -x test ); then
   printf '%b\n' "${GREEN}    \xe2\x9c\x93 IDEA plugin built: plugins/idea-plugins/ramet-language-support/build/distributions/*.zip${NC}"
 else
@@ -24,6 +25,7 @@ fi
 # ---- VSCode 插件（需要 Node.js / npm / vsce 环境） ----
 if command -v npm >/dev/null 2>&1; then
   printf '%b\n' "${CYAN}\$ (cd plugins/vscode-extensions/ramet-language-support && npm install && npm run package)${NC}"
+  cd "$(dirname "$0")/.." || exit 1
   if ( cd plugins/vscode-extensions/ramet-language-support && npm install && npm run package ); then
     printf '%b\n' "${GREEN}    \xe2\x9c\x93 VSCode plugin packaged: plugins/vscode-extensions/ramet-language-support/*.vsix${NC}"
   else
@@ -50,6 +52,7 @@ echo %ESC%[32m    OK: Maven build success!%ESC%[0m
 
 rem ---- IDEA 插件 ----
 echo %ESC%[36m$ gradlew clean buildPlugin -x test%ESC%[0m
+cd /d "%~dp0.."
 pushd plugins\idea-plugins\ramet-language-support
 call gradlew clean buildPlugin -x test
 if %errorlevel% equ 0 (
@@ -63,6 +66,7 @@ rem ---- VSCode 插件（需要 Node.js / npm / vsce 环境） ----
 where npm >nul 2>nul
 if %errorlevel% equ 0 (
   echo %ESC%[36m$ npm install && npm run package%ESC%[0m
+  cd /d "%~dp0.."
   pushd plugins\vscode-extensions\ramet-language-support
   call npm install
   if %errorlevel% equ 0 (

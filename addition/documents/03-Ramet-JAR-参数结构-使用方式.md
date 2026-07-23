@@ -25,7 +25,7 @@ java -jar flora-ramet-0.1.jar src/main/templates src/main/java --dry-run
 ```xml
 <plugin>
     <groupId>io.gitee.visual0zz</groupId>
-    <artifactId>flora-ramet-maven-plugin</artifactId>
+    <artifactId>flora-ramet-plugin</artifactId>
     <version>0.1</version>
     <configuration>
         <templatesDir>${project.basedir}/src/main/templates</templatesDir>
@@ -37,7 +37,7 @@ java -jar flora-ramet-0.1.jar src/main/templates src/main/java --dry-run
 命令行调用：
 
 ```bash
-mvn io.gitee.visual0zz:flora-ramet-maven-plugin:generate \
+mvn io.gitee.visual0zz:flora-ramet-plugin:generate \
   -Dramet.templatesDir=src/main/templates \
   -Dramet.outputDir=src/main/java
 ```
@@ -49,7 +49,7 @@ mvn io.gitee.visual0zz:flora-ramet-maven-plugin:generate \
 | 模块 | 用途 |
 |------|------|
 | `flora-ramet` | 核心引擎（shade 打包了 flora-root），可 `java -jar` 独立运行 |
-| `flora-ramet-maven-plugin` | Maven Mojo 封装，不 shade（依赖由 Maven 提供） |
+| `flora-ramet-plugin` | Maven Mojo 封装，不 shade（依赖由 Maven 提供） |
 
 ## include 机制
 

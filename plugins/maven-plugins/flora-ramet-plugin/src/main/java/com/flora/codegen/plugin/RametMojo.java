@@ -19,7 +19,7 @@ import java.nio.file.Path;
  * <pre>
  *   &lt;plugin&gt;
  *     &lt;groupId&gt;io.gitee.visual0zz&lt;/groupId&gt;
- *     &lt;artifactId&gt;flora-ramet-maven-plugin&lt;/artifactId&gt;
+ *     &lt;artifactId&gt;flora-ramet-plugin&lt;/artifactId&gt;
  *     &lt;configuration&gt;
  *       &lt;templatesDir&gt;src/main/templates&lt;/templatesDir&gt;
  *       &lt;outputDir&gt;src/main/java&lt;/outputDir&gt;
@@ -29,7 +29,7 @@ import java.nio.file.Path;
  *
  * <p>或从命令行调用：
  * <pre>
- *   mvn io.gitee.visual0zz:flora-ramet-maven-plugin:generate
+ *   mvn io.gitee.visual0zz:flora-ramet-plugin:generate
  * </pre>
  */
 @Mojo(name = "generate")

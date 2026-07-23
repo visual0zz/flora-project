@@ -382,8 +382,7 @@ public class Float2ByteFastHashMap
     }
 
     private static int hash(float key) {
-        long k2 = Float.floatToIntBits(key);
-        return (int) HashUtil.goldenHash(k2);
+        return HashUtil.goldenHash(Float.floatToIntBits(key));
     }
 
     private static int tableSize(int n) {

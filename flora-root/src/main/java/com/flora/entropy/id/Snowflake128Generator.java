@@ -1,6 +1,7 @@
 package com.flora.entropy.id;
 
 import com.flora.entropy.StringIdGenerator;
+import com.flora.fast.container.tuple.FastTupleLL;
 import com.flora.java.CheckUtil;
 
 import java.security.SecureRandom;
@@ -197,16 +198,16 @@ public final class Snowflake128Generator implements StringIdGenerator {
      */
     @Override
     public synchronized String nextStrId() {
-        long[] parts = nextRaw();
-        return String.format("%016x%016x", parts[0], parts[1]);
+        FastTupleLL parts = nextRaw();
+        return String.format("%016x%016x", parts.getL1(), parts.getL2());
     }
 
     /**
      * 生成下一个 128 位 ID 的原始高低两部分。
      *
-     * @return {@code long[2]}，下标 0 为高 64 位、下标 1 为低 64 位
+     * @return 高 64 位（getL1）和低 64 位（getL2）组成的元组
      */
-    private long[] nextRaw() {
+    private FastTupleLL nextRaw() {
         long now = System.currentTimeMillis();
         sequence = (sequence + 1) & SEQUENCE_MASK;
         if (now != lastTimestamp || sequence == 0) {
@@ -220,7 +221,7 @@ public final class Snowflake128Generator implements StringIdGenerator {
                 | (genObjNumber << GEN_OBJ_NUMBER_SHIFT)
                 | (backoffCount << BACKOFF_COUNT_SHIFT)
                 | (backoffRandom << BACKOFF_RANDOM_SHIFT);
-        return new long[]{high, low};
+        return new FastTupleLL(high, low);
     }
 
     /**

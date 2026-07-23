@@ -5,35 +5,35 @@
   Short: { name: "Short", type: "short", boxed: "Short", zeroKey: "(short)0", noEntry: "(short)0", defRet: "(short)-1",
            nullTest: "key == (short)0", emptyTest: "keys[pos] != (short)0",
            freeTest: "_v == (short)0", keyEq: "keys[pos] == key",
-           convert: "long k2 = key;" },
+           hashfn: "HashUtil.goldenHash((int) key)" },
   Int: { name: "Int", type: "int", boxed: "Integer", zeroKey: "0", noEntry: "0", defRet: "-1",
          nullTest: "key == 0", emptyTest: "keys[pos] != 0",
          freeTest: "_v == 0", keyEq: "keys[pos] == key",
-         convert: "long k2 = key;" },
+         hashfn: "HashUtil.goldenHash(key)" },
   Long: { name: "Long", type: "long", boxed: "Long", zeroKey: "0L", noEntry: "0L", defRet: "-1L",
           nullTest: "key == 0L", emptyTest: "keys[pos] != 0L",
           freeTest: "_v == 0L", keyEq: "keys[pos] == key",
-          convert: "long k2 = key;" },
+          hashfn: "(int) HashUtil.goldenHash(key)" },
   Char: { name: "Char", type: "char", boxed: "Character", zeroKey: "'\\0'", noEntry: "'\\0'", defRet: "'\\u0000'",
           nullTest: "key == '\\0'", emptyTest: "keys[pos] != '\\0'",
           freeTest: "_v == '\\0'", keyEq: "keys[pos] == key",
-          convert: "long k2 = key;" },
+          hashfn: "HashUtil.goldenHash((int) key)" },
   Float: { name: "Float", type: "float", boxed: "Float", zeroKey: "0.0f", noEntry: "0.0f", defRet: "0.0f",
            nullTest: "Float.floatToRawIntBits(key) == 0",
            emptyTest: "Float.floatToRawIntBits(keys[pos]) != 0",
            freeTest: "Float.floatToRawIntBits(_v) == 0",
            keyEq: "Float.floatToRawIntBits(keys[pos]) == Float.floatToRawIntBits(key)",
-           convert: "long k2 = Float.floatToIntBits(key);" },
+           hashfn: "HashUtil.goldenHash(Float.floatToIntBits(key))" },
   Double: { name: "Double", type: "double", boxed: "Double", zeroKey: "0.0d", noEntry: "0.0d", defRet: "0.0d",
             nullTest: "Double.doubleToRawLongBits(key) == 0",
             emptyTest: "Double.doubleToRawLongBits(keys[pos]) != 0",
             freeTest: "Double.doubleToRawLongBits(_v) == 0",
             keyEq: "Double.doubleToRawLongBits(keys[pos]) == Double.doubleToRawLongBits(key)",
-            convert: "long k2 = Double.doubleToLongBits(key);" },
+            hashfn: "(int) HashUtil.goldenHash(Double.doubleToLongBits(key))" },
   Object: { name: "Object", type: "Object", boxed: "Object", zeroKey: "null", noEntry: "null", defRet: "null",
             nullTest: "key == null", emptyTest: "keys[pos] != null",
             freeTest: "_v == null", keyEq: "Objects.equals(keys[pos], key)",
-            convert: "long k2 = (key == null) ? 0 : key.hashCode();" }
+            hashfn: "HashUtil.goldenHash((key == null) ? 0 : key.hashCode())" }
 }
 @Cartesian{
   K: [Short, Int, Long, Char, Float, Double, Object],
@@ -628,8 +628,7 @@ public class ${K.name}2${V.name}FastHashMap
     }
 
     private static int hash(${K.type} key) {
-        ${K.convert}
-        return (int) HashUtil.goldenHash(k2);
+        return ${K.hashfn};
     }
 
     private static int tableSize(int n) {

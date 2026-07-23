@@ -382,8 +382,7 @@ public class Int2ObjectFastHashMap
     }
 
     private static int hash(int key) {
-        long k2 = key;
-        return (int) HashUtil.goldenHash(k2);
+        return HashUtil.goldenHash(key);
     }
 
     private static int tableSize(int n) {

@@ -369,8 +369,7 @@ public class Object2DoubleFastHashMap
     }
 
     private static int hash(Object key) {
-        long k2 = (key == null) ? 0 : key.hashCode();
-        return (int) HashUtil.goldenHash(k2);
+        return HashUtil.goldenHash((key == null) ? 0 : key.hashCode());
     }
 
     private static int tableSize(int n) {

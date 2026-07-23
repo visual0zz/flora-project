@@ -382,8 +382,7 @@ public class Short2ShortFastHashMap
     }
 
     private static int hash(short key) {
-        long k2 = key;
-        return (int) HashUtil.goldenHash(k2);
+        return HashUtil.goldenHash((int) key);
     }
 
     private static int tableSize(int n) {

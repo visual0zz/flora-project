@@ -382,8 +382,7 @@ public class Long2CharFastHashMap
     }
 
     private static int hash(long key) {
-        long k2 = key;
-        return (int) HashUtil.goldenHash(k2);
+        return (int) HashUtil.goldenHash(key);
     }
 
     private static int tableSize(int n) {

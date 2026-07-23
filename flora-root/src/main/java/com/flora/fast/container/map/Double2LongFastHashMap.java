@@ -382,8 +382,7 @@ public class Double2LongFastHashMap
     }
 
     private static int hash(double key) {
-        long k2 = Double.doubleToLongBits(key);
-        return (int) HashUtil.goldenHash(k2);
+        return (int) HashUtil.goldenHash(Double.doubleToLongBits(key));
     }
 
     private static int tableSize(int n) {

@@ -1,6 +1,7 @@
 package com.flora.java.converter;
 
 import com.flora.java.ConvertUtil;
+import com.flora.java.Converter;
 
 import java.lang.reflect.Array;
 import java.util.Collection;

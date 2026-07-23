@@ -1,5 +1,6 @@
 package com.flora.java;
 
+import com.flora.java.clazz.TypeDistanceCalculator;
 import org.junit.jupiter.api.Test;
 
 import java.io.Serializable;

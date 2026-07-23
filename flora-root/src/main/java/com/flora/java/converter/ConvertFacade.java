@@ -1,6 +1,7 @@
 package com.flora.java.converter;
 
 import com.flora.java.CheckUtil;
+import com.flora.java.Converter;
 
 /**
  * 类型转换门面，封装了 {@link ConverterRegistry} 的查找和转换调用逻辑。
@@ -21,29 +22,7 @@ public class ConvertFacade {
         this.registry = registry;
     }
 
-    /**
-     * 将指定值转换为目标类型。
-     *
-     * @param value      待转换的值
-     * @param targetType 目标类型
-     * @param <T>        目标类型泛型
-     * @return 转换后的值，若 value 为 null 则返回 null
-     * @throws IllegalArgumentException 若未找到合适的转换器
-     */
-    public <T> T convert(Object value, Class<T> targetType) {
-        CheckUtil.notNull(targetType, "目标类型不能为空");
-        if (value == null) {
-            return null;
-        }
-        Converter executor = registry.find(value.getClass(), targetType);
-        if (executor == null) {
-            throw new IllegalArgumentException("未找到将 " + value.getClass().getName()
-                    + " 转换为 " + targetType.getName() + " 的转换器");
-        }
-        return targetType.cast(executor.convert(value, targetType, null));
-    }
 
-    
     /**
      * 将指定值转换为目标类型，同时转换元素类型（用于集合/数组等泛型元素转换）。
      *
@@ -78,7 +57,7 @@ public class ConvertFacade {
      */
     public <T> T convertQuietly(Object value, Class<T> targetType, T defaultValue) {
         try {
-            return convert(value, targetType);
+            return convertElements(value, targetType, null);
         } catch (Exception e) {
             return defaultValue;
         }

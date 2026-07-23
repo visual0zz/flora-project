@@ -203,7 +203,7 @@ class ConvertUtilTest {
     @Test
     void customOnlyUsesNoBuiltIns() {
         assertThrows(IllegalArgumentException.class,
-                () -> CustvertUtil.INSTANCE.convert("123", Integer.class));
+                () -> CustvertUtil.INSTANCE.convertElements("123", Integer.class, null));
     }
 
     /**

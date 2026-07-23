@@ -1,4 +1,4 @@
-package com.flora.java;
+package com.flora.java.clazz;
 
 /**
  * 类型继承距离计算器，计算两个类/接口之间的继承层次距离。

@@ -1,6 +1,6 @@
 ## Project Architecture
 
-**Flora-project**: Java 26 multi-module Maven project (JPMS)
+**flora-project**: Java 26 multi-module Maven project (JPMS)
 
 ```
 flora-project/            -- Root POM (pom packaging, Java 26)

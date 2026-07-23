@@ -1,4 +1,4 @@
-package com.flora.java.converter;
+package com.flora.java;
 
 import java.util.Collection;
 

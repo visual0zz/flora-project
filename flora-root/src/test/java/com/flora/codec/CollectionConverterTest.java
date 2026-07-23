@@ -1,7 +1,7 @@
 package com.flora.codec;
 
 import com.flora.java.converter.CollectionConverter;
-import com.flora.java.converter.Converter;
+import com.flora.java.Converter;
 import com.flora.java.converter.ConverterRegistry;
 import org.junit.jupiter.api.Test;
 import java.util.*;
@@ -164,32 +164,6 @@ class CollectionConverterTest {
         ConverterRegistry registry = ConverterRegistry.newInstance();
         assertNotNull(registry.find(ArrayList.class, java.util.Set.class, null),
                 "未指定元素类型时应匹配 CollectionConverter");
-    }
-
-    // ========== 元素类型 + 元素转换器同时指定 ==========
-
-    /**
-     * 测试同时指定 elementType 和 elementConverter 的自定义转换。
-     */
-    @Test
-    void bothElementTypeAndElementConverter() {
-        Converter intConverter = new Converter() {
-            @Override
-            public java.util.Collection<Class<?>> declareSourceTypes() {
-                return List.of(Object.class);
-            }
-            @Override
-            public java.util.Collection<Class<?>> declareTargetTypes() {
-                return List.of(Integer.class);
-            }
-            @Override
-            public Object convert(Object obj, Class<?> targetType, Class<?> elementType) {
-                return Integer.parseInt(obj.toString()) * 2;
-            }
-        };
-        CollectionConverter custom = new CollectionConverter(null, intConverter, Integer.class);
-        List<?> result = (List<?>) custom.convert(List.of("1", "2", "3"), List.class);
-        assertEquals(List.of(2, 4, 6), result);
     }
 
     // ========== convert(Object, Class, Class) 方法 ==========

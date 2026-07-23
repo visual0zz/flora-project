@@ -2,7 +2,9 @@ package com.flora.java.converter;
 
 import com.flora.cache.store.MemoryCache;
 import com.flora.java.CheckUtil;
-import com.flora.java.TypeDistanceCalculator;
+import com.flora.java.Converter;
+import com.flora.java.TargetMatcher;
+import com.flora.java.clazz.TypeDistanceCalculator;
 import com.flora.tag.LogicFragile;
 
 import java.util.ArrayList;
@@ -92,17 +94,6 @@ public final class ConverterRegistry {
     public void register(Converter executor) {
         CheckUtil.notNull(executor, "转换器不能为空");
         executors.add(executor);
-    }
-
-    /**
-     * 查找能将来源类型转换为目标类型的转换器（无元素类型参数）。
-     *
-     * @param sourceType 来源类型
-     * @param targetType 目标类型，不能为 null
-     * @return 匹配的转换器，若无匹配则返回 null
-     */
-    public Converter find(Class<?> sourceType, Class<?> targetType) {
-        return find(sourceType, targetType, null);
     }
 
     /**

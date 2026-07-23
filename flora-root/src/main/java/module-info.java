@@ -3,7 +3,7 @@
  * <p>
  * 该模块导出核心 API 包，并声明对 {@code Converter} SPI 的使用。
  */
-import com.flora.java.converter.Converter;
+import com.flora.java.Converter;
 
 module com.flora.root {
     exports com.flora.algebra;
@@ -22,6 +22,7 @@ module com.flora.root {
     exports com.flora.log;
     exports com.flora.entropy.id;
     exports com.flora.entropy.probds;
+    exports com.flora.java.clazz;
 
     uses Converter;
 }

@@ -1,5 +1,7 @@
 package com.flora.java.converter;
 
+import com.flora.java.Converter;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Collection;

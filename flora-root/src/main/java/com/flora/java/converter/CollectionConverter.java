@@ -1,6 +1,8 @@
 package com.flora.java.converter;
 
 import com.flora.java.ConvertUtil;
+import com.flora.java.Converter;
+import com.flora.java.TargetMatcher;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
@@ -29,41 +31,10 @@ import java.util.TreeSet;
  */
 public final class CollectionConverter implements Converter {
 
-    private final Class<? extends Collection> targetType;
-    private final Converter elementConverter;
-    private final Class<?> elementType;
-
     /**
      * 创建默认集合转换器，不指定目标类型、元素转换器和元素类型。
      */
     public CollectionConverter() {
-        this(null, null, null);
-    }
-
-    /**
-     * 创建指定目标类型和元素转换器的集合转换器。
-     *
-     * @param targetType        目标集合类型
-     * @param elementConverter 元素转换器
-     */
-    public CollectionConverter(Class<? extends Collection> targetType,
-                               Converter elementConverter) {
-        this(targetType, elementConverter, null);
-    }
-
-    /**
-     * 创建完整的集合转换器，指定目标类型、元素转换器和元素类型。
-     *
-     * @param targetType        目标集合类型
-     * @param elementConverter 元素转换器
-     * @param elementType       元素类型
-     */
-    public CollectionConverter(Class<? extends Collection> targetType,
-                               Converter elementConverter,
-                               Class<?> elementType) {
-        this.targetType = targetType;
-        this.elementConverter = elementConverter;
-        this.elementType = elementType;
     }
 
     @Override
@@ -88,42 +59,26 @@ public final class CollectionConverter implements Converter {
         if (from == null) {
             return null;
         }
-        Class<? extends Collection> resolved = resolveTargetType(toType);
-        Class<?> effectiveElementType = elementType != null ? elementType : this.elementType;
-        if (resolved.isInstance(from) && elementConverter == null && effectiveElementType == null) {
+        Class<? extends Collection> result1;
+        if (Collection.class.isAssignableFrom(toType)) {
+            result1 = (Class<? extends Collection>) toType;
+        } else {
+            throw new IllegalArgumentException("CollectionConverter 仅支持集合目标类型，收到: " + toType.getName());
+        }
+        Class<? extends Collection> resolved = result1;
+        if (resolved.isInstance(from) && elementType == null) {
             return from;
         }
         Collection<Object> result = createCollection(resolved);
         Collection<?> source = toCollection(from);
-        if (elementConverter != null && effectiveElementType != null) {
+        if (elementType != null) {
             for (Object elem : source) {
-                result.add(elementConverter.convert(elem, effectiveElementType));
-            }
-        } else if (effectiveElementType != null) {
-            for (Object elem : source) {
-                result.add(ConvertUtil.convert(effectiveElementType, elem));
+                result.add(ConvertUtil.convert(elementType, elem));
             }
         } else {
             result.addAll(source);
         }
         return result;
-    }
-
-    /**
-     * 解析目标集合类型。若已指定 targetType 则直接返回，否则从 toType 推断。
-     *
-     * @param toType 目标类型
-     * @return 解析后的具体集合类型
-     * @throws IllegalArgumentException 若 toType 不是集合类型
-     */
-    private Class<? extends Collection> resolveTargetType(Class<?> toType) {
-        if (targetType != null) {
-            return targetType;
-        }
-        if (Collection.class.isAssignableFrom(toType)) {
-            return (Class<? extends Collection>) toType;
-        }
-        throw new IllegalArgumentException("CollectionConverter 仅支持集合目标类型，收到: " + toType.getName());
     }
 
     /**

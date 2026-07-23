@@ -27,7 +27,7 @@ public final class ConvertUtil extends ConvertFacade {
      * @return 转换后的值
      */
     public static <T> T convert(Class<T> targetType, Object value) {
-        return INSTANCE.convert(value, targetType);
+        return INSTANCE.convertElements(value, targetType, null);
     }
 
     /**

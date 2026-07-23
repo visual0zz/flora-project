@@ -2,7 +2,7 @@ package com.flora.codec;
 
 import com.flora.java.converter.ArrayConverter;
 import com.flora.java.converter.CollectionConverter;
-import com.flora.java.converter.Converter;
+import com.flora.java.Converter;
 import com.flora.java.converter.ConverterRegistry;
 import com.flora.java.converter.EnumConverter;
 import org.junit.jupiter.api.Test;
@@ -62,7 +62,7 @@ class ConverterRegistryTest {
     @Test
     void noopOnIdentity() {
         ConverterRegistry registry = ConverterRegistry.newInstance(false, false);
-        Converter c = registry.find(String.class, String.class);
+        Converter c = registry.find(String.class, String.class, null);
         assertNotNull(c);
         assertSame("x", c.convert("x", String.class));
     }
@@ -73,7 +73,7 @@ class ConverterRegistryTest {
     @Test
     void noopOnUpcast() {
         ConverterRegistry registry = ConverterRegistry.newInstance(false, false);
-        Converter c = registry.find(Integer.class, Number.class);
+        Converter c = registry.find(Integer.class, Number.class, null);
         assertNotNull(c);
         assertSame(Integer.valueOf(7), c.convert(7, Number.class));
     }
@@ -86,7 +86,7 @@ class ConverterRegistryTest {
     @Test
     void noMatchReturnsNull() {
         ConverterRegistry registry = ConverterRegistry.newInstance(false, false);
-        assertNull(registry.find(Integer.class, String.class));
+        assertNull(registry.find(Integer.class, String.class, null));
     }
 
     // ==================== 多阶段过滤 ====================
@@ -101,7 +101,7 @@ class ConverterRegistryTest {
         FixedConverter objectWide = new FixedConverter(Object.class, String.class, 0);
         registry.register(numberWide);
         registry.register(objectWide);
-        assertSame(numberWide, registry.find(Integer.class, String.class));
+        assertSame(numberWide, registry.find(Integer.class, String.class, null));
     }
 
     /**
@@ -114,7 +114,7 @@ class ConverterRegistryTest {
         FixedConverter low = new FixedConverter(Object.class, String.class, 0);
         registry.register(high);
         registry.register(low);
-        assertSame(high, registry.find(Integer.class, String.class));
+        assertSame(high, registry.find(Integer.class, String.class, null));
     }
 
     /**
@@ -125,7 +125,7 @@ class ConverterRegistryTest {
         ConverterRegistry registry = ConverterRegistry.newInstance(false, false);
         registry.register(new FixedConverter(Object.class, String.class, 0));
         registry.register(new FixedConverter(Object.class, String.class, 0));
-        assertThrows(IllegalStateException.class, () -> registry.find(Integer.class, String.class));
+        assertThrows(IllegalStateException.class, () -> registry.find(Integer.class, String.class, null));
     }
 
     /**
@@ -138,7 +138,7 @@ class ConverterRegistryTest {
         FixedConverter lowPriority = new FixedConverter(Number.class, String.class, 0);
         registry.register(highPriority);
         registry.register(lowPriority);
-        assertSame(highPriority, registry.find(Integer.class, String.class));
+        assertSame(highPriority, registry.find(Integer.class, String.class, null));
     }
 
     // ==================== 通配目标类型匹配 ====================
@@ -149,7 +149,7 @@ class ConverterRegistryTest {
     @Test
     void wildcardArrayMatches() {
         ConverterRegistry registry = ConverterRegistry.newInstance();
-        assertInstanceOf(ArrayConverter.class, registry.find(ArrayList.class, String[].class));
+        assertInstanceOf(ArrayConverter.class, registry.find(ArrayList.class, String[].class, null));
     }
 
     /**
@@ -158,7 +158,7 @@ class ConverterRegistryTest {
     @Test
     void wildcardCollectionMatches() {
         ConverterRegistry registry = ConverterRegistry.newInstance();
-        assertInstanceOf(CollectionConverter.class, registry.find(String.class, List.class));
+        assertInstanceOf(CollectionConverter.class, registry.find(String.class, List.class, null));
     }
 
     /**
@@ -167,8 +167,8 @@ class ConverterRegistryTest {
     @Test
     void wildcardEnumMatches() {
         ConverterRegistry registry = ConverterRegistry.newInstance();
-        assertInstanceOf(EnumConverter.class, registry.find(String.class, Color.class));
-        assertInstanceOf(EnumConverter.class, registry.find(Integer.class, Color.class));
+        assertInstanceOf(EnumConverter.class, registry.find(String.class, Color.class, null));
+        assertInstanceOf(EnumConverter.class, registry.find(Integer.class, Color.class, null));
     }
 
     /**
@@ -177,7 +177,7 @@ class ConverterRegistryTest {
     @Test
     void optionalTargetResolves() {
         ConverterRegistry registry = ConverterRegistry.newInstance();
-        Converter c = registry.find(String.class, Optional.class);
+        Converter c = registry.find(String.class, Optional.class, null);
         assertNotNull(c);
         assertEquals(Optional.of("x"), c.convert("x", Optional.class));
     }
@@ -188,7 +188,7 @@ class ConverterRegistryTest {
     @Test
     void arraySourceToCollectionResolvesCollectionConverter() {
         ConverterRegistry registry = ConverterRegistry.newInstance();
-        Converter c = registry.find(String[].class, List.class);
+        Converter c = registry.find(String[].class, List.class, null);
         assertInstanceOf(CollectionConverter.class, c);
     }
 
@@ -200,9 +200,9 @@ class ConverterRegistryTest {
     @Test
     void registerConverterIncreasesMatch() {
         ConverterRegistry registry = ConverterRegistry.newInstance(false, false);
-        assertNull(registry.find(Integer.class, String.class));
+        assertNull(registry.find(Integer.class, String.class, null));
         registry.register(new FixedConverter(Integer.class, String.class, 0));
-        assertNotNull(registry.find(Integer.class, String.class));
+        assertNotNull(registry.find(Integer.class, String.class, null));
     }
 
     /**
@@ -220,7 +220,7 @@ class ConverterRegistryTest {
     @Test
     void findWithNullTargetThrows() {
         ConverterRegistry registry = ConverterRegistry.newInstance(false, false);
-        assertThrows(NullPointerException.class, () -> registry.find(String.class, null));
+        assertThrows(NullPointerException.class, () -> registry.find(String.class, null, null));
     }
 
     // ==================== 工厂方法组合 ====================
@@ -231,8 +231,8 @@ class ConverterRegistryTest {
     @Test
     void newInstanceDefaultLoadsAll() {
         ConverterRegistry registry = ConverterRegistry.newInstance();
-        assertNotNull(registry.find(String.class, Integer.class));   // NumberConverter
-        assertNotNull(registry.find(String.class, String.class));    // StringConverter
+        assertNotNull(registry.find(String.class, Integer.class, null));   // NumberConverter
+        assertNotNull(registry.find(String.class, String.class, null));    // StringConverter
     }
 
     /**
@@ -241,7 +241,7 @@ class ConverterRegistryTest {
     @Test
     void newInstanceEmptyLoadsNone() {
         ConverterRegistry registry = ConverterRegistry.newInstance(false, false);
-        assertNull(registry.find(String.class, Integer.class));     // 无内置转换器
+        assertNull(registry.find(String.class, Integer.class, null));     // 无内置转换器
     }
 
     /**
@@ -250,7 +250,7 @@ class ConverterRegistryTest {
     @Test
     void newInstanceOnlySpi() {
         ConverterRegistry registry = ConverterRegistry.newInstance(false, true);
-        assertNull(registry.find(String.class, Integer.class));     // SPI 中通常无内置转换器
+        assertNull(registry.find(String.class, Integer.class, null));     // SPI 中通常无内置转换器
     }
 
     /**
@@ -259,7 +259,7 @@ class ConverterRegistryTest {
     @Test
     void newInstanceOnlyInner() {
         ConverterRegistry registry = ConverterRegistry.newInstance(true, false);
-        assertNotNull(registry.find(String.class, Integer.class));   // 内置 NumberConverter
+        assertNotNull(registry.find(String.class, Integer.class, null));   // 内置 NumberConverter
     }
 
     // ==================== 缓存行为 ====================
@@ -270,12 +270,12 @@ class ConverterRegistryTest {
     @Test
     void findUsesCache() {
         ConverterRegistry registry = ConverterRegistry.newInstance();
-        Converter c1 = registry.find(String.class, Integer.class);
+        Converter c1 = registry.find(String.class, Integer.class, null);
         assertNotNull(c1);
         FixedConverter high = new FixedConverter(String.class, Integer.class, 999);
         registry.register(high);
         // 由于缓存存在，第二次查询应返回缓存结果
-        Converter c2 = registry.find(String.class, Integer.class);
+        Converter c2 = registry.find(String.class, Integer.class, null);
         assertSame(c1, c2);
     }
 }

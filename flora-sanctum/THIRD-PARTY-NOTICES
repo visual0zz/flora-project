@@ -1,0 +1,64 @@
+Flora Sanctum — THIRD-PARTY NOTICES
+=====================================
+
+本文件随 Flora Sanctum 的分发（源码与二进制安装包）一同提供，用于履行所包含
+第三方组件的许可证义务。所有组件均采用宽松许可（permissive），**不要求** Flora
+Sanctum 以任何特定许可证开源，仅需保留以下版权与许可声明。
+
+准确版本号以 vendor 时克隆的仓库 tag/分支为准（见 §2.3.1 / §2.7.1 提示词）；
+各依赖自身的完整许可文本亦可在其上游仓库的 LICENSE 文件中找到。
+
+----------------------------------------------------------------------
+1. JGit  (org.eclipse.jgit, 以源码 vendor 方式纳入本工程，非 Maven 依赖)
+   License : Eclipse Distribution License v1.0 (EDL-1.0, 等同 BSD 2-Clause)
+   Copyright: © Eclipse Foundation and original authors.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are met:
+
+   1. Redistributions of source code must retain the above copyright notice,
+      this list of conditions and the following disclaimer.
+
+   2. Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+   LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+   CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE.
+
+   JGit 随源码一同 vendor 进来的依赖（亦须保留声明）：
+     - JavaEWAH (com.googlecode.javaewah:JavaEWAH)        — BSD 2-Clause / EDL
+     - Apache MINA sshd (org.apache.mina:*)                — Apache License 2.0
+       （仅当启用 SSH 传输、将其一并 vendor 时列入；否则不纳入）
+
+----------------------------------------------------------------------
+2. BouncyCastle  (org.bouncycastle.crypto.* ，仅当执行文档 §2.7 vendor 方案时包含)
+   License : Bouncy Castle License (BCL) / MIT License 双许可，二选一遵守
+   Copyright: © 2000-<year> The Legion of the Bouncy Castle Inc. (https://www.bouncycastle.org)
+
+   Bouncy Castle License (摘要):
+     Permission is hereby granted, free of charge, to any person obtaining a copy
+     of this software and associated documentation files (the "Software") to deal
+     in the Software without restriction, including the rights to use, copy,
+     modify, merge, publish, distribute, sublicense, and/or sell copies, subject to
+     the following conditions: the above copyright notice and this permission notice
+     shall be included in all copies or substantial portions of the Software.
+     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+   MIT License (摘要):
+     Permission is hereby granted, free of charge, to any person obtaining a copy
+     of this software and associated documentation files (the "Software") to deal
+     in the Software without restriction... The above copyright notice and this
+     permission notice shall be included in all copies or substantial portions.
+     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+   vendor 进来的源码必须保留其原始文件头部的版权/许可声明，或在此文件中登记。
+
+----------------------------------------------------------------------
+3. 本文件本身
+   Flora Sanctum 自有代码按本仓库 LICENSE 约定发布；第三方组件许可不受影响。
+======================================================================

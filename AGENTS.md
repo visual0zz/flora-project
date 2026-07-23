@@ -1,22 +1,25 @@
 ## Project Architecture
 
-**Demiurge**: Java 26 multi-module Maven project (JPMS). Root POM aggregates
-4 modules with shared JUnit 5 + JaCoCo config.
+**Flora-project**: Java 26 multi-module Maven project (JPMS), extracted from
+the larger Demiurge monorepo. Root POM aggregates 8 modules with shared
+JUnit 5 + JaCoCo config.
 
 ```
-demiurge/                 -- Root POM (pom packaging, Java 26)
+flora-project/            -- Root POM (pom packaging, Java 26)
 ├── action/               -- Dev workflow scripts (test, produce, regenerate)
 ├── addition/             -- Utility scripts, configs, and code review reports
-├── flora-project/        -- Core Java library suite (pom packaging)
-│   ├── flora-root/       -- Zero-dependency utility library
-│   ├── flora-ramet/      -- Template-based code generation engine
-│   ├── flora-garden/     -- Placeholder module
-│   ├── flora-tangle/     -- Java bytecode obfuscator
-│   ├── flora/            -- Aggregate (root + garden)
-│   └── flora-benchmark/  -- JMH microbenchmarks
-├── chainlink/            -- Placeholder module
-├── pleroma/              -- Placeholder module
-└── playground/           -- Dev sandbox entry point
+├── plugins/              -- IDE & build tool plugins
+│   └── maven-plugins/    -- Maven Mojo plugins
+│       ├── flora-ramet-maven-plugin/   -- Ramet codegen Mojo
+│       └── flora-osmetes-maven-plugin/ -- Encoding checker Mojo
+├── flora-root/           -- Zero-dependency utility library
+├── flora-ramet/          -- Template-based code generation engine
+├── flora-osmetes/        -- Source code analysis & validation library
+├── flora-garden/         -- Placeholder module
+├── flora-tangle/         -- Java bytecode obfuscator
+│   └── testbed/          -- Tangle integration testbed
+├── flora/                -- Aggregate (root + garden)
+└── flora-benchmark/      -- JMH microbenchmarks
 ```
 
 ### Self-Bootstrapping (Meta-Code Generation)
@@ -43,9 +46,9 @@ to produce the 64 `*FastHashMap` classes. The profile only activates during
 
 ## Module Documentation
 
-- [flora-root结构概述.md](flora-project/flora-root/flora-root结构概述.md)
-- [flora-ramet结构概述.md](flora-project/flora-ramet/flora-ramet结构概述.md)
-- [代码生成模板语法简介.md](flora-project/flora-ramet/代码生成模板语法简介.md)
+- [flora-root结构概述.md](flora-root/flora-root结构概述.md)
+- [flora-ramet结构概述.md](flora-ramet/flora-ramet结构概述.md)
+- [代码生成模板语法简介.md](flora-ramet/代码生成模板语法简介.md)
 
 ## Code Review
 

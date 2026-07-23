@@ -1,5 +1,5 @@
 # Repository URLs (one per line, no inline comments)
-git@gitee.com:visual0zz/demiurge.git
-git@gitcode.com:visual_zz/demiurge.git
-git@codeup.aliyun.com:6a465acaebc01644c579e739/demiurge.git
-git@github.com:visual0zz/demiurge.git
+git@gitee.com:visual0zz/flora-project.git
+git@gitcode.com:visual_zz/flora-project.git
+git@codeup.aliyun.com:6a465acaebc01644c579e739/flora-project.git
+git@github.com:visual0zz/flora-project.git

@@ -24,7 +24,7 @@ java -jar flora-ramet-0.1.jar src/main/templates src/main/java --dry-run
 
 ```xml
 <plugin>
-    <groupId>com.demiurge</groupId>
+    <groupId>io.gitee.visual0zz</groupId>
     <artifactId>flora-ramet-maven-plugin</artifactId>
     <version>0.1</version>
     <configuration>
@@ -37,7 +37,7 @@ java -jar flora-ramet-0.1.jar src/main/templates src/main/java --dry-run
 命令行调用：
 
 ```bash
-mvn com.demiurge:flora-ramet-maven-plugin:generate \
+mvn io.gitee.visual0zz:flora-ramet-maven-plugin:generate \
   -Dramet.templatesDir=src/main/templates \
   -Dramet.outputDir=src/main/java
 ```

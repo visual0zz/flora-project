@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.demiurge</groupId>
+        <groupId>io.gitee.visual0zz</groupId>
         <artifactId>flora-project</artifactId>
         <version>0.1</version>
     </parent>
@@ -15,7 +15,7 @@
     <dependencies>
         <!-- 引用 flora 聚合 jar（内含 flora-root + flora-garden） -->
         <dependency>
-            <groupId>com.demiurge</groupId>
+            <groupId>io.gitee.visual0zz</groupId>
             <artifactId>flora</artifactId>
             <version>${project.version}</version>
         </dependency>

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ====== Strip all comments from Java files in a given subdirectory ======
 # Usage: strip-jcomments.cmd <relative-dir>
-#   <relative-dir>  relative path from project root (e.g. flora-project/flora-root/src)
+#   <relative-dir>  relative path from project root (e.g. flora-root/src)
 @goto :windows || true
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

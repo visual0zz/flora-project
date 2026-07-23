@@ -5,10 +5,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.demiurge</groupId>
+        <groupId>io.gitee.visual0zz</groupId>
         <artifactId>flora-project</artifactId>
         <version>0.1</version>
-        <relativePath>../../../flora-project/pom.xml</relativePath>
+        <relativePath>../../../pom.xml</relativePath>
     </parent>
 
     <artifactId>flora-ramet-maven-plugin</artifactId>
@@ -30,7 +30,7 @@
         </dependency>
         <!-- flora-ramet: 代码生成引擎 -->
         <dependency>
-            <groupId>com.demiurge</groupId>
+            <groupId>io.gitee.visual0zz</groupId>
             <artifactId>flora-ramet</artifactId>
             <version>${project.version}</version>
         </dependency>

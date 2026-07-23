@@ -4,18 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <parent>
-        <groupId>com.demiurge</groupId>
-        <artifactId>demiurge</artifactId>
-        <version>0.1</version>
-    </parent>
-
+    <groupId>io.gitee.visual0zz</groupId>
     <artifactId>flora-project</artifactId>
+    <version>0.1</version>
     <packaging>pom</packaging>
 
     <modules>
         <module>flora-ramet</module>
-        <module>../plugins/maven-plugins/flora-ramet-maven-plugin</module>
+        <module>plugins/maven-plugins/flora-ramet-maven-plugin</module>
         <module>flora-osmetes</module>
         <module>flora-root</module>
         <module>flora-garden</module>
@@ -27,10 +23,95 @@
 
     <properties>
         <revision>0.1</revision>
+        <jmh.version>1.37</jmh.version>
+        <surefire.version>3.5.2</surefire.version>
+        <maven.compiler.plugin.version>3.14.0</maven.compiler.plugin.version>
         <maven.compiler.source>26</maven.compiler.source>
         <maven.compiler.target>26</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- JUnit 5 单元测试：所有子模块统一继承 -->
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>5.11.4</version>
+                <scope>test</scope>
+            </dependency>
+            <!-- JUnit Platform Launcher：IDEA 运行测试所需 -->
+            <dependency>
+                <groupId>org.junit.platform</groupId>
+                <artifactId>junit-platform-launcher</artifactId>
+                <version>1.11.4</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- JUnit 5 单元测试：所有子模块统一继承 -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- JUnit Platform Launcher：IDEA 运行测试所需 -->
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>3.5.0</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <!-- 单元测试运行器：必须显式指定支持 JUnit5 / Java 26 的版本，
+                 否则默认 surefire 不识别 jupiter 用例（测试结果恒为 0）。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire.version}</version>
+            </plugin>
+            <!-- 编译器：3.1 太旧，无法把模块化依赖（如 com.flora.root）放到模块路径，
+                 会导致 requires 的模块找不到；3.14.0 支持 JPMS 模块路径并兼容 Java 26。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven.compiler.plugin.version}</version>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.15</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
     <profiles>
         <profile>
@@ -41,7 +122,7 @@
                 </file>
             </activation>
             <modules>
-                <module>../plugins/maven-plugins/flora-osmetes</module>
+                <module>plugins/maven-plugins/flora-osmetes-maven-plugin</module>
             </modules>
         </profile>
     </profiles>

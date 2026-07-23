@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.demiurge</groupId>
+        <groupId>io.gitee.visual0zz</groupId>
         <artifactId>flora-project</artifactId>
         <version>0.1</version>
     </parent>
@@ -14,7 +14,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.demiurge</groupId>
+            <groupId>io.gitee.visual0zz</groupId>
             <artifactId>flora-root</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -38,7 +38,7 @@
                             <!-- 嵌入 flora-root（flora-ramet 的唯一运行时依赖） -->
                             <artifactSet>
                                 <includes>
-                                    <include>com.demiurge:flora-root</include>
+                                    <include>io.gitee.visual0zz:flora-root</include>
                                 </includes>
                             </artifactSet>
                             <!-- 设置 Main-Class，支持 java -jar 独立运行 -->

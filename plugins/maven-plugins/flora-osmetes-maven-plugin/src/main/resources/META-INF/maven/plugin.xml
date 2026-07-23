@@ -2,7 +2,7 @@
 <plugin>
     <name>flora-osmetes Maven Plugin</name>
     <description>flora-osmetes encoding checker - validates UTF-8 encoding of .java and .ramet files</description>
-    <groupId>com.demiurge</groupId>
+    <groupId>io.gitee.visual0zz</groupId>
     <artifactId>flora-osmetes-maven-plugin</artifactId>
     <version>0.1</version>
     <goalPrefix>osmetes</goalPrefix>

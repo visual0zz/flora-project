@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.demiurge</groupId>
+        <groupId>io.gitee.visual0zz</groupId>
         <artifactId>flora-project</artifactId>
         <version>0.1</version>
     </parent>
@@ -18,7 +18,7 @@
             <build>
                 <plugins>
                     <plugin>
-                        <groupId>com.demiurge</groupId>
+                        <groupId>io.gitee.visual0zz</groupId>
                         <artifactId>flora-ramet-maven-plugin</artifactId>
                         <version>${project.version}</version>
                         <executions>

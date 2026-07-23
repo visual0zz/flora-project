@@ -12,6 +12,7 @@ module com.flora.root {
     exports com.flora.entropy;
     exports com.flora.tag;
     exports com.flora.cache;
+    exports com.flora.fast.container.consumer;
     exports com.flora.fast.container.map;
     exports com.flora.fast.container.tuple;
     exports com.flora.container.tuple;
@@ -20,9 +21,6 @@ module com.flora.root {
     exports com.flora.data;
     exports com.flora.java;
     exports com.flora.log;
-    exports com.flora.entropy.id;
-    exports com.flora.entropy.probds;
-    exports com.flora.java.clazz;
 
     uses Converter;
 }

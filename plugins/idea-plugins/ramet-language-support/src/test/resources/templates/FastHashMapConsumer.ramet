@@ -1,0 +1,24 @@
+<#--
+@Param{
+  package: "com.flora.fast.container.consumer",
+  Byte: { name: "Byte", type: "byte" },
+  Short: { name: "Short", type: "short" },
+  Int: { name: "Int", type: "int" },
+  Long: { name: "Long", type: "long" },
+  Char: { name: "Char", type: "char" },
+  Float: { name: "Float", type: "float" },
+  Double: { name: "Double", type: "double" },
+  Object: { name: "Object", type: "Object" }
+}
+@Cartesian{
+  K: [Byte, Short, Int, Long, Char, Float, Double, Object],
+  V: [Byte, Short, Int, Long, Char, Float, Double, Object]
+}
+@Path{ concat(javaPackageToPath(package), "/", K.name, "2", V.name, "Consumer.java") }
+-->
+package ${package};
+
+@FunctionalInterface
+public interface ${K.name}2${V.name}Consumer {
+    void accept(${K.type} key, ${V.type} value);
+}

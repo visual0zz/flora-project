@@ -1,0 +1,113 @@
+<#--
+@Param{
+  pkg: "com.flora.container.tuple",
+  pathPrefix: "com/flora/container/tuple"
+}
+@Path{ concat(pathPrefix, "/Tuple.java") }
+-->
+package ${pkg};
+
+import com.flora.tag.ReadOnly;
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
+import java.util.Spliterator;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+
+@ReadOnly
+public class Tuple implements Cloneable, Comparable<Tuple>, Serializable, Iterable<Object> {
+    private static final long serialVersionUID = 1L;
+    private final Object[] contents;
+
+    public Tuple(Object... vs) {
+        this.contents = Objects.requireNonNull(vs);
+    }
+
+    public int size() {
+        return contents.length;
+    }
+
+    public Object getVn(int i) {
+        return contents[Objects.checkIndex(i - 1, contents.length)];
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> int compare(T o1, T o2) {
+        if (o1 == null && o2 == null) return 0;
+        if (o1 == null) return -1;
+        if (o2 == null) return 1;
+        if (o1 instanceof Comparable) {
+            return ((Comparable<T>) o1).compareTo(o2);
+        }
+        throw new ClassCastException("not comparable: " + o1.getClass());
+    }
+
+    @Override
+    public int compareTo(Tuple v) {
+        int n = Math.min(this.size(), v.size());
+        for (int i = 1; i <= n; i++) {
+            int result = compare(this.getVn(i), v.getVn(i));
+            if (result != 0) return result;
+        }
+        return Integer.compare(this.size(), v.size());
+    }
+
+    @Override
+    public Tuple clone() {
+        return this;
+    }
+
+<#list idx:1..20>
+    public static <${sequenceJoin("T{}", 1, idx, ",")}> Tuple${idx}<${sequenceJoin("T{}", 1, idx, ",")}> of(${sequenceJoin("T{} v{}", 1, idx, ",")}) {
+        return new Tuple${idx}<>(${sequenceJoin("v{}", 1, idx, ",")});
+    }
+</#list>
+
+    public Object[] toArray() {
+        return contents.clone();
+    }
+
+    public List<Object> toList() {
+        return Arrays.asList(contents.clone());
+    }
+
+    @Override
+    public Iterator<Object> iterator() {
+        return toList().iterator();
+    }
+
+    @Override
+    public Spliterator<Object> spliterator() {
+        return Arrays.spliterator(contents);
+    }
+
+    public Stream<Object> stream() {
+        return StreamSupport.stream(spliterator(), false);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Tuple)) return false;
+        return Arrays.equals(contents, ((Tuple) o).contents);
+    }
+
+    @Override
+    public int hashCode() {
+        return Arrays.hashCode(contents);
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("<");
+        for (Object obj : contents) {
+            sb.append(obj).append(',');
+        }
+        if (contents.length > 0) sb.deleteCharAt(sb.length() - 1);
+        sb.append('>');
+        return sb.toString();
+    }
+}

@@ -1,0 +1,111 @@
+<#meta>
+@Param{
+  pathPrefix: "com/flora/container/tuple",
+  pkg: "com.flora.container.tuple"
+}
+@Cartesian{
+  N: range(1, 20)
+}
+@Path{ concat(pathPrefix, "/Tuple", N, ".java") }
+</#meta>
+package ${pkg};
+
+import com.flora.tag.ReadOnly;
+import java.io.Serial;
+
+/**
+ * 包含 ${N} 个元素的元组。
+ * <p>提供类型安全的元素访问和元组操作。</p>
+<#for i:range(1, N)>
+ * @param <T${i}> 第${plus(i, 1)}个元素类型
+</#for>
+ */
+@ReadOnly
+public final class Tuple${N}<${sequenceJoin("T{}", 1, N, ",")}> extends Tuple {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * 创建一个包含 ${N} 个指定元素的元组。
+     *
+<#for i:range(1, N)>
+     * @param v${i} 第${i}个元素
+</#for>
+     */
+    public Tuple${N}(${sequenceJoin("T{} v{}", 1, N, ",")}) {
+        super(${sequenceJoin("v{}", 1, N, ",")});
+    }
+
+<#for i:range(1, N)>
+    /**
+     * 返回第 ${i} 个元素。
+     *
+     * @return 第 ${i} 个元素
+     */
+    public T${i} getV${i}() { return (T${i})getVn(${i}); }
+</#for>
+<#if N equals 2>
+    /**
+     * 返回第一个元素（左值）。
+     *
+     * @return 第一个元素
+     */
+    public T1 getLeft() { return getV1(); }
+    /**
+     * 返回第二个元素（右值）。
+     *
+     * @return 第二个元素
+     */
+    public T2 getRight() { return getV2(); }
+</#if>
+<#if N equals 3>
+    /**
+     * 返回第一个元素（左值）。
+     *
+     * @return 第一个元素
+     */
+    public T1 getLeft() { return getV1(); }
+    /**
+     * 返回第二个元素（中间值）。
+     *
+     * @return 第二个元素
+     */
+    public T2 getMid() { return getV2(); }
+    /**
+     * 返回第三个元素（右值）。
+     *
+     * @return 第三个元素
+     */
+    public T3 getRight() { return getV3(); }
+</#if>
+<#if N equals 1>
+    /**
+     * 返回唯一元素的值。
+     *
+     * @return 元素值
+     */
+    public T1 getValue() { return getV1(); }
+</#if>
+
+    /**
+     * 返回此元组的浅拷贝。
+     *
+     * @return 浅拷贝的元组实例
+     */
+    @Override
+    public Tuple${N}<${sequenceJoin("T{}", 1, N, ",")}> clone() {
+        return this;
+    }
+
+<#for i:range(1, N)>
+    /**
+     * 返回替换第 ${i} 个元素后的新元组。
+     *
+     * @param val 新的元素值
+     * @return 替换后的新元组
+     */
+    public Tuple${N}<${sequenceJoin("T{}", 1, N, ",")}> withV${i}(T${i} val) {
+        return new Tuple${N}<>(<#for j:range(1, N)><#if j equals i>val<#else>getV${j}()</#if><#if j lessThan N>,</#if></#for>);
+    }
+</#for>
+}

@@ -1,0 +1,37 @@
+<#meta>
+@Param{
+  package: "com.flora.fast.container.consumer",
+  Byte: { name: "Byte", type: "byte" },
+  Short: { name: "Short", type: "short" },
+  Int: { name: "Int", type: "int" },
+  Long: { name: "Long", type: "long" },
+  Char: { name: "Char", type: "char" },
+  Float: { name: "Float", type: "float" },
+  Double: { name: "Double", type: "double" },
+  Object: { name: "Object", type: "Object" }
+}
+@Cartesian{
+  K: [Byte, Short, Int, Long, Char, Float, Double, Object],
+  V: [Byte, Short, Int, Long, Char, Float, Double, Object]
+}
+@Path{ concat(javaPackageToPath(package), "/", K.name, "2", V.name, "Consumer.java") }
+</#meta>
+package ${package};
+
+/**
+ * ${K.name}→${V.name} 类型专用消费接口。
+ * <p>接收一对键值，避免装箱开销。</p>
+ *
+ * @see java.util.function.BiConsumer
+ */
+@FunctionalInterface
+public interface ${K.name}2${V.name}Consumer {
+
+    /**
+     * 消费一对键值。
+     *
+     * @param key   键
+     * @param value 值
+     */
+    void accept(${K.type} key, ${V.type} value);
+}

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.demiurge</groupId>
+        <artifactId>demiurge</artifactId>
+        <version>0.1</version>
+    </parent>
+
+    <artifactId>flora-project</artifactId>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>flora-ramet</module>
+        <module>../plugins/maven-plugins/flora-ramet-maven-plugin</module>
+        <module>flora-osmetes</module>
+        <module>flora-root</module>
+        <module>flora-garden</module>
+        <module>flora</module>
+        <module>flora-benchmark</module>
+        <module>flora-tangle</module>
+        <module>flora-tangle/testbed</module>
+    </modules>
+
+    <properties>
+        <revision>0.1</revision>
+        <maven.compiler.source>26</maven.compiler.source>
+        <maven.compiler.target>26</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <profiles>
+        <profile>
+            <id>osmetes-plugin</id>
+            <activation>
+                <file>
+                    <exists>${user.home}/.m2/repository/com/demiurge/flora-osmetes/0.1/flora-osmetes-0.1.jar</exists>
+                </file>
+            </activation>
+            <modules>
+                <module>../plugins/maven-plugins/flora-osmetes</module>
+            </modules>
+        </profile>
+    </profiles>
+</project>

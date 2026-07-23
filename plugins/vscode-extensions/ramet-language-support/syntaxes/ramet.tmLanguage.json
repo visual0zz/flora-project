@@ -1,0 +1,396 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Ramet",
+  "scopeName": "source.ramet",
+  "fileTypes": ["ramet"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#directive" },
+    { "include": "#macroCall" },
+    { "include": "#interpolation" },
+    { "include": "#metaAnnotation" },
+    { "include": "#lineContinuation" },
+    { "include": "#textHighlight" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.block.ramet",
+      "begin": "<#--",
+      "end": "-->",
+      "patterns": [
+        { "include": "#metaAnnotation" },
+        { "include": "#metaKey" },
+        { "include": "#bracket" }
+      ]
+    },
+
+    "metaKey": {
+      "name": "meta.definition.ramet",
+      "match": "\\b([a-zA-Z_]\\w*)\\s*(?=:)"
+    },
+
+    "metaAnnotation": {
+      "name": "meta.annotation.ramet",
+      "match": "@(Param|Cartesian|Combine|Path|Config|SkipWhen)(?=\\{)"
+    },
+
+    "directive": {
+      "patterns": [
+        { "include": "#directiveIf" },
+        { "include": "#directiveFor" },
+        { "include": "#directiveList" },
+        { "include": "#directiveInclude" },
+        { "include": "#directiveMacro" },
+        { "include": "#directiveContinue" },
+        { "include": "#directiveBreak" },
+        { "include": "#directiveMeta" },
+        { "include": "#directiveElseIf" },
+        { "include": "#directiveElse" },
+        { "include": "#directiveEnd" }
+      ]
+    },
+
+    "directiveIf": {
+      "name": "keyword.control.ramet",
+      "begin": "(<#)(if)\\b",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.ramet" },
+        "2": { "name": "keyword.control.ramet" }
+      },
+      "end": ">",
+      "endCaptures": {
+        "0": { "name": "keyword.control.ramet" }
+      },
+      "patterns": [
+        { "include": "#directiveContent" }
+      ]
+    },
+
+    "directiveList": {
+      "name": "keyword.control.ramet",
+      "begin": "(<#)(list)\\b",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.ramet" },
+        "2": { "name": "keyword.control.ramet" }
+      },
+      "end": ">",
+      "endCaptures": {
+        "0": { "name": "keyword.control.ramet" }
+      },
+      "patterns": [
+        { "include": "#directiveContent" }
+      ]
+    },
+
+    "directiveFor": {
+      "name": "keyword.control.ramet",
+      "begin": "(<#)(for)\\b",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.ramet" },
+        "2": { "name": "keyword.control.ramet" }
+      },
+      "end": ">",
+      "endCaptures": {
+        "0": { "name": "keyword.control.ramet" }
+      },
+      "patterns": [
+        { "include": "#directiveContent" }
+      ]
+    },
+
+    "directiveContinue": {
+      "name": "keyword.control.ramet",
+      "begin": "(<#)(continue)\\b",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.ramet" },
+        "2": { "name": "keyword.control.ramet" }
+      },
+      "end": ">",
+      "endCaptures": {
+        "0": { "name": "keyword.control.ramet" }
+      },
+      "patterns": [
+        { "include": "#directiveContent" }
+      ]
+    },
+
+    "directiveBreak": {
+      "name": "keyword.control.ramet",
+      "begin": "(<#)(break)\\b",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.ramet" },
+        "2": { "name": "keyword.control.ramet" }
+      },
+      "end": ">",
+      "endCaptures": {
+        "0": { "name": "keyword.control.ramet" }
+      },
+      "patterns": [
+        { "include": "#directiveContent" }
+      ]
+    },
+
+    "directiveMeta": {
+      "name": "keyword.control.ramet",
+      "begin": "(<#)(meta)\\s*(>)",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.ramet" },
+        "2": { "name": "keyword.control.ramet" },
+        "3": { "name": "keyword.control.ramet" }
+      },
+      "end": "(</#)(meta)(\\s*>)",
+      "endCaptures": {
+        "1": { "name": "keyword.control.ramet" },
+        "2": { "name": "keyword.control.ramet" },
+        "3": { "name": "keyword.control.ramet" }
+      },
+      "patterns": [
+        { "include": "#metaAnnotation" },
+        { "include": "#metaKey" },
+        { "include": "#stringLiteral" },
+        { "include": "#numberLiteral" },
+        { "include": "#builtinKeyword" },
+        { "include": "#referenceOperator" },
+        { "include": "#rangeOperator" },
+        { "include": "#bracket" }
+      ]
+    },
+
+    "directiveInclude": {
+      "name": "keyword.control.ramet",
+      "begin": "(<#)(include)\\b",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.ramet" },
+        "2": { "name": "keyword.control.ramet" }
+      },
+      "end": ">",
+      "endCaptures": {
+        "0": { "name": "keyword.control.ramet" }
+      },
+      "patterns": [
+        { "include": "#stringLiteral" }
+      ]
+    },
+
+    "directiveMacro": {
+      "name": "keyword.control.ramet",
+      "begin": "(<#)(macro)\\b",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.ramet" },
+        "2": { "name": "keyword.control.ramet" }
+      },
+      "end": ">",
+      "endCaptures": {
+        "0": { "name": "keyword.control.ramet" }
+      },
+      "patterns": [
+        { "include": "#directiveMacroContent" }
+      ]
+    },
+
+    "directiveElseIf": {
+      "name": "keyword.control.ramet",
+      "begin": "(<#)(elseif)\\b",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.ramet" },
+        "2": { "name": "keyword.control.ramet" }
+      },
+      "end": ">",
+      "endCaptures": {
+        "0": { "name": "keyword.control.ramet" }
+      },
+      "patterns": [
+        { "include": "#directiveContent" }
+      ]
+    },
+
+    "directiveElse": {
+      "name": "keyword.control.ramet",
+      "match": "(<#)(else)\\s*>",
+      "captures": {
+        "1": { "name": "keyword.control.ramet" },
+        "2": { "name": "keyword.control.ramet" },
+        "3": { "name": "keyword.control.ramet" }
+      }
+    },
+
+    "directiveEnd": {
+      "name": "keyword.control.ramet",
+      "match": "(</#)(\\w*)(\\s*>)",
+      "captures": {
+        "1": { "name": "keyword.control.ramet" },
+        "2": { "name": "keyword.control.ramet" },
+        "3": { "name": "keyword.control.ramet" }
+      }
+    },
+
+    "directiveContent": {
+      "patterns": [
+        { "include": "#stringLiteral" },
+        { "include": "#numberLiteral" },
+        { "include": "#builtinKeyword" },
+        { "include": "#referenceOperator" },
+        { "include": "#rangeOperator" },
+        { "include": "#interpolation" },
+        { "include": "#identifier" },
+        { "include": "#bracket" }
+      ]
+    },
+
+    "directiveMacroContent": {
+      "patterns": [
+        { "include": "#stringLiteral" },
+        { "include": "#numberLiteral" },
+        { "include": "#builtinKeyword" },
+        { "include": "#referenceOperator" },
+        { "include": "#rangeOperator" },
+        { "include": "#interpolation" },
+        { "include": "#macroParam" },
+        { "include": "#bracket" }
+      ]
+    },
+
+    "macroParam": {
+      "name": "meta.definition.ramet",
+      "match": "\\b[a-zA-Z_]\\w*\\b"
+    },
+
+    "stringLiteral": {
+      "name": "string.quoted.double.ramet",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.ramet",
+          "match": "\\\\."
+        }
+      ]
+    },
+
+    "numberLiteral": {
+      "name": "constant.numeric.ramet",
+      "match": "\\b-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?[lLfFdD]?\\b"
+    },
+
+    "builtinKeyword": {
+      "name": "constant.language.ramet",
+      "match": "\\b(true|false|null)\\b"
+    },
+
+    "referenceOperator": {
+      "name": "keyword.operator.ramet",
+      "match": "\\b(greaterThan|lessThan|greaterThanOrEquals|lessThanOrEquals|equals|notEquals|and|or|not|capital|lower|upper|javaString|concat|contains|replace|startsWith|repeat|join|default|notNull|isNull|isEmpty|isBlank|range|sequenceJoin|javaPackageToPath|length|plus|minus|now|selfCartesian|permutation|combination|multiCombination|cartesian|concatList|concatField|sortBy)\\b"
+    },
+
+    "identifier": {
+      "name": "variable.other.ramet",
+      "match": "\\b[a-zA-Z_]\\w*\\b"
+    },
+
+    "rangeOperator": {
+      "name": "keyword.operator.ramet",
+      "match": "\\.\\."
+    },
+
+    "bracket": {
+      "name": "punctuation.ramet",
+      "match": "[()\\[\\]{}]"
+    },
+
+    "macroCall": {
+      "name": "entity.name.function.ramet",
+      "begin": "(<@)([a-zA-Z_]\\w*)",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.ramet" },
+        "2": { "name": "entity.name.function.ramet" }
+      },
+      "end": "/?>",
+      "endCaptures": {
+        "0": { "name": "keyword.control.ramet" }
+      },
+      "patterns": [
+        { "include": "#directiveContent" }
+      ]
+    },
+
+    "interpolation": {
+      "name": "variable.other.interpolation.ramet",
+      "begin": "\\${",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.variable.ramet" }
+      },
+      "end": "}",
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.variable.ramet" }
+      },
+      "patterns": [
+        { "include": "#stringLiteral" },
+        { "include": "#numberLiteral" },
+        { "include": "#builtinKeyword" },
+        { "include": "#referenceOperator" },
+        { "include": "#rangeOperator" },
+        { "include": "#interpIdentifier" },
+        { "include": "#bracket" }
+      ]
+    },
+
+    "interpIdentifier": {
+      "name": "variable.other.interpolation.ramet",
+      "match": "\\b[a-zA-Z_]\\w*\\b"
+    },
+
+    "lineContinuation": {
+      "name": "constant.character.escape.ramet",
+      "match": "\\\\[#$]"
+    },
+
+    "textHighlight": {
+      "patterns": [
+        { "include": "#textBlockComment" },
+        { "include": "#textLineComment" },
+        { "include": "#textAnnotation" },
+        { "include": "#textOperator" },
+        { "include": "#textFunction" },
+        { "include": "#textString" },
+        { "include": "#textNumber" }
+      ]
+    },
+
+    "textBlockComment": {
+      "name": "comment.block.text",
+      "begin": "/\\*",
+      "end": "\\*/"
+    },
+
+    "textLineComment": {
+      "name": "comment.line.text",
+      "match": "//[^\n]*"
+    },
+
+    "textAnnotation": {
+      "name": "meta.annotation.text",
+      "match": "@([a-zA-Z_]\\w*)(\\.\\w+)*"
+    },
+
+    "textOperator": {
+      "name": "keyword.operator.text",
+      "match": "===?|!=|<=|>=|[-+*/%&|^]=?|&&|\\|\\||\\+\\+|--|->|::"
+    },
+
+    "textFunction": {
+      "name": "entity.name.function.text",
+      "match": "\\b([a-zA-Z_]\\w*)\\s*(?=\\()"
+    },
+
+    "textString": {
+      "name": "string.quoted.double.text",
+      "begin": "\"",
+      "end": "\""
+    },
+
+    "textNumber": {
+      "name": "constant.numeric.text",
+      "match": "\\b-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?[lLfFdD]?\\b"
+    }
+  }
+}

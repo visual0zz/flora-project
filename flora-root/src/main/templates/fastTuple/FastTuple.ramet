@@ -1,0 +1,46 @@
+<#meta>
+@Param{
+  pkg: "com.flora.fast.container.tuple",
+  Integer: { type: "int", letter: "I", hashFn: "Integer.hashCode", cmp: false },
+  Long: { type: "long", letter: "L", hashFn: "Long.hashCode", cmp: false },
+  Float: { type: "float", letter: "F", hashFn: "Float.hashCode", cmp: "Float.compare" },
+  Double: { type: "double", letter: "D", hashFn: "Double.hashCode", cmp: "Double.compare" },
+  Byte: { type: "byte", letter: "B", hashFn: "Byte.hashCode", cmp: false },
+  Short: { type: "short", letter: "S", hashFn: "Short.hashCode", cmp: false },
+  Char: { type: "char", letter: "C", hashFn: "Character.hashCode", cmp: false },
+  Boolean: { type: "boolean", letter: "Z", hashFn: "Boolean.hashCode", cmp: false }
+}
+@Cartesian{
+  T: concatList(
+       multiCombination([Integer, Long, Float, Double, Byte, Char, Boolean], 2),
+       multiCombination([Integer, Long, Float, Double, Byte, Char, Boolean], 3),
+       multiCombination([Integer, Long, Float, Double], 4))
+}
+@Path{ concat(javaPackageToPath(pkg), "/FastTuple.java") }
+</#meta>
+package ${pkg};
+
+public final class FastTuple {
+    private FastTuple() {}
+<#for c:T>
+<#if length(c) equals 2>
+<#for perm:permutation(range(0, 1), 2)>
+<#if (perm[0] equals 0) or (c[perm[0]].letter notEquals c[0].letter)>
+    <@emitMethod perm/>
+</#if>
+</#for>
+</#if>
+</#for>
+}
+
+<#macro emitMethod:p>
+    /** 创建 FastTuple${concatField(c, "letter")} 实例。
+     * @param v1 第${plus(p[0], 1)}个元素
+     * @param v2 第${plus(p[1], 1)}个元素
+     * @return 新的 FastTuple${concatField(c, "letter")} 实例
+     */
+    public static FastTuple${concatField(c, "letter")} of(${c[p[0]].type} v1, ${c[p[1]].type} v2){
+        return new FastTuple${concatField(c, "letter")}(
+<#for k:range(0, minus(length(c), 1))><#for j:range(0, minus(length(p), 1))><#if p[j] equals k>v${plus(j, 1)}</#if></#for><#if k lessThan minus(length(c), 1)>, </#if></#for>);
+    }
+</#macro>

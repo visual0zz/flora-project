@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+    <name>flora-ramet Maven Plugin</name>
+    <description>flora-ramet code generation engine Maven plugin</description>
+    <groupId>com.demiurge</groupId>
+    <artifactId>flora-ramet-maven-plugin</artifactId>
+    <version>0.1</version>
+    <goalPrefix>ramet</goalPrefix>
+    <isolatedRealm>false</isolatedRealm>
+    <inheritedByDefault>true</inheritedByDefault>
+    <mojos>
+        <mojo>
+            <goal>generate</goal>
+            <description>Run flora-ramet code generation: scan .ramet templates and generate source files.</description>
+            <requiresDirectInvocation>false</requiresDirectInvocation>
+            <requiresProject>true</requiresProject>
+            <requiresReports>false</requiresReports>
+            <aggregator>false</aggregator>
+            <requiresOnline>false</requiresOnline>
+            <inheritedByDefault>true</inheritedByDefault>
+            <implementation>com.flora.codegen.plugin.RametMojo</implementation>
+            <language>java</language>
+            <instantiationStrategy>per-lookup</instantiationStrategy>
+            <executionStrategy>once-per-session</executionStrategy>
+            <threadSafe>false</threadSafe>
+            <parameters>
+                <parameter>
+                    <name>templatesDir</name>
+                    <type>java.io.File</type>
+                    <required>true</required>
+                    <editable>true</editable>
+                    <description>模板文件所在目录。默认值：${project.basedir}/src/main/templates</description>
+                </parameter>
+                <parameter>
+                    <name>outputDir</name>
+                    <type>java.io.File</type>
+                    <required>true</required>
+                    <editable>true</editable>
+                    <description>生成代码的输出目录。默认值：${project.basedir}/src/main/java</description>
+                </parameter>
+                <parameter>
+                    <name>dryRun</name>
+                    <type>boolean</type>
+                    <required>false</required>
+                    <editable>true</editable>
+                    <description>仅打印将要生成的文件列表，不实际写入。</description>
+                </parameter>
+            </parameters>
+        </mojo>
+    </mojos>
+</plugin>

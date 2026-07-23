@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<list>
+    <option name="RAMET_COMMENT">
+        <value>
+            <option name="FOREGROUND" value="6A8759"/>
+        </value>
+    </option>
+    <option name="RAMET_VARIABLE">
+        <value>
+            <option name="FOREGROUND" value="FF79C6"/>
+        </value>
+    </option>
+    <option name="RAMET_BRACKET">
+        <value>
+            <option name="FOREGROUND" value="E6E6E6"/>
+        </value>
+    </option>
+    <option name="TEXT_DEFAULT">
+        <value>
+            <option name="FOREGROUND" value="666666"/>
+        </value>
+    </option>
+    <option name="TEXT_STRING">
+        <value>
+            <option name="FOREGROUND" value="5A7759"/>
+        </value>
+    </option>
+    <option name="TEXT_NUMBER">
+        <value>
+            <option name="FOREGROUND" value="886633"/>
+        </value>
+    </option>
+    <option name="TEXT_ANNOTATION">
+        <value>
+            <option name="FOREGROUND" value="776633"/>
+        </value>
+    </option>
+    <option name="TEXT_FUNCTION">
+        <value>
+            <option name="FOREGROUND" value="776633"/>
+        </value>
+    </option>
+    <option name="TEXT_OPERATOR">
+        <value>
+            <option name="FOREGROUND" value="776655"/>
+        </value>
+    </option>
+    <option name="TEXT_ANGLE">
+        <value>
+            <option name="FOREGROUND" value="776677"/>
+        </value>
+    </option>
+</list>

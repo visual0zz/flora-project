@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <pattern id="bubbles" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse">
+      <circle cx="4"  cy="4"  r="2.5" fill="#5a9ad0" opacity="0.18"/>
+      <circle cx="12" cy="3"  r="2"   fill="#5a9ad0" opacity="0.15"/>
+      <circle cx="8"  cy="10" r="3"   fill="#5a9ad0" opacity="0.22"/>
+      <circle cx="2"  cy="13" r="1.5" fill="#5a9ad0" opacity="0.12"/>
+      <circle cx="14" cy="12" r="1.8" fill="#5a9ad0" opacity="0.14"/>
+    </pattern>
+  </defs>
+  <rect x="2" y="2" width="28" height="28" rx="6" fill="#3a7bc8"/>
+  <rect x="2" y="2" width="28" height="28" rx="6" fill="url(#bubbles)"/>
+  <text x="5" y="12" text-anchor="start" font-size="8" font-weight="bold" fill="#8ec4f0" font-family="Consolas, monospace">#&gt;</text>
+  <text x="16" y="24" text-anchor="middle" font-size="17" font-weight="bold" fill="#ffffff" font-family="sans-serif">Ra</text>
+</svg>

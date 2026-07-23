@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.demiurge</groupId>
+        <artifactId>flora-project</artifactId>
+        <version>0.1</version>
+    </parent>
+
+    <artifactId>flora-root</artifactId>
+
+    <profiles>
+        <profile>
+            <id>regenerate</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.demiurge</groupId>
+                        <artifactId>flora-ramet-maven-plugin</artifactId>
+                        <version>${project.version}</version>
+                        <executions>
+                            <execution>
+                                <id>ramet-codegen</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>generate</goal>
+                                </goals>
+                                <configuration>
+                                    <templatesDir>${project.basedir}/src/main/templates</templatesDir>
+                                    <outputDir>${project.basedir}/src/main/java</outputDir>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

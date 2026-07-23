@@ -1,0 +1,202 @@
+<#meta>
+@Param{
+  pkg: "com.flora.container.tuple",
+  pathPrefix: "com/flora/container/tuple"
+}
+@Path{ concat(pathPrefix, "/Tuple.java") }
+</#meta>
+package ${pkg};
+
+import com.flora.tag.ReadOnly;
+import java.io.Serial;
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
+import java.util.Spliterator;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+
+/**
+ * 元组类。
+ * <p>提供类型安全的异构元素容器，支持 arity 查询和元素访问。</p>
+ *
+ * @since 1.0
+ */
+@ReadOnly
+public class Tuple implements Cloneable, Comparable<Tuple>, Serializable, Iterable<Object> {
+    @Serial
+    private static final long serialVersionUID = 1L;
+    private final Object[] contents;
+
+    /**
+     * 创建一个包含指定元素的元组。
+     *
+     * @param vs 元组元素数组
+     */
+    protected Tuple(Object... vs) {
+        this.contents = Objects.requireNonNull(vs);
+    }
+
+    /**
+     * 返回元组中元素的个数。
+     *
+     * @return 元素个数
+     */
+    public int size() {
+        return contents.length;
+    }
+
+    /**
+     * 返回指定位置的元素（从 1 开始计数）。
+     *
+     * @param i 元素索引（从 1 开始）
+     * @return 指定位置的元素
+     * @throws IndexOutOfBoundsException 如果索引越界
+     */
+    public Object getVn(int i) {
+        return contents[Objects.checkIndex(i - 1, contents.length)];
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> int compare(T o1, T o2) {
+        if (o1 == null && o2 == null) return 0;
+        if (o1 == null) return -1;
+        if (o2 == null) return 1;
+        if (o1 instanceof Comparable) {
+            return ((Comparable<T>) o1).compareTo(o2);
+        }
+        throw new ClassCastException("not comparable: " + o1.getClass());
+    }
+
+    /**
+     * 按字典顺序比较两个元组。
+     *
+     * @param v 要比较的元组
+     * @return 如果此元组小于、等于或大于指定元组，则返回负整数、零或正整数
+     */
+    @Override
+    public int compareTo(Tuple v) {
+        int n = Math.min(this.size(), v.size());
+        for (int i = 1; i <= n; i++) {
+            int result = compare(this.getVn(i), v.getVn(i));
+            if (result != 0) return result;
+        }
+        return Integer.compare(this.size(), v.size());
+    }
+
+    /**
+     * 返回此元组的浅拷贝。
+     *
+     * @return 浅拷贝的元组实例
+     */
+    @Override
+    public Tuple clone() {
+        return this;
+    }
+
+<#for idx:range(1, 20)>
+    /**
+     * 创建包含 ${idx} 个元素的类型化元组。
+     *
+<#for i:range(1, idx)>
+     * @param <T${i}> 第${i}个元素类型
+</#for>
+<#for i:range(1, idx)>
+     * @param v${i} 第${i}个元素
+</#for>
+     * @return 包含指定元素的新类型化元组
+     */
+    public static <${sequenceJoin("T{}", 1, idx, ",")}> Tuple${idx}<${sequenceJoin("T{}", 1, idx, ",")}> of(${sequenceJoin("T{} v{}", 1, idx, ",")}) {
+        return new Tuple${idx}<>(${sequenceJoin("v{}", 1, idx, ",")});
+    }
+</#for>
+
+    /**
+     * 将元组内容转换为数组。
+     *
+     * @return 包含所有元素的新数组
+     */
+    public Object[] toArray() {
+        return contents.clone();
+    }
+
+    /**
+     * 将元组内容转换为列表。
+     *
+     * @return 包含所有元素的列表
+     */
+    public List<Object> toList() {
+        return Arrays.asList(contents.clone());
+    }
+
+    /**
+     * 返回元组元素的迭代器。
+     *
+     * @return 迭代器
+     */
+    @Override
+    public Iterator<Object> iterator() {
+        return toList().iterator();
+    }
+
+    /**
+     * 返回元组分隔迭代器。
+     *
+     * @return 分隔迭代器
+     */
+    @Override
+    public Spliterator<Object> spliterator() {
+        return Arrays.spliterator(contents);
+    }
+
+    /**
+     * 返回元组元素的顺序流。
+     *
+     * @return 顺序流
+     */
+    public Stream<Object> stream() {
+        return StreamSupport.stream(spliterator(), false);
+    }
+
+    /**
+     * 比较此元组与指定对象是否相等。
+     *
+     * @param o 要比较的对象
+     * @return 如果元素数组相等则返回 true
+     */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Tuple)) return false;
+        return Arrays.equals(contents, ((Tuple) o).contents);
+    }
+
+    /**
+     * 返回此元组的哈希码。
+     *
+     * @return 哈希码值
+     */
+    @Override
+    public int hashCode() {
+        return Arrays.hashCode(contents);
+    }
+
+    /**
+     * 返回此元组的字符串表示。
+     * <p>格式为 {@code <elem1,elem2,...>}。</p>
+     *
+     * @return 字符串表示
+     */
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("<");
+        for (Object obj : contents) {
+            sb.append(obj).append(',');
+        }
+        if (contents.length > 0) sb.deleteCharAt(sb.length() - 1);
+        sb.append('>');
+        return sb.toString();
+    }
+}

@@ -1,0 +1,120 @@
+### Build Output ###
+target/
+!**/src/main/**/target/
+!**/src/test/**/target/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+**/dist/
+!**/src/main/**/dist/
+!**/src/test/**/dist/
+
+### Maven ###
+.flattened-pom.xml
+dependency-reduced-pom.xml
+
+### Gradle ###
+.gradle/
+**/.gradle/
+
+### Frontend ###
+node_modules/
+.node/
+.yarn/
+.yarnrc
+.yarnrc.yml
+yarn.lock
+
+### Environment ###
+.env.local
+.env.*.local
+
+### IntelliJ IDEA ###
+.idea/*
+!/.idea/gradle.xml
+!/.idea/misc.xml
+!/.idea/modules.xml
+!/.idea/vcs.xml
+.intellijPlatform/
+**/.intellijPlatform/
+*.iws
+*.iml
+*.ipr
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### VS Code Extension ###
+out/
+*.vsix
+
+### Visual Studio / .NET ###
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+### Editor / OS ###
+.DS_Store
+Thumbs.db
+*.sw?
+
+### Logs & Temp ###
+*.log
+*.tmp
+*.temp
+/temp
+/tmp
+/absent
+
+### Test & Coverage ###
+coverage/
+!**/src/main/**/coverage/
+!**/src/test/**/coverage/
+*.coverage
+*.test
+
+### Project Specific ###
+**/src/main/resources/jmeter/lib/ext
+**/src/main/resources/static/
+**/src/main/resources/public/
+
+### AI Agents ###
+/.qoder
+/.lingma
+/.codebuddy
+/.cursor
+/.claude
+/.cline
+/.trae
+/.aider*
+/.opencode
+/.continue
+/.roo
+/.windsurf
+/.copilot-*
+CODEBUDDY.md
+CLAUDE.md
+.aider.chat.history.md
+.aider.tags.cache.v4
+.clinerules
+.cursorrules
+.windsurfrules
+.copilot-instructions.md
+.github/copilot-instructions.md
+.roo/rules*

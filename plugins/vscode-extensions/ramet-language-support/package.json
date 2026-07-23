@@ -1,0 +1,76 @@
+{
+  "name": "ramet-language-support",
+  "displayName": "Ramet 模板语言",
+  "description": "为 Ramet 模板引擎的 .ramet 文件提供语法高亮和定义跳转",
+  "version": "0.5.0",
+  "publisher": "flora",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:ramet"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "ramet",
+      "aliases": ["Ramet", "ramet"],
+      "extensions": [".ramet"],
+      "icon": {
+        "light": "./icons/ramet-light.svg",
+        "dark": "./icons/ramet-dark.svg"
+      },
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "ramet",
+      "scopeName": "source.ramet",
+      "path": "./syntaxes/ramet.tmLanguage.json"
+    }],
+    "configurationDefaults": {
+      "editor.tokenColorCustomizations": {
+        "textMateRules": [
+          {
+            "scope": "variable.other.interpolation.ramet",
+            "settings": { "foreground": "#FF79C6" }
+          },
+          {
+            "scope": "meta.definition.ramet",
+            "settings": { "foreground": "#E5C07B" }
+          },
+          {
+            "scope": "meta.annotation.ramet",
+            "settings": { "foreground": "#E5C07B" }
+          },
+          {
+            "scope": "variable.other.ramet",
+            "settings": { "foreground": "#FF79C6" }
+          },
+          {
+            "scope": "keyword.operator.ramet",
+            "settings": { "foreground": "#569CD6" }
+          },
+          {
+            "scope": "punctuation.ramet",
+            "settings": { "foreground": "#D4D4D4" }
+          }
+        ]
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./tsconfig.json",
+    "watch": "tsc -watch -p ./tsconfig.json",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.96.0",
+    "typescript": "^5.7.0"
+  }
+}

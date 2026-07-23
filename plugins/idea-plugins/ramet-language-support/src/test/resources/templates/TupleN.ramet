@@ -1,0 +1,49 @@
+<#--
+@Param{
+  pathPrefix: "com/flora/container/tuple",
+  pkg: "com.flora.container.tuple"
+}
+@Cartesian{
+  N: range(1, 20)
+}
+@Path{ concat(pathPrefix, "/Tuple", N, ".java") }
+-->
+package ${pkg};
+
+import com.flora.tag.ReadOnly;
+
+@ReadOnly
+public final class Tuple${N}<${sequenceJoin("T{}", 1, N, ",")}> extends Tuple {
+    private static final long serialVersionUID = 1L;
+
+    public Tuple${N}(${sequenceJoin("T{} v{}", 1, N, ",")}) {
+        super(${sequenceJoin("v{}", 1, N, ",")});
+    }
+
+<#list i:1..N>
+    public T${i} getV${i}() { return (T${i})getVn(${i}); }
+</#list>
+<#if N equals 2>
+    public T1 getLeft() { return getV1(); }
+    public T2 getRight() { return getV2(); }
+</#if>
+<#if N equals 3>
+    public T1 getLeft() { return getV1(); }
+    public T2 getMid() { return getV2(); }
+    public T3 getRight() { return getV3(); }
+</#if>
+<#if N equals 1>
+    public T1 getValue() { return getV1(); }
+</#if>
+
+    @Override
+    public Tuple${N}<${sequenceJoin("T{}", 1, N, ",")}> clone() {
+        return this;
+    }
+
+<#list i:1..N>
+    public Tuple${N}<${sequenceJoin("T{}", 1, N, ",")}> withV${i}(T${i} val) {
+        return new Tuple${N}<>(<#list j:1..N><#if j equals i>val<#else>getV${j}()</#if><#if j lessThan N>,</#if></#list>);
+    }
+</#list>
+}

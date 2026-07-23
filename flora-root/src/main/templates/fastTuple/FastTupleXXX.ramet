@@ -1,0 +1,123 @@
+<#meta>
+@Param{
+  pkg: "com.flora.fast.container.tuple",
+  Integer: { type: "int", letter: "I", hashFn: "Integer.hashCode", cmp: false },
+  Long: { type: "long", letter: "L", hashFn: "Long.hashCode", cmp: false },
+  Float: { type: "float", letter: "F", hashFn: "Float.hashCode", cmp: "Float.compare" },
+  Double: { type: "double", letter: "D", hashFn: "Double.hashCode", cmp: "Double.compare" },
+  Byte: { type: "byte", letter: "B", hashFn: "Byte.hashCode", cmp: false },
+  Short: { type: "short", letter: "S", hashFn: "Short.hashCode", cmp: false },
+  Char: { type: "char", letter: "C", hashFn: "Character.hashCode", cmp: false },
+  Boolean: { type: "boolean", letter: "Z", hashFn: "Boolean.hashCode", cmp: false }
+}
+@Cartesian{
+  T: concatList(
+       multiCombination([Integer, Long, Float, Double, Byte, Char, Boolean], 2),
+       multiCombination([Integer, Long, Float, Double, Byte, Char, Boolean], 3),
+       multiCombination([Integer, Long, Float, Double], 4))
+}
+@Path{ concat(javaPackageToPath(pkg), "/FastTuple", concatField(T, "letter"), ".java") }
+</#meta>
+package ${pkg};
+
+import com.flora.tag.ReadOnly;
+import java.io.Serial;
+import java.io.Serializable;
+
+/**
+ * 原始类型特化的快速元组。
+ * <p>避免装箱开销，提供对原始类型元素的高效存储和访问。</p>
+ */
+@ReadOnly
+public final class FastTuple${concatField(T, "letter")} implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+<#for i:range(1, length(T))>
+    /** 第${i}个元素 */
+    private final ${T[minus(i, 1)].type} v${i};
+</#for>
+
+    /**
+     * 创建一个包含指定原始类型元素的快速元组。
+     *
+<#for i:range(1, length(T))>
+     * @param v${i} 第${i}个元素
+</#for>
+     */
+    public FastTuple${concatField(T, "letter")}(<#for i:range(1, length(T))>${T[minus(i, 1)].type} v${i}<#if i lessThan length(T)>,</#if></#for>){
+<#for i:range(1, length(T))>
+        this.v${i} = v${i};
+</#for>
+    }
+
+<#for i:range(1, length(T))>
+    /**
+     * 返回第${i}个元素。
+     *
+     * @return 第${i}个元素
+     */
+    public ${T[minus(i, 1)].type} get${T[minus(i, 1)].letter}${plus(1, prefixCount(T, "letter", T[minus(i, 1)].letter, minus(i, 1)))}() { return v${i}; }
+</#for>
+<#if length(T) equals 1>
+    /**
+     * 返回唯一元素的值。
+     *
+     * @return 元素值
+     */
+    public ${T[0].type} getValue() { return v1; }
+</#if>
+
+    /**
+     * 比较此快速元组与指定对象是否相等。
+     *
+     * @param o 要比较的对象
+     * @return 如果所有元素值相等则返回 true
+     */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof FastTuple${concatField(T, "letter")} that)) return false;
+<#if T[0].cmp notEquals false>
+        return ${T[0].cmp}(this.v1, that.v1) == 0
+<#else>
+        return this.v1 == that.v1
+</#if>
+<#for i:range(2, length(T))>
+<#if T[minus(i, 1)].cmp notEquals false>
+            && ${T[minus(i, 1)].cmp}(this.v${i}, that.v${i}) == 0
+<#else>
+            && this.v${i} == that.v${i}</#if></#for>;
+    }
+
+    /**
+     * 返回此快速元组的哈希码。
+     *
+     * @return 哈希码值
+     */
+    @Override
+    public int hashCode() {
+        int result = ${T[0].hashFn}(v1);
+<#for i:range(2, length(T))>
+        result = 31 * result + ${T[minus(i, 1)].hashFn}(v${i});
+</#for>
+        return result;
+    }
+
+    /**
+     * 返回此快速元组的字符串表示。
+     * <p>格式为 {@code <v1, v2, ...>}。</p>
+     *
+     * @return 字符串表示
+     */
+    @Override
+    public String toString() {
+<#if 1 lessThanOrEquals length(T)>
+        StringBuilder sb = new StringBuilder("<");
+<#for i:range(1, length(T))>
+        sb.append(v${i})<#if i lessThan length(T)>.append(", ")</#if>;
+</#for>
+        return sb.append(">").toString();
+</#if>
+    }
+}

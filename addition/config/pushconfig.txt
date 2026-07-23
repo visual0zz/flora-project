@@ -1,0 +1,6 @@
+# Push configuration
+# Format: KEY=VALUE (no quotes needed)
+
+LOCAL_BRANCH=master
+REMOTE_BRANCH=master
+DEFAULT_COMMIT_MESSAGE=auto commit

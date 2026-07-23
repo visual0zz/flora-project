@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+    <name>flora-osmetes Maven Plugin</name>
+    <description>flora-osmetes encoding checker - validates UTF-8 encoding of .java and .ramet files</description>
+    <groupId>com.demiurge</groupId>
+    <artifactId>flora-osmetes-maven-plugin</artifactId>
+    <version>0.1</version>
+    <goalPrefix>osmetes</goalPrefix>
+    <isolatedRealm>false</isolatedRealm>
+    <inheritedByDefault>true</inheritedByDefault>
+    <mojos>
+        <mojo>
+            <goal>check-encoding</goal>
+            <description>Scan source directories for non-UTF-8 encoded .java/.ramet files.</description>
+            <requiresDirectInvocation>false</requiresDirectInvocation>
+            <requiresProject>true</requiresProject>
+            <requiresReports>false</requiresReports>
+            <aggregator>false</aggregator>
+            <requiresOnline>false</requiresOnline>
+            <inheritedByDefault>true</inheritedByDefault>
+            <implementation>com.flora.osmetes.EncodingCheckerMojo</implementation>
+            <language>java</language>
+            <instantiationStrategy>per-lookup</instantiationStrategy>
+            <executionStrategy>once-per-session</executionStrategy>
+            <threadSafe>false</threadSafe>
+            <parameters>
+                <parameter>
+                    <name>sourceRoot</name>
+                    <type>java.lang.String</type>
+                    <required>true</required>
+                    <editable>true</editable>
+                    <description>源码目录。默认值：${project.basedir}/src/main/java</description>
+                </parameter>
+            </parameters>
+        </mojo>
+    </mojos>
+</plugin>

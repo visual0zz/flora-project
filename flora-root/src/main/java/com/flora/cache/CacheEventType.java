@@ -3,7 +3,7 @@ package com.flora.cache;
 /**
  * 缓存事件类型。
  * <p>
- * 用于 {@link CacheStore#addListener(CacheEventType, CacheEventListener)} 注册监听器时指定事件类型。
+ * 用于 {@link ObservableCacheStore#addListener(CacheEventType, CacheEventListener)} 注册监听器时指定事件类型。
  */
 public enum CacheEventType {
 

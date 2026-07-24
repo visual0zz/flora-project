@@ -1,5 +1,6 @@
 package com.flora.cache.store;
 
+import com.flora.cache.BoundedCacheStore;
 import com.flora.cache.CacheEventType;
 import com.flora.cache.CacheEventListener;
 import com.flora.cache.CacheStore;
@@ -13,17 +14,19 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * 缓存抽象基类：把「存储 + 可选淘汰策略插件 + 事件」粘合在一起，供具体存储子类复用。
+ * 缓存抽象基类：实现 {@link BoundedCacheStore}（存储 + 事件 + 尺寸 + 淘汰策略插件），
+ * 把存储、可选策略与事件「粘合」在一起，供具体存储子类复用。
  * <p>
  * 子类只需实现一组 {@code rawXxx} 原始存储钩子（KV 与 TTL 的真正读写），
  * 本类负责：写/读/删时的策略回调（{@link EvictionPolicy}）、容量超限时的淘汰驱动、
  * 以及事件派发（含监听器异常隔离）。这样存储实现与淘汰策略完全解耦，且
  * {@link EvictionPolicy} 作为插件挂在缓存上，而非与存储平等组合出的新类型。
+ * 策略回调仅在 {@code capacity > 0} 时生效（无界时策略休眠，避免空转记账）。
  *
  * @param <K> 键类型
  * @param <V> 值类型
  */
-public abstract class AbstractCacheStore<K, V> implements CacheStore<K, V> {
+public abstract class AbstractCacheStore<K, V> implements BoundedCacheStore<K, V> {
 
     private final long capacity;
     private volatile EvictionPolicy<K, V> policy;
@@ -239,17 +242,17 @@ public abstract class AbstractCacheStore<K, V> implements CacheStore<K, V> {
 
     private void onPut(K key) {
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onPut(key);
+        if (p != null && capacity > 0) p.onPut(key);
     }
 
     private void onAccess(K key) {
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onAccess(key);
+        if (p != null && capacity > 0) p.onAccess(key);
     }
 
     private void onRemove(K key) {
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onRemove(key);
+        if (p != null && capacity > 0) p.onRemove(key);
     }
 
     // ========== 内部：过期扫描 + 淘汰驱动 ==========

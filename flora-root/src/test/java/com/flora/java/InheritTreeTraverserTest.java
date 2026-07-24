@@ -1,6 +1,7 @@
 package com.flora.java;
 
 import com.flora.java.clazz.InheritTreeTraverser;
+import com.flora.java.clazz.InheritTreeTraverser.TraversalAction;
 import org.junit.jupiter.api.Test;
 
 import java.io.Serializable;
@@ -24,6 +25,7 @@ class InheritTreeTraverserTest {
             assertFalse(levels.containsKey(type),
                     "type " + type.getName() + " 被访问多次 -> 可能存在无限递归");
             levels.put(type, level);
+            return TraversalAction.CONTINUE;
         });
         return levels;
     }
@@ -99,5 +101,106 @@ class InheritTreeTraverserTest {
         assertEquals(1, levels.get(SequencedCollection.class));
         assertEquals(2, levels.get(Collection.class));
         assertEquals(3, levels.get(Iterable.class));
+    }
+
+    // ==================== TraversalAction.PRUNE ====================
+
+    /**
+     * PRUNE 应阻止当前类型的父类型被加入遍历队列。
+     */
+    @Test
+    void pruneSkipsParentsOfPrunedNode() {
+        Set<Class<?>> visited = new HashSet<>();
+        InheritTreeTraverser.traverse(ArrayList.class, (type, level) -> {
+            visited.add(type);
+            return level == 0 ? TraversalAction.PRUNE : TraversalAction.CONTINUE;
+        });
+        // PRUNE 在 level 0，所以只有 ArrayList 被访问
+        assertEquals(Set.of(ArrayList.class), visited);
+    }
+
+    /**
+     * PRUNE 仅跳过当前分支，不影响队列中其他类型。
+     */
+    @Test
+    void pruneDoesNotAffectOtherBranches() {
+        Set<Class<?>> visited = new HashSet<>();
+        InheritTreeTraverser.traverse(ArrayList.class, (type, level) -> {
+            visited.add(type);
+            // 只剪枝 RandomAccess 分支，List 等其他接口应继续遍历
+            if (type == RandomAccess.class) {
+                return TraversalAction.PRUNE;
+            }
+            return TraversalAction.CONTINUE;
+        });
+        // List 仍应被访问（未被 PRUNE 影响）
+        assertTrue(visited.contains(List.class));
+        // Collection 经 List 路径可达，应被访问
+        assertTrue(visited.contains(Collection.class));
+    }
+
+    // ==================== TraversalAction.TERMINATE ====================
+
+    /**
+     * TERMINATE 应立即停止整个遍历。
+     */
+    @Test
+    void terminateStopsEntireTraversal() {
+        Set<Class<?>> visited = new HashSet<>();
+        InheritTreeTraverser.traverse(ArrayList.class, (type, level) -> {
+            visited.add(type);
+            return type == AbstractList.class
+                    ? TraversalAction.TERMINATE
+                    : TraversalAction.CONTINUE;
+        });
+        // AbstractList 之后不应再有任何类型被访问
+        assertTrue(visited.contains(ArrayList.class));
+        assertTrue(visited.contains(AbstractList.class));
+        // AbstractCollection 在 TERMINATE 之后，不应被访问
+        assertFalse(visited.contains(AbstractCollection.class));
+    }
+
+    /**
+     * TERMINATE 在根节点立即终止，只访问根。
+     */
+    @Test
+    void terminateAtRoot() {
+        Set<Class<?>> visited = new HashSet<>();
+        InheritTreeTraverser.traverse(ArrayList.class, (type, level) -> {
+            visited.add(type);
+            return TraversalAction.TERMINATE;
+        });
+        assertEquals(Set.of(ArrayList.class), visited);
+    }
+
+    // ==================== null 视为 CONTINUE ====================
+
+    /**
+     * 返回 null 应等效于 CONTINUE。
+     */
+    @Test
+    void nullReturnTreatedAsContinue() {
+        Map<Class<?>, Integer> levels = new LinkedHashMap<>();
+        InheritTreeTraverser.traverse(ArrayList.class, (type, level) -> {
+            levels.put(type, level);
+            return null;  // 应被视为 CONTINUE
+        });
+        assertTrue(levels.containsKey(AbstractList.class));
+        assertTrue(levels.containsKey(List.class));
+        assertTrue(levels.containsKey(Object.class));
+    }
+
+    /**
+     * 全部返回 null 仍能遍历完整棵树（等价于 always CONTINUE）。
+     */
+    @Test
+    void allNullStillTraversesFully() {
+        Map<Class<?>, Integer> levels = new LinkedHashMap<>();
+        InheritTreeTraverser.traverse(List.class, (type, level) -> {
+            levels.put(type, level);
+            return null;
+        });
+        assertEquals(4, levels.size()); // List, SequencedCollection, Collection, Iterable
+        assertTrue(levels.containsKey(Iterable.class));
     }
 }

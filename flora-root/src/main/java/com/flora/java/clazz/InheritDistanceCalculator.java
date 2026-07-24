@@ -51,7 +51,9 @@ public final class InheritDistanceCalculator {
         InheritTreeTraverser.traverse(descendant, (type, level) -> {
             if (type.equals(ancestor)) {
                 found[0] = level;
+                return InheritTreeTraverser.TraversalAction.TERMINATE;
             }
+            return InheritTreeTraverser.TraversalAction.CONTINUE;
         });
         return found[0];
     }

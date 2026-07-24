@@ -9,12 +9,8 @@ import com.flora.java.clazz.InheritDistanceCalculator;
 import com.flora.tag.LogicFragile;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.ServiceLoader;
-import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -249,47 +245,48 @@ public final class ConverterRegistry {
      * @return 打包后的距离值（高16位为 targetRank，低16位为 elementRank）
      */
     public static int targetRejectionDistance(TargetMatcher matcher, Class<?> targetType, Class<?> elementType) {
-        int targetRank;
-        if (targetType == null) {
-            targetRank = MAX_RANK;
-        } else {// 用 BFS 收集每层的所有类型
-            Map<Integer, Set<Class<?>>> levels = new HashMap<>();
-            InheritTreeTraverser.traverse(targetType, (type, level) ->
-                    levels.computeIfAbsent(level, _ -> new HashSet<>()).add(type));// 从 level 0 逐层检查是否有至少一个类型匹配
-            int passCount = 0;
-            for (int level = 0; ; level++) {
-                Set<Class<?>> typesAtLevel = levels.get(level);
-                if (typesAtLevel == null) break;
-
-                boolean anyMatch = typesAtLevel.stream()
-                        .anyMatch(t -> matcher.matches(t, elementType));
-                if (!anyMatch) break;
-                passCount++;
-            }
-            targetRank = passCount == 0 ? MAX_RANK : passCount;
-        }
-
-        int elementRank;
-        if (elementType == null) {
-            elementRank = MAX_RANK;
-        } else {// 用 BFS 收集每层的所有类型
-            Map<Integer, Set<Class<?>>> levels = new HashMap<>();
-            InheritTreeTraverser.traverse(elementType, (type, level) ->
-                    levels.computeIfAbsent(level, _ -> new HashSet<>()).add(type));// 从 level 0 逐层检查是否有至少一个类型匹配
-            int passCount = 0;
-            for (int level = 0; ; level++) {
-                Set<Class<?>> typesAtLevel = levels.get(level);
-                if (typesAtLevel == null) break;
-
-                boolean anyMatch = typesAtLevel.stream()
-                        .anyMatch(t -> matcher.matches(targetType, t));
-                if (!anyMatch) break;
-                passCount++;
-            }
-            elementRank = passCount == 0 ? MAX_RANK : passCount;
-        }
-
+        int targetRank = rankDepth(matcher, targetType, elementType, true);
+        int elementRank = rankDepth(matcher, targetType, elementType, false);
         return (targetRank << 16) | elementRank;
+    }
+
+    /**
+     * 计算 targetType 或 elementType 在继承树中的匹配深度。
+     * <p>
+     * 使用 {@link InheritTreeTraverser} BFS 遍历完整继承树（超类+接口），
+     * 利用"子类型不匹配则父类型也不匹配"的性质进行剪枝，
+     * 只需追踪最深的匹配层级即可，无需收集整层类型。
+     * </p>
+     *
+     * @param matcher     目标类型匹配器
+     * @param targetType  目标类型
+     * @param elementType 元素类型
+     * @param isTarget    true 计算 targetRank，false 计算 elementRank
+     * @return 匹配深度（0 表示无匹配），无匹配返回 {@link #MAX_RANK}
+     */
+    private static int rankDepth(TargetMatcher matcher, Class<?> targetType,
+                                  Class<?> elementType, boolean isTarget) {
+        Class<?> root = isTarget ? targetType : elementType;
+        if (root == null) {
+            return MAX_RANK;
+        }
+
+        int[] deepestLevel = {-1};
+        InheritTreeTraverser.traverse(root, (type, level) -> {
+            boolean matches = isTarget
+                    ? matcher.matches(type, elementType)
+                    : matcher.matches(targetType, type);
+            if (!matches) {
+                return InheritTreeTraverser.TraversalAction.PRUNE;
+            }
+            if (level > deepestLevel[0]) {
+                deepestLevel[0] = level;
+            }
+            return InheritTreeTraverser.TraversalAction.CONTINUE;
+        });
+
+        int passCount = deepestLevel[0] + 1;
+        return passCount == 0 ? MAX_RANK : passCount;
     }
 
 

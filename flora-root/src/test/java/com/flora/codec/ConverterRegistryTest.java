@@ -5,6 +5,7 @@ import com.flora.java.converter.CollectionConverter;
 import com.flora.java.Converter;
 import com.flora.java.converter.ConverterRegistry;
 import com.flora.java.converter.EnumConverter;
+import com.flora.java.TargetMatcher;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -277,5 +278,52 @@ class ConverterRegistryTest {
         // 由于缓存存在，第二次查询应返回缓存结果
         Converter c2 = registry.find(String.class, Integer.class, null);
         assertSame(c1, c2);
+    }
+
+    // ==================== targetRejectionDistance（接口类型正确分层） ====================
+
+    /**
+     * 接口目标类型的 targetRejectionDistance 应正确反映继承深度，而非全部为 1。
+     * <p>对于 List 类型，Object 匹配器应经过 List→Collection→Iterable 三级匹配。</p>
+     */
+    @Test
+    void targetRejectionDistanceInterfaceRankReflectsDepth() {
+        TargetMatcher matchesObject = (type, elem) -> Object.class.isAssignableFrom(type);
+
+        // ArrayList（类）→ 应有完整继承深度（ArrayList→AbstractList→AbstractCollection→Object→...）
+        int arrayListDist = ConverterRegistry.targetRejectionDistance(matchesObject, ArrayList.class, null);
+        int arrayListTargetRank = arrayListDist >>> 16;
+        assertTrue(arrayListTargetRank >= 4,
+                "ArrayList should have targetRank >= 4, got " + arrayListTargetRank);
+
+        // List（接口）→ 应有接口继承深度（List→Collection→Iterable→beyond）
+        int listDist = ConverterRegistry.targetRejectionDistance(matchesObject, List.class, null);
+        int listTargetRank = listDist >>> 16;
+        assertTrue(listTargetRank >= 3,
+                "List should have targetRank >= 3, got " + listTargetRank);
+
+        // 关键：接口的 rank 不应为 1（旧 bug 的表现）
+        assertTrue(listTargetRank > 1,
+                "Interface targetRank should be > 1, was " + listTargetRank
+                        + " (old bug: always 1 due to getSuperclass()=null)");
+    }
+
+    /**
+     * 对于具体类匹配器（如只匹配 ArrayList），接口类型的 rank 应小于类的 rank。
+     */
+    @Test
+    void targetRejectionDistanceSpecificMatcher() {
+        // 只匹配 ArrayList 的匹配器
+        TargetMatcher onlyArrayList = (type, elem) -> type == ArrayList.class;
+
+        int dist = ConverterRegistry.targetRejectionDistance(onlyArrayList, ArrayList.class, null);
+        int rank = dist >>> 16;
+        assertEquals(1, rank, "Only root matches -> rank should be 1");
+
+        // List 不匹配此匹配器 → 应得到一个很大的 rank 值（MAX_RANK 语义）
+        int listDist = ConverterRegistry.targetRejectionDistance(onlyArrayList, List.class, null);
+        int listRank = listDist >>> 16;
+        assertTrue(listRank > 1000,
+                "Non-matching type should get a large rank, got " + listRank);
     }
 }

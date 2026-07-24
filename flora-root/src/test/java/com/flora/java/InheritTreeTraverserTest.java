@@ -86,7 +86,7 @@ class InheritTreeTraverserTest {
     }
 
     /**
-     * 接口没有 superclass，因此遍历接口继承树不会到达 Object（由 TypeDistanceCalculator 特例处理）。
+     * 接口没有 superclass，因此遍历接口继承树不会到达 Object（由 InheritDistanceCalculator 特例处理）。
      * 注意 getInterfaces() 只返回直接声明的接口：List 直接声明 SequencedCollection，
      * 而 Collection 是经 SequencedCollection 间接继承的，所以层级为 0/1/2/3。
      */

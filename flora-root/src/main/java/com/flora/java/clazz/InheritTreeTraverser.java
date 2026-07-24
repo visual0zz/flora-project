@@ -7,13 +7,9 @@ import java.util.*;
  * 遍历某个类或接口的完整继承树（超类与接口，传递闭包），对每个类型调用一次访问器。
  * 传给访问器的 level 是从根类型到该类型的最短路径（边数），通过 BFS 计算得出。
  */
-public class InheritTreeTraverser {
+public final class InheritTreeTraverser {
 
-    private final InheritVisitor visitor;
-
-    public InheritTreeTraverser(InheritVisitor visitor) {
-        this.visitor = visitor;
-    }
+    private InheritTreeTraverser(InheritVisitor visitor) {}
 
     /**
      * 以 {@code root} 为根遍历继承树，对遇到的每个类或接口调用一次访问器（构造时提供）。
@@ -21,7 +17,7 @@ public class InheritTreeTraverser {
      *
      * @param root 被遍历继承树的类或接口；可以为 {@code null}（此时不执行任何操作）
      */
-    public void traverse(Class<?> root) {
+    public static void traverse(Class<?> root, InheritVisitor visitor) {
         if (root == null) {
             return;
         }
@@ -39,14 +35,7 @@ public class InheritTreeTraverser {
                 }
             }
         }
-    }
-
-    /**
-     * 便捷静态入口：遍历 {@code root} 的继承树，对每个类型调用一次 {@code visitor}，
-     * 传入该类型及其最短路径层级。
-     */
-    public static void traverse(Class<?> root, InheritVisitor visitor) {
-        new InheritTreeTraverser(visitor).traverse(root);
+        traverse(root, visitor);
     }
 
     /**

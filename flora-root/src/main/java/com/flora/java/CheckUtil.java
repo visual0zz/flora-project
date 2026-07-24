@@ -1,5 +1,7 @@
 package com.flora.java;
 
+import com.flora.data.StrUtil;
+
 /**
  * 参数校验工具类，提供简洁的静态方法用于前置条件检查。
  * <p>
@@ -27,7 +29,7 @@ public final class CheckUtil {
         return notEmpty(str, "参数不能为空");
     }
     public static String notEmpty(String str, String errorMsg) {
-        if (str == null || str.isEmpty()) {
+        if (StrUtil.isEmpty(str)) {
             throw new IllegalArgumentException(errorMsg);
         }
         return str;
@@ -36,7 +38,7 @@ public final class CheckUtil {
         return notBlank(str, "参数不能为空");
     }
     public static String notBlank(String str, String errorMsg) {
-        if (str == null || str.isBlank()) {
+        if (StrUtil.isBlank(str)) {
             throw new IllegalArgumentException(errorMsg);
         }
         return str;

@@ -1,6 +1,8 @@
 package com.flora.data;
 
+import com.flora.container.CollectionUtil;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -25,6 +27,9 @@ public final class IterableUtil {
     public static boolean isEmpty(Iterable<?> iterable) {
         if (iterable == null) {
             return true;
+        }
+        if (iterable instanceof Collection<?> coll) {
+            return CollectionUtil.isEmpty(coll);
         }
         return !iterable.iterator().hasNext();
     }
@@ -114,6 +119,9 @@ public final class IterableUtil {
         if (iterable == null) {
             return List.of();
         }
+        if (iterable instanceof Collection<T> coll) {
+            return CollectionUtil.filter(coll, predicate);
+        }
         List<T> result = new ArrayList<>();
         for (T item : iterable) {
             if (predicate.test(item)) {
@@ -136,6 +144,9 @@ public final class IterableUtil {
         if (iterable == null) {
             return List.of();
         }
+        if (iterable instanceof Collection<T> coll) {
+            return CollectionUtil.map(coll, mapper);
+        }
         List<R> result = new ArrayList<>();
         for (T item : iterable) {
             result.add(mapper.apply(item));
@@ -153,6 +164,9 @@ public final class IterableUtil {
     public static <T> T first(Iterable<T> iterable) {
         if (iterable == null) {
             return null;
+        }
+        if (iterable instanceof Collection<T> coll) {
+            return CollectionUtil.first(coll);
         }
         var it = iterable.iterator();
         return it.hasNext() ? it.next() : null;

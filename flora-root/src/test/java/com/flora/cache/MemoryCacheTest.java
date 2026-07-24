@@ -1,6 +1,5 @@
 package com.flora.cache;
 
-import com.flora.cache.store.ComposedCacheStore;
 import com.flora.cache.store.ConcurrentHashMapStore;
 import com.flora.cache.store.MemoryCache;
 import org.junit.jupiter.api.Test;
@@ -110,13 +109,13 @@ class MemoryCacheTest {
         assertFalse(c.containsKey(1));
     }
 
-    /** 组合式架构冒烟：任意 CacheStore + 任意 EvictionPolicy 可自由装配 */
+    /** 插件式架构冒烟：任意 CacheStore + 任意 EvictionPolicy 插件可自由装配 */
     @Test
     void composableSmoke() {
-        ConcurrentHashMapStore<String, String> store = new ConcurrentHashMapStore<>();
-        ComposedCacheStore<String, String> cache = new ComposedCacheStore<>(
-                store, new com.flora.cache.eviction.WTinyLfuEvictionPolicy<>(10, store::approxCount), 10);
-        cache.put("k", "v");
-        assertEquals("v", cache.get("k"));
+        ConcurrentHashMapStore<String, String> store = new ConcurrentHashMapStore<>(10);
+        store.setEvictionPolicy(new com.flora.cache.eviction.WTinyLfuEvictionPolicy<>(10, store::approxCount));
+        store.put("k", "v");
+        assertEquals("v", store.get("k"));
+        assertNotNull(store.evictionPolicy());
     }
 }

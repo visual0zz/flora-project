@@ -1,27 +1,28 @@
 package com.flora.cache;
 
+import com.flora.cache.CacheStore;
 import com.flora.cache.eviction.FIFOEvictionPolicy;
 import com.flora.cache.eviction.LFUEvictionPolicy;
 import com.flora.cache.eviction.LRUEvictionPolicy;
-import com.flora.cache.store.ComposedCacheStore;
 import com.flora.cache.store.ConcurrentHashMapStore;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 验证 LRU / LFU / FIFO 三种淘汰策略接入 ComposedCacheStore 后产生确定性淘汰顺序。
+ * 验证 LRU / LFU / FIFO 三种淘汰策略作为插件挂载到 ConcurrentHashMapStore 后产生确定性淘汰顺序。
  */
 class EvictionPolicyTest {
 
-    private static <K, V> ComposedCacheStore<K, V> cache(int cap, java.util.function.Function<com.flora.cache.store.ConcurrentHashMapStore<K, V>, EvictionPolicy<K, V>> policyFn) {
-        ConcurrentHashMapStore<K, V> store = new ConcurrentHashMapStore<>();
-        return new ComposedCacheStore<>(store, policyFn.apply(store), cap);
+    private static <K, V> ConcurrentHashMapStore<K, V> cache(int cap, java.util.function.Function<ConcurrentHashMapStore<K, V>, EvictionPolicy<K, V>> policyFn) {
+        ConcurrentHashMapStore<K, V> store = new ConcurrentHashMapStore<>(cap);
+        store.setEvictionPolicy(policyFn.apply(store));
+        return store;
     }
 
     @Test
     void lruEvictsLeastRecentlyUsed() {
-        ComposedCacheStore<Integer, Integer> c = cache(3, s -> new LRUEvictionPolicy<Integer, Integer>(3, s::approxCount));
+        CacheStore<Integer, Integer> c = cache(3, s -> new LRUEvictionPolicy<Integer, Integer>(3, s::approxCount));
         c.put(1, 1);
         c.put(2, 2);
         c.put(3, 3);
@@ -36,7 +37,7 @@ class EvictionPolicyTest {
 
     @Test
     void fifoEvictsOldestInserted() {
-        ComposedCacheStore<Integer, Integer> c = cache(3, s -> new FIFOEvictionPolicy<Integer, Integer>(3, s::approxCount));
+        CacheStore<Integer, Integer> c = cache(3, s -> new FIFOEvictionPolicy<Integer, Integer>(3, s::approxCount));
         c.put(1, 1);
         c.put(2, 2);
         c.put(3, 3);
@@ -51,7 +52,7 @@ class EvictionPolicyTest {
 
     @Test
     void lfuEvictsLeastFrequentlyUsed() {
-        ComposedCacheStore<Integer, Integer> c = cache(3, s -> new LFUEvictionPolicy<Integer, Integer>(3, s::approxCount));
+        CacheStore<Integer, Integer> c = cache(3, s -> new LFUEvictionPolicy<Integer, Integer>(3, s::approxCount));
         c.put(1, 1);
         c.put(2, 2);
         c.put(3, 3);
@@ -68,7 +69,7 @@ class EvictionPolicyTest {
 
     @Test
     void unboundedPolicyKeepsAll() {
-        ComposedCacheStore<Integer, Integer> c = cache(-1, s -> new LRUEvictionPolicy<Integer, Integer>(-1, s::approxCount));
+        CacheStore<Integer, Integer> c = cache(-1, s -> new LRUEvictionPolicy<Integer, Integer>(-1, s::approxCount));
         for (int i = 0; i < 20; i++) c.put(i, i);
         assertEquals(20, c.approxCount());
     }

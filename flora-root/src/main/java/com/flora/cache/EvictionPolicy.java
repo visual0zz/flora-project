@@ -4,13 +4,13 @@ package com.flora.cache;
  * 缓存淘汰策略接口：只做淘汰决策，不碰存储细节与事件监听。
  * <p>
  * 策略按 key 接收读写通知，自行维护全部索引（如 LRU 分段、频率素描），
- * 以 O(1) 产出待淘汰的 key。被淘汰的 key 由组合层
- * （{@link BoundedCacheStore} 实现，如 {@code ComposedCacheStore}）负责从存储中
- * 删除并触发 {@code EVICT}/{@code INVALIDATE} 事件；策略本身不持有 value、
+ * 以 O(1) 产出待淘汰的 key。被淘汰的 key 由挂载它的 {@link CacheStore}
+ * （如 {@code ConcurrentHashMapStore} 经 {@link CacheStore#setEvictionPolicy} 挂上本策略）
+ * 负责从存储中删除并触发 {@code EVICT}/{@code INVALIDATE} 事件；策略本身不持有 value、
  * 不触发监听器，从而与具体存储实现完全解耦，可自由组合。
  * <p>
- * 单体缓存（把存储与策略焊死的实现）只要对外实现 {@link BoundedCacheStore}
- * 即天然兼容；其内部可直接复用某个 {@code EvictionPolicy} 实现。
+ * 单体缓存（把存储与策略焊死的实现）直接实现 {@link CacheStore} 即可；
+ * 其内部可复用某个 {@code EvictionPolicy} 实现。
  *
  * @param <K> 键类型
  * @param <V> 值类型（策略通常不感知具体值，仅为与 {@link CacheStore} 对称保留）

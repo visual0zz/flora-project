@@ -7,16 +7,17 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 基于 {@link ConcurrentHashMap} 的纯存储实现：仅负责 KV 与 TTL，
- * 不含任何淘汰逻辑。作为与 {@link com.flora.cache.EvictionPolicy} 自由组合的积木。
+ * 基于 {@link ConcurrentHashMap} 的本地存储实现，仅负责 KV 与 TTL，
+ * 不含任何淘汰逻辑。作为与 {@link com.flora.cache.EvictionPolicy} 自由组合的
+ * 原始存储积木：直接使用时是无界缓存；通过 {@link #setEvictionPolicy} 挂载策略即变有界。
  * <p>
- * 过期采用惰性删除（{@code get} 时发现过期即移除）+ 主动扫描（{@code keys()}/{@code isExpired()}
- * 供组合层的 {@code gc()} 使用）。
+ * 过期采用惰性删除（{@code rawGet} 时发现过期即移除）+ 主动扫描（{@code rawKeys()}/
+ * {@code rawIsExpired()} 供内部 {@code gc()} 使用）。
  *
  * @param <K> 键类型
  * @param <V> 值类型
  */
-public final class ConcurrentHashMapStore<K, V> implements CacheStore<K, V> {
+public class ConcurrentHashMapStore<K, V> extends AbstractCacheStore<K, V> {
 
     /** 永不过期标记：expiry 映射中不存在即表示永不过期 */
     private static final long IMMORTAL = 0L;
@@ -24,6 +25,17 @@ public final class ConcurrentHashMapStore<K, V> implements CacheStore<K, V> {
     private final ConcurrentHashMap<K, V> map = new ConcurrentHashMap<>();
     /** key → 绝对过期时间戳(ms)；不存在表示永不过期 */
     private final ConcurrentHashMap<K, Long> expiry = new ConcurrentHashMap<>();
+
+    public ConcurrentHashMapStore() {
+        super(-1);
+    }
+
+    /**
+     * @param capacity 容量上限（{@code <=0} 表示无上限）
+     */
+    public ConcurrentHashMapStore(long capacity) {
+        super(capacity);
+    }
 
     private static long now() {
         return System.currentTimeMillis();
@@ -38,21 +50,16 @@ public final class ConcurrentHashMapStore<K, V> implements CacheStore<K, V> {
         return now() + d.toMillis();
     }
 
-    // ========== 写入 ==========
+    // ========== 原始存储钩子 ==========
 
     @Override
-    public void put(K key, V value) {
+    protected void rawPut(K key, V value) {
         map.put(key, value);
         expiry.remove(key);
     }
 
     @Override
-    public boolean putIfAbsent(K key, V value) {
-        return map.putIfAbsent(key, value) == null;
-    }
-
-    @Override
-    public void put(K key, V value, Duration duration) {
+    protected void rawPut(K key, V value, Duration duration) {
         map.put(key, value);
         Long exp = computeExpiry(duration);
         if (exp == null) expiry.remove(key);
@@ -60,7 +67,12 @@ public final class ConcurrentHashMapStore<K, V> implements CacheStore<K, V> {
     }
 
     @Override
-    public boolean putIfAbsent(K key, V value, Duration duration) {
+    protected boolean rawPutIfAbsent(K key, V value) {
+        return map.putIfAbsent(key, value) == null;
+    }
+
+    @Override
+    protected boolean rawPutIfAbsent(K key, V value, Duration duration) {
         Long exp = computeExpiry(duration);
         return map.computeIfAbsent(key, _ -> {
             if (exp != null) expiry.put(key, exp);
@@ -68,10 +80,8 @@ public final class ConcurrentHashMapStore<K, V> implements CacheStore<K, V> {
         }) == value;
     }
 
-    // ========== 读取 ==========
-
     @Override
-    public V get(K key) {
+    protected V rawGet(K key) {
         V v = map.get(key);
         if (v == null) return null;
         Long exp = expiry.get(key);
@@ -83,13 +93,34 @@ public final class ConcurrentHashMapStore<K, V> implements CacheStore<K, V> {
         return v;
     }
 
-    // ========== TTL 管理 ==========
+    @Override
+    protected V rawRemove(K key) {
+        V old = map.remove(key);
+        expiry.remove(key);
+        return old;
+    }
 
     @Override
-    public void setTtl(K key, Duration duration) {
+    protected boolean rawContains(K key) {
+        V v = map.get(key);
+        if (v == null) return false;
+        Long exp = expiry.get(key);
+        return exp == null || !expired(exp);
+    }
+
+    @Override
+    protected Duration rawTtl(K key) {
+        Long exp = expiry.get(key);
+        if (exp == null) return Duration.ZERO;
+        long remaining = exp - now();
+        return remaining > 0 ? Duration.ofMillis(remaining) : Duration.ZERO;
+    }
+
+    @Override
+    protected void rawSetTtl(K key, Duration duration) {
         if (duration == null) return;
         if (duration.isZero() || duration.isNegative()) {
-            remove(key);
+            rawRemove(key);
             return;
         }
         if (map.containsKey(key)) {
@@ -98,53 +129,24 @@ public final class ConcurrentHashMapStore<K, V> implements CacheStore<K, V> {
     }
 
     @Override
-    public Duration ttl(K key) {
-        Long exp = expiry.get(key);
-        if (exp == null) return Duration.ZERO;
-        long remaining = exp - now();
-        return remaining > 0 ? Duration.ofMillis(remaining) : Duration.ZERO;
-    }
-
-    // ========== 删除 ==========
-
-    @Override
-    public V remove(K key) {
-        V old = map.remove(key);
-        expiry.remove(key);
-        return old;
-    }
-
-    @Override
-    public void clear() {
+    protected void rawClear() {
         map.clear();
         expiry.clear();
     }
 
-    // ========== 查询 ==========
-
     @Override
-    public long approxCount() {
-        return map.mappingCount();
-    }
-
-    @Override
-    public boolean containsKey(K key) {
-        V v = map.get(key);
-        if (v == null) return false;
-        Long exp = expiry.get(key);
-        return exp == null || !expired(exp);
-    }
-
-    // ========== 组合层支撑 ==========
-
-    @Override
-    public Iterable<K> keys() {
+    protected Iterable<K> rawKeys() {
         return map.keySet();
     }
 
     @Override
-    public boolean isExpired(K key) {
+    protected boolean rawIsExpired(K key) {
         Long exp = expiry.get(key);
         return exp != null && expired(exp);
+    }
+
+    @Override
+    protected long rawCount() {
+        return map.mappingCount();
     }
 }

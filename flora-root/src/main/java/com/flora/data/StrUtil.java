@@ -1,5 +1,6 @@
 package com.flora.data;
 
+import com.flora.container.ObjectUtil;
 import com.flora.java.CheckUtil;
 import java.util.StringJoiner;
 
@@ -320,7 +321,7 @@ public final class StrUtil {
 
     
     public static String defaultIfNull(String str, String defaultStr) {
-        return str == null ? defaultStr : str;
+        return ObjectUtil.defaultIfNull(str, defaultStr);
     }
 
     

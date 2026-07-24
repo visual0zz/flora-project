@@ -7,8 +7,9 @@ import static com.flora.entropy.hash.UsageScenario.*;
 import static com.flora.entropy.hash.UsageScenario.ADDRESSING;
 import static com.flora.entropy.hash.UsageScenario.ENCRYPTING;
 
+import com.flora.codec.HexUtil;
+
 public final class StandardHash {
-    private static final String HEX_CHARS = "0123456789abcdef";
     /**
      * 计算字符串的 MD5 哈希（十六进制字符串）。
      *
@@ -153,12 +154,6 @@ public final class StandardHash {
      * @return 十六进制字符串
      */
     private static String bytesToHex(byte[] bytes) {
-        char[] hexChars = new char[bytes.length * 2];
-        for (int i = 0; i < bytes.length; i++) {
-            int v = bytes[i] & 0xFF;
-            hexChars[i * 2] = HEX_CHARS.charAt(v >>> 4);
-            hexChars[i * 2 + 1] = HEX_CHARS.charAt(v & 0x0F);
-        }
-        return new String(hexChars);
+        return HexUtil.encodeHex(bytes);
     }
 }

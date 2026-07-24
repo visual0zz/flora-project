@@ -330,7 +330,7 @@ class BytesUtilTest {
      */
     @Test
     void hexString2bytes_null() {
-        assertThrows(java.security.InvalidParameterException.class,
+        assertThrows(NullPointerException.class,
                 () -> BytesUtil.hexString2bytes(null));
     }
 
@@ -339,7 +339,7 @@ class BytesUtilTest {
      */
     @Test
     void hexString2bytes_oddLength() {
-        assertThrows(java.security.InvalidParameterException.class,
+        assertThrows(IllegalArgumentException.class,
                 () -> BytesUtil.hexString2bytes("abc"));
     }
 

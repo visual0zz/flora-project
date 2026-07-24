@@ -1,5 +1,6 @@
 package com.flora.data;
 
+import com.flora.codec.HexUtil;
 import java.security.InvalidParameterException;
 
 
@@ -8,9 +9,6 @@ import java.security.InvalidParameterException;
  * 相互转换，以及十六进制字符串、二进制字符串、异或、拼接等操作。
  */
 public final class BytesUtil {
-
-    /** 十六进制字符查找表 */
-    private static final char[] HEX_ARRAY = "0123456789abcdef".toCharArray();
 
     
 
@@ -157,44 +155,24 @@ public final class BytesUtil {
 
     /**
      * 将字节数组转换为十六进制字符串。
+     * <p>委托 {@link HexUtil#encodeHex(byte[])}。</p>
      *
      * @param bytes 字节数组，不能为空
      * @return 十六进制字符串（小写）
-     * @throws InvalidParameterException 如果参数为空
      */
     public static String bytes2hexString(byte[] bytes) {
-        if (bytes == null) throw new InvalidParameterException("参数不能为空。");
-        char[] hexChars = new char[bytes.length * 2];
-        for (int i = 0; i < bytes.length; i++) {
-            int v = bytes[i] & 0xff;
-            hexChars[i * 2] = HEX_ARRAY[v >>> 4];
-            hexChars[i * 2 + 1] = HEX_ARRAY[v & 0x0f];
-        }
-        return new String(hexChars);
+        return HexUtil.encodeHex(bytes);
     }
 
     /**
      * 将十六进制字符串转换为字节数组。
+     * <p>委托 {@link HexUtil#decodeHex(String)}。</p>
      *
      * @param hex 十六进制字符串，不能为空，长度必须为偶数
      * @return 字节数组
-     * @throws InvalidParameterException 如果参数为空、长度不是偶数或包含非法字符
      */
     public static byte[] hexString2bytes(String hex) {
-        if (hex == null) throw new InvalidParameterException("参数不能为空。");
-        int len = hex.length();
-        if (len % 2 != 0) throw new InvalidParameterException("十六进制字符串长度必须为偶数。");
-        byte[] result = new byte[len / 2];
-        for (int i = 0; i < result.length; i++) {
-            int index = i * 2;
-            int high = Character.digit(hex.charAt(index), 16);
-            int low = Character.digit(hex.charAt(index + 1), 16);
-            if (high < 0 || low < 0) {
-                throw new InvalidParameterException("十六进制字符串包含非法字符。");
-            }
-            result[i] = (byte) ((high << 4) | low);
-        }
-        return result;
+        return HexUtil.decodeHex(hex);
     }
 
     /**

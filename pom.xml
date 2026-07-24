@@ -19,7 +19,7 @@
         <module>flora-benchmark</module>
         <module>flora-tangle</module>
         <module>flora-tangle/testbed</module>
-        <module>flora-sanctum</module>
+        <module>cultivating/flora-sanctum</module>
     </modules>
 
     <properties>

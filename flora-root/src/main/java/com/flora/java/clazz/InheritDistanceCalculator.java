@@ -3,10 +3,9 @@ package com.flora.java.clazz;
 /**
  * 继承距离计算器，计算两个类/接口之间的继承层次距离。
  * <p>用于方法重载解析优先级判定。距离越小表示类型关系越近。</p>
- * <p>距离即「从 descendant 到 ancestor 在继承图中的最短路径边数」，由
- * {@link InheritTreeTraverser} 的 BFS 统一计算；本类只补一个 traverser 不掌握的
+ * <p>距离即「从 descendant 到 ancestor 在继承图中的最短路径边数」
  * 领域特例：接口在名义类型体系中无 Object 超类，但运行期接口值都是 Object 实例，
- * 故接口到 Object 的距离固定为 1。</p>
+ * 故在此将接口到 Object 的距离定义为 1。</p>
  */
 public final class InheritDistanceCalculator {
     /** 最大距离（相当于不可达），用于表示无继承关系 */

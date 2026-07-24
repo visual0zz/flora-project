@@ -249,51 +249,47 @@ public final class ConverterRegistry {
      * @return 打包后的距离值（高16位为 targetRank，低16位为 elementRank）
      */
     public static int targetRejectionDistance(TargetMatcher matcher, Class<?> targetType, Class<?> elementType) {
-        int targetRank = rankConsistency(matcher, targetType, elementType, true);
-        int elementRank = rankConsistency(matcher, targetType, elementType, false);
+        int targetRank;
+        if (targetType == null) {
+            targetRank = MAX_RANK;
+        } else {// 用 BFS 收集每层的所有类型
+            Map<Integer, Set<Class<?>>> levels = new HashMap<>();
+            InheritTreeTraverser.traverse(targetType, (type, level) ->
+                    levels.computeIfAbsent(level, _ -> new HashSet<>()).add(type));// 从 level 0 逐层检查是否有至少一个类型匹配
+            int passCount = 0;
+            for (int level = 0; ; level++) {
+                Set<Class<?>> typesAtLevel = levels.get(level);
+                if (typesAtLevel == null) break;
+
+                boolean anyMatch = typesAtLevel.stream()
+                        .anyMatch(t -> matcher.matches(t, elementType));
+                if (!anyMatch) break;
+                passCount++;
+            }
+            targetRank = passCount == 0 ? MAX_RANK : passCount;
+        }
+
+        int elementRank;
+        if (elementType == null) {
+            elementRank = MAX_RANK;
+        } else {// 用 BFS 收集每层的所有类型
+            Map<Integer, Set<Class<?>>> levels = new HashMap<>();
+            InheritTreeTraverser.traverse(elementType, (type, level) ->
+                    levels.computeIfAbsent(level, _ -> new HashSet<>()).add(type));// 从 level 0 逐层检查是否有至少一个类型匹配
+            int passCount = 0;
+            for (int level = 0; ; level++) {
+                Set<Class<?>> typesAtLevel = levels.get(level);
+                if (typesAtLevel == null) break;
+
+                boolean anyMatch = typesAtLevel.stream()
+                        .anyMatch(t -> matcher.matches(targetType, t));
+                if (!anyMatch) break;
+                passCount++;
+            }
+            elementRank = passCount == 0 ? MAX_RANK : passCount;
+        }
+
         return (targetRank << 16) | elementRank;
-    }
-
-    /**
-     * 计算 targetType 或 elementType 在继承树中的连续匹配层数。
-     * <p>
-     * 使用 {@link InheritTreeTraverser} BFS 遍历完整继承树（超类+接口），
-     * 从根开始逐层检查至少一个类型是否被 matcher 匹配，计数连续匹配的层数。
-     * 层数越低（匹配越精确）→ 值越小 → filterByMin 选中它。
-     * </p>
-     *
-     * @param matcher     目标类型匹配器
-     * @param targetType  目标类型
-     * @param elementType 元素类型
-     * @param isTarget    true 计算 targetRank，false 计算 elementRank
-     * @return 连续匹配层数，无匹配返回 {@link #MAX_RANK}
-     */
-    private static int rankConsistency(TargetMatcher matcher, Class<?> targetType,
-                                        Class<?> elementType, boolean isTarget) {
-        Class<?> root = isTarget ? targetType : elementType;
-        if (root == null) {
-            return MAX_RANK;
-        }
-
-        // 用 BFS 收集每层的所有类型
-        Map<Integer, Set<Class<?>>> levels = new HashMap<>();
-        InheritTreeTraverser.traverse(root, (type, level) ->
-                levels.computeIfAbsent(level, k -> new HashSet<>()).add(type));
-
-        // 从 level 0 逐层检查是否有至少一个类型匹配
-        int passCount = 0;
-        for (int level = 0; ; level++) {
-            Set<Class<?>> typesAtLevel = levels.get(level);
-            if (typesAtLevel == null) break;
-
-            boolean anyMatch = typesAtLevel.stream()
-                    .anyMatch(t -> isTarget
-                            ? matcher.matches(t, elementType)
-                            : matcher.matches(targetType, t));
-            if (!anyMatch) break;
-            passCount++;
-        }
-        return passCount == 0 ? MAX_RANK : passCount;
     }
 
 

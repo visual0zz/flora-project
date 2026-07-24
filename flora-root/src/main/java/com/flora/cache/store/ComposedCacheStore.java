@@ -272,11 +272,21 @@ public class ComposedCacheStore<K, V> implements BoundedCacheStore<K, V> {
         listeners.remove(type);
     }
 
+    /**
+     * 触发事件。约定：调用方必须已在对应的实际操作（put/remove/setTtl）完成之后
+     * 才调用本方法，因此事件内部即便抛异常也不会破坏已提交的业务逻辑。
+     * <p>
+     * 异常隔离：单个监听器抛出的异常被就地吞掉并继续派发给其余监听器，
+     * 既不向上传播影响调用方，也不跳过后续监听器。
+     */
     private void fireEvent(CacheEventType type, K key, V value) {
         List<CacheEventListener<? super K, ? super V>> list = listeners.get(type);
-        if (list != null) {
-            for (CacheEventListener<? super K, ? super V> l : list) {
+        if (list == null) return;
+        for (CacheEventListener<? super K, ? super V> l : list) {
+            try {
                 l.onEvent(type, key, value);
+            } catch (RuntimeException ignore) {
+                // 监听器故障不应影响缓存主流程与同批次其他监听器
             }
         }
     }

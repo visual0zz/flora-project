@@ -102,4 +102,26 @@ class CacheEventTypesTest {
         assertEquals(1, inserts.size());
         assertEquals(1, updates.size());
     }
+
+    @Test
+    void listenerExceptionDoesNotBreakOperationOrSkipOthers() {
+        MemoryCache<Integer, Integer> c = new MemoryCache<>();
+        List<CacheEventType> seenByHealthy = new ArrayList<>();
+
+        // 一个会抛异常的监听器，不应影响主流程
+        c.addListener(CacheEventType.MUTATE, (t, k, v) -> {
+            throw new RuntimeException("boom");
+        });
+        // 同类型的另一个健康监听器，仍应被派发
+        c.addListener(CacheEventType.MUTATE, (t, k, v) -> seenByHealthy.add(t));
+        // 具体事件监听器也应正常收到
+        List<CacheEventType> inserts = new ArrayList<>();
+        c.addListener(CacheEventType.INSERT, (t, k, v) -> inserts.add(t));
+
+        c.put(1, 10); // 若异常冒泡，此行会抛；且后续监听器不会收到
+
+        assertEquals(10, c.get(1)); // 写操作已正确提交
+        assertEquals(List.of(CacheEventType.MUTATE), seenByHealthy); // 健康监听器收到
+        assertEquals(List.of(CacheEventType.INSERT), inserts);       // 具体事件也收到
+    }
 }

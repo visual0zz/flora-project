@@ -194,8 +194,10 @@ public abstract class RemoteCache implements CacheStore<String, String> {
     }
 
     @Override
-    public void remove(String key) {
+    public String remove(String key) {
+        String value = doGet(wrapKey(key));
         doDelete(wrapKey(key));
+        return value;
     }
 
     @Override

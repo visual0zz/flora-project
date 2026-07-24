@@ -1,7 +1,8 @@
 package com.flora.cache;
 
-
 import java.time.Duration;
+import java.util.Collections;
+import java.util.Set;
 
 /**
  * 缓存能力提供方接口。
@@ -96,8 +97,9 @@ public interface CacheStore<K, V> {
      * 移除指定 key 的缓存项。
      *
      * @param key 键
+     * @return 被移除的值；key 不存在返回 {@code null}
      */
-    void remove(K key);
+    V remove(K key);
 
     /**
      * 清空所有缓存项。
@@ -129,4 +131,30 @@ public interface CacheStore<K, V> {
      * @return {@code true} 表示 key 存在
      */
     boolean containsKey(K key);
+
+    // ---- 组合层支撑（供 BoundedCacheStore 的 gc 扫描过期） ----
+
+    /**
+     * 返回当前所有 key 的快照视图，用于主动过期扫描（gc）。
+     * <p>
+     * 淘汰路径不依赖此方法（策略自管索引，O(1) 产出候选），
+     * 仅在 {@code gc()} 等低频场景遍历。不支持主动过期的存储可忽略（默认空集合）。
+     *
+     * @return key 的可遍历视图
+     */
+    default Iterable<K> keys() {
+        return Collections.emptySet();
+    }
+
+    /**
+     * 判断指定 key 当前是否已过期（未过期或不存在返回 {@code false}）。
+     * <p>
+     * 存储无关的无 TTL 实现可忽略（默认 {@code false}）。
+     *
+     * @param key 键
+     * @return 是否已过期
+     */
+    default boolean isExpired(K key) {
+        return false;
+    }
 }

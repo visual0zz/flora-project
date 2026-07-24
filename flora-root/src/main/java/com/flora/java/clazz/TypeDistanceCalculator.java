@@ -3,10 +3,14 @@ package com.flora.java.clazz;
 /**
  * 类型继承距离计算器，计算两个类/接口之间的继承层次距离。
  * <p>用于方法重载解析优先级判定。距离越小表示类型关系越近。</p>
+ * <p>距离即「从 descendant 到 ancestor 在继承图中的最短路径边数」，由
+ * {@link InheritTreeTraverser} 的 BFS 统一计算；本类只补一个 traverser 不掌握的
+ * 领域特例：接口在名义类型体系中无 Object 超类，但运行期接口值都是 Object 实例，
+ * 故接口到 Object 的距离固定为 1。</p>
  */
 public final class TypeDistanceCalculator {
     /** 最大距离（相当于不可达），用于表示无继承关系 */
-    public static final int MAX_DISTANCE = Integer.MAX_VALUE/2;
+    public static final int MAX_DISTANCE = Integer.MAX_VALUE / 2;
 
     private TypeDistanceCalculator() {
     }
@@ -36,55 +40,20 @@ public final class TypeDistanceCalculator {
         if (descendant.equals(ancestor)) {
             return 0;
         }
-
-        boolean descIsInterface = descendant.isInterface();
-        boolean ancIsInterface  = ancestor.isInterface();
-
-        if (descIsInterface) {
-            if (ancIsInterface) {
-                return interfaceChainDistance(descendant, ancestor);
-            }else{
-                return ancestor.equals(Object.class) ? 1 : MAX_DISTANCE;
-            }
-        }else{
-            if (ancIsInterface) {
-                int min =interfaceChainDistance(descendant, ancestor);
-                Class<?> parent = descendant.getSuperclass();
-                if (parent != null) {
-                    min = Math.min(min, inheritDistance(parent, ancestor) + 1);
-                }
-                return min;
-            }else{
-                int distance = 0;
-                while (descendant != null) {
-                    if (descendant.equals(ancestor)) {
-                        return distance;
-                    }
-                    distance++;
-                    descendant = descendant.getSuperclass();
-                }
-                return MAX_DISTANCE;
-            }
+        // 接口在名义类型体系中无 Object 超类，但运行期接口值都是 Object 实例，
+        // 故接口到 Object 距离固定为 1；其余「接口→类」均不可达，返回 MAX_DISTANCE
+        if (descendant.isInterface() && !ancestor.isInterface()
+                && ancestor.equals(Object.class)) {
+            return 1;
         }
-
-    }
-
-    /**
-     * 计算接口链中 descendant 到 ancestor 的距离。
-     *
-     * @param descendant 子接口
-     * @param ancestor   父接口
-     * @return 接口链距离
-     */
-    private static int interfaceChainDistance(Class<?> descendant, Class<?> ancestor) {
-        int min = MAX_DISTANCE;
-        for (Class<?> face : descendant.getInterfaces()) {
-            if (face.equals(ancestor)) {
-                return 1;
+        // 其余情况交给继承树 BFS：level 即最短路径边数
+        // （BFS 保证每个类型首次被访问时经过的即是最短路径）
+        int[] found = {MAX_DISTANCE};
+        InheritTreeTraverser.traverse(descendant, (type, level) -> {
+            if (type.equals(ancestor)) {
+                found[0] = level;
             }
-            min = Math.min(min, interfaceChainDistance(face, ancestor) + 1);
-        }
-        return min;
+        });
+        return found[0];
     }
-
 }

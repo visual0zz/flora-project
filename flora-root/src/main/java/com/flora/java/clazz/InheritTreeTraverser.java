@@ -9,8 +9,6 @@ import java.util.*;
  */
 public final class InheritTreeTraverser {
 
-    private InheritTreeTraverser(InheritVisitor visitor) {}
-
     /**
      * 以 {@code root} 为根遍历继承树，对遇到的每个类或接口调用一次访问器（构造时提供）。
      * 根类型本身报告为 level 0；每个直接超类或接口为 level 1；沿最短路径依次递增。
@@ -35,7 +33,6 @@ public final class InheritTreeTraverser {
                 }
             }
         }
-        traverse(root, visitor);
     }
 
     /**

@@ -59,11 +59,13 @@ public class ComposedCacheStore<K, V> implements BoundedCacheStore<K, V> {
             backing.put(key, value);
             policy.onAccess(key);
             fireEvent(CacheEventType.UPDATE, key, value);
+            fireEvent(CacheEventType.MUTATE, key, value);
         } else {
             enforce();
             backing.put(key, value);
             policy.onPut(key);
-            fireEvent(CacheEventType.CREATE, key, value);
+            fireEvent(CacheEventType.INSERT, key, value);
+            fireEvent(CacheEventType.MUTATE, key, value);
         }
     }
 
@@ -77,7 +79,8 @@ public class ComposedCacheStore<K, V> implements BoundedCacheStore<K, V> {
         boolean inserted = backing.putIfAbsent(key, value);
         if (inserted) {
             policy.onPut(key);
-            fireEvent(CacheEventType.CREATE, key, value);
+            fireEvent(CacheEventType.INSERT, key, value);
+            fireEvent(CacheEventType.MUTATE, key, value);
         } else {
             policy.onAccess(key);
         }
@@ -98,11 +101,13 @@ public class ComposedCacheStore<K, V> implements BoundedCacheStore<K, V> {
             backing.put(key, value, duration);
             policy.onAccess(key);
             fireEvent(CacheEventType.UPDATE, key, value);
+            fireEvent(CacheEventType.MUTATE, key, value);
         } else {
             enforce();
             backing.put(key, value, duration);
             policy.onPut(key);
-            fireEvent(CacheEventType.CREATE, key, value);
+            fireEvent(CacheEventType.INSERT, key, value);
+            fireEvent(CacheEventType.MUTATE, key, value);
         }
     }
 
@@ -122,7 +127,8 @@ public class ComposedCacheStore<K, V> implements BoundedCacheStore<K, V> {
         boolean inserted = backing.putIfAbsent(key, value, duration);
         if (inserted) {
             policy.onPut(key);
-            fireEvent(CacheEventType.CREATE, key, value);
+            fireEvent(CacheEventType.INSERT, key, value);
+            fireEvent(CacheEventType.MUTATE, key, value);
         } else {
             policy.onAccess(key);
         }
@@ -142,7 +148,13 @@ public class ComposedCacheStore<K, V> implements BoundedCacheStore<K, V> {
 
     @Override
     public void setTtl(K key, Duration duration) {
-        backing.setTtl(key, duration);
+        if (backing.containsKey(key) && !backing.isExpired(key)) {
+            backing.setTtl(key, duration);
+            fireEvent(CacheEventType.TOUCH, key, backing.get(key));
+            fireEvent(CacheEventType.MUTATE, key, backing.get(key));
+        } else {
+            backing.setTtl(key, duration);
+        }
     }
 
     @Override

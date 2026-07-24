@@ -7,6 +7,27 @@ package com.flora.cache;
  */
 public enum CacheEventType {
 
+    // ========== 写操作（有副作用的写入） ==========
+
+    /** 缓存项被首次写入（put 一个原本不存在的 key） */
+    INSERT,
+
+    /** 缓存项被更新覆盖（put 一个已存在的 key） */
+    UPDATE,
+
+    /** 缓存项 TTL 被刷新（{@link CacheStore#setTtl(Object, Duration)} 续期，不换值） */
+    TOUCH,
+
+    /**
+     * 任意写操作，是 {@link #INSERT}、{@link #UPDATE}、{@link #TOUCH} 的总和。
+     * <p>
+     * 当任意一种写操作发生时，具体类型事件和 {@code MUTATE} 会一并触发。
+     * 监听 {@code MUTATE} 即可覆盖「新建 / 更新 / 刷新 TTL」全部写场景。
+     */
+    MUTATE,
+
+    // ========== 失效（被移出缓存） ==========
+
     /** 缓存项因淘汰策略（如 LRU/LFU）被移除 */
     EVICT,
 
@@ -22,10 +43,4 @@ public enum CacheEventType {
      * 当任意一种失效发生时，具体类型事件和 {@code INVALIDATE} 会一并触发。
      */
     INVALIDATE,
-
-    /** 缓存项被更新覆盖（put 一个已存在的 key） */
-    UPDATE,
-
-    /** 缓存项被首次写入（put 一个原本不存在的 key） */
-    CREATE,
 }

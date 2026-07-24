@@ -7,7 +7,6 @@ import com.flora.java.Converter;
 
 module com.flora.root {
     exports com.flora.algebra;
-    exports com.flora.classfile;
     exports com.flora.crypto;
     exports com.flora.entropy;
     exports com.flora.tag;

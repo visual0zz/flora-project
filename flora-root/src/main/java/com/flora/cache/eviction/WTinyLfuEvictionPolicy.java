@@ -162,7 +162,7 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
     // ========== EvictionPolicy 回调 ==========
 
     @Override
-    public void onPut(K key) {
+    public void onPut(K key, boolean existed) {
         sketch.increment(key);
         region.put(key, R_WINDOW);
         windowLock.lock();
@@ -174,15 +174,16 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
     }
 
     @Override
-    public void onGet(K key) {
+    public void onGet(K key, boolean existed) {
         sketch.increment(key); // 读取即需求：累加频率素描（命中/未命中皆为需求预热）
     }
 
     @Override
-    public void onTouch(K key) {
+    public void onTouch(K key, boolean existed) {
         sketch.increment(key);
+        if (!existed) return; // 操作前未驻留：仅记需求，不纳入淘汰候选段（修复缺失键污染 window）
         Integer r = region.get(key);
-        if (r == null) return; // 未登记（缺失键 / 已被摘除）：仅记需求，不纳入淘汰候选段
+        if (r == null) return;
         switch (r) {
             case R_WINDOW -> {
                 windowLock.lock();

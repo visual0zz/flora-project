@@ -31,7 +31,7 @@ public final class LFUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onPut(K key) {
+    public void onPut(K key, boolean existed) {
         long s = seq.incrementAndGet();
         freq.compute(key, (_, v) -> {
             if (v == null) return new long[]{1, s};
@@ -42,12 +42,12 @@ public final class LFUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onGet(K key) {
+    public void onGet(K key, boolean existed) {
         // LFU 无独立的读取专属逻辑：读取的热度累加由 onTouch 统一承担（未命中键不在索引中，自然无操作）
     }
 
     @Override
-    public void onTouch(K key) {
+    public void onTouch(K key, boolean existed) {
         freq.computeIfPresent(key, (_, v) -> {
             v[0]++;
             v[1] = seq.incrementAndGet();

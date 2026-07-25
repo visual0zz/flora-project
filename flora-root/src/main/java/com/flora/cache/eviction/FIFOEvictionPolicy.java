@@ -30,7 +30,7 @@ public final class FIFOEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onPut(K key) {
+    public void onPut(K key, boolean existed) {
         lock.lock();
         try {
             queue.put(key, key);
@@ -40,12 +40,12 @@ public final class FIFOEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onGet(K key) {
+    public void onGet(K key, boolean existed) {
         // FIFO 忽略读取：顺序仅由写入决定
     }
 
     @Override
-    public void onTouch(K key) {
+    public void onTouch(K key, boolean existed) {
         // FIFO 忽略热度：顺序仅由写入决定
     }
 

@@ -30,7 +30,7 @@ public final class LRUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onPut(K key) {
+    public void onPut(K key, boolean existed) {
         lock.lock();
         try {
             order.put(key, key);
@@ -40,7 +40,7 @@ public final class LRUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onGet(K key) {
+    public void onGet(K key, boolean existed) {
         lock.lock();
         try {
             if (order.containsKey(key)) order.get(key); // 命中读取 → 移到 MRU
@@ -50,7 +50,7 @@ public final class LRUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onTouch(K key) {
+    public void onTouch(K key, boolean existed) {
         lock.lock();
         try {
             if (order.containsKey(key)) order.get(key); // 引用 → 移到 MRU（刷新最近使用）

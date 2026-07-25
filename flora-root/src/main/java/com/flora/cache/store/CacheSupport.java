@@ -46,15 +46,15 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
         if (value == null) throw new NullPointerException("value must not be null");
         if (rawContains(key)) {
             rawPut(key, value);
-            onPut(key);
-            onTouch(key);
+            onPut(key, true);
+            onTouch(key, true);
             fire(CacheEventType.UPDATE, key, value);
             fire(CacheEventType.MUTATE, key, value);
         } else {
             afterWrite();
             rawPut(key, value);
-            onPut(key);
-            onTouch(key);
+            onPut(key, false);
+            onTouch(key, false);
             fire(CacheEventType.INSERT, key, value);
             fire(CacheEventType.MUTATE, key, value);
         }
@@ -64,20 +64,20 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
     public boolean putIfAbsent(K key, V value) {
         if (value == null) throw new NullPointerException("value must not be null");
         if (rawContains(key)) {
-            onPut(key);
-            onTouch(key);
+            onPut(key, true);
+            onTouch(key, true);
             return false;
         }
         afterWrite();
         boolean inserted = rawPutIfAbsent(key, value);
             if (inserted) {
-                onPut(key);
-                onTouch(key);
+                onPut(key, false);
+                onTouch(key, false);
                 fire(CacheEventType.INSERT, key, value);
             fire(CacheEventType.MUTATE, key, value);
         } else {
-            onPut(key);
-            onTouch(key);
+            onPut(key, true);
+            onTouch(key, true);
         }
         return inserted;
     }
@@ -95,15 +95,15 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
         }
         if (rawContains(key)) {
             rawPut(key, value, duration);
-            onPut(key);
-            onTouch(key);
+            onPut(key, true);
+            onTouch(key, true);
             fire(CacheEventType.UPDATE, key, value);
             fire(CacheEventType.MUTATE, key, value);
         } else {
             afterWrite();
             rawPut(key, value, duration);
-            onPut(key);
-            onTouch(key);
+            onPut(key, false);
+            onTouch(key, false);
             fire(CacheEventType.INSERT, key, value);
             fire(CacheEventType.MUTATE, key, value);
         }
@@ -119,20 +119,20 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             return false;
         }
         if (rawContains(key)) {
-            onPut(key);
-            onTouch(key);
+            onPut(key, true);
+            onTouch(key, true);
             return false;
         }
         afterWrite();
         boolean inserted = rawPutIfAbsent(key, value, duration);
             if (inserted) {
-                onPut(key);
-                onTouch(key);
+                onPut(key, false);
+                onTouch(key, false);
                 fire(CacheEventType.INSERT, key, value);
             fire(CacheEventType.MUTATE, key, value);
         } else {
-            onPut(key);
-            onTouch(key);
+            onPut(key, true);
+            onTouch(key, true);
         }
         return inserted;
     }
@@ -142,8 +142,8 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
     @Override
     public V get(K key) {
         V v = rawGet(key);
-        onGet(key);
-        onTouch(key);
+        onGet(key, v != null);
+        onTouch(key, v != null);
         return v;
     }
 
@@ -204,19 +204,19 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
     // ========== 内部：策略回调 ==========
 
     // 策略已挂载（policy != null）时即向策略喂数据；selectEvictVictim() 在容量未超限时返回 null，故不会触发删除。
-    private void onPut(K key) {
+    private void onPut(K key, boolean existed) {
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onPut(key);
+        if (p != null) p.onPut(key, existed);
     }
 
-    private void onGet(K key) {
+    private void onGet(K key, boolean existed) {
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onGet(key);
+        if (p != null) p.onGet(key, existed);
     }
 
-    private void onTouch(K key) {
+    private void onTouch(K key, boolean existed) {
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onTouch(key);
+        if (p != null) p.onTouch(key, existed);
     }
 
     protected void onRemove(K key) {

@@ -8,17 +8,17 @@ import com.flora.cache.ObservableCache;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * 远程缓存（Redis 等）抽象基类，键与值均为 {@code String}，与 Redis 协议对应。
  * <p>
- * 直接承载缓存编排与事件派发，不再依赖独立的缓存引擎类。子类用具体 Redis 客户端实现
- * {@code doXxx} 钩子即可获得完整远程缓存。
- * <p>
- * 本类刻意精简：远端过期与淘汰由后端（如 Redis maxmemory-policy）管理，故不承载容量维度、
- * 淘汰策略与本地过期扫描。线程安全性取决于子类所用客户端。
+ * 子类用具体 Redis 客户端实现 {@code doXxx} 钩子即可获得完整远程缓存。本类刻意精简：
+ * 远端过期与淘汰由后端（如 Redis maxmemory-policy）管理，故不承载容量维度、淘汰策略与本地过期扫描，
+ * 也不区分 {@code INSERT}/{@code UPDATE}（每次 put 统一派发 INSERT，由后端语义决定覆盖行为）。
+ * 线程安全性取决于子类所用客户端。
  *
  * <pre>{@code
  * RemoteCache cache = new RemoteCache("myapp:") {
@@ -37,10 +37,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public abstract class RemoteCache
         implements Cache<String, String>, ObservableCache<String, String> {
 
-    /** 永不过期标记：ttlMillis ≤ 0 表示写入永不过期的键 */
+    /** 永不过期标记：ttlMillis == NO_EXPIRE 表示写入永不过期的键。 */
     protected static final long NO_EXPIRE = -1L;
 
-    /** 命名空间前缀，可为空串；非空时所有 key 操作前自动拼接 */
+    /** 命名空间前缀，可为空串；非空时所有 key 操作前自动拼接。 */
     private final String namespace;
 
     private final Map<CacheEventType, List<CacheEventListener<? super String, ? super String>>> listeners
@@ -57,7 +57,7 @@ public abstract class RemoteCache
         this.namespace = namespace == null ? "" : namespace;
     }
 
-    // ========== 留口子：子类用 Redis 客户端实现以下钩子 ==========
+    // ========== 子类钩子（用具体 Redis 客户端实现） ==========
 
     /** 写入键值。{@code ttlMillis > 0} 时同时设置过期时间（毫秒）；{@code ttlMillis == NO_EXPIRE} 时写入永不过期的键。 */
     protected abstract void doSet(String key, String value, long ttlMillis);
@@ -98,7 +98,7 @@ public abstract class RemoteCache
         return d == null || d.equals(Duration.MAX) ? NO_EXPIRE : d.toMillis();
     }
 
-    // ========== 私有存储方法（调用 doXxx） ==========
+    // ========== 存储原语（调用 doXxx） ==========
 
     private void storePut(String key, String value) {
         doSet(wrapKey(key), value, NO_EXPIRE);
@@ -120,6 +120,7 @@ public abstract class RemoteCache
         return doGet(wrapKey(key));
     }
 
+    /** 读后删，返回被删前的值（无监听器时不调用，避免无谓的远端读）。 */
     private String storeRemove(String key) {
         String value = doGet(wrapKey(key));
         doDelete(wrapKey(key));
@@ -139,7 +140,6 @@ public abstract class RemoteCache
     }
 
     private void storeSetTtl(String key, Duration duration) {
-        if (duration == null) return;
         doExpire(wrapKey(key), toTtlMillis(duration));
     }
 
@@ -155,26 +155,14 @@ public abstract class RemoteCache
 
     @Override
     public void put(String key, String value) {
-        if (value == null) throw new NullPointerException("value must not be null");
+        Objects.requireNonNull(value, "value must not be null");
         storePut(key, value);
-        if (hasListeners(CacheEventType.INSERT)) fire(CacheEventType.INSERT, key, null, value);
-        if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, null, value);
-    }
-
-    @Override
-    public boolean putIfAbsent(String key, String value) {
-        if (value == null) throw new NullPointerException("value must not be null");
-        boolean inserted = storePutIfAbsent(key, value);
-        if (inserted) {
-            if (hasListeners(CacheEventType.INSERT)) fire(CacheEventType.INSERT, key, null, value);
-            if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, null, value);
-        }
-        return inserted;
+        fireUpsert(key, value);
     }
 
     @Override
     public void put(String key, String value, Duration duration) {
-        if (value == null) throw new NullPointerException("value must not be null");
+        Objects.requireNonNull(value, "value must not be null");
         if (duration == null) {
             put(key, value);
             return;
@@ -184,24 +172,27 @@ public abstract class RemoteCache
             return;
         }
         storePut(key, value, duration);
-        if (hasListeners(CacheEventType.INSERT)) fire(CacheEventType.INSERT, key, null, value);
-        if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, null, value);
+        fireUpsert(key, value);
+    }
+
+    @Override
+    public boolean putIfAbsent(String key, String value) {
+        Objects.requireNonNull(value, "value must not be null");
+        return doPutIfAbsent(key, value, null);
     }
 
     @Override
     public boolean putIfAbsent(String key, String value, Duration duration) {
-        if (value == null) throw new NullPointerException("value must not be null");
-        if (duration == null) {
-            return putIfAbsent(key, value);
-        }
-        if (duration.isZero() || duration.isNegative()) {
-            return false;
-        }
-        boolean inserted = storePutIfAbsent(key, value, duration);
-        if (inserted) {
-            if (hasListeners(CacheEventType.INSERT)) fire(CacheEventType.INSERT, key, null, value);
-            if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, null, value);
-        }
+        Objects.requireNonNull(value, "value must not be null");
+        if (duration != null && (duration.isZero() || duration.isNegative())) return false;
+        return doPutIfAbsent(key, value, duration);
+    }
+
+    private boolean doPutIfAbsent(String key, String value, Duration duration) {
+        boolean inserted = (duration == null)
+                ? storePutIfAbsent(key, value)
+                : storePutIfAbsent(key, value, duration);
+        if (inserted) fireUpsert(key, value);
         return inserted;
     }
 
@@ -222,13 +213,10 @@ public abstract class RemoteCache
             return;
         }
         // Duration.MAX 表示永不过期（移除 TTL）；仅对存活键操作，过期/缺失键静默忽略，避免复活
-        if (storeContains(key)) {
-            storeSetTtl(key, duration);
-            if (hasListeners(CacheEventType.TOUCH) || hasListeners(CacheEventType.MUTATE)) {
-                String cur = storeGet(key);
-                if (hasListeners(CacheEventType.TOUCH)) fire(CacheEventType.TOUCH, key, cur, cur);
-                if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, cur, cur);
-            }
+        if (!storeContains(key)) return;
+        storeSetTtl(key, duration);
+        if (hasListeners(CacheEventType.TOUCH) || hasListeners(CacheEventType.MUTATE)) {
+            fireTouch(key, storeGet(key));
         }
     }
 
@@ -237,14 +225,13 @@ public abstract class RemoteCache
         return storeTtl(key);
     }
 
-    // ========== 删除 ==========
+    // ========== 删除 / 查询 ==========
 
     @Override
     public String remove(String key) {
         String old = storeRemove(key);
         if (old == null) return null;
-        if (hasListeners(CacheEventType.REMOVE)) fire(CacheEventType.REMOVE, key, old, null);
-        if (hasListeners(CacheEventType.INVALIDATE)) fire(CacheEventType.INVALIDATE, key, old, null);
+        fireRemoval(key, old, CacheEventType.REMOVE);
         return old;
     }
 
@@ -269,11 +256,10 @@ public abstract class RemoteCache
     private void expireKey(String key) {
         String old = storeRemove(key);
         if (old == null) return;
-        if (hasListeners(CacheEventType.EXPIRE)) fire(CacheEventType.EXPIRE, key, old, null);
-        if (hasListeners(CacheEventType.INVALIDATE)) fire(CacheEventType.INVALIDATE, key, old, null);
+        fireRemoval(key, old, CacheEventType.EXPIRE);
     }
 
-    // ========== 事件监听器 ==========
+    // ========== 事件监听器（ObservableCache） ==========
 
     @Override
     public void addListener(CacheEventType type, CacheEventListener<? super String, ? super String> listener) {
@@ -297,6 +283,24 @@ public abstract class RemoteCache
     private boolean hasListeners(CacheEventType type) {
         List<CacheEventListener<? super String, ? super String>> list = listeners.get(type);
         return list != null && !list.isEmpty();
+    }
+
+    /** 写事件派发：INSERT 与聚合 MUTATE 一并触发；无监听器时不读取或派发。 */
+    private void fireUpsert(String key, String value) {
+        if (hasListeners(CacheEventType.INSERT)) fire(CacheEventType.INSERT, key, null, value);
+        if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, null, value);
+    }
+
+    /** TTL 刷新事件派发：TOUCH 与聚合 MUTATE 一并触发（值不变，old/new 均为当前值）。 */
+    private void fireTouch(String key, String value) {
+        if (hasListeners(CacheEventType.TOUCH)) fire(CacheEventType.TOUCH, key, value, value);
+        if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, value, value);
+    }
+
+    /** 失效事件派发：具体类型（REMOVE/EXPIRE）与聚合 INVALIDATE 一并触发。 */
+    private void fireRemoval(String key, String old, CacheEventType primary) {
+        if (hasListeners(primary)) fire(primary, key, old, null);
+        if (hasListeners(CacheEventType.INVALIDATE)) fire(CacheEventType.INVALIDATE, key, old, null);
     }
 
     /**

@@ -139,6 +139,15 @@ class MemoryCacheTest {
     }
 
     @Test
+    void removeExpiredKeyReturnsNull() throws InterruptedException {
+        MemoryCache<Integer, Integer> c = new MemoryCache<>();
+        c.put(1, 1, Duration.ofMillis(50));
+        Thread.sleep(90); // 已过期（逻辑删除），物理仍在 map 中
+        assertNull(c.remove(1)); // 与 get/containsKey 一致，过期键视为不存在，不返回旧值
+        assertFalse(c.containsKey(1));
+    }
+
+    @Test
     void clearEmpties() {
         MemoryCache<Integer, Integer> c = new MemoryCache<>();
         c.put(1, 1);

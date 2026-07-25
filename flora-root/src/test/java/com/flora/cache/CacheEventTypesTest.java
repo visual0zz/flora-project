@@ -104,6 +104,30 @@ class CacheEventTypesTest {
     }
 
     @Test
+    void updateCarriesRealOldValue() {
+        MemoryCache<Integer, Integer> c = new MemoryCache<>();
+        c.put(1, 10);
+        List<Integer> oldValues = new ArrayList<>();
+        c.addListener(CacheEventType.UPDATE, (t, k, o, n) -> oldValues.add((Integer) o));
+
+        c.put(1, 20); // 覆盖写
+
+        assertEquals(List.of(10), oldValues); // oldValue 应为覆盖前的 10，而非新值 20
+    }
+
+    @Test
+    void mutateCarriesRealOldValueOnUpdate() {
+        MemoryCache<Integer, Integer> c = new MemoryCache<>();
+        c.put(1, 10);
+        List<Integer> oldValues = new ArrayList<>();
+        c.addListener(CacheEventType.MUTATE, (t, k, o, n) -> oldValues.add((Integer) o));
+
+        c.put(1, 20); // 覆盖写
+
+        assertEquals(List.of(10), oldValues); // 聚合事件同样携带真实旧值
+    }
+
+    @Test
     void listenerExceptionDoesNotBreakOperationOrSkipOthers() {
         MemoryCache<Integer, Integer> c = new MemoryCache<>();
         List<CacheEventType> seenByHealthy = new ArrayList<>();

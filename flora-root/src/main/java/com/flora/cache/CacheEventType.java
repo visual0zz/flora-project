@@ -17,7 +17,7 @@ public enum CacheEventType {
     /** 缓存项被更新覆盖（put 一个已存在的 key） */
     UPDATE,
 
-    /** 缓存项 TTL 被刷新（{@link Cache#setTtl(Object, Duration)} 续期，不换值） */
+    /** 缓存项 TTL 被刷新 */
     TOUCH,
 
     /**

@@ -11,7 +11,6 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 
 /**
  * 缓存引擎：承载读写、TTL、事件派发、可选淘汰策略与可选容量的通用编排。
@@ -54,15 +53,18 @@ public class CacheEngine<K, V> {
             store.rawPut(key, value);
             onPut(key, true);
             onTouch(key, true);
-            fire(CacheEventType.UPDATE, key, () -> store.rawGet(key), () -> value);
-            fire(CacheEventType.MUTATE, key, () -> store.rawGet(key), () -> value);
+            if (hasListeners(CacheEventType.UPDATE) || hasListeners(CacheEventType.MUTATE)) {
+                V old = store.rawGet(key);
+                if (hasListeners(CacheEventType.UPDATE)) fire(CacheEventType.UPDATE, key, old, value);
+                if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, old, value);
+            }
         } else {
             ensureCapacity();
             store.rawPut(key, value);
             onPut(key, false);
             onTouch(key, false);
-            fire(CacheEventType.INSERT, key, () -> null, () -> value);
-            fire(CacheEventType.MUTATE, key, () -> null, () -> value);
+            if (hasListeners(CacheEventType.INSERT)) fire(CacheEventType.INSERT, key, null, value);
+            if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, null, value);
         }
     }
 
@@ -78,8 +80,8 @@ public class CacheEngine<K, V> {
         if (inserted) {
             onPut(key, false);
             onTouch(key, false);
-            fire(CacheEventType.INSERT, key, () -> null, () -> value);
-            fire(CacheEventType.MUTATE, key, () -> null, () -> value);
+            if (hasListeners(CacheEventType.INSERT)) fire(CacheEventType.INSERT, key, null, value);
+            if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, null, value);
         } else {
             onPut(key, true);
             onTouch(key, true);
@@ -101,15 +103,18 @@ public class CacheEngine<K, V> {
             store.rawPut(key, value, duration);
             onPut(key, true);
             onTouch(key, true);
-            fire(CacheEventType.UPDATE, key, () -> store.rawGet(key), () -> value);
-            fire(CacheEventType.MUTATE, key, () -> store.rawGet(key), () -> value);
+            if (hasListeners(CacheEventType.UPDATE) || hasListeners(CacheEventType.MUTATE)) {
+                V old = store.rawGet(key);
+                if (hasListeners(CacheEventType.UPDATE)) fire(CacheEventType.UPDATE, key, old, value);
+                if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, old, value);
+            }
         } else {
             ensureCapacity();
             store.rawPut(key, value, duration);
             onPut(key, false);
             onTouch(key, false);
-            fire(CacheEventType.INSERT, key, () -> null, () -> value);
-            fire(CacheEventType.MUTATE, key, () -> null, () -> value);
+            if (hasListeners(CacheEventType.INSERT)) fire(CacheEventType.INSERT, key, null, value);
+            if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, null, value);
         }
     }
 
@@ -131,8 +136,8 @@ public class CacheEngine<K, V> {
         if (inserted) {
             onPut(key, false);
             onTouch(key, false);
-            fire(CacheEventType.INSERT, key, () -> null, () -> value);
-            fire(CacheEventType.MUTATE, key, () -> null, () -> value);
+            if (hasListeners(CacheEventType.INSERT)) fire(CacheEventType.INSERT, key, null, value);
+            if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, null, value);
         } else {
             onPut(key, true);
             onTouch(key, true);
@@ -167,9 +172,12 @@ public class CacheEngine<K, V> {
         if (store.rawContains(key)) {
             store.rawSetTtl(key, duration);
             onTouch(key, true); // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度
-            // cur 以惰性提供者传入：仅当确有 TOUCH/MUTATE 监听器时才回读存储
-            fire(CacheEventType.TOUCH, key, () -> store.rawGet(key), () -> store.rawGet(key));
-            fire(CacheEventType.MUTATE, key, () -> store.rawGet(key), () -> store.rawGet(key));
+            // 仅当确有 TOUCH/MUTATE 监听器时才回读存储，避免无谓的存储读写
+            if (hasListeners(CacheEventType.TOUCH) || hasListeners(CacheEventType.MUTATE)) {
+                V cur = store.rawGet(key);
+                if (hasListeners(CacheEventType.TOUCH)) fire(CacheEventType.TOUCH, key, cur, cur);
+                if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, cur, cur);
+            }
         } else {
             store.rawSetTtl(key, duration);
         }
@@ -186,8 +194,8 @@ public class CacheEngine<K, V> {
         if (old == null) return null;
         onRemove(key);
         onExplicitRemove(key);
-        fire(CacheEventType.REMOVE, key, () -> old, () -> null);
-        fire(CacheEventType.INVALIDATE, key, () -> old, () -> null);
+        if (hasListeners(CacheEventType.REMOVE)) fire(CacheEventType.REMOVE, key, old, null);
+        if (hasListeners(CacheEventType.INVALIDATE)) fire(CacheEventType.INVALIDATE, key, old, null);
         return old;
     }
 
@@ -195,7 +203,7 @@ public class CacheEngine<K, V> {
         store.rawClear();
         EvictionPolicy<K, V> p = policy;
         if (p != null) p.clear();
-        fire(CacheEventType.CLEAR, null, () -> null, () -> null);
+        if (hasListeners(CacheEventType.CLEAR)) fire(CacheEventType.CLEAR, null, null, null);
     }
 
     // ========== 查询 ==========
@@ -294,8 +302,8 @@ public class CacheEngine<K, V> {
         if (old == null) return false;
         onRemove(key);
         onExpire(key);
-        fire(CacheEventType.EXPIRE, key, () -> old, () -> null);
-        fire(CacheEventType.INVALIDATE, key, () -> old, () -> null);
+        if (hasListeners(CacheEventType.EXPIRE)) fire(CacheEventType.EXPIRE, key, old, null);
+        if (hasListeners(CacheEventType.INVALIDATE)) fire(CacheEventType.INVALIDATE, key, old, null);
         return true;
     }
 
@@ -317,8 +325,8 @@ public class CacheEngine<K, V> {
                 if (old != null) {
                     onRemove(victim);
                     onEvict(victim);
-                    fire(CacheEventType.EVICT, victim, () -> old, () -> null);
-                    fire(CacheEventType.INVALIDATE, victim, () -> old, () -> null);
+                    if (hasListeners(CacheEventType.EVICT)) fire(CacheEventType.EVICT, victim, old, null);
+                    if (hasListeners(CacheEventType.INVALIDATE)) fire(CacheEventType.INVALIDATE, victim, old, null);
                 }
             }
         } finally {
@@ -353,10 +361,10 @@ public class CacheEngine<K, V> {
      * 触发事件。约定：实际存储操作已完成之后才调用本方法，故监听器异常不影响已提交的业务逻辑。
      * 异常隔离：单个监听器异常被就地吞掉并继续派发其余监听器。
      * <p>
-     * {@code oldValue} / {@code newValue} 仅在本类型确有监听器时才求值一次，避免无谓的存储读写。
+     * {@code oldValue} / {@code newValue} 为真实值，由各调用点在派发前通过 {@code if (hasListeners(type))}
+     * 判断后才求值传入，故没有监听器时不会触发任何无谓的存储读写。
      */
-    private void fire(CacheEventType type, K key,
-                      Supplier<? extends V> oldValue, Supplier<? extends V> newValue) {
+    private void fire(CacheEventType type, K key, V oldValue, V newValue) {
         List<CacheEventListener<? super K, ? super V>> list = listeners.get(type);
         if (list == null || list.isEmpty()) return;
         for (CacheEventListener<? super K, ? super V> l : list) {

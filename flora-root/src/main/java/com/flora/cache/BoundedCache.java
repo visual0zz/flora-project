@@ -18,15 +18,4 @@ public interface BoundedCache<K, V> extends EvictableCache<K, V> {
 
     /** 容量上限；{@code 0} 或负数表示无上限。 */
     long capacity();
-
-    /**
-     * 挂载淘汰策略插件。挂上后即获得该策略的淘汰能力（受 {@link #capacity()} 约束）；
-     * 传入 {@code null} 表示移除插件。重复挂载只会替换插件，不会嵌套。
-     *
-     * @param policy 淘汰策略插件，或 {@code null}
-     */
-    void setEvictionPolicy(EvictionPolicy<K, V> policy);
-
-    /** 返回当前挂载的淘汰策略插件；未挂载返回 {@code null}。 */
-    EvictionPolicy<K, V> evictionPolicy();
 }

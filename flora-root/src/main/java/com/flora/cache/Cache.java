@@ -1,7 +1,6 @@
 package com.flora.cache;
 
 import java.time.Duration;
-import java.util.Collections;
 
 /**
  * 缓存存储契约：定义 KV 读写、TTL 与基础查询的最小公共能力。
@@ -58,16 +57,4 @@ public interface Cache<K, V> {
 
     /** key 是否存在（未过期）。 */
     boolean containsKey(K key);
-
-    // ---- 过期扫描支撑（供内部 gc 使用，默认空实现） ----
-
-    /** 返回所有 key 的快照视图，供主动过期扫描（gc）。不支持主动过期的存储可忽略。 */
-    default Iterable<K> keys() {
-        return Collections.emptySet();
-    }
-
-    /** 指定 key 当前是否已过期（未过期或不存在返回 {@code false}）。 */
-    default boolean isExpired(K key) {
-        return false;
-    }
 }

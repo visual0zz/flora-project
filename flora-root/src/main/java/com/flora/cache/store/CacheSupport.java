@@ -190,16 +190,6 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
         return rawContains(key);
     }
 
-    @Override
-    public Iterable<K> keys() {
-        return rawKeys();
-    }
-
-    @Override
-    public boolean isExpired(K key) {
-        return rawIsExpired(key);
-    }
-
     // ========== 内部：策略回调 ==========
 
     // 策略已挂载（policy != null）时即向策略喂数据；evict() 在容量未超限时返回 null，故不会触发删除。

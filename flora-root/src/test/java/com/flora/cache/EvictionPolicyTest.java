@@ -4,7 +4,7 @@ import com.flora.cache.CacheStore;
 import com.flora.cache.eviction.FIFOEvictionPolicy;
 import com.flora.cache.eviction.LFUEvictionPolicy;
 import com.flora.cache.eviction.LRUEvictionPolicy;
-import com.flora.cache.store.ConcurrentHashMapStore;
+import com.flora.cache.store.MemoryCache;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,8 +14,8 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class EvictionPolicyTest {
 
-    private static <K, V> ConcurrentHashMapStore<K, V> cache(int cap, java.util.function.Function<ConcurrentHashMapStore<K, V>, EvictionPolicy<K, V>> policyFn) {
-        ConcurrentHashMapStore<K, V> store = new ConcurrentHashMapStore<>(cap);
+    private static <K, V> MemoryCache<K, V> cache(int cap, java.util.function.Function<MemoryCache<K, V>, EvictionPolicy<K, V>> policyFn) {
+        MemoryCache<K, V> store = new MemoryCache<>(cap);
         store.setEvictionPolicy(policyFn.apply(store));
         return store;
     }

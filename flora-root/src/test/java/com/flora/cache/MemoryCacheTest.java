@@ -1,6 +1,6 @@
 package com.flora.cache;
 
-import com.flora.cache.store.ConcurrentHashMapStore;
+import com.flora.cache.eviction.LRUEvictionPolicy;
 import com.flora.cache.store.MemoryCache;
 import org.junit.jupiter.api.Test;
 
@@ -109,13 +109,14 @@ class MemoryCacheTest {
         assertFalse(c.containsKey(1));
     }
 
-    /** 插件式架构冒烟：任意 CacheStore + 任意 EvictionPolicy 插件可自由装配 */
+    /** 插件式架构冒烟：构造即自带 W-TinyLFU，且可自由替换为其它策略插件 */
     @Test
     void composableSmoke() {
-        ConcurrentHashMapStore<String, String> store = new ConcurrentHashMapStore<>(10);
-        store.setEvictionPolicy(new com.flora.cache.eviction.WTinyLfuEvictionPolicy<>(10, store::approxCount));
+        MemoryCache<String, String> store = new MemoryCache<>(10);
+        assertNotNull(store.evictionPolicy(), "构造应自带 W-TinyLFU 策略");
+        store.setEvictionPolicy(new LRUEvictionPolicy<>(10, store::approxCount));
         store.put("k", "v");
         assertEquals("v", store.get("k"));
-        assertNotNull(store.evictionPolicy());
+        assertTrue(store.evictionPolicy() instanceof LRUEvictionPolicy);
     }
 }

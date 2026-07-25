@@ -5,7 +5,7 @@ package com.flora.cache;
  * <p>
  * 策略按 key 接收读写通知，自行维护全部索引（如 LRU 分段、频率素描），
  * 以 O(1) 产出待淘汰的 key。被淘汰的 key 由挂载它的 {@link BoundedCacheStore}
- * （如 {@code ConcurrentHashMapStore} 经 {@link BoundedCacheStore#setEvictionPolicy} 挂上本策略）
+ * （如 {@code MemoryCache} 经 {@link BoundedCacheStore#setEvictionPolicy} 挂上本策略）
  * 负责从存储中删除并触发 {@code EVICT}/{@code INVALIDATE} 事件；策略本身不持有 value、
  * 不触发监听器，从而与具体存储实现完全解耦，可自由组合。
  * <p>

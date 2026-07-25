@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 验证 LRU / LFU / FIFO 三种淘汰策略作为插件挂载到 ConcurrentHashMapStore 后产生确定性淘汰顺序。
+ * 验证 LRU / LFU / FIFO 三种淘汰策略作为插件挂载到 MemoryCache 后产生确定性淘汰顺序。
  */
 class EvictionPolicyTest {
 

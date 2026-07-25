@@ -9,8 +9,8 @@ package com.flora.cache;
  * 负责从存储中删除并触发 {@code EVICT}/{@code INVALIDATE} 事件；策略本身不持有 value、
  * 不触发监听器，从而与具体存储实现完全解耦，可自由组合。
  * <p>
- * 单体缓存（把存储与策略焊死的实现）直接实现 {@link BoundedCache} 即可；
- * 其内部可复用某个 {@code EvictionPolicy} 实现。
+ * 单体缓存（把存储与策略焊死的实现）可继承 {@code com.flora.cache.store.BoundedCacheSupport}
+ * （或自行实现 {@link BoundedCache}）；其内部复用某个 {@link EvictionPolicy} 实现。
  *
  * @param <K> 键类型
  * @param <V> 值类型（策略通常不感知具体值，仅为与 {@link Cache} 对称保留）

@@ -11,7 +11,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 验证重构后的 MemoryCache（= ConcurrentHashMapStore + WTinyLfuEvictionPolicy 组合）
+ * 验证合并后的 MemoryCache（继承 BoundedCacheSupport，构造即自挂 W-TinyLFU + TTL）
  * 行为正确：基础读写、TTL 过期、事件、容量边界、putIfAbsent、无界模式。
  */
 class MemoryCacheTest {

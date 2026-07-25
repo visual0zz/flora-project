@@ -7,7 +7,8 @@ import java.util.Map;
  * <p>
  * 任何希望被监听（{@code INSERT}/{@code UPDATE}/{@code TOUCH}/{@code EVICT}/
  * {@code EXPIRE}/{@code REMOVE}/{@code INVALIDATE}/{@code MUTATE}）的缓存至少实现本接口。
- * 淘汰策略的挂载不在此层，而在 {@link BoundedCache}（尺寸那一层）。
+ * 本接口属于「可观测轴」，与淘汰轴（{@link EvictableCache} / {@link BoundedCache}）正交：
+ * 淘汰策略的挂载不在本接口，而在 {@link EvictableCache}（由 {@link BoundedCache} 继承并叠加容量）。
  *
  * @param <K> 键类型
  * @param <V> 值类型

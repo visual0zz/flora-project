@@ -233,7 +233,7 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
         // 准入分支（候选进入主区、本步不删存储）不返回、继续清窗口，与原 ensureCapacity 的 while 一致。
         while (windowSize() > windowMax && sizeOf.getAsLong() > capacity - windowMax) {
             K v = evictFromWindow();
-            if (v != null) return v; // 本步真正删除了一个存储项，交由组合层处理
+            if (v != null) return v; // 本步真正删除了一个存储项，交由挂载它的缓存引擎处理
         }
         // 极端回退：仍超容时直接从 probation 尾部强删
         if (sizeOf.getAsLong() > capacity) {

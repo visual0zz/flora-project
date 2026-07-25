@@ -1,123 +1,168 @@
-# 代码审查：com.flora.cache 包
+# 代码审查：cache 包
 
-- 审查日期：2026-07-25
-- 审查范围：`flora-root/src/main/java/com/flora/cache`（含 `store`、`eviction` 子包，共 16 个文件）
-- 审查基线：提交 `f676aaa`（容量下放 + 冗余清理之后）
-- 审查结论：**整体结构清晰（ISP 分层、策略插件化、异常隔离到位），发现 1 处需修复的容量失守缺陷（F1）、1 处高缺失场景下的质量缺陷（F2），其余为低危/信息项。**
+- 日期：2026-07-25
+- 范围：`flora-root/src/main/java/com/flora/cache/**`（含 `store`、`eviction` 子包）
+- 审查维度：逻辑正确性、功能分工合理性、功能与名称一致性
+- 结论：**整体架构清晰、分层合理**，但发现若干逻辑缺陷（含 2 个较严重的契约/语义 bug）与命名/文档不一致，建议修复。
 
----
+## 一、包结构与分工概览
 
-## 一、正面评价
+```
+cache/
+  Cache / EvictableCache / ObservableCache / BoundedCache  能力契约（接口 mixin）
+  CacheEventType / CacheEventListener                      事件定义
+  EvictionPolicy                                          淘汰策略 SPI
+  store/
+    RawStore         存储 SPI（真正 KV/TTL 读写）
+    CacheEngine      通用编排（读写/TTL/事件/可选淘汰/可选容量），组合 RawStore
+    MemoryCache      实现 RawStore + 组合 CacheEngine，默认挂 W-TinyLFU
+    RemoteCache      抽象远程缓存（Redis 语义），组合无容量/无策略的 CacheEngine
+  eviction/
+    WTinyLfu / LRU / LFU / FIFO                            策略实现
+```
 
-- 接口正交分层干净：`Cache` → `ObservableCache`/`EvictableCache` → `BoundedCache`，能力按需 opt-in，符合接口隔离原则。
-- 淘汰策略为纯插件（`EvictionPolicy` 只决策、不碰存储），引擎 `CacheSupport` 通过 `rawXxx` 钩子 + `afterWrite()` 模板方法承担删除与事件派发，职责单一。
-- `fire()` 对监听器异常做隔离（`CacheSupport.java:270`），单个监听器故障不影响主流程，符合缓存可观测性的健壮性要求。
-- Javadoc 聚焦接口自身核心约定，注释与代码行为一致。
+模式为「接口分层 + SPI + 委托编排」，职责边界总体清晰。`MemoryCache`/`RemoteCache` 各自实现 `RawStore` 并委托 `CacheEngine`，是合理且可扩展的设计。
 
----
+## 二、逻辑正确性
 
-## 二、缺陷（按严重度）
+### 【高】1. UPDATE / MUTATE 事件的 `oldValue` 返回的是新值而非旧值
 
-### F1【中/高】W-TinyLFU：准入被拒时受害者泄漏，极端场景可导致容量无限超出
-
-位置：`WTinyLfuEvictionPolicy.java:317-365`（`pickMainVictim` + `evictFromWindow`）。
-
-`pickMainVictim()` **无条件**把受害者从 `probation` 摘除并置 `region=DETACHED`；随后在 `evictFromWindow()` 的 else 分支（候选频率不占优，即「受害者胜出」）中，代码只返回候选让引擎删除候选，受害者**留在后端存储但已不在任何分段、标记为 DETACHED**。作者注释称「与原实现一致：泄漏出索引，不再追踪」。
-
-问题链条：
-
-1. 每一次「受害者胜出」都会使 `probation` 少一项、存储却未少对应项（候选被删，受害者留下）→ `probation` 逐渐抽空。
-2. 当 `probation` 被抽空后，唯一能兜底的强删路径 `evict()` 第 239 行 `if (sizeOf.getAsLong() > capacity) { pollEldest(probation...) }` 因 `probation` 为空而返回 `null`。
-3. 此时若 `sizeOf == capacity`，`evict()` 在窗口分支（需 `windowSize > windowMax`）与兜底分支（`sizeOf > capacity`）均不成立，直接返回 `null`。
-4. 引擎 `BoundedCacheSupport.afterWrite()` 的 `while (... (victim = p.evict()) != null)` 立即终止；随后 `CacheSupport.put` 的 else 分支执行 `rawPut` 加入新项 → `sizeOf` 变为 `capacity+1`。
-5. 下一轮 `sizeOf > capacity` 成立，但 `probation` 仍空 → 兜底再次失败 → `evict()` 返回 `null` → 继续 `rawPut` → **容量无界增长**。
-
-常规负载下（候选多被准入、probation 不空）缓存仅会在 `capacity`~`capacity+1` 间抖动，兜底可正常回收；但当存在持续准入拒绝（候选频率长期不占优）时，会触发上述无界增长，属于真实健壮性缺陷。
-
-建议修复（保持语义：受害者胜出则保留受害者）：在 `evictFromWindow()` 的 else 分支中，既然受害者胜出，应将其**重新放回 `probation`** 而非置 `DETACHED`，只删除候选：
+`CacheEngine.java:53-58`（以及 `:100-105` 的带 TTL 分支）：
 
 ```java
-} else {
-    // 候选频率不占优：受害者胜出，保留回 probation；仅删除候选
-    region.put(victim, R_PROBATION);
-    probation.put(victim, victim);
-    return candidate;
+if (store.rawContains(key)) {
+    store.rawPut(key, value);                 // 已覆盖写入新值
+    ...
+    fire(CacheEventType.UPDATE, key, () -> store.rawGet(key), () -> value);
+    //                               ^^^^^^^^^^^^^^^^^^^^^^^^ 此时 store 已是新值
 }
 ```
 
-这样 `probation` 不会被抽空，兜底路径长期有效，容量可维持为硬上限。
+`oldValue` 供应商 `() -> store.rawGet(key)` 在 `rawPut` 之后求值，取到的是**更新后的值**。`CacheEventListener` 文档明确 `oldValue` = "操作前的值"，此处语义相反——任何监听 UPDATE/MUTATE 的监听器拿到的旧值都是错的。
 
----
+`REMOVE/EXPIRE/EVICT` 路径正确地用 `() -> old`（删除前捕获）传入，唯独写路径用了惰性 `rawGet`，自相矛盾。
 
-### F2【中】缺失键命中计数 + 自愈 `onPut` 导致窗口被幻影键污染，高缺失场景产生无效淘汰
+修复：在 `rawPut` 前捕获旧值，例如 `V prev = store.rawGet(key);` 再 `fire(UPDATE, key, () -> prev, () -> value)`。注意 `rawContains(key)` 为 true 时 key 必然未过期，`rawGet` 能取到真实旧值。
 
-位置：`CacheSupport.java:133-137`（`get` 对命中/未命中均调 `onAccess`）、`WTinyLfuEvictionPolicy.java:177-204`（`onAccess` 中 `region==null` 走 `onPut` 自愈）。
+> 备注：`git log` 显示本地提交 `48320fe`（"修正 put 覆盖旧值快照"）曾处理过该点，但被拉取的 `bb0c705` 覆盖回 `Supplier + rawGet` 实现，故当前磁盘代码仍带此 bug，且测试（`CacheEventTypesTest`）未断言 `oldValue` 内容，未被发现。
 
-- `CacheSupport.get` 注释明确「命中 / 未命中都计入频率」——这是有意设计，本身可接受。
-- 但 `WTinyLfuEvictionPolicy.onAccess` 当 `region.get(key) == null` 时**直接调用 `onPut(key)` 把该键重新塞入 window 段**（而不仅是累加 sketch 频率）。`region==null` 不仅对「并发摘除兜底」成立，也对「从未写入的缺失键」「已被淘汰（引擎 `onRemove` 已清 region）的键」成立。
+### 【高】2. `MemoryCache.ttl(key)` 对不存在的 key 返回 `ZERO` 而非 `null`
 
-后果：
+`MemoryCache.java:124-129`：
 
-- 高缺失（high-miss）工作负载下，任意 `get` 未命中都会把缺失键注入仅占 ~1% 容量的 window 段，并累加 sketch 频率。
-- 一个被频繁访问的缺失键会积累高 sketch 频率，在准入比较时可能**击败真实驻留的 probation 受害者**，导致引擎 `rawRemove(候选)` 删掉一个根本不在存储中的幻影键（返回 `old==null`，仍派发 `EVICT`/`INVALIDATE` 事件），同时把真实驻留项挤出。
-- 即：高缺失负载会劣化命中率并产生无意义的淘汰与事件噪声。
+```java
+public Duration rawTtl(K key) {
+    Long exp = expiry.get(key);
+    if (exp == null) return Duration.ZERO;   // 既包含“存在但永不过期”，也包含“key 根本不存在”
+    ...
+}
+```
 
-建议（二选一，倾向前者，影响更小）：
-- 收窄自愈：当 `region==null` 时只 `sketch.increment(key)` 做频率记账，**不要重新入 window**；或把自愈限定为「确实在存储中」的情形（策略侧无法查存储，可由引擎在 `get` 命中时才调 `onAccess` 来缓解）。
-- 或调整 `CacheSupport.get`：仅命中（`rawGet != null`）时调 `onAccess`，miss 不计入策略（与「命中/未命中都计频率」的当前约定相悖，需权衡）。
+`expiry` 中无记录既可能因为「key 存在且永不过期」（`Cache.ttl` 约定返回 `ZERO`，正确），也可能因为「key 根本不存在」（`Cache.ttl` 约定返回 `null`，错误）。`rawTtl` 没有用 `map.containsKey(key)` 区分两者，违反 `Cache.ttl` 的接口契约。
 
-此项与 F1 可一并评估，但属于质量（命中率）问题，严重度低于容量失守。
+对照 `RemoteCache.rawTtl`（`:209-214`）正确处理了 `-2 → null`，说明契约本意是「不存在返回 null」。
 
----
+修复：`if (!map.containsKey(key)) return null;` 后再判断 `exp == null → ZERO`。
 
-### F3【低】FrequencySketch 与 LFU 计数器的非原子读写（近似结构下的良性数据竞争）
+### 【中】3. `putIfAbsent` 命中「已过期但未清除」的 key 时不写入，却留下僵尸条目
 
-- `FrequencySketch.increment`：`if (get(idx) < MAX_COUNT) set(idx, get(idx) + 1);` 与 `reset()` 之间、`estimate` 之间均无同步；`count` 字段非 `volatile`/非原子（`++count`）。并发下会丢失计数更新、aging 触发时机略有偏差。
-- `LFUEvictionPolicy.evict()`：直接 `e.getValue()[0]` 读取 `ConcurrentHashMap` 中共享的 `long[]` 元素，而 `onAccess` 的 `computeIfPresent` 在 bin 锁内原地 `v[0]++`。读取发生在锁外，构成对 `long` 数组元素的数据竞争（JMM 不保证 `long` 数组元素读写的原子性/可见性）。
+引擎 `putIfAbsent` 先用 `rawContains(key)` 判断存在性（过期键返回 false），进入插入分支后调用 `MemoryCache.rawPutIfAbsent`：
 
-对于「近似」频率统计，单点丢失/撕裂通常可接受；但若要求严格，可将 `long[]` 改为 `AtomicLong`、或 `FrequencySketch` 的 `count` 改用 `AtomicLong`、`reset`/`increment` 加 `synchronized` 或 `LongAdder`。建议至少把 `count` 改为 `AtomicLong` 并在 `reset` 处加锁，消除最明显的竞争。
+```java
+// MemoryCache.java:87-93
+return map.computeIfAbsent(key, _ -> { ... }) == value;
+```
 
----
+`map.computeIfAbsent` 只看 `map` 的物理存在，**不感知过期**。当 key 已过期但仍残留在 `map` 中时，`computeIfAbsent` 不插入、返回旧值 → `== value` 为 false → `putIfAbsent` 返回 false；但引擎此前已按「不存在」分支执行，未触发 INSERT 事件，且陈旧过期条目继续留在存储中。`get` 仍返回 null，逻辑上该 key「既不存在又写不进去」。
 
-### F4【低】`BoundedCacheSupport.gc()` 返回值未计入被淘汰项
+同理 `putIfAbsent(key, value, duration)`（`:116-141`）存在相同问题。
 
-位置：`BoundedCacheSupport.java:42-46`。`gc()` 仅返回 `sweepExpired()` 的过期清理数，`afterWrite()` 淘汰掉的项被丢弃。文档称「返回被清理的数量」，语义上淘汰项也应计入。建议 `afterWrite()` 返回被淘汰数量并由 `gc()` 累加（需把 `afterWrite()` 改为返回 `long`；注意 `CacheSupport.afterWrite()` 当前返回 `void`，子类 `BoundedCacheSupport` 覆写，改动需同步）。
+修复：`rawPutIfAbsent` 需先剔除过期条目（或在判断存在性时与 `expiry` 联动），保证「过期 == 不存在」在读写两端一致。
 
----
+### 【中】4. `setTtl` 对「已过期但残留」的 key 会「复活」条目
 
-### F5【低】`gc()` 对过期扫描重复调用
+`CacheEngine.setTtl` 在 `rawContains(key)` 为 false 的 else 分支仍调用 `store.rawSetTtl(key, duration)`（`CacheEngine.java:173-175`），而 `MemoryCache.rawSetTtl`：
 
-`BoundedCacheSupport.gc()` 先调 `sweepExpired()`，再调 `afterWrite()`，而 `afterWrite()` 内部第 65 行又调一次 `sweepExpired()`。即一次 `gc()` 扫描过期两遍，纯属冗余开销（功能无错）。可考虑让 `afterWrite()` 不再内部扫描、由调用方决定是否扫描，或 `gc()` 只调 `afterWrite()`。
+```java
+if (map.containsKey(key)) {            // 过期键仍物理存在 → 条件成立
+    expiry.put(key, now() + duration.toMillis());   // 直接赋予新 TTL，复活
+}
+```
 
----
+对「逻辑已删除」的过期键设置 TTL，会把它复活为有效条目，与「过期即移除」的整体模型相悖。真正不存在的 key 因 `map.containsKey` 为 false 被正确忽略（符合文档「实现自行决定」），但过期键的复活属非预期副作用。建议 `setTtl` 仅在 `rawContains` 为 true 时操作，else 分支直接忽略（不调用 `rawSetTtl`）。
 
-### F6【信息/低】FIFO/LRU `evict()` 与引擎 `onRemove` 的重复摘除
+### 【中】5. 无界模式下仍默认挂载并全量运行 W-TinyLFU
 
-`FIFOEvictionPolicy.evict()` / `LRUEvictionPolicy.evict()` 在返回受害者前已从内部 `LinkedHashMap` 摘除该键；引擎随后 `rawRemove` → `onRemove` → `policy.onRemove` 又 `remove` 一次（no-op）。无害，仅冗余。LFU 同理（`evict()` 内 `freq.remove(best)`，引擎 `onRemove` 再 `remove` 一次）。
+`MemoryCache(capacity<=0)` 仍 `new WTinyLfuEvictionPolicy<>(capacity, ...)`，且 Javadoc 称「W-TinyLFU 休眠、永不淘汰」。但：
 
----
+- `selectEvictVictim` 在 `capacity<=0` 时返回 null（`ensureCapacity` 也提前返回）→ 确实不淘汰；
+- 然而 `onPut/onGet/onTouch` 仍全量维护 `FrequencySketch` 三段 `LinkedHashMap` 与 `region` 索引，**每次读写都有非平凡开销**，并非「休眠」。
 
-### F7【信息】`put` 覆盖清除 TTL 行为正确，但与 `setTtl` 缺键语义需知晓
+无界缓存（常见场景）为此白白付出 W-TinyLFU 全部维护成本。建议 `capacity<=0` 时不挂策略（或挂一个空操作策略），或在策略内对无界做短路。
 
-- `CacheSupport.put(K,V)`（无 duration）更新分支 `rawPut` 覆盖并清除原 TTL（`MemoryCache.rawPut` 第 58-61 行 `expiry.remove(key)`），与 `Cache` 接口注释「覆盖并清除原 TTL」一致，行为正确。
-- `CacheSupport.setTtl` 对不存在的键走 else 分支执行 `rawSetTtl`（实现侧静默忽略或 Redis 上无效果），与 `Cache` 注释「key 不存在由实现决定」一致。非缺陷，仅提示调用方注意该语义。
+### 【中】6. W-TinyLFU 的 `onPut` 会把「热点键」每次更新都重新打回 Window 段
 
----
+`WTinyLfuEvictionPolicy.java:164-174`：
 
-## 三、建议优先级
+```java
+public void onPut(K key, boolean existed) {
+    sketch.increment(key);
+    region.put(key, R_WINDOW);     // 无论 existed 与否，一律回到 window
+    window.put(key, key);
+}
+```
 
-| 编号 | 严重度 | 是否建议修复 |
-|------|--------|--------------|
-| F1   | 中/高  | **建议修复**（容量硬保证） |
-| F2   | 中     | 建议修复或收窄（命中率） |
-| F3   | 低     | 可选（近似结构可接受） |
-| F4   | 低     | 可选（语义完善） |
-| F5   | 低     | 可选（性能） |
-| F6   | 信息   | 无需 |
-| F7   | 信息   | 无需 |
+引擎对更新键依次调用 `onPut` → `onTouch`：由于 `onPut` 先把键塞回 `R_WINDOW`/`window`，随后 `onTouch` 看到 `R_WINDOW` 只做 window 内 LRU touch，键最终停留在 window 而非原 protected 段。后果：**频繁更新的热点键会被反复降级到窗口**，削弱 SLRU 对热键的保护，降低 W-TinyLFU 应有的命中率。标准 W-TinyLFU 中更新已存在键通常只增频率、不重置所在段。建议 `onPut` 对 `existed==true` 仅 `sketch.increment`，不要重置 `region`/段位置。
 
----
+### 【低】7. `cleanUp()` 返回值只含过期清理数，不含淘汰数
 
-## 四、测试覆盖提示
+`CacheEngine.cleanUp()` 返回 `sweepExpired()` 的计数，但 `ensureCapacity()` 内还可能淘汰多条（`EVICT`）。文档称「返回被清理的数量」，实际少计了本次触发的淘汰数。建议累加 `ensureCapacity` 的淘汰计数一并返回。
 
-当前 `flora-root` 全量 1180 测试通过。建议针对 F1 补充一个**持续准入拒绝**的回归测试：构造一个候选频率长期不占优的工作负载（如交替访问两组键，A 组常驻、B 组反复 miss），断言在反复 `put` 后 `approxCount()` 始终 ≤ `capacity`（或在概率意义上不无界增长）。
+### 【低】8. `LFUEvictionPolicy.selectEvictVictim` 为 O(n)，且在 `ensureCapacity` 的 while 循环中调用 → 最坏 O(n²)
+
+`LFUEvictionPolicy.java:63-79` 每次遍历整个 `freq` 选最小，而 `CacheEngine.ensureCapacity` 在容量超限时会循环多次调用 `selectEvictVictim`。大容量 LFU 缓存写入热点时存在性能隐患。LRU/FIFO 为 O(1)，无此问题。建议 LFU 用最小堆或分段桶维护候选。
+
+### 【低】9. `approxCount()` 把过期残留条目计入容量
+
+`MemoryCache.rawCount()` 用 `map.mappingCount()`，包含已过期但未扫描清除的条目。因此 `isFull()` 与 `ensureCapacity` 的容量判断会把过期键算进来；虽 `ensureCapacity` 先 `sweepExpired()` 兜底，但 `isFull()` 可能短暂「虚满」。属软上限容忍范围内，但 `containsKey`（过期感知）与 `approxCount`（过期不感知）口径不一致，建议在文档中说明或让 `rawCount` 也剔除已过期键。
+
+### 【低】10. `rawPutIfAbsent` 用 `== value` 判断插入成败
+
+`MemoryCache.java:82-93`、`87-93` 用 `== value`（引用相等）判定是否插入。若调用方传入与既有值**同一引用**的对象，`computeIfAbsent` 不插入却返回 true，造成「假成功」。建议用布尔标记捕获映射函数是否真正执行，而非引用比较。
+
+## 三、功能分工合理性
+
+- **能力接口分层**（Cache → EvictableCache → BoundedCache，ObservableCache 横向 mixin）：合理、正交，便于按需组合。
+- **RawStore SPI**：把「存储细节」与「缓存行为」解耦，MemoryCache/RemoteCache 各自适配，设计正确。
+- **CacheEngine 作为编排核心**：所有行为逻辑集中于此，MemoryCache/RemoteCache 仅做委托，符合单一职责；但 `CacheEngine` 放在 `store` 包却不是「存储」，**包归属有误导性**，建议移入 `cache` 或 `cache.internal`。
+- **RemoteCache 不实现 EvictableCache/BoundedCache**：正确——淘汰由服务端管理，本地不暴露相关能力，分工清晰。
+- **事件聚合族（MUTATE/INVALIDATE）与具体事件对称触发**：设计一致、易用。
+- **淘汰策略只决策不删存储**：`selectEvictVictim` 返回 key、由引擎删并派发事件，保证「删除语义唯一」（惰性过期/主动扫描共用 `expireKey`），这是本包最扎实的设计点。
+
+## 四、功能与命名一致性
+
+- `CacheEventListener` 文档称 `oldValue`/`newValue` 为 `Supplier`、`existed` 语义等，与代码一致（当前为 Supplier，历史 CompletableFuture 改动已被覆盖）。✅
+- `CacheEventType` 文档与 `CacheEngine.fire` 调用点一致（INSERT/UPDATE/TOUCH→MUTATE，EVICT/EXPIRE/REMOVE→INVALIDATE，CLEAR 单列）。✅
+- `setTtl` → 触发 `TOUCH`（文档定义为「TTL 被刷新」），一致。✅
+- `EvictionPolicy` 文档详述 `onPut/onGet/onTouch/onRemove/...` 调用约定，与 `CacheEngine` 实际调用一致。✅
+- **不一致点**：`MemoryCache` Javadoc 称无界时 W-TinyLFU「休眠」，实际仍全量运行（见问题 5）。
+- **不一致点**：`BoundedCache.cleanUp` 文档「返回被清理的数量」与实现只返回过期数（见问题 7）。
+- **命名小瑕疵**：`WTinyLfuEvictionPolicy` 字段 `region` 用 `ConcurrentHashMap` 但在锁外读取，虽 `ConcurrentHashMap` 提供可见性、功能正确，但与三段 `LinkedHashMap` 的加锁风格不统一，易误导维护者认为无需同步——建议加注释说明其无锁读是安全的。
+- `RemoteCache` 的 `NO_EXPIRE = -1L`、`MemoryCache` 的 `IMMORTAL = 0L` 含义相同（永不过期标记）但命名与取值不同，跨实现未抽象为统一常量，可读性略差。
+
+## 五、修复优先级建议
+
+| 优先级 | 问题 | 类型 |
+|--------|------|------|
+| P0 | #1 UPDATE/MUTATE oldValue 取错值 | 逻辑/语义 |
+| P0 | #2 ttl(不存在) 违反契约返回 ZERO | 契约 |
+| P1 | #3 putIfAbsent 遇过期残留键不写入 | 逻辑 |
+| P1 | #4 setTtl 复活过期键 | 逻辑/副作用 |
+| P1 | #5 无界模式 W-TinyLFU 空转开销 | 性能/文档 |
+| P1 | #6 W-TinyLFU onPut 重置热点键段 | 算法正确性 |
+| P2 | #7 cleanUp 返回值缺淘汰数 | 文档/逻辑 |
+| P2 | #8 LFU O(n²) | 性能 |
+| P2 | #9 approxCount 含过期键 | 一致性 |
+| P3 | #10 rawPutIfAbsent 引用相等判定 | 边界 |
+
+建议先修 P0 两项（均有明确接口契约违背，且测试未覆盖，风险最高），P1 四项影响并发/性能正确性，P2/P3 可后续打磨。

@@ -1,7 +1,5 @@
 package com.flora.cache.store;
 
-import com.flora.cache.EvictableCache;
-import com.flora.cache.EvictionPolicy;
 import com.flora.cache.ObservableCache;
 
 import java.time.Duration;
@@ -25,11 +23,11 @@ import java.util.Collections;
  * };
  * }</pre>
  * <p>
- * 淘汰由服务端（如 Redis maxmemory-policy）管理，故本地 {@link #setEvictionPolicy} 为空操作、无容量维度。
+ * 淘汰由服务端（如 Redis maxmemory-policy）管理，本地不暴露 EvictableCache 能力、不持有容量维度。
  * 线程安全性取决于子类所用客户端。
  */
 public abstract class RemoteCacheSupport extends CacheSupport<String, String>
-        implements ObservableCache<String, String>, EvictableCache<String, String> {
+        implements ObservableCache<String, String> {
 
     /** 永不过期标记：ttlMillis ≤ 0 表示写入永不过期的键 */
     protected static final long NO_EXPIRE = -1L;
@@ -80,13 +78,6 @@ public abstract class RemoteCacheSupport extends CacheSupport<String, String>
     /** 拼接命名空间前缀。子类可覆盖以自定义 key 编码（如哈希、序列化）。 */
     protected String wrapKey(String key) {
         return namespace + key;
-    }
-
-    // ========== 淘汰策略插件：远程由服务端管理，本地为空操作 ==========
-
-    @Override
-    public void setEvictionPolicy(EvictionPolicy<String, String> policy) {
-        // 远程缓存的淘汰在服务端进行，本地策略插件无意义，忽略。
     }
 
     // ========== 原始存储钩子 ==========

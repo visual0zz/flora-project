@@ -1,14 +1,23 @@
 package com.flora.cache.store;
 
+import com.flora.cache.Cache;
+import com.flora.cache.CacheEventType;
+import com.flora.cache.CacheEventListener;
 import com.flora.cache.ObservableCache;
 
 import java.time.Duration;
 import java.util.Collections;
 
 /**
- * 远程缓存抽象基类：继承 {@link CacheSupport}，复用其 put/get/remove 与事件派发，
- * 把网络读写留给子类实现的 {@code doXxx} 钩子（键与值均为 {@code String}，与 Redis 协议对应）：
+ * 远程缓存抽象基类（组合式）：实现 {@link RawStore} 把网络读写落在子类实现的 {@code doXxx}
+ * 钩子（键与值均为 {@code String}，与 Redis 协议对应），组合一个 {@code capacity<=0}、{@code policy=null}
+ * 的 {@link CacheEngine} 获得 put/get/remove 与事件派发能力。
  * <p>
+ * 淘汰由服务端（如 Redis maxmemory-policy）管理，本地不暴露 {@link com.flora.cache.EvictableCache}
+ * 能力、不持有容量维度——这正是把它从原本的 {@code CacheSupport} 父类体系中抽离为「组合引擎」的意义：
+ * 不再被动继承用不上的 {@code policy} 字段与淘汰逻辑。
+ * 线程安全性取决于子类所用客户端。
+ *
  * <pre>{@code
  * RemoteCache cache = new RemoteCache("myapp:") {
  *     protected void doSet(String key, String value, long ttlMillis) { jedis.set(key, value); }
@@ -22,12 +31,9 @@ import java.util.Collections;
  *     protected void doClear()                                    { ... }
  * };
  * }</pre>
- * <p>
- * 淘汰由服务端（如 Redis maxmemory-policy）管理，本地不暴露 EvictableCache 能力、不持有容量维度。
- * 线程安全性取决于子类所用客户端。
  */
-public abstract class RemoteCacheSupport extends CacheSupport<String, String>
-        implements ObservableCache<String, String> {
+public abstract class RemoteCacheSupport
+        implements RawStore<String, String>, Cache<String, String>, ObservableCache<String, String> {
 
     /** 永不过期标记：ttlMillis ≤ 0 表示写入永不过期的键 */
     protected static final long NO_EXPIRE = -1L;
@@ -35,13 +41,16 @@ public abstract class RemoteCacheSupport extends CacheSupport<String, String>
     /** 命名空间前缀，可为空串；非空时所有 key 操作前自动拼接 */
     private final String namespace;
 
+    private final CacheEngine<String, String> engine;
+
     protected RemoteCacheSupport() {
         this("");
     }
 
     protected RemoteCacheSupport(String namespace) {
-        super(); // 远程淘汰由服务端管理，本地视为无上限
         this.namespace = namespace == null ? "" : namespace;
+        // 远程淘汰由服务端管理，本地视为无上限、无策略
+        this.engine = new CacheEngine<>(this, -1L);
     }
 
     // ========== 留口子：子类用 Redis 客户端实现以下钩子 ==========
@@ -80,47 +89,121 @@ public abstract class RemoteCacheSupport extends CacheSupport<String, String>
         return namespace + key;
     }
 
-    // ========== 原始存储钩子 ==========
+    // ========== Cache ==========
 
     @Override
-    protected void rawPut(String key, String value) {
+    public void put(String key, String value) {
+        engine.put(key, value);
+    }
+
+    @Override
+    public boolean putIfAbsent(String key, String value) {
+        return engine.putIfAbsent(key, value);
+    }
+
+    @Override
+    public void put(String key, String value, Duration duration) {
+        engine.put(key, value, duration);
+    }
+
+    @Override
+    public boolean putIfAbsent(String key, String value, Duration duration) {
+        return engine.putIfAbsent(key, value, duration);
+    }
+
+    @Override
+    public String get(String key) {
+        return engine.get(key);
+    }
+
+    @Override
+    public void setTtl(String key, Duration duration) {
+        engine.setTtl(key, duration);
+    }
+
+    @Override
+    public Duration ttl(String key) {
+        return engine.ttl(key);
+    }
+
+    @Override
+    public String remove(String key) {
+        return engine.remove(key);
+    }
+
+    @Override
+    public void clear() {
+        engine.clear();
+    }
+
+    @Override
+    public long approxCount() {
+        return engine.approxCount();
+    }
+
+    @Override
+    public boolean containsKey(String key) {
+        return engine.containsKey(key);
+    }
+
+    // ========== ObservableCache ==========
+
+    @Override
+    public void addListener(CacheEventType type, CacheEventListener<? super String, ? super String> listener) {
+        engine.addListener(type, listener);
+    }
+
+    @Override
+    public void removeListener(CacheEventType type, CacheEventListener<? super String, ? super String> listener) {
+        engine.removeListener(type, listener);
+    }
+
+    @Override
+    public void removeListeners(CacheEventType type) {
+        engine.removeListeners(type);
+    }
+
+    // ========== 原始存储钩子（实现 RawStore） ==========
+
+    @Override
+    public void rawPut(String key, String value) {
         doSet(wrapKey(key), value, NO_EXPIRE);
     }
 
     @Override
-    protected void rawPut(String key, String value, Duration duration) {
+    public void rawPut(String key, String value, Duration duration) {
         doSet(wrapKey(key), value, duration.toMillis());
     }
 
     @Override
-    protected boolean rawPutIfAbsent(String key, String value) {
+    public boolean rawPutIfAbsent(String key, String value) {
         return doSetNx(wrapKey(key), value, NO_EXPIRE);
     }
 
     @Override
-    protected boolean rawPutIfAbsent(String key, String value, Duration duration) {
+    public boolean rawPutIfAbsent(String key, String value, Duration duration) {
         return doSetNx(wrapKey(key), value, duration.toMillis());
     }
 
     @Override
-    protected String rawGet(String key) {
+    public String rawGet(String key) {
         return doGet(wrapKey(key));
     }
 
     @Override
-    protected String rawRemove(String key) {
+    public String rawRemove(String key) {
         String value = doGet(wrapKey(key));
         doDelete(wrapKey(key));
         return value;
     }
 
     @Override
-    protected boolean rawContains(String key) {
+    public boolean rawContains(String key) {
         return doExists(wrapKey(key));
     }
 
     @Override
-    protected Duration rawTtl(String key) {
+    public Duration rawTtl(String key) {
         long millis = doTtl(wrapKey(key));
         if (millis == -2L) return null;            // key 不存在
         if (millis < 0L) return Duration.ZERO;     // 永不过期
@@ -128,29 +211,29 @@ public abstract class RemoteCacheSupport extends CacheSupport<String, String>
     }
 
     @Override
-    protected void rawSetTtl(String key, Duration duration) {
+    public void rawSetTtl(String key, Duration duration) {
         if (duration == null) return;
         // duration 已为正数（零/负由引擎走 expireKey 路径）
         doExpire(wrapKey(key), duration.toMillis());
     }
 
     @Override
-    protected void rawClear() {
+    public void rawClear() {
         doClear();
     }
 
     @Override
-    protected Iterable<String> rawKeys() {
+    public Iterable<String> rawKeys() {
         return Collections.emptySet(); // 远端键集合不在本地维护，cleanUp 不做本地扫描
     }
 
     @Override
-    protected boolean rawIsExpired(String key) {
+    public boolean rawIsExpired(String key) {
         return false; // 过期由后端管理
     }
 
     @Override
-    protected long rawCount() {
+    public long rawCount() {
         return doSize();
     }
 }

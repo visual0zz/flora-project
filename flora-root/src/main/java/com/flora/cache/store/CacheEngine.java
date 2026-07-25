@@ -1,45 +1,54 @@
 package com.flora.cache.store;
 
+import com.flora.cache.BoundedCache;
+import com.flora.cache.Cache;
 import com.flora.cache.CacheEventType;
 import com.flora.cache.CacheEventListener;
-import com.flora.cache.Cache;
+import com.flora.cache.EvictableCache;
 import com.flora.cache.EvictionPolicy;
+import com.flora.cache.ObservableCache;
 import com.flora.cache.RemovalCause;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * 缓存抽象基类：实现 {@link Cache} 的通用读写、TTL、可选的淘汰策略回调与事件派发，
- * 供具体存储子类复用。子类只需实现一组 {@code rawXxx} 原始存储钩子（KV 与 TTL 的真正读写），
- * 其余逻辑由本类负责。
+ * 缓存引擎：组合式实现，承载 {@link Cache}/{@link ObservableCache}/{@link EvictableCache}/
+ * {@link BoundedCache} 的全部行为（通用读写、TTL、事件派发、可选淘汰策略、可选容量约束），
+ * 但不持有具体存储——存储通过 {@link RawStore} 注入。
+ * <p>
+ * 各场景的 Support 类<b>组合</b>本类（而非继承），从而打破原本 {@code CacheSupport} 父子类强塞
+ * 多套职责的耦合：远程缓存组合一个 {@code capacity<=0}、{@code policy=null} 的引擎，不再被动继承
+ * 淘汰字段与逻辑；本地缓存组合带容量、可挂策略的引擎。引擎编排逻辑只有一份，遵守 DRY。
  *
  * @param <K> 键类型
  * @param <V> 值类型
  */
-public abstract class CacheSupport<K, V> implements Cache<K, V> {
+public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, EvictableCache<K, V>, BoundedCache<K, V> {
+
+    private final RawStore<K, V> store;
 
     private volatile EvictionPolicy<K, V> policy;
 
     private final Map<CacheEventType, List<CacheEventListener<? super K, ? super V>>> listeners
             = new ConcurrentHashMap<>();
 
-    protected CacheSupport() {
+    private final long capacity;
+
+    private final AtomicBoolean evicting = new AtomicBoolean();
+
+    public CacheEngine(RawStore<K, V> store) {
+        this(store, -1L);
     }
 
-    // ========== 淘汰策略插件（字段仅在 CacheSupport 持有；公开挂载/卸载接口由 EvictableCache 实现类暴露） ==========
-
-    /** 供子类（有界可淘汰缓存）暴露为 {@link com.flora.cache.EvictableCache} 的公开方法，普通基类不直接暴露。 */
-    protected void setPolicy(EvictionPolicy<K, V> policy) {
-        this.policy = policy;
-    }
-
-    /** 读取当前挂载的策略（可能为 {@code null}）。 */
-    protected EvictionPolicy<K, V> policy() {
-        return policy;
+    public CacheEngine(RawStore<K, V> store, long capacity) {
+        this.store = Objects.requireNonNull(store, "store");
+        this.capacity = capacity;
     }
 
     // ========== 写入 ==========
@@ -47,16 +56,16 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
     @Override
     public void put(K key, V value) {
         if (value == null) throw new NullPointerException("value must not be null");
-        if (rawContains(key)) {
-            V old = rawGet(key);
-            rawPut(key, value);
+        if (store.rawContains(key)) {
+            V old = store.rawGet(key);
+            store.rawPut(key, value);
             onPut(key, true);
             onTouch(key, true);
             fire(CacheEventType.UPDATE, key, old, value);
             fire(CacheEventType.MUTATE, key, old, value);
         } else {
             ensureCapacity();
-            rawPut(key, value);
+            store.rawPut(key, value);
             onPut(key, false);
             onTouch(key, false);
             fire(CacheEventType.INSERT, key, null, value);
@@ -67,17 +76,17 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
     @Override
     public boolean putIfAbsent(K key, V value) {
         if (value == null) throw new NullPointerException("value must not be null");
-        if (rawContains(key)) {
+        if (store.rawContains(key)) {
             onPut(key, true);
             onTouch(key, true);
             return false;
         }
         ensureCapacity();
-        boolean inserted = rawPutIfAbsent(key, value);
-            if (inserted) {
-                onPut(key, false);
-                onTouch(key, false);
-                fire(CacheEventType.INSERT, key, null, value);
+        boolean inserted = store.rawPutIfAbsent(key, value);
+        if (inserted) {
+            onPut(key, false);
+            onTouch(key, false);
+            fire(CacheEventType.INSERT, key, null, value);
             fire(CacheEventType.MUTATE, key, null, value);
         } else {
             onPut(key, true);
@@ -97,16 +106,16 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             expireKey(key);
             return;
         }
-        if (rawContains(key)) {
-            V old = rawGet(key);
-            rawPut(key, value, duration);
+        if (store.rawContains(key)) {
+            V old = store.rawGet(key);
+            store.rawPut(key, value, duration);
             onPut(key, true);
             onTouch(key, true);
             fire(CacheEventType.UPDATE, key, old, value);
             fire(CacheEventType.MUTATE, key, old, value);
         } else {
             ensureCapacity();
-            rawPut(key, value, duration);
+            store.rawPut(key, value, duration);
             onPut(key, false);
             onTouch(key, false);
             fire(CacheEventType.INSERT, key, null, value);
@@ -123,17 +132,17 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
         if (duration.isZero() || duration.isNegative()) {
             return false;
         }
-        if (rawContains(key)) {
+        if (store.rawContains(key)) {
             onPut(key, true);
             onTouch(key, true);
             return false;
         }
         ensureCapacity();
-        boolean inserted = rawPutIfAbsent(key, value, duration);
-            if (inserted) {
-                onPut(key, false);
-                onTouch(key, false);
-                fire(CacheEventType.INSERT, key, null, value);
+        boolean inserted = store.rawPutIfAbsent(key, value, duration);
+        if (inserted) {
+            onPut(key, false);
+            onTouch(key, false);
+            fire(CacheEventType.INSERT, key, null, value);
             fire(CacheEventType.MUTATE, key, null, value);
         } else {
             onPut(key, true);
@@ -146,11 +155,11 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
 
     @Override
     public V get(K key) {
-        V v = rawGet(key);
+        V v = store.rawGet(key);
         if (v == null) {
             // 惰性过期：rawGet 已隐藏过期值（但不删除），此处把过期删除收归引擎管线，
             // 统一派发 EXPIRE 事件并通知策略，避免存储层私自删除导致策略索引残留幽灵条目。
-            if (rawIsExpired(key)) expireKey(key);
+            if (store.rawIsExpired(key)) expireKey(key);
             onGet(key, false);
             onTouch(key, false);
             return null;
@@ -169,27 +178,27 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             expireKey(key); // 刷新成零/负时长 = 立即过期，走过期删除管线（而非显式删除）
             return;
         }
-        if (rawContains(key)) {
-            rawSetTtl(key, duration);
+        if (store.rawContains(key)) {
+            store.rawSetTtl(key, duration);
             onTouch(key, true); // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度
-            V cur = rawGet(key);
+            V cur = store.rawGet(key);
             fire(CacheEventType.TOUCH, key, cur, cur);
             fire(CacheEventType.MUTATE, key, cur, cur);
         } else {
-            rawSetTtl(key, duration);
+            store.rawSetTtl(key, duration);
         }
     }
 
     @Override
     public Duration ttl(K key) {
-        return rawTtl(key);
+        return store.rawTtl(key);
     }
 
     // ========== 删除 ==========
 
     @Override
     public V remove(K key) {
-        V old = rawRemove(key);
+        V old = store.rawRemove(key);
         if (old == null) return null;
         onRemove(key, RemovalCause.EXPLICIT);
         fire(CacheEventType.REMOVE, key, old, null);
@@ -199,7 +208,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
 
     @Override
     public void clear() {
-        rawClear();
+        store.rawClear();
         EvictionPolicy<K, V> p = policy;
         if (p != null) p.clear();
         fire(CacheEventType.CLEAR, null, null, null);
@@ -209,12 +218,43 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
 
     @Override
     public long approxCount() {
-        return rawCount();
+        return store.rawCount();
     }
 
     @Override
     public boolean containsKey(K key) {
-        return rawContains(key);
+        return store.rawContains(key);
+    }
+
+    // ========== EvictableCache ==========
+
+    @Override
+    public void setEvictionPolicy(EvictionPolicy<K, V> policy) {
+        this.policy = policy;
+    }
+
+    @Override
+    public EvictionPolicy<K, V> evictionPolicy() {
+        return policy;
+    }
+
+    // ========== BoundedCache ==========
+
+    @Override
+    public long cleanUp() {
+        long count = sweepExpired();
+        ensureCapacity();
+        return count;
+    }
+
+    @Override
+    public boolean isFull() {
+        return capacity > 0 && approxCount() >= capacity;
+    }
+
+    @Override
+    public long capacity() {
+        return capacity;
     }
 
     // ========== 内部：策略回调 ==========
@@ -235,7 +275,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
         if (p != null) p.onTouch(key, existed);
     }
 
-    protected void onRemove(K key, RemovalCause cause) {
+    private void onRemove(K key, RemovalCause cause) {
         EvictionPolicy<K, V> p = policy;
         if (p != null) p.onRemove(key, cause);
     }
@@ -243,10 +283,10 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
     // ========== 内部：过期扫描 + 淘汰驱动 ==========
 
     /** 扫描并清理过期项（O(n)，仅在 cleanUp / ensureCapacity 时低频发生）。 */
-    protected long sweepExpired() {
+    private long sweepExpired() {
         long count = 0;
-        for (K key : rawKeys()) {
-            if (rawIsExpired(key) && expireKey(key)) count++;
+        for (K key : store.rawKeys()) {
+            if (store.rawIsExpired(key) && expireKey(key)) count++;
         }
         return count;
     }
@@ -257,7 +297,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
      * 惰性过期（{@link #get}）与主动扫描（{@link #sweepExpired}）共用此路径，保证删除语义唯一。
      */
     private boolean expireKey(K key) {
-        V old = rawRemove(key);
+        V old = store.rawRemove(key);
         if (old == null) return false;
         onRemove(key, RemovalCause.EXPIRE);
         fire(CacheEventType.EXPIRE, key, old, null);
@@ -267,28 +307,48 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
 
     /**
      * 条目集合即将增长前的钩子（写路径在插入新 key 之前调用），用于腾出容量、清理过期。
-     * 默认空操作：无界缓存无需淘汰。有界缓存在 {@code BoundedCacheSupport} 中覆写此方法以驱动扫描过期 + 容量淘汰。
+     * {@code capacity <= 0} 时无界，直接返回；否则先扫描过期、再驱动策略淘汰。
      * <p>
      * 命名强调「在会导致容量增长的写入之前」调用，而非「写入之后」，以明确其职责是提前腾位。
+     * <p>
+     * 注意：容量淘汰的受害者已由策略在 {@link EvictionPolicy#selectEvictVictim()} 内自行从索引摘除，
+     * 引擎只负责真正删除存储 + 派发 EVICT/INVALIDATE 事件，不再回调 {@code onRemove(EVICT)}（避免双重摘除）。
      */
-    protected void ensureCapacity() {
+    private void ensureCapacity() {
+        if (capacity <= 0) return;
+        sweepExpired();
+        if (!evicting.compareAndSet(false, true)) return;
+        try {
+            EvictionPolicy<K, V> p = evictionPolicy();
+            K victim;
+            while (p != null && (victim = p.selectEvictVictim()) != null) {
+                V old = store.rawRemove(victim);
+                if (old != null) {
+                    fire(CacheEventType.EVICT, victim, old, null);
+                    fire(CacheEventType.INVALIDATE, victim, old, null);
+                }
+            }
+        } finally {
+            evicting.set(false);
+        }
     }
 
     // ========== 事件监听器 ==========
 
-    // 以下三个为 concrete 方法，供子类继承复用。
-
+    @Override
     public void addListener(CacheEventType type, CacheEventListener<? super K, ? super V> listener) {
         if (type == null || listener == null) return;
         listeners.computeIfAbsent(type, _ -> new CopyOnWriteArrayList<>()).add(listener);
     }
 
+    @Override
     public void removeListener(CacheEventType type, CacheEventListener<? super K, ? super V> listener) {
         if (type == null || listener == null) return;
         List<CacheEventListener<? super K, ? super V>> list = listeners.get(type);
         if (list != null) list.remove(listener);
     }
 
+    @Override
     public void removeListeners(CacheEventType type) {
         if (type == null) return;
         listeners.remove(type);
@@ -298,7 +358,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
      * 触发事件。约定：实际存储操作已完成之后才调用本方法，故监听器异常不影响已提交的业务逻辑。
      * 异常隔离：单个监听器异常被就地吞掉并继续派发其余监听器。
      */
-    protected void fire(CacheEventType type, K key, V oldValue, V newValue) {
+    private void fire(CacheEventType type, K key, V oldValue, V newValue) {
         List<CacheEventListener<? super K, ? super V>> list = listeners.get(type);
         if (list == null) return;
         for (CacheEventListener<? super K, ? super V> l : list) {
@@ -309,45 +369,4 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             }
         }
     }
-
-    // ========== 原始存储钩子（子类实现） ==========
-
-    /** 覆盖写入（永不过期）。 */
-    protected abstract void rawPut(K key, V value);
-
-    /** 覆盖写入（带 TTL，duration 已保证为正数）。 */
-    protected abstract void rawPut(K key, V value, Duration duration);
-
-    /** 原子写入，返回是否写入成功（仅当 key 不存在）。 */
-    protected abstract boolean rawPutIfAbsent(K key, V value);
-
-    /** 原子写入（带 TTL，duration 已保证为正数），返回是否写入成功。 */
-    protected abstract boolean rawPutIfAbsent(K key, V value, Duration duration);
-
-    /** 读取值；不存在返回 {@code null}。 */
-    protected abstract V rawGet(K key);
-
-    /** 删除并返回旧值；不存在返回 {@code null}。 */
-    protected abstract V rawRemove(K key);
-
-    /** 是否存在且未过期（用于写时分支判断与 {@link #containsKey}）。 */
-    protected abstract boolean rawContains(K key);
-
-    /** 剩余过期时长；不存在返回 {@code null}，永不过期返回 {@link Duration#ZERO}。 */
-    protected abstract Duration rawTtl(K key);
-
-    /** 设置/更新过期时间（key 不存在由子类决定行为）。 */
-    protected abstract void rawSetTtl(K key, Duration duration);
-
-    /** 清空全部。 */
-    protected abstract void rawClear();
-
-    /** 所有 key 的快照（供 cleanUp 扫描）。 */
-    protected abstract Iterable<K> rawKeys();
-
-    /** 指定 key 是否已过期（未过期或不存在返回 {@code false}）。 */
-    protected abstract boolean rawIsExpired(K key);
-
-    /** 当前条目数量近似值。 */
-    protected abstract long rawCount();
 }

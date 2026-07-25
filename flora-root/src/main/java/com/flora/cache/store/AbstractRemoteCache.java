@@ -1,6 +1,8 @@
 package com.flora.cache.store;
 
+import com.flora.cache.EvictionConfigableCacheStore;
 import com.flora.cache.EvictionPolicy;
+import com.flora.cache.ObservableCacheStore;
 
 import java.time.Duration;
 import java.util.Collections;
@@ -31,7 +33,8 @@ import java.util.Collections;
  * <p>
  * {@link #setEvictionPolicy} 为空操作（本地策略插件对远程无意义）。线程安全性取决于子类所用客户端。
  */
-public abstract class AbstractRemoteCache extends AbstractCacheStore<String, String> {
+public abstract class AbstractRemoteCache extends AbstractCacheStore<String, String>
+        implements ObservableCacheStore<String, String>, EvictionConfigableCacheStore<String, String> {
 
     /** 永不过期标记：ttlMillis ≤ 0 表示写入永不过期的键 */
     protected static final long NO_EXPIRE = -1L;

@@ -98,65 +98,12 @@ public abstract class RemoteCache
         return d == null || d.equals(Duration.MAX) ? NO_EXPIRE : d.toMillis();
     }
 
-    // ========== 存储原语（调用 doXxx） ==========
-
-    private void storePut(String key, String value) {
-        doSet(wrapKey(key), value, NO_EXPIRE);
-    }
-
-    private void storePut(String key, String value, Duration duration) {
-        doSet(wrapKey(key), value, toTtlMillis(duration));
-    }
-
-    private boolean storePutIfAbsent(String key, String value) {
-        return doSetNx(wrapKey(key), value, NO_EXPIRE);
-    }
-
-    private boolean storePutIfAbsent(String key, String value, Duration duration) {
-        return doSetNx(wrapKey(key), value, toTtlMillis(duration));
-    }
-
-    private String storeGet(String key) {
-        return doGet(wrapKey(key));
-    }
-
-    /** 读后删，返回被删前的值（无监听器时不调用，避免无谓的远端读）。 */
-    private String storeRemove(String key) {
-        String value = doGet(wrapKey(key));
-        doDelete(wrapKey(key));
-        return value;
-    }
-
-    private boolean storeContains(String key) {
-        return doExists(wrapKey(key));
-    }
-
-    private Duration storeTtl(String key) {
-        long millis = doTtl(wrapKey(key));
-        if (millis == -2L) return Duration.ZERO;   // 不存在
-        if (millis == -1L) return Duration.MAX;     // 永不过期
-        if (millis <= 0L) return Duration.ZERO;     // 已过期
-        return Duration.ofMillis(millis);
-    }
-
-    private void storeSetTtl(String key, Duration duration) {
-        doExpire(wrapKey(key), toTtlMillis(duration));
-    }
-
-    private void storeClear() {
-        doClear();
-    }
-
-    private long storeCount() {
-        return doSize();
-    }
-
     // ========== 写入 ==========
 
     @Override
     public void put(String key, String value) {
         Objects.requireNonNull(value, "value must not be null");
-        storePut(key, value);
+        doSet(wrapKey(key), value, NO_EXPIRE);
         fireUpsert(key, value);
     }
 
@@ -171,7 +118,7 @@ public abstract class RemoteCache
             expireKey(key); // 零/负时长 = 立即过期，走过期删除管线
             return;
         }
-        storePut(key, value, duration);
+        doSet(wrapKey(key), value, toTtlMillis(duration));
         fireUpsert(key, value);
     }
 
@@ -189,9 +136,8 @@ public abstract class RemoteCache
     }
 
     private boolean doPutIfAbsent(String key, String value, Duration duration) {
-        boolean inserted = (duration == null)
-                ? storePutIfAbsent(key, value)
-                : storePutIfAbsent(key, value, duration);
+        boolean inserted;
+        inserted = duration == null ? doSetNx(wrapKey(key), value, NO_EXPIRE) : doSetNx(wrapKey(key), value, toTtlMillis(duration));
         if (inserted) fireUpsert(key, value);
         return inserted;
     }
@@ -200,7 +146,7 @@ public abstract class RemoteCache
 
     @Override
     public String get(String key) {
-        return storeGet(key);
+        return doGet(wrapKey(key));
     }
 
     // ========== TTL 管理 ==========
@@ -213,23 +159,29 @@ public abstract class RemoteCache
             return;
         }
         // Duration.MAX 表示永不过期（移除 TTL）；仅对存活键操作，过期/缺失键静默忽略，避免复活
-        if (!storeContains(key)) return;
-        storeSetTtl(key, duration);
+        if (!doExists(wrapKey(key))) return;
+        doExpire(wrapKey(key), toTtlMillis(duration));
         if (hasListeners(CacheEventType.TOUCH) || hasListeners(CacheEventType.MUTATE)) {
-            fireTouch(key, storeGet(key));
+            fireTouch(key, doGet(wrapKey(key)));
         }
     }
 
     @Override
     public Duration ttl(String key) {
-        return storeTtl(key);
+        long millis = doTtl(wrapKey(key));
+        if (millis == -2L) return Duration.ZERO;   // 不存在
+        if (millis == -1L) return Duration.MAX;     // 永不过期
+        if (millis <= 0L) return Duration.ZERO;     // 已过期
+        return Duration.ofMillis(millis);
     }
 
     // ========== 删除 / 查询 ==========
 
     @Override
     public String remove(String key) {
-        String old = storeRemove(key);
+        String value = doGet(wrapKey(key));
+        doDelete(wrapKey(key));
+        String old = value;
         if (old == null) return null;
         fireRemoval(key, old, CacheEventType.REMOVE);
         return old;
@@ -237,24 +189,26 @@ public abstract class RemoteCache
 
     @Override
     public void clear() {
-        storeClear();
+        doClear();
         if (hasListeners(CacheEventType.CLEAR)) fire(CacheEventType.CLEAR, null, null, null);
     }
 
     @Override
     public long approxCount() {
-        return storeCount();
+        return doSize();
     }
 
     @Override
     public boolean containsKey(String key) {
-        return storeContains(key);
+        return doExists(wrapKey(key));
     }
 
     // ========== 显式过期（仅零/负 TTL 路径使用） ==========
 
     private void expireKey(String key) {
-        String old = storeRemove(key);
+        String value = doGet(wrapKey(key));
+        doDelete(wrapKey(key));
+        String old = value;
         if (old == null) return;
         fireRemoval(key, old, CacheEventType.EXPIRE);
     }

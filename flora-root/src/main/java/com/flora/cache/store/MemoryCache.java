@@ -57,102 +57,19 @@ public class MemoryCache<K, V>
 
     // ========== 时间戳与过期计算 ==========
 
-    private static long now() {
-        return System.currentTimeMillis();
-    }
-
-    /** 时间戳是否已过（{@code now >= exp}）。 */
-    private static boolean expired(long exp) {
-        return now() >= exp;
-    }
-
-    /**
-     * 由 TTL 计算绝对过期时间戳；{@code null}/负/{@link Duration#MAX} 表示永不过期，返回 {@code null}。
-     * 正数（含 {@link Duration#ZERO}）返回 {@code now + 毫秒}，即立即过期。
-     */
-    private static Long computeExpiry(Duration d) {
-        if (d == null || d.isNegative() || d.equals(Duration.MAX)) return null;
-        return now() + d.toMillis();
-    }
-
     // ========== 存储原语（私有，直接操作 map/expiry） ==========
-
-    private void storePut(K key, V value) {
-        map.put(key, value);
-        expiry.remove(key);
-    }
-
-    private void storePut(K key, V value, Duration duration) {
-        map.put(key, value);
-        Long exp = computeExpiry(duration);
-        if (exp == null) expiry.remove(key);
-        else expiry.put(key, exp);
-    }
-
-    private boolean storePutIfAbsent(K key, V value) {
-        return map.putIfAbsent(key, value) == null;
-    }
-
-    private boolean storePutIfAbsent(K key, V value, Duration duration) {
-        Long exp = computeExpiry(duration);
-        return map.computeIfAbsent(key, _ -> {
-            if (exp != null) expiry.put(key, exp);
-            return value;
-        }) == value;
-    }
-
-    /**
-     * 读取并惰性隐藏过期值：命中但已过期时返回 {@code null}（真正删除由 {@link #expireKey} 负责，
-     * 以保证策略索引与 EXPIRE 事件一致）。
-     */
-    private V storeGet(K key) {
-        V v = map.get(key);
-        if (v == null) return null;
-        Long exp = expiry.get(key);
-        if (exp != null && expired(exp)) return null;
-        return v;
-    }
-
-    private V storeRemove(K key) {
-        V old = map.remove(key);
-        expiry.remove(key);
-        return old;
-    }
 
     /** 是否存在且未过期（逻辑存在）。 */
     private boolean storeContains(K key) {
         V v = map.get(key);
         if (v == null) return false;
         Long exp = expiry.get(key);
-        return exp == null || !expired(exp);
-    }
-
-    private Duration storeTtl(K key) {
-        if (!map.containsKey(key)) return Duration.ZERO;          // 不存在
-        Long exp = expiry.get(key);
-        if (exp == null) return Duration.MAX;                     // 永不过期
-        long remaining = exp - now();
-        return remaining > 0 ? Duration.ofMillis(remaining) : Duration.ZERO; // 已过期 → ZERO
-    }
-
-    /** 仅对存活键设置 TTL；{@link Duration#MAX} 表示移除 TTL（永不过期）。调用方须保证 key 存活。 */
-    private void storeSetTtl(K key, Duration duration) {
-        if (duration.equals(Duration.MAX)) expiry.remove(key);
-        else expiry.put(key, now() + duration.toMillis());
-    }
-
-    private void storeClear() {
-        map.clear();
-        expiry.clear();
+        return exp == null || !(System.currentTimeMillis() >= exp);
     }
 
     private boolean storeIsExpired(K key) {
         Long exp = expiry.get(key);
-        return exp != null && expired(exp);
-    }
-
-    private long storeCount() {
-        return map.mappingCount();
+        return exp != null && System.currentTimeMillis() >= exp;
     }
 
     // ========== 写入 ==========
@@ -186,13 +103,34 @@ public class MemoryCache<K, V>
         V old = null;
         // 覆盖写时，派发前、覆盖后取值会导致 oldValue 变成新值；故先取值，且无监听器时不读取。
         if (existed && (hasListeners(CacheEventType.UPDATE) || hasListeners(CacheEventType.MUTATE))) {
-            old = storeGet(key);
+            V result = null;
+            V v = map.get(key);
+            if (v != null) {
+                Long exp = expiry.get(key);
+                if (exp == null || !(System.currentTimeMillis() >= exp)) {
+                    result = v;
+                }
+            }
+            old = result;
         }
         if (!existed) ensureCapacity();
-        if (duration == null) storePut(key, value);
-        else storePut(key, value, duration);
-        onPut(key, existed);
-        onTouch(key, existed);
+        if (duration == null) {
+            map.put(key, value);
+            expiry.remove(key);
+        }
+        else {
+            map.put(key, value);
+            Long exp = null;
+            if (duration != null && !duration.isNegative() && !duration.equals(Duration.MAX)) {
+                exp = System.currentTimeMillis() + duration.toMillis();
+            }
+            if (exp == null) expiry.remove(key);
+            else expiry.put(key, exp);
+        }
+        EvictionPolicy<K, V> p = policy;
+        if (p != null) p.onPut(key, existed);
+        EvictionPolicy<K, V> p1 = policy;
+        if (p1 != null) p1.onTouch(key, existed);
         fireUpsert(key, old, value, existed);
     }
 
@@ -208,22 +146,39 @@ public class MemoryCache<K, V>
         if (duration != null && (duration.isZero() || duration.isNegative())) return false;
         if (storeContains(key)) {
             // 已存在：原子写未生效，仅当作一次引用刷新热度
-            onPut(key, true);
-            onTouch(key, true);
+            EvictionPolicy<K, V> p = policy;
+            if (p != null) p.onPut(key, true);
+            EvictionPolicy<K, V> p1 = policy;
+            if (p1 != null) p1.onTouch(key, true);
             return false;
         }
         ensureCapacity();
-        boolean inserted = (duration == null)
-                ? storePutIfAbsent(key, value)
-                : storePutIfAbsent(key, value, duration);
+        boolean inserted;
+        if (duration == null) {
+            inserted = map.putIfAbsent(key, value) == null;
+        } else {
+            Long result = null;
+            if (duration != null && !duration.isNegative() && !duration.equals(Duration.MAX)) {
+                result = System.currentTimeMillis() + duration.toMillis();
+            }
+            Long exp = result;
+            inserted = map.computeIfAbsent(key, _ -> {
+                if (exp != null) expiry.put(key, exp);
+                return value;
+            }) == value;
+        }
         if (inserted) {
-            onPut(key, false);
-            onTouch(key, false);
+            EvictionPolicy<K, V> p = policy;
+            if (p != null) p.onPut(key, false);
+            EvictionPolicy<K, V> p1 = policy;
+            if (p1 != null) p1.onTouch(key, false);
             fireUpsert(key, null, value, false);
         } else {
             // 并发下被其它线程抢先写入
-            onPut(key, true);
-            onTouch(key, true);
+            EvictionPolicy<K, V> p = policy;
+            if (p != null) p.onPut(key, true);
+            EvictionPolicy<K, V> p1 = policy;
+            if (p1 != null) p1.onTouch(key, true);
         }
         return inserted;
     }
@@ -232,16 +187,27 @@ public class MemoryCache<K, V>
 
     @Override
     public V get(K key) {
-        V v = storeGet(key);
+        V v = null;
+        V v1 = map.get(key);
+        if (v1 != null) {
+            Long exp = expiry.get(key);
+            if (exp == null || !(System.currentTimeMillis() >= exp)) {
+                v = v1;
+            }
+        }
         if (v == null) {
             // 惰性过期：访问时发现过期即走删除管线（统一派发 EXPIRE 事件并通知策略）
             if (storeIsExpired(key)) expireKey(key);
-            onGet(key, false);
-            onTouch(key, false);
+            EvictionPolicy<K, V> p = policy;
+            if (p != null) p.onGet(key, false);
+            EvictionPolicy<K, V> p1 = policy;
+            if (p1 != null) p1.onTouch(key, false);
             return null;
         }
-        onGet(key, true);
-        onTouch(key, true);
+        EvictionPolicy<K, V> p = policy;
+        if (p != null) p.onGet(key, true);
+        EvictionPolicy<K, V> p1 = policy;
+        if (p1 != null) p1.onTouch(key, true);
         return v;
     }
 
@@ -261,10 +227,20 @@ public class MemoryCache<K, V>
         }
         // Duration.MAX 表示永不过期（移除 TTL）；仅对存活键操作，过期/缺失键静默忽略，避免复活
         if (!storeContains(key)) return;
-        storeSetTtl(key, duration);
-        onTouch(key, true); // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度
+        if (duration.equals(Duration.MAX)) expiry.remove(key);
+        else expiry.put(key, System.currentTimeMillis() + duration.toMillis());
+        // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度
+        EvictionPolicy<K, V> p = policy;
+        if (p != null) p.onTouch(key, true);
         if (hasListeners(CacheEventType.TOUCH) || hasListeners(CacheEventType.MUTATE)) {
-            V cur = storeGet(key);
+            V cur = null;
+            V v = map.get(key);
+            if (v != null) {
+                Long exp = expiry.get(key);
+                if (exp == null || !(System.currentTimeMillis() >= exp)) {
+                    cur = v;
+                }
+            }
             if (hasListeners(CacheEventType.TOUCH)) fire(CacheEventType.TOUCH, key, cur, cur);
             if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, cur, cur);
         }
@@ -272,7 +248,12 @@ public class MemoryCache<K, V>
 
     @Override
     public Duration ttl(K key) {
-        return storeTtl(key);
+        // 已过期 → ZERO
+        if (!map.containsKey(key)) return Duration.ZERO;          // 不存在
+        Long exp = expiry.get(key);
+        if (exp == null) return Duration.MAX;                     // 永不过期
+        long remaining = exp - System.currentTimeMillis();
+        return remaining > 0 ? Duration.ofMillis(remaining) : Duration.ZERO;
     }
 
     // ========== 删除 ==========
@@ -281,10 +262,14 @@ public class MemoryCache<K, V>
     public V remove(K key) {
         // 不存在或已过期（逻辑删除）：与 get/containsKey 一致，视为不存在，静默无操作
         if (!storeContains(key)) return null;
-        V old = storeRemove(key);
+        V old1 = map.remove(key);
+        expiry.remove(key);
+        V old = old1;
         if (old == null) return null; // 并发已删
-        onRemove(key);
-        onExplicitRemove(key);
+        EvictionPolicy<K, V> p = policy;
+        if (p != null) p.onRemove(key);
+        EvictionPolicy<K, V> p1 = policy;
+        if (p1 != null) p1.onExplicitRemove(key);
         fire(CacheEventType.REMOVE, key, old, null);
         fire(CacheEventType.INVALIDATE, key, old, null);
         return old;
@@ -292,7 +277,8 @@ public class MemoryCache<K, V>
 
     @Override
     public void clear() {
-        storeClear();
+        map.clear();
+        expiry.clear();
         EvictionPolicy<K, V> p = policy;
         if (p != null) p.clear();
         if (hasListeners(CacheEventType.CLEAR)) fire(CacheEventType.CLEAR, null, null, null);
@@ -300,45 +286,10 @@ public class MemoryCache<K, V>
 
     @Override
     public long approxCount() {
-        return storeCount();
+        return map.mappingCount();
     }
 
     // ========== 策略回调（仅做空守卫后转发，具体语义由策略实现） ==========
-
-    private void onPut(K key, boolean existed) {
-        EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onPut(key, existed);
-    }
-
-    private void onGet(K key, boolean existed) {
-        EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onGet(key, existed);
-    }
-
-    private void onTouch(K key, boolean existed) {
-        EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onTouch(key, existed);
-    }
-
-    private void onRemove(K key) {
-        EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onRemove(key);
-    }
-
-    private void onExplicitRemove(K key) {
-        EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onExplicitRemove(key);
-    }
-
-    private void onEvict(K key) {
-        EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onEvict(key);
-    }
-
-    private void onExpire(K key) {
-        EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onExpire(key);
-    }
 
     // ========== 过期扫描 + 容量淘汰 ==========
 
@@ -357,10 +308,14 @@ public class MemoryCache<K, V>
      * 惰性过期（{@link #get}）与主动扫描（{@link #sweepExpired}）共用此路径，保证删除语义唯一。
      */
     private boolean expireKey(K key) {
-        V old = storeRemove(key);
+        V old1 = map.remove(key);
+        expiry.remove(key);
+        V old = old1;
         if (old == null) return false;
-        onRemove(key);
-        onExpire(key);
+        EvictionPolicy<K, V> p = policy;
+        if (p != null) p.onRemove(key);
+        EvictionPolicy<K, V> p1 = policy;
+        if (p1 != null) p1.onExpire(key);
         fire(CacheEventType.EXPIRE, key, old, null);
         fire(CacheEventType.INVALIDATE, key, old, null);
         return true;
@@ -380,10 +335,14 @@ public class MemoryCache<K, V>
             EvictionPolicy<K, V> p = evictionPolicy();
             K victim;
             while (p != null && (victim = p.selectEvictVictim()) != null) {
-                V old = storeRemove(victim);
+                V old1 = map.remove(victim);
+                expiry.remove(victim);
+                V old = old1;
                 if (old != null) {
-                    onRemove(victim);
-                    onEvict(victim);
+                    EvictionPolicy<K, V> p1 = policy;
+                    if (p1 != null) p1.onRemove(victim);
+                    EvictionPolicy<K, V> p2 = policy;
+                    if (p2 != null) p2.onEvict(victim);
                     fire(CacheEventType.EVICT, victim, old, null);
                     fire(CacheEventType.INVALIDATE, victim, old, null);
                 }

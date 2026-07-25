@@ -7,9 +7,10 @@ public interface CacheEventListener<K, V> {
     /**
      * 缓存事件回调。
      *
-     * @param type  事件类型
-     * @param key   被操作的键
-     * @param value 被操作的值（如果是删除/过期事件，为被移除前的值）
+     * @param type     事件类型
+     * @param key      被操作的键
+     * @param oldValue 操作前的值（新建类事件为 {@code null}；删除/过期/淘汰类事件为被移除前的值）
+     * @param newValue 操作后的新值（删除/过期/淘汰类事件为 {@code null}；其余为写入/刷新后的值）
      */
-    void onEvent(CacheEventType type, K key, V value);
+    void onEvent(CacheEventType type, K key, V oldValue, V newValue);
 }

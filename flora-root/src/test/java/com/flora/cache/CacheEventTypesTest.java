@@ -21,8 +21,8 @@ class CacheEventTypesTest {
         MemoryCache<Integer, Integer> c = new MemoryCache<>();
         List<CacheEventType> specific = new ArrayList<>();
         List<CacheEventType> mutate = new ArrayList<>();
-        c.addListener(CacheEventType.INSERT, (t, k, v) -> specific.add(t));
-        c.addListener(CacheEventType.MUTATE, (t, k, v) -> mutate.add(t));
+        c.addListener(CacheEventType.INSERT, (t, k, o, n) -> specific.add(t));
+        c.addListener(CacheEventType.MUTATE, (t, k, o, n) -> mutate.add(t));
 
         c.put(1, 10);
 
@@ -36,8 +36,8 @@ class CacheEventTypesTest {
         c.put(1, 10);
         List<CacheEventType> specific = new ArrayList<>();
         List<CacheEventType> mutate = new ArrayList<>();
-        c.addListener(CacheEventType.UPDATE, (t, k, v) -> specific.add(t));
-        c.addListener(CacheEventType.MUTATE, (t, k, v) -> mutate.add(t));
+        c.addListener(CacheEventType.UPDATE, (t, k, o, n) -> specific.add(t));
+        c.addListener(CacheEventType.MUTATE, (t, k, o, n) -> mutate.add(t));
 
         c.put(1, 20);
 
@@ -51,8 +51,8 @@ class CacheEventTypesTest {
         c.put(1, 10);
         List<CacheEventType> specific = new ArrayList<>();
         List<CacheEventType> mutate = new ArrayList<>();
-        c.addListener(CacheEventType.TOUCH, (t, k, v) -> specific.add(t));
-        c.addListener(CacheEventType.MUTATE, (t, k, v) -> mutate.add(t));
+        c.addListener(CacheEventType.TOUCH, (t, k, o, n) -> specific.add(t));
+        c.addListener(CacheEventType.MUTATE, (t, k, o, n) -> mutate.add(t));
 
         c.setTtl(1, Duration.ofMinutes(5));
 
@@ -64,8 +64,8 @@ class CacheEventTypesTest {
     void setTtlOnMissingKeyFiresNothing() {
         MemoryCache<Integer, Integer> c = new MemoryCache<>();
         List<CacheEventType> mutate = new ArrayList<>();
-        c.addListener(CacheEventType.MUTATE, (t, k, v) -> mutate.add(t));
-        c.addListener(CacheEventType.TOUCH, (t, k, v) -> mutate.add(t));
+        c.addListener(CacheEventType.MUTATE, (t, k, o, n) -> mutate.add(t));
+        c.addListener(CacheEventType.TOUCH, (t, k, o, n) -> mutate.add(t));
 
         c.setTtl(99, Duration.ofMinutes(5)); // key 不存在，不应触发任何写事件
 
@@ -78,7 +78,7 @@ class CacheEventTypesTest {
         // 先放一个已存在 key，避免后续 put 被当成新建
         c.put(1, 0);
         List<CacheEventType> mutate = new ArrayList<>();
-        c.addListener(CacheEventType.MUTATE, (t, k, v) -> mutate.add(t));
+        c.addListener(CacheEventType.MUTATE, (t, k, o, n) -> mutate.add(t));
 
         c.put(2, 20);            // 新建 → INSERT + MUTATE
         c.put(1, 1);            // 更新 → UPDATE + MUTATE
@@ -93,8 +93,8 @@ class CacheEventTypesTest {
         MemoryCache<Integer, Integer> c = new MemoryCache<>();
         List<CacheEventType> inserts = new ArrayList<>();
         List<CacheEventType> updates = new ArrayList<>();
-        c.addListener(CacheEventType.INSERT, (t, k, v) -> inserts.add(t));
-        c.addListener(CacheEventType.UPDATE, (t, k, v) -> updates.add(t));
+        c.addListener(CacheEventType.INSERT, (t, k, o, n) -> inserts.add(t));
+        c.addListener(CacheEventType.UPDATE, (t, k, o, n) -> updates.add(t));
 
         c.put(1, 10, Duration.ofMinutes(1)); // 新建
         c.put(1, 20, Duration.ofMinutes(2)); // 更新
@@ -109,14 +109,14 @@ class CacheEventTypesTest {
         List<CacheEventType> seenByHealthy = new ArrayList<>();
 
         // 一个会抛异常的监听器，不应影响主流程
-        c.addListener(CacheEventType.MUTATE, (t, k, v) -> {
+        c.addListener(CacheEventType.MUTATE, (t, k, o, n) -> {
             throw new RuntimeException("boom");
         });
         // 同类型的另一个健康监听器，仍应被派发
-        c.addListener(CacheEventType.MUTATE, (t, k, v) -> seenByHealthy.add(t));
+        c.addListener(CacheEventType.MUTATE, (t, k, o, n) -> seenByHealthy.add(t));
         // 具体事件监听器也应正常收到
         List<CacheEventType> inserts = new ArrayList<>();
-        c.addListener(CacheEventType.INSERT, (t, k, v) -> inserts.add(t));
+        c.addListener(CacheEventType.INSERT, (t, k, o, n) -> inserts.add(t));
 
         c.put(1, 10); // 若异常冒泡，此行会抛；且后续监听器不会收到
 

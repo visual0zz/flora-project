@@ -4,6 +4,7 @@ import com.flora.cache.CacheEventType;
 import com.flora.cache.CacheEventListener;
 import com.flora.cache.Cache;
 import com.flora.cache.EvictionPolicy;
+import com.flora.cache.RemovalCause;
 
 import java.time.Duration;
 import java.util.List;
@@ -45,18 +46,19 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
     public void put(K key, V value) {
         if (value == null) throw new NullPointerException("value must not be null");
         if (rawContains(key)) {
+            V old = rawGet(key);
             rawPut(key, value);
             onPut(key, true);
             onTouch(key, true);
-            fire(CacheEventType.UPDATE, key, value);
-            fire(CacheEventType.MUTATE, key, value);
+            fire(CacheEventType.UPDATE, key, old, value);
+            fire(CacheEventType.MUTATE, key, old, value);
         } else {
             afterWrite();
             rawPut(key, value);
             onPut(key, false);
             onTouch(key, false);
-            fire(CacheEventType.INSERT, key, value);
-            fire(CacheEventType.MUTATE, key, value);
+            fire(CacheEventType.INSERT, key, null, value);
+            fire(CacheEventType.MUTATE, key, null, value);
         }
     }
 
@@ -73,8 +75,8 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             if (inserted) {
                 onPut(key, false);
                 onTouch(key, false);
-                fire(CacheEventType.INSERT, key, value);
-            fire(CacheEventType.MUTATE, key, value);
+                fire(CacheEventType.INSERT, key, null, value);
+            fire(CacheEventType.MUTATE, key, null, value);
         } else {
             onPut(key, true);
             onTouch(key, true);
@@ -94,18 +96,19 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             return;
         }
         if (rawContains(key)) {
+            V old = rawGet(key);
             rawPut(key, value, duration);
             onPut(key, true);
             onTouch(key, true);
-            fire(CacheEventType.UPDATE, key, value);
-            fire(CacheEventType.MUTATE, key, value);
+            fire(CacheEventType.UPDATE, key, old, value);
+            fire(CacheEventType.MUTATE, key, old, value);
         } else {
             afterWrite();
             rawPut(key, value, duration);
             onPut(key, false);
             onTouch(key, false);
-            fire(CacheEventType.INSERT, key, value);
-            fire(CacheEventType.MUTATE, key, value);
+            fire(CacheEventType.INSERT, key, null, value);
+            fire(CacheEventType.MUTATE, key, null, value);
         }
     }
 
@@ -128,8 +131,8 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             if (inserted) {
                 onPut(key, false);
                 onTouch(key, false);
-                fire(CacheEventType.INSERT, key, value);
-            fire(CacheEventType.MUTATE, key, value);
+                fire(CacheEventType.INSERT, key, null, value);
+            fire(CacheEventType.MUTATE, key, null, value);
         } else {
             onPut(key, true);
             onTouch(key, true);
@@ -158,8 +161,10 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
         }
         if (rawContains(key)) {
             rawSetTtl(key, duration);
-            fire(CacheEventType.TOUCH, key, rawGet(key));
-            fire(CacheEventType.MUTATE, key, rawGet(key));
+            onTouch(key, true); // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度
+            V cur = rawGet(key);
+            fire(CacheEventType.TOUCH, key, cur, cur);
+            fire(CacheEventType.MUTATE, key, cur, cur);
         } else {
             rawSetTtl(key, duration);
         }
@@ -176,9 +181,9 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
     public V remove(K key) {
         V old = rawRemove(key);
         if (old == null) return null;
-        onRemove(key);
-        fire(CacheEventType.REMOVE, key, old);
-        fire(CacheEventType.INVALIDATE, key, old);
+        onRemove(key, RemovalCause.EXPLICIT);
+        fire(CacheEventType.REMOVE, key, old, null);
+        fire(CacheEventType.INVALIDATE, key, old, null);
         return old;
     }
 
@@ -219,9 +224,9 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
         if (p != null) p.onTouch(key, existed);
     }
 
-    protected void onRemove(K key) {
+    protected void onRemove(K key, RemovalCause cause) {
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onRemove(key);
+        if (p != null) p.onRemove(key, cause);
     }
 
     // ========== 内部：过期扫描 + 淘汰驱动 ==========
@@ -233,9 +238,9 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             if (!rawIsExpired(key)) continue;
             V old = rawRemove(key);
             if (old != null) {
-                onRemove(key);
-                fire(CacheEventType.EXPIRE, key, old);
-                fire(CacheEventType.INVALIDATE, key, old);
+                onRemove(key, RemovalCause.EXPIRE);
+                fire(CacheEventType.EXPIRE, key, old, null);
+                fire(CacheEventType.INVALIDATE, key, old, null);
                 count++;
             }
         }
@@ -273,12 +278,12 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
      * 触发事件。约定：实际存储操作已完成之后才调用本方法，故监听器异常不影响已提交的业务逻辑。
      * 异常隔离：单个监听器异常被就地吞掉并继续派发其余监听器。
      */
-    protected void fire(CacheEventType type, K key, V value) {
+    protected void fire(CacheEventType type, K key, V oldValue, V newValue) {
         List<CacheEventListener<? super K, ? super V>> list = listeners.get(type);
         if (list == null) return;
         for (CacheEventListener<? super K, ? super V> l : list) {
             try {
-                l.onEvent(type, key, value);
+                l.onEvent(type, key, oldValue, newValue);
             } catch (RuntimeException ignore) {
                 // 监听器故障不应影响缓存主流程与同批次其他监听器
             }

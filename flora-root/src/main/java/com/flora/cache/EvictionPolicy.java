@@ -52,11 +52,13 @@ public interface EvictionPolicy<K, V> {
     void onTouch(K key, boolean existed);
 
     /**
-     * 条目被显式删除或过期后回调，从候选集与索引中摘除。
+     * 条目被移除（显式删除 / 淘汰 / 过期）后回调，从候选集与索引中摘除。
      *
-     * @param key 键
+     * @param key   键
+     * @param cause 移除原因，见 {@link RemovalCause}（{@code EXPLICIT}=显式删除、
+     *              {@code EVICT}=容量淘汰、{@code EXPIRE}=TTL 过期）；策略可按原因差异化处理
      */
-    void onRemove(K key);
+    void onRemove(K key, RemovalCause cause);
 
     /**
      * 选择并返回一个待淘汰的 key（仅决策，不删除存储）；当前无需淘汰（容量未满、

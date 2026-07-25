@@ -29,7 +29,7 @@ class MemoryCacheTest {
         MemoryCache<Integer, Integer> c = new MemoryCache<>();
         c.put(1, 10);
         List<CacheEventType> events = new ArrayList<>();
-        c.addListener(CacheEventType.REMOVE, (t, k, v) -> events.add(t));
+        c.addListener(CacheEventType.REMOVE, (t, k, o, n) -> events.add(t));
         c.remove(1);
         assertFalse(c.containsKey(1));
         assertEquals(List.of(CacheEventType.REMOVE), events);
@@ -51,7 +51,7 @@ class MemoryCacheTest {
         c.put(1, 1, Duration.ofMillis(50));
         Thread.sleep(90);
         List<CacheEventType> events = new ArrayList<>();
-        c.addListener(CacheEventType.EXPIRE, (t, k, v) -> events.add(t));
+        c.addListener(CacheEventType.EXPIRE, (t, k, o, n) -> events.add(t));
         long n = c.gc();
         assertEquals(1, n);
         assertEquals(List.of(CacheEventType.EXPIRE), events);
@@ -94,7 +94,7 @@ class MemoryCacheTest {
         int cap = 5;
         MemoryCache<Integer, Integer> c = new MemoryCache<>(cap);
         List<CacheEventType> events = new ArrayList<>();
-        c.addListener(CacheEventType.EVICT, (t, k, v) -> events.add(t));
+        c.addListener(CacheEventType.EVICT, (t, k, o, n) -> events.add(t));
         for (int i = 0; i < 30; i++) c.put(i, i);
         assertFalse(events.isEmpty(), "容量淘汰应触发 EVICT 事件");
     }

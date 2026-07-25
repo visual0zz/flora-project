@@ -4,6 +4,7 @@ import com.flora.cache.BoundedCache;
 import com.flora.cache.CacheEventType;
 import com.flora.cache.EvictionPolicy;
 import com.flora.cache.ObservableCache;
+import com.flora.cache.RemovalCause;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -70,9 +71,9 @@ public abstract class BoundedCacheSupport<K, V> extends CacheSupport<K, V>
             while (p != null && (victim = p.selectEvictVictim()) != null) {
                 V old = rawRemove(victim);
                 if (old != null) {
-                    onRemove(victim);
-                    fire(CacheEventType.EVICT, victim, old);
-                    fire(CacheEventType.INVALIDATE, victim, old);
+                    onRemove(victim, RemovalCause.EVICT);
+                    fire(CacheEventType.EVICT, victim, old, null);
+                    fire(CacheEventType.INVALIDATE, victim, old, null);
                 }
             }
         } finally {

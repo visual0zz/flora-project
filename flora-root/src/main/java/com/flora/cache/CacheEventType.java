@@ -3,7 +3,7 @@ package com.flora.cache;
 /**
  * 缓存事件类型。
  * <p>
- * 用于 {@link ObservableCacheStore#addListener(CacheEventType, CacheEventListener)} 注册监听器时指定事件类型。
+ * 用于 {@link ObservableCache#addListener(CacheEventType, CacheEventListener)} 注册监听器时指定事件类型。
  */
 public enum CacheEventType {
 
@@ -15,7 +15,7 @@ public enum CacheEventType {
     /** 缓存项被更新覆盖（put 一个已存在的 key） */
     UPDATE,
 
-    /** 缓存项 TTL 被刷新（{@link CacheStore#setTtl(Object, Duration)} 续期，不换值） */
+    /** 缓存项 TTL 被刷新（{@link Cache#setTtl(Object, Duration)} 续期，不换值） */
     TOUCH,
 
     /**
@@ -34,7 +34,7 @@ public enum CacheEventType {
     /** 缓存项 TTL 过期被自动清理 */
     EXPIRE,
 
-    /** 缓存项被显式 {@link CacheStore#remove(Object)} 删除 */
+    /** 缓存项被显式 {@link Cache#remove(Object)} 删除 */
     REMOVE,
 
     /**

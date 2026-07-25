@@ -1,18 +1,18 @@
 package com.flora.cache.store;
 
-import com.flora.cache.EvictionConfigableCacheStore;
+import com.flora.cache.EvictableCache;
 import com.flora.cache.EvictionPolicy;
-import com.flora.cache.ObservableCacheStore;
+import com.flora.cache.ObservableCache;
 
 import java.time.Duration;
 import java.util.Collections;
 
 /**
- * 远程缓存抽象基类：继承共享引擎 {@link AbstractCacheStore}，但<b>不</b>实现
- * {@link com.flora.cache.BoundedCacheStore}——远程缓存的淘汰由服务端（如 Redis
+ * 远程缓存抽象基类：继承共享引擎 {@link CacheSupport}，但<b>不</b>实现
+ * {@link com.flora.cache.BoundedCache}——远程缓存的淘汰由服务端（如 Redis
  * maxmemory-policy）管理，本地没有容量维度，只对外呈现实质上的
- * {@link com.flora.cache.CacheStore} + {@link com.flora.cache.ObservableCacheStore}
- * + {@link com.flora.cache.EvictionConfigableCacheStore}。
+ * {@link com.flora.cache.Cache} + {@link com.flora.cache.ObservableCache}
+ * + {@link com.flora.cache.EvictableCache}。
  * <p>
  * 本类复用引擎的 put/get/remove/事件派发逻辑，把网络读写留给子类实现的 {@code doXxx} 钩子
  * （键与值均为 {@code String}，与 Redis 协议对应）：
@@ -33,8 +33,8 @@ import java.util.Collections;
  * <p>
  * {@link #setEvictionPolicy} 为空操作（本地策略插件对远程无意义）。线程安全性取决于子类所用客户端。
  */
-public abstract class AbstractRemoteCache extends AbstractCacheStore<String, String>
-        implements ObservableCacheStore<String, String>, EvictionConfigableCacheStore<String, String> {
+public abstract class RemoteCacheSupport extends CacheSupport<String, String>
+        implements ObservableCache<String, String>, EvictableCache<String, String> {
 
     /** 永不过期标记：ttlMillis ≤ 0 表示写入永不过期的键 */
     protected static final long NO_EXPIRE = -1L;
@@ -42,11 +42,11 @@ public abstract class AbstractRemoteCache extends AbstractCacheStore<String, Str
     /** 命名空间前缀，可为空串；非空时所有 key 操作前自动拼接 */
     private final String namespace;
 
-    protected AbstractRemoteCache() {
+    protected RemoteCacheSupport() {
         this("");
     }
 
-    protected AbstractRemoteCache(String namespace) {
+    protected RemoteCacheSupport(String namespace) {
         super(-1); // 远程淘汰由服务端管理，本地视为无上限
         this.namespace = namespace == null ? "" : namespace;
     }

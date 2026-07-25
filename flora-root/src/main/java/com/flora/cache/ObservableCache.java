@@ -3,16 +3,16 @@ package com.flora.cache;
 import java.util.Map;
 
 /**
- * 可观测缓存契约：在 {@link CacheStore}（存储）之上叠加事件监听。
+ * 可观测缓存契约：在 {@link Cache}（存储）之上叠加事件监听。
  * <p>
  * 任何希望被监听（{@code INSERT}/{@code UPDATE}/{@code TOUCH}/{@code EVICT}/
  * {@code EXPIRE}/{@code REMOVE}/{@code INVALIDATE}/{@code MUTATE}）的缓存至少实现本接口。
- * 淘汰策略的挂载不在此层，而在 {@link BoundedCacheStore}（尺寸那一层）。
+ * 淘汰策略的挂载不在此层，而在 {@link BoundedCache}（尺寸那一层）。
  *
  * @param <K> 键类型
  * @param <V> 值类型
  */
-public interface ObservableCacheStore<K, V> extends CacheStore<K, V> {
+public interface ObservableCache<K, V> extends Cache<K, V> {
 
     /**
      * 注册指定类型的缓存事件监听器。

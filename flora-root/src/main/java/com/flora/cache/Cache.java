@@ -8,15 +8,15 @@ import java.util.Collections;
  * <p>
  * 这是三层接口的底座。其上按层叠加缓存行为：
  * <ul>
- *   <li>{@link ObservableCacheStore}：在存储之上叠加事件监听（可观测）；</li>
- *   <li>{@link BoundedCacheStore}：在可观测之上叠加尺寸限制与淘汰策略插件（有界）。</li>
+ *   <li>{@link ObservableCache}：在存储之上叠加事件监听（可观测）；</li>
+ *   <li>{@link BoundedCache}：在可观测之上叠加尺寸限制与淘汰策略插件（有界）。</li>
  * </ul>
  * 把容量、事件、策略留在上层，本接口只谈数据，保持最小、最易被各种后端实现。
  *
  * @param <K> 键类型
  * @param <V> 值类型
  */
-public interface CacheStore<K, V> {
+public interface Cache<K, V> {
 
     // ---- 写入 ----
 

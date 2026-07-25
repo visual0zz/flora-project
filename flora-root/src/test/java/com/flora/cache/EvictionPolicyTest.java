@@ -1,6 +1,6 @@
 package com.flora.cache;
 
-import com.flora.cache.CacheStore;
+import com.flora.cache.Cache;
 import com.flora.cache.eviction.FIFOEvictionPolicy;
 import com.flora.cache.eviction.LFUEvictionPolicy;
 import com.flora.cache.eviction.LRUEvictionPolicy;
@@ -22,7 +22,7 @@ class EvictionPolicyTest {
 
     @Test
     void lruEvictsLeastRecentlyUsed() {
-        CacheStore<Integer, Integer> c = cache(3, s -> new LRUEvictionPolicy<Integer, Integer>(3, s::approxCount));
+        Cache<Integer, Integer> c = cache(3, s -> new LRUEvictionPolicy<Integer, Integer>(3, s::approxCount));
         c.put(1, 1);
         c.put(2, 2);
         c.put(3, 3);
@@ -37,7 +37,7 @@ class EvictionPolicyTest {
 
     @Test
     void fifoEvictsOldestInserted() {
-        CacheStore<Integer, Integer> c = cache(3, s -> new FIFOEvictionPolicy<Integer, Integer>(3, s::approxCount));
+        Cache<Integer, Integer> c = cache(3, s -> new FIFOEvictionPolicy<Integer, Integer>(3, s::approxCount));
         c.put(1, 1);
         c.put(2, 2);
         c.put(3, 3);
@@ -52,7 +52,7 @@ class EvictionPolicyTest {
 
     @Test
     void lfuEvictsLeastFrequentlyUsed() {
-        CacheStore<Integer, Integer> c = cache(3, s -> new LFUEvictionPolicy<Integer, Integer>(3, s::approxCount));
+        Cache<Integer, Integer> c = cache(3, s -> new LFUEvictionPolicy<Integer, Integer>(3, s::approxCount));
         c.put(1, 1);
         c.put(2, 2);
         c.put(3, 3);
@@ -69,7 +69,7 @@ class EvictionPolicyTest {
 
     @Test
     void unboundedPolicyKeepsAll() {
-        CacheStore<Integer, Integer> c = cache(-1, s -> new LRUEvictionPolicy<Integer, Integer>(-1, s::approxCount));
+        Cache<Integer, Integer> c = cache(-1, s -> new LRUEvictionPolicy<Integer, Integer>(-1, s::approxCount));
         for (int i = 0; i < 20; i++) c.put(i, i);
         assertEquals(20, c.approxCount());
     }

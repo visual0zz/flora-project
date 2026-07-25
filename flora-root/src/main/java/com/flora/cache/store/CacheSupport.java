@@ -2,7 +2,7 @@ package com.flora.cache.store;
 
 import com.flora.cache.CacheEventType;
 import com.flora.cache.CacheEventListener;
-import com.flora.cache.CacheStore;
+import com.flora.cache.Cache;
 import com.flora.cache.EvictionPolicy;
 
 import java.time.Duration;
@@ -13,13 +13,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * 缓存抽象基类（共享引擎）：仅承诺 {@link CacheStore}（存储契约），把 put/get/remove、TTL、
+ * 缓存抽象基类（共享引擎）：仅承诺 {@link Cache}（存储契约），把 put/get/remove、TTL、
  * 可选的淘汰策略回调（{@link EvictionPolicy}）与事件派发（含监听器异常隔离）「粘合」在一起，
- * 供具体存储子类复用。有界的 {@link AbstractBoundedCacheStore} 与远程的
- * {@link AbstractRemoteCache} 都继承本类，从而共用同一套引擎。
+ * 供具体存储子类复用。有界的 {@link BoundedCacheSupport} 与远程的
+ * {@link RemoteCacheSupport} 都继承本类，从而共用同一套引擎。
  * <p>
- * 本类<b>不</b>直接声明 {@link com.flora.cache.ObservableCacheStore} 或
- * {@link com.flora.cache.EvictionConfigableCacheStore}——这两个能力由子类在类型层按需 opt-in
+ * 本类<b>不</b>直接声明 {@link com.flora.cache.ObservableCache} 或
+ * {@link com.flora.cache.EvictableCache}——这两个能力由子类在类型层按需 opt-in
  * （见两个子类的 {@code implements} 子句）。但引擎在物理上已携带监听器表与策略字段，并提供
  * {@code addListener}/{@code setEvictionPolicy} 等 concrete 方法，子类继承后即可兑现对应接口。
  * <p>
@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @param <K> 键类型
  * @param <V> 值类型
  */
-public abstract class AbstractCacheStore<K, V> implements CacheStore<K, V> {
+public abstract class CacheSupport<K, V> implements Cache<K, V> {
 
     private final long capacity;
     private volatile EvictionPolicy<K, V> policy;
@@ -43,18 +43,18 @@ public abstract class AbstractCacheStore<K, V> implements CacheStore<K, V> {
     private final Map<CacheEventType, List<CacheEventListener<? super K, ? super V>>> listeners
             = new ConcurrentHashMap<>();
 
-    protected AbstractCacheStore() {
+    protected CacheSupport() {
         this(-1);
     }
 
     /**
      * @param capacity 容量上限（{@code <=0} 表示无上限 / 不淘汰）
      */
-    protected AbstractCacheStore(long capacity) {
+    protected CacheSupport(long capacity) {
         this.capacity = capacity;
     }
 
-    // ========== 淘汰策略插件（concrete 方法，供声明 EvictionConfigableCacheStore 的子类继承兑现） ==========
+    // ========== 淘汰策略插件（concrete 方法，供声明 EvictableCache 的子类继承兑现） ==========
 
     public void setEvictionPolicy(EvictionPolicy<K, V> policy) {
         this.policy = policy;
@@ -225,7 +225,7 @@ public abstract class AbstractCacheStore<K, V> implements CacheStore<K, V> {
         return rawIsExpired(key);
     }
 
-    // ========== 容量与回收（供有界子类 AbstractBoundedCacheStore 继承以兑现 BoundedCacheStore） ==========
+    // ========== 容量与回收（供有界子类 BoundedCacheSupport 继承以兑现 BoundedCache） ==========
 
     public long gc() {
         long count = sweepExpired();
@@ -301,7 +301,7 @@ public abstract class AbstractCacheStore<K, V> implements CacheStore<K, V> {
 
     // ========== 事件监听器 ==========
 
-    // 以下三个为 concrete 方法，供声明 ObservableCacheStore 的子类继承兑现。
+    // 以下三个为 concrete 方法，供声明 ObservableCache 的子类继承兑现。
 
     public void addListener(CacheEventType type, CacheEventListener<? super K, ? super V> listener) {
         if (type == null || listener == null) return;

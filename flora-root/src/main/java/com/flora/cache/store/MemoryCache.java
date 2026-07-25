@@ -9,9 +9,9 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * W-TinyLFU + TTL 的本地内存缓存（单类实现）。
  * <p>
- * 继承 {@link AbstractBoundedCacheStore}，自行维护基于 {@link java.util.concurrent.ConcurrentHashMap}
+ * 继承 {@link BoundedCacheSupport}，自行维护基于 {@link java.util.concurrent.ConcurrentHashMap}
  * 的 KV 与惰性/主动过期，并在构造时给自己挂载 {@link WTinyLfuEvictionPolicy}（容量约束 + 自适应淘汰）。
- * 对外以 {@link com.flora.cache.BoundedCacheStore} 形式服务（存储 + 事件 + 尺寸 + 策略），
+ * 对外以 {@link com.flora.cache.BoundedCache} 形式服务（存储 + 事件 + 尺寸 + 策略），
  * 无需额外的组合包装类型。更换策略（LRU / LFU / FIFO）只需调用
  * {@link #setEvictionPolicy} 替换插件。
  * <p>
@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @param <K> 键类型
  * @param <V> 值类型
  */
-public class MemoryCache<K, V> extends AbstractBoundedCacheStore<K, V> {
+public class MemoryCache<K, V> extends BoundedCacheSupport<K, V> {
 
     /** 永不过期标记：expiry 映射中不存在即表示永不过期 */
     private static final long IMMORTAL = 0L;

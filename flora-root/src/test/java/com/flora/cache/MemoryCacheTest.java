@@ -46,6 +46,32 @@ class MemoryCacheTest {
     }
 
     @Test
+    void ttlSemantics() throws InterruptedException {
+        MemoryCache<Integer, Integer> c = new MemoryCache<>();
+        // 不设置过期时间 → MAX
+        c.put(1, 1);
+        assertEquals(Duration.MAX, c.ttl(1));
+        // 不存在 → ZERO
+        assertEquals(Duration.ZERO, c.ttl(99));
+        // 带 TTL → 返回正数剩余时长
+        c.put(2, 2, Duration.ofMillis(1000));
+        Duration remaining = c.ttl(2);
+        assertTrue(remaining.toMillis() > 0 && remaining.toMillis() <= 1000, "remaining=" + remaining);
+        // 已过期 → ZERO
+        Thread.sleep(1100);
+        assertEquals(Duration.ZERO, c.ttl(2));
+        // setTtl(MAX) → 移除过期时间，返回 MAX
+        c.put(3, 3, Duration.ofMillis(1000));
+        c.setTtl(3, Duration.MAX);
+        assertEquals(Duration.MAX, c.ttl(3));
+        // setTtl(ZERO) → 立即过期，ttl 返回 ZERO 且 key 已不存在
+        c.put(4, 4, Duration.ofMillis(1000));
+        c.setTtl(4, Duration.ZERO);
+        assertEquals(Duration.ZERO, c.ttl(4));
+        assertFalse(c.containsKey(4));
+    }
+
+    @Test
     void ttlCleanUpFiresExpire() throws InterruptedException {
         MemoryCache<Integer, Integer> c = new MemoryCache<>(100);
         c.put(1, 1, Duration.ofMillis(50));

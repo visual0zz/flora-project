@@ -67,7 +67,7 @@ public abstract class RemoteCache
     /** 仅当 key 不存在时写入（SET NX），{@code ttlMillis} 语义同 {@link #doSet}；返回是否写入成功。 */
     protected abstract boolean doSetNx(String key, String value, long ttlMillis);
 
-    /** 为已存在的 key 设置过期时间（毫秒）；返回是否设置成功（key 存在）。 */
+    /** 为已存在的 key 设置过期时间（毫秒）；{@code ttlMillis > 0} 设置过期；{@code ttlMillis == NO_EXPIRE} 表示移除过期时间（PERSIST，永不过期）。返回是否设置成功（key 存在）。 */
     protected abstract boolean doExpire(String key, long ttlMillis);
 
     /** 查询 key 的剩余过期时间（毫秒）；key 不存在返回 -2，key 存在但永不过期返回 -1（与 Redis PTTL 语义一致）。 */
@@ -90,6 +90,11 @@ public abstract class RemoteCache
     /** 拼接命名空间前缀。子类可覆盖以自定义 key 编码（如哈希、序列化）。 */
     protected String wrapKey(String key) {
         return namespace + key;
+    }
+
+    /** 将 {@link Duration} 转为后端 TTL 毫秒：{@code null} 或 {@link Duration#MAX} 表示永不过期（{@link #NO_EXPIRE}），其余按正数转毫秒。 */
+    private static long toTtlMillis(Duration d) {
+        return d == null || d.equals(Duration.MAX) ? NO_EXPIRE : d.toMillis();
     }
 
     // ========== Cache ==========
@@ -175,7 +180,7 @@ public abstract class RemoteCache
 
     @Override
     public void rawPut(String key, String value, Duration duration) {
-        doSet(wrapKey(key), value, duration.toMillis());
+        doSet(wrapKey(key), value, toTtlMillis(duration));
     }
 
     @Override
@@ -185,7 +190,7 @@ public abstract class RemoteCache
 
     @Override
     public boolean rawPutIfAbsent(String key, String value, Duration duration) {
-        return doSetNx(wrapKey(key), value, duration.toMillis());
+        return doSetNx(wrapKey(key), value, toTtlMillis(duration));
     }
 
     @Override
@@ -208,16 +213,17 @@ public abstract class RemoteCache
     @Override
     public Duration rawTtl(String key) {
         long millis = doTtl(wrapKey(key));
-        if (millis == -2L) return null;            // key 不存在
-        if (millis < 0L) return Duration.ZERO;     // 永不过期
+        if (millis == -2L) return Duration.ZERO;   // 不存在
+        if (millis == -1L) return Duration.MAX;     // 永不过期
+        if (millis <= 0L) return Duration.ZERO;     // 已过期
         return Duration.ofMillis(millis);
     }
 
     @Override
     public void rawSetTtl(String key, Duration duration) {
         if (duration == null) return;
-        // duration 已为正数（零/负由引擎走 expireKey 路径）
-        doExpire(wrapKey(key), duration.toMillis());
+        // duration 已非 ZERO/非 NEGATIVE；MAX 表示永不过期（移除 TTL，PERSIST）
+        doExpire(wrapKey(key), toTtlMillis(duration));
     }
 
     @Override

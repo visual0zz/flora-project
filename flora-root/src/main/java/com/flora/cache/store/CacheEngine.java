@@ -169,6 +169,7 @@ public class CacheEngine<K, V> {
             expireKey(key); // 刷新成零/负时长 = 立即过期，走过期删除管线（而非显式删除）
             return;
         }
+        // Duration.MAX 表示永不过期（移除 TTL），由存储层转译为「无过期」
         if (store.rawContains(key)) {
             store.rawSetTtl(key, duration);
             onTouch(key, true); // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度

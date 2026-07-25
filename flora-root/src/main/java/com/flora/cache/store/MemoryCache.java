@@ -28,9 +28,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MemoryCache<K, V>
         implements RawStore<K, V>, Cache<K, V>, ObservableCache<K, V>, EvictableCache<K, V>, BoundedCache<K, V> {
 
-    /** 永不过期标记：expiry 映射中不存在即表示永不过期 */
-    private static final long IMMORTAL = 0L;
-
     private final ConcurrentHashMap<K, V> map = new ConcurrentHashMap<>();
     /** key → 绝对过期时间戳(ms)；不存在表示永不过期 */
     private final ConcurrentHashMap<K, Long> expiry = new ConcurrentHashMap<>();
@@ -54,12 +51,13 @@ public class MemoryCache<K, V>
     }
 
     private boolean expired(long exp) {
-        return exp != IMMORTAL && now() >= exp;
+        return now() >= exp;
     }
 
     private Long computeExpiry(Duration d) {
-        if (d == null || d.isZero() || d.isNegative()) return null;
-        return now() + d.toMillis();
+        if (d == null || d.isNegative()) return null; // 不设置过期时间（永不过期）
+        if (d.equals(Duration.MAX)) return null;      // 过期时间无限（永不过期）
+        return now() + d.toMillis();                  // 正数：绝对过期时间戳（ZERO 视为立即过期）
     }
 
     // ========== 原始存储钩子（实现 RawStore） ==========
@@ -122,17 +120,21 @@ public class MemoryCache<K, V>
 
     @Override
     public Duration rawTtl(K key) {
+        if (!map.containsKey(key)) return Duration.ZERO; // 不存在
         Long exp = expiry.get(key);
-        if (exp == null) return Duration.ZERO;
+        if (exp == null) return Duration.MAX;            // 永不过期
         long remaining = exp - now();
-        return remaining > 0 ? Duration.ofMillis(remaining) : Duration.ZERO;
+        return remaining > 0 ? Duration.ofMillis(remaining) : Duration.ZERO; // 已过期 → ZERO
     }
 
     @Override
     public void rawSetTtl(K key, Duration duration) {
-        // duration 已由引擎保证为正数（零/负已在 CacheEngine.setTtl 走 expireKey 路径）
+        // duration 已由引擎保证为非 ZERO/非 NEGATIVE；MAX 表示永不过期（移除 TTL）
         if (duration == null) return;
-        if (map.containsKey(key)) {
+        if (!map.containsKey(key)) return;
+        if (duration.equals(Duration.MAX)) {
+            expiry.remove(key); // 永不过期
+        } else {
             expiry.put(key, now() + duration.toMillis());
         }
     }

@@ -7,8 +7,12 @@ import java.time.Duration;
  * <p>
  * 实现者（如 {@link MemoryCache}、{@link RemoteCache}）只负责「真正的数据读写」，
  * 不承载任何淘汰、事件、过期语义判断——零/负时长、过期判定等统一由引擎处理。
- * 引擎在写入前已保证 {@code duration} 为正数（零/负已改走过期删除管线），故 {@code rawXxx}
- * 带 {@code Duration} 的重载无需再次校验时长合法性。
+ * 引擎在写入前已保证 {@code duration} 为「正数」或 {@link Duration#MAX}（表示永不过期）：
+ * 零/负已改走过期删除管线，故 {@code rawXxx} 带 {@code Duration} 的重载只需额外识别
+ * {@code MAX}（永不过期），其余按正数处理即可。
+ * <p>
+ * TTL 语义统一约定：{@link Duration#MAX} = 不设置过期时间 / 过期时间无限；
+ * {@link Duration#ZERO} = 已过期或不存在。
  *
  * @param <K> 键类型
  * @param <V> 值类型
@@ -36,7 +40,7 @@ public interface RawStore<K, V> {
     /** 是否存在且未过期（用于写时分支判断与 {@link com.flora.cache.Cache#containsKey}）。 */
     boolean rawContains(K key);
 
-    /** 剩余过期时长；不存在返回 {@code null}，永不过期返回 {@link Duration#ZERO}。 */
+    /** 剩余过期时长；key 不存在或已过期返回 {@link Duration#ZERO}，永不过期返回 {@link Duration#MAX}。 */
     Duration rawTtl(K key);
 
     /** 设置/更新过期时间（key 不存在由实现决定行为）。 */

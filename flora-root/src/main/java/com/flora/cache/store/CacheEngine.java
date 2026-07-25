@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
@@ -51,11 +52,15 @@ public class CacheEngine<K, V> {
     public void put(K key, V value) {
         if (value == null) throw new NullPointerException("value must not be null");
         if (store.rawContains(key)) {
+            // 覆盖写：在 rawPut 前快照旧值（仅当确有监听器才回读，避免无谓存储读写）
+            V old = hasListeners(CacheEventType.UPDATE) || hasListeners(CacheEventType.MUTATE)
+                    ? store.rawGet(key) : null;
             store.rawPut(key, value);
             onPut(key, true);
             onTouch(key, true);
-            fire(CacheEventType.UPDATE, key, () -> store.rawGet(key), () -> value);
-            fire(CacheEventType.MUTATE, key, () -> store.rawGet(key), () -> value);
+            Supplier<V> oldValue = () -> old;
+            fire(CacheEventType.UPDATE, key, oldValue, () -> value);
+            fire(CacheEventType.MUTATE, key, oldValue, () -> value);
         } else {
             ensureCapacity();
             store.rawPut(key, value);
@@ -98,11 +103,14 @@ public class CacheEngine<K, V> {
             return;
         }
         if (store.rawContains(key)) {
+            V old = hasListeners(CacheEventType.UPDATE) || hasListeners(CacheEventType.MUTATE)
+                    ? store.rawGet(key) : null;
             store.rawPut(key, value, duration);
             onPut(key, true);
             onTouch(key, true);
-            fire(CacheEventType.UPDATE, key, () -> store.rawGet(key), () -> value);
-            fire(CacheEventType.MUTATE, key, () -> store.rawGet(key), () -> value);
+            Supplier<V> oldValue = () -> old;
+            fire(CacheEventType.UPDATE, key, oldValue, () -> value);
+            fire(CacheEventType.MUTATE, key, oldValue, () -> value);
         } else {
             ensureCapacity();
             store.rawPut(key, value, duration);
@@ -167,9 +175,10 @@ public class CacheEngine<K, V> {
         if (store.rawContains(key)) {
             store.rawSetTtl(key, duration);
             onTouch(key, true); // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度
-            // cur 以惰性提供者传入：仅当确有 TOUCH/MUTATE 监听器时才回读存储
-            fire(CacheEventType.TOUCH, key, () -> store.rawGet(key), () -> store.rawGet(key));
-            fire(CacheEventType.MUTATE, key, () -> store.rawGet(key), () -> store.rawGet(key));
+            // 旧值（= 当前值）以惰性提供者传入：仅当确有 TOUCH/MUTATE 监听器时才回读存储
+            Supplier<V> cur = () -> store.rawGet(key);
+            fire(CacheEventType.TOUCH, key, cur, cur);
+            fire(CacheEventType.MUTATE, key, cur, cur);
         } else {
             store.rawSetTtl(key, duration);
         }
@@ -353,15 +362,21 @@ public class CacheEngine<K, V> {
      * 触发事件。约定：实际存储操作已完成之后才调用本方法，故监听器异常不影响已提交的业务逻辑。
      * 异常隔离：单个监听器异常被就地吞掉并继续派发其余监听器。
      * <p>
-     * {@code oldValue} / {@code newValue} 仅在本类型确有监听器时才求值一次，避免无谓的存储读写。
+     * {@code oldValue} / {@code newValue} 以 {@link CompletableFuture} 形式交给监听器：仅当本类型确有
+     * 监听器时，才用 {@code supplyAsync} 异步求值，避免为无人关注的事件触发无谓的存储读写。
+     * 监听器需取值时调用 {@code Future.get()}/{@code join()} 或组合异步回调。
      */
     private void fire(CacheEventType type, K key,
                       Supplier<? extends V> oldValue, Supplier<? extends V> newValue) {
         List<CacheEventListener<? super K, ? super V>> list = listeners.get(type);
         if (list == null || list.isEmpty()) return;
+        // 仅当确有监听器时，才用 supplyAsync 异步求值 old/new，把 Future 交给监听器自行取值。
+        // 没有监听器则不触发任何存储读写。
+        CompletableFuture<? extends V> o = CompletableFuture.supplyAsync(oldValue);
+        CompletableFuture<? extends V> n = CompletableFuture.supplyAsync(newValue);
         for (CacheEventListener<? super K, ? super V> l : list) {
             try {
-                l.onEvent(type, key, oldValue, newValue);
+                l.onEvent(type, key, o, n);
             } catch (RuntimeException ignore) {
                 // 监听器故障不应影响缓存主流程与同批次其他监听器
             }

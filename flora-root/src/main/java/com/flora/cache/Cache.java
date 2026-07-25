@@ -29,6 +29,9 @@ public interface Cache<K, V> {
     /** 获取缓存值；不存在返回 {@code null}。 */
     V get(K key);
 
+    /** key 是否存在（未过期）。 */
+    boolean containsKey(K key);
+
     // ---- TTL 管理 ----
 
     /** 设置/更新 key 的过期时长；key 不存在由实现决定（静默忽略或抛异常）。 */
@@ -55,6 +58,4 @@ public interface Cache<K, V> {
         return approxCount() == 0;
     }
 
-    /** key 是否存在（未过期）。 */
-    boolean containsKey(K key);
 }

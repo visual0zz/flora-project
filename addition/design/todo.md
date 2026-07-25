@@ -31,6 +31,7 @@ API，直接传 List.class 就会解析失败（我那个测试就是这么踩�
 5. 可分裂数据库，数据库用类似git的方式进行分裂，可以任意增加字段
 6. 纯粹无关键字编程语言
 7. game  chainlink util 分布式  反向注入加载系统 redislite playground  虚拟编译容器
+8. 自定义语言 around函数
 
 
 根 树干 树枝 树叶 

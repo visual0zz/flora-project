@@ -7,7 +7,7 @@ package com.flora.cache;
  * 自行维护内部索引。策略只<b>决策</b>淘汰谁，不触碰存储：
  * 引擎在需要淘汰时调用 {@link #selectEvictVictim()} 取回待删的 key，由引擎负责真正删除与派发事件。
  * <p>
- * 调用约定（由引擎 {@code CacheEngine} 保证）：
+ * 调用约定（由缓存实现类保证）：
  * <ul>
  *   <li>写入（put / putIfAbsent，含覆盖写）→ {@link #onPut} + {@link #onTouch}</li>
  *   <li>读取（get，命中或未命中）→ {@link #onGet} + {@link #onTouch}</li>

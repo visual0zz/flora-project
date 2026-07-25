@@ -13,7 +13,7 @@ import java.util.function.LongSupplier;
  * LRU（最近最少使用）淘汰策略，key 基于、与存储无关。
  * <p>
  * 维护一把访问顺序的 {@link LinkedHashMap}：命中时把 key 移到 MRU 端，
- * 淘汰时取 LRU 端（最久未访问）的 key。O(1) 访问与淘汰。
+ * 淘汰时取 LRU 端（最久未访问）的 key。
  *
  * @param <K> 键类型
  * @param <V> 值类型

@@ -3,7 +3,6 @@ package com.flora.cache.store;
 import com.flora.cache.eviction.WTinyLfuEvictionPolicy;
 
 import java.time.Duration;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**

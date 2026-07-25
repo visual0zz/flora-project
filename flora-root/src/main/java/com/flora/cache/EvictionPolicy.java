@@ -4,7 +4,7 @@ package com.flora.cache;
  * 缓存淘汰策略接口：依据 key 的读写通知决定淘汰谁。
  * <p>
  * 策略通过 {@code onPut}/{@code onGet}/{@code onTouch}/{@code onRemove} 接收 key 的事件通知，
- * 自行维护内部索引（如 LRU 链表、频率计数）。策略只<b>决策</b>淘汰谁，不触碰存储：
+ * 自行维护内部索引。策略只<b>决策</b>淘汰谁，不触碰存储：
  * 引擎在需要淘汰时调用 {@link #selectEvictVictim()} 取回待删的 key，由引擎负责真正删除与派发事件。
  * <p>
  * 调用约定（由引擎 {@code CacheEngine} 保证）：
@@ -34,7 +34,7 @@ public interface EvictionPolicy<K, V> {
 
     /**
      * 读取（get）后回调，用于记录一次读取事件。命中时 key 已登记在策略中；
-     * 未命中时可用于需求预热（如累加频率素描），但不应把未驻留的 key 纳入淘汰候选段。
+     * 未命中时策略通常只做需求预热，但不应把未驻留的 key 纳入淘汰候选段。
      *
      * @param key     键
      * @param existed 本次读取前该 key 是否已存在于存储中（{@code true}=命中，{@code false}=未命中）
@@ -42,7 +42,7 @@ public interface EvictionPolicy<K, V> {
     void onGet(K key, boolean existed);
 
     /**
-     * key 被引用（读取或写入）后回调，用于刷新其热度（频率计数 / 最近使用位置）。
+     * key 被引用（读取或写入）后回调，用于刷新其热度。
      * 写入与读取都会触发，故每次对 key 的引用恰好刷新一次热度。
      *
      * @param key     键

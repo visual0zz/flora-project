@@ -13,7 +13,7 @@ import java.util.function.LongSupplier;
  * FIFO（先进先出）淘汰策略，key 基于、与存储无关。
  * <p>
  * 维护插入顺序的 {@link LinkedHashMap}：新条目入队尾，淘汰时取队首
- * （最早写入）的 key。访问不改变顺序（FIFO 忽略访问频率）。
+ * （最早写入）的 key。读取或命中不改变其顺序。
  *
  * @param <K> 键类型
  * @param <V> 值类型
@@ -42,12 +42,12 @@ public final class FIFOEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
 
     @Override
     public void onGet(K key, boolean existed) {
-        // FIFO 忽略读取：顺序仅由写入决定
+        // 读取不改变顺序：顺序仅由写入决定
     }
 
     @Override
     public void onTouch(K key, boolean existed) {
-        // FIFO 忽略热度：顺序仅由写入决定
+        // 热度刷新不影响顺序：顺序仅由写入决定
     }
 
     @Override

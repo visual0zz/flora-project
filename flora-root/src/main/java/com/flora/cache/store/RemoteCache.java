@@ -3,7 +3,7 @@ package com.flora.cache.store;
 /**
  * 远程缓存（Redis 等）抽象基类。
  * <p>
- * 继承 {@link RemoteCacheSupport} 复用共享引擎（put/get/remove/事件派发）与远程钩子
+ * 继承 {@link RemoteCacheSupport} 复用其 put/get/remove 与事件派发能力及远程钩子
  * （{@code doXxx}），本地不持有容量维度、不执行淘汰；子类用具体 Redis 客户端实现
  * {@code doXxx} 钩子即可获得完整远程缓存。示例见 {@link RemoteCacheSupport}。
  * <p>

@@ -53,7 +53,7 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
     private final ReentrantLock probationLock = new ReentrantLock();
     private final ReentrantLock protectedLock = new ReentrantLock();
 
-    /** key → 当前所在分段；R_DETACHED 表示已从分段摘除但可能仍在存储中（与原 region 语义一致） */
+    /** key → 当前所在分段；R_DETACHED 表示已从分段摘除但可能仍在存储中 */
     private final Map<K, Integer> region = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final FrequencySketch sketch;
@@ -234,7 +234,6 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
     public K selectEvictVictim() {
         if (capacity <= 0) return null;
         // 阶段一：窗口超额走 W-TinyLFU 淘汰。循环至窗口降到 windowMax 或容量足够。
-        // 准入分支（候选进入主区、本步不删存储）不返回、继续清窗口，与原 ensureCapacity 的 while 一致。
         while (windowSize() > windowMax && sizeOf.getAsLong() > capacity - windowMax) {
             K v = evictFromWindow();
             if (v != null) return v; // 本步真正删除了一个存储项，交由挂载它的缓存负责删除该 key
@@ -362,7 +361,7 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
             admit(candidate);
             return victim;
         } else {
-            // 拒绝候选：候选从存储删除；受害者保持 DETACHED（与原实现一致：泄漏出索引，不再追踪）
+            // 拒绝候选：候选从存储删除；受害者保持 DETACHED
             region.put(candidate, R_DETACHED);
             return candidate;
         }

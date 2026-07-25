@@ -1,12 +1,8 @@
 package com.flora.cache.store;
 
-import com.flora.cache.BoundedCache;
-import com.flora.cache.Cache;
 import com.flora.cache.CacheEventType;
 import com.flora.cache.CacheEventListener;
-import com.flora.cache.EvictableCache;
 import com.flora.cache.EvictionPolicy;
-import com.flora.cache.ObservableCache;
 import com.flora.cache.RemovalCause;
 
 import java.time.Duration;
@@ -18,18 +14,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * 缓存引擎：组合式实现，承载 {@link Cache}/{@link ObservableCache}/{@link EvictableCache}/
- * {@link BoundedCache} 的全部行为（通用读写、TTL、事件派发、可选淘汰策略、可选容量约束），
- * 但不持有具体存储——存储通过 {@link RawStore} 注入。
+ * 缓存引擎：承载读写、TTL、事件派发、可选淘汰策略与可选容量的通用编排。
+ * 不持有具体存储，数据访问通过 {@link RawStore} 完成。
  * <p>
- * 各场景的 Support 类<b>组合</b>本类（而非继承），从而打破原本 {@code CacheSupport} 父子类强塞
- * 多套职责的耦合：远程缓存组合一个 {@code capacity<=0}、{@code policy=null} 的引擎，不再被动继承
- * 淘汰字段与逻辑；本地缓存组合带容量、可挂策略的引擎。引擎编排逻辑只有一份，遵守 DRY。
+ * 行为契约与 {@link com.flora.cache.Cache}/{@link com.flora.cache.ObservableCache}/
+ * {@link com.flora.cache.EvictableCache}/{@link com.flora.cache.BoundedCache} 一致，
+ * 由组合它的 Support 类对外暴露对应接口。
  *
  * @param <K> 键类型
  * @param <V> 值类型
  */
-public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, EvictableCache<K, V>, BoundedCache<K, V> {
+public class CacheEngine<K, V> {
 
     private final RawStore<K, V> store;
 
@@ -53,7 +48,6 @@ public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, Ev
 
     // ========== 写入 ==========
 
-    @Override
     public void put(K key, V value) {
         if (value == null) throw new NullPointerException("value must not be null");
         if (store.rawContains(key)) {
@@ -73,7 +67,6 @@ public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, Ev
         }
     }
 
-    @Override
     public boolean putIfAbsent(K key, V value) {
         if (value == null) throw new NullPointerException("value must not be null");
         if (store.rawContains(key)) {
@@ -95,7 +88,6 @@ public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, Ev
         return inserted;
     }
 
-    @Override
     public void put(K key, V value, Duration duration) {
         if (value == null) throw new NullPointerException("value must not be null");
         if (duration == null) {
@@ -123,7 +115,6 @@ public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, Ev
         }
     }
 
-    @Override
     public boolean putIfAbsent(K key, V value, Duration duration) {
         if (value == null) throw new NullPointerException("value must not be null");
         if (duration == null) {
@@ -153,12 +144,10 @@ public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, Ev
 
     // ========== 读取 ==========
 
-    @Override
     public V get(K key) {
         V v = store.rawGet(key);
         if (v == null) {
-            // 惰性过期：rawGet 已隐藏过期值（但不删除），此处把过期删除收归引擎管线，
-            // 统一派发 EXPIRE 事件并通知策略，避免存储层私自删除导致策略索引残留幽灵条目。
+            // 惰性过期：发现已过期即走过期删除路径（统一派发 EXPIRE 事件并通知策略）
             if (store.rawIsExpired(key)) expireKey(key);
             onGet(key, false);
             onTouch(key, false);
@@ -171,7 +160,6 @@ public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, Ev
 
     // ========== TTL 管理 ==========
 
-    @Override
     public void setTtl(K key, Duration duration) {
         if (duration == null) return;
         if (duration.isZero() || duration.isNegative()) {
@@ -189,14 +177,12 @@ public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, Ev
         }
     }
 
-    @Override
     public Duration ttl(K key) {
         return store.rawTtl(key);
     }
 
     // ========== 删除 ==========
 
-    @Override
     public V remove(K key) {
         V old = store.rawRemove(key);
         if (old == null) return null;
@@ -206,7 +192,6 @@ public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, Ev
         return old;
     }
 
-    @Override
     public void clear() {
         store.rawClear();
         EvictionPolicy<K, V> p = policy;
@@ -216,50 +201,43 @@ public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, Ev
 
     // ========== 查询 ==========
 
-    @Override
     public long approxCount() {
         return store.rawCount();
     }
 
-    @Override
     public boolean containsKey(K key) {
         return store.rawContains(key);
     }
 
-    // ========== EvictableCache ==========
+    // ========== 可选：淘汰策略 ==========
 
-    @Override
     public void setEvictionPolicy(EvictionPolicy<K, V> policy) {
         this.policy = policy;
     }
 
-    @Override
     public EvictionPolicy<K, V> evictionPolicy() {
         return policy;
     }
 
-    // ========== BoundedCache ==========
+    // ========== 可选：容量约束 ==========
 
-    @Override
     public long cleanUp() {
         long count = sweepExpired();
         ensureCapacity();
         return count;
     }
 
-    @Override
     public boolean isFull() {
         return capacity > 0 && approxCount() >= capacity;
     }
 
-    @Override
     public long capacity() {
         return capacity;
     }
 
-    // ========== 内部：策略回调 ==========
+    // ========== 策略回调 ==========
 
-    // 策略已挂载（policy != null）时即向策略喂数据；selectEvictVictim() 在容量未超限时返回 null，故不会触发删除。
+    /** 向已挂载的淘汰策略喂数据。 */
     private void onPut(K key, boolean existed) {
         EvictionPolicy<K, V> p = policy;
         if (p != null) p.onPut(key, existed);
@@ -280,9 +258,9 @@ public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, Ev
         if (p != null) p.onRemove(key, cause);
     }
 
-    // ========== 内部：过期扫描 + 淘汰驱动 ==========
+    // ========== 过期扫描 + 淘汰驱动 ==========
 
-    /** 扫描并清理过期项（O(n)，仅在 cleanUp / ensureCapacity 时低频发生）。 */
+    /** 扫描并清理过期项；仅在 cleanUp / ensureCapacity 时低频发生。 */
     private long sweepExpired() {
         long count = 0;
         for (K key : store.rawKeys()) {
@@ -292,7 +270,7 @@ public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, Ev
     }
 
     /**
-     * 把单个过期 key 走引擎删除管线：从存储移除 + 通知策略(EXPIRE) + 派发 EXPIRE/INVALIDATE 事件。
+     * 把单个过期 key 走删除管线：从存储移除 + 通知策略（EXPIRE）+ 派发 EXPIRE/INVALIDATE 事件。
      * 返回是否真的删除了一个值（并发已删则返回 {@code false}）。
      * 惰性过期（{@link #get}）与主动扫描（{@link #sweepExpired}）共用此路径，保证删除语义唯一。
      */
@@ -306,13 +284,10 @@ public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, Ev
     }
 
     /**
-     * 条目集合即将增长前的钩子（写路径在插入新 key 之前调用），用于腾出容量、清理过期。
+     * 写入导致容量增长前的钩子：腾出容量、清理过期。
      * {@code capacity <= 0} 时无界，直接返回；否则先扫描过期、再驱动策略淘汰。
-     * <p>
-     * 命名强调「在会导致容量增长的写入之前」调用，而非「写入之后」，以明确其职责是提前腾位。
-     * <p>
-     * 注意：容量淘汰的受害者已由策略在 {@link EvictionPolicy#selectEvictVictim()} 内自行从索引摘除，
-     * 引擎只负责真正删除存储 + 派发 EVICT/INVALIDATE 事件，不再回调 {@code onRemove(EVICT)}（避免双重摘除）。
+     * 容量淘汰时引擎删除存储并派发 EVICT/INVALIDATE 事件；受害者由策略在
+     * {@link EvictionPolicy#selectEvictVictim()} 内摘除。
      */
     private void ensureCapacity() {
         if (capacity <= 0) return;
@@ -335,20 +310,17 @@ public class CacheEngine<K, V> implements Cache<K, V>, ObservableCache<K, V>, Ev
 
     // ========== 事件监听器 ==========
 
-    @Override
     public void addListener(CacheEventType type, CacheEventListener<? super K, ? super V> listener) {
         if (type == null || listener == null) return;
         listeners.computeIfAbsent(type, _ -> new CopyOnWriteArrayList<>()).add(listener);
     }
 
-    @Override
     public void removeListener(CacheEventType type, CacheEventListener<? super K, ? super V> listener) {
         if (type == null || listener == null) return;
         List<CacheEventListener<? super K, ? super V>> list = listeners.get(type);
         if (list != null) list.remove(listener);
     }
 
-    @Override
     public void removeListeners(CacheEventType type) {
         if (type == null) return;
         listeners.remove(type);

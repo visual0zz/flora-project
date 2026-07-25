@@ -12,8 +12,7 @@ import java.util.function.LongSupplier;
  * LFU（最不经常使用）淘汰策略，key 基于、与存储无关。
  * <p>
  * 为每个 key 维护访问计数与插入序号：命中时计数 +1；淘汰时取
- * 计数最小者，计数相同取最早写入者。O(1) 更新，淘汰为 O(n) 扫描
- * （仅发生在超限时，由挂载它的缓存循环调用 {@code selectEvictVictim()} 驱动）。
+ * 计数最小者，计数相同取最早写入者。
  *
  * @param <K> 键类型
  * @param <V> 值类型
@@ -44,7 +43,7 @@ public final class LFUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
 
     @Override
     public void onGet(K key, boolean existed) {
-        // LFU 无独立的读取专属逻辑：读取的热度累加由 onTouch 统一承担（未命中键不在索引中，自然无操作）
+        // 读取热度由 onTouch 统一累加；未命中键不在索引中，自然无操作
     }
 
     @Override

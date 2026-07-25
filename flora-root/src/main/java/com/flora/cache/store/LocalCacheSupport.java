@@ -11,11 +11,9 @@ import com.flora.cache.ObservableCache;
 import java.time.Duration;
 
 /**
- * 本地有界缓存抽象基类（组合式）：实现 {@link RawStore} 提供本地 KV/TTL 存储钩子，
+ * 本地有界缓存抽象基类：实现 {@link RawStore} 提供本地 KV/TTL 存储钩子，
  * 组合 {@link CacheEngine} 获得完整的缓存行为（读写、事件、可挂策略、容量约束）。
- * <p>
- * 取代了原本强塞多套职责的父类 {@code CacheSupport}：本类不再继承任何引擎，而是把行为委托给
- * 被组合的引擎；子类（如 {@link MemoryCache}）只需实现 {@code rawXxx} 原始存储钩子。
+ * 子类（如 {@link MemoryCache}）只需实现 {@code rawXxx} 原始存储钩子。
  *
  * @param <K> 键类型
  * @param <V> 值类型

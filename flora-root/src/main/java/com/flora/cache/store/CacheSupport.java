@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 缓存抽象基类：实现 {@link Cache} 的通用读写、TTL、可选的淘汰策略回调与事件派发，
@@ -22,25 +21,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public abstract class CacheSupport<K, V> implements Cache<K, V> {
 
-    private final long capacity;
     private volatile EvictionPolicy<K, V> policy;
-    private final AtomicBoolean evicting = new AtomicBoolean();
 
     private final Map<CacheEventType, List<CacheEventListener<? super K, ? super V>>> listeners
             = new ConcurrentHashMap<>();
 
     protected CacheSupport() {
-        this(-1);
     }
 
-    /**
-     * @param capacity 容量上限（{@code <=0} 表示无上限 / 不淘汰）
-     */
-    protected CacheSupport(long capacity) {
-        this.capacity = capacity;
-    }
-
-    // ========== 淘汰策略插件（concrete 方法，供声明 EvictableCache 的子类继承兑现） ==========
+    // ========== 淘汰策略插件（concrete 方法，供子类继承复用） ==========
 
     public void setEvictionPolicy(EvictionPolicy<K, V> policy) {
         this.policy = policy;
@@ -61,7 +50,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             fire(CacheEventType.UPDATE, key, value);
             fire(CacheEventType.MUTATE, key, value);
         } else {
-            enforce();
+            afterWrite();
             rawPut(key, value);
             onPut(key);
             fire(CacheEventType.INSERT, key, value);
@@ -76,7 +65,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             onAccess(key);
             return false;
         }
-        enforce();
+        afterWrite();
         boolean inserted = rawPutIfAbsent(key, value);
         if (inserted) {
             onPut(key);
@@ -105,7 +94,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             fire(CacheEventType.UPDATE, key, value);
             fire(CacheEventType.MUTATE, key, value);
         } else {
-            enforce();
+            afterWrite();
             rawPut(key, value, duration);
             onPut(key);
             fire(CacheEventType.INSERT, key, value);
@@ -126,7 +115,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             onAccess(key);
             return false;
         }
-        enforce();
+        afterWrite();
         boolean inserted = rawPutIfAbsent(key, value, duration);
         if (inserted) {
             onPut(key);
@@ -211,22 +200,6 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
         return rawIsExpired(key);
     }
 
-    // ========== 容量与回收 ==========
-
-    public long gc() {
-        long count = sweepExpired();
-        enforce();
-        return count;
-    }
-
-    public boolean isFull() {
-        return capacity > 0 && rawCount() >= capacity;
-    }
-
-    public long capacity() {
-        return capacity;
-    }
-
     // ========== 内部：策略回调 ==========
 
     // 策略已挂载（policy != null）时即向策略喂数据；evict() 在容量未超限时返回 null，故不会触发删除。
@@ -240,15 +213,15 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
         if (p != null) p.onAccess(key);
     }
 
-    private void onRemove(K key) {
+    protected void onRemove(K key) {
         EvictionPolicy<K, V> p = policy;
         if (p != null) p.onRemove(key);
     }
 
     // ========== 内部：过期扫描 + 淘汰驱动 ==========
 
-    /** 扫描并清理过期项（O(n)，仅在 gc / enforce 时低频发生）。 */
-    private long sweepExpired() {
+    /** 扫描并清理过期项（O(n)，仅在 gc / afterWrite 时低频发生）。 */
+    protected long sweepExpired() {
         long count = 0;
         for (K key : rawKeys()) {
             if (!rawIsExpired(key)) continue;
@@ -263,25 +236,11 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
         return count;
     }
 
-    /** 确保容量：清过期 → 驱动策略淘汰。try-lock 串行化，容量为软上限。 */
-    private void enforce() {
-        if (capacity <= 0) return;
-        sweepExpired();
-        if (!evicting.compareAndSet(false, true)) return;
-        try {
-            EvictionPolicy<K, V> p = policy;
-            K victim;
-            while (p != null && (victim = p.evict()) != null) {
-                V old = rawRemove(victim);
-                if (old != null) {
-                    onRemove(victim);
-                    fire(CacheEventType.EVICT, victim, old);
-                    fire(CacheEventType.INVALIDATE, victim, old);
-                }
-            }
-        } finally {
-            evicting.set(false);
-        }
+    /**
+     * 写入后的钩子，由子类按需覆写。默认空操作：无界缓存写入后无需触发淘汰。
+     * 有界缓存在 {@code BoundedCacheSupport} 中覆写此方法以驱动容量淘汰。
+     */
+    protected void afterWrite() {
     }
 
     // ========== 事件监听器 ==========
@@ -308,7 +267,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
      * 触发事件。约定：实际存储操作已完成之后才调用本方法，故监听器异常不影响已提交的业务逻辑。
      * 异常隔离：单个监听器异常被就地吞掉并继续派发其余监听器。
      */
-    private void fire(CacheEventType type, K key, V value) {
+    protected void fire(CacheEventType type, K key, V value) {
         List<CacheEventListener<? super K, ? super V>> list = listeners.get(type);
         if (list == null) return;
         for (CacheEventListener<? super K, ? super V> l : list) {

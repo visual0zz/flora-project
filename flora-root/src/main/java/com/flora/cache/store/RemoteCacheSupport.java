@@ -40,7 +40,7 @@ public abstract class RemoteCacheSupport extends CacheSupport<String, String>
     }
 
     protected RemoteCacheSupport(String namespace) {
-        super(-1); // 远程淘汰由服务端管理，本地视为无上限
+        super(); // 远程淘汰由服务端管理，本地视为无上限
         this.namespace = namespace == null ? "" : namespace;
     }
 

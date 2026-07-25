@@ -51,14 +51,11 @@ public class CacheEngine<K, V> {
     public void put(K key, V value) {
         if (value == null) throw new NullPointerException("value must not be null");
         if (store.rawContains(key)) {
-            V old = hasListeners(CacheEventType.UPDATE) || hasListeners(CacheEventType.MUTATE)
-                    ? store.rawGet(key) : null;
             store.rawPut(key, value);
             onPut(key, true);
             onTouch(key, true);
-            Supplier<V> oldValue = () -> old;
-            fire(CacheEventType.UPDATE, key, oldValue, () -> value);
-            fire(CacheEventType.MUTATE, key, oldValue, () -> value);
+            fire(CacheEventType.UPDATE, key, () -> store.rawGet(key), () -> value);
+            fire(CacheEventType.MUTATE, key, () -> store.rawGet(key), () -> value);
         } else {
             ensureCapacity();
             store.rawPut(key, value);
@@ -101,14 +98,11 @@ public class CacheEngine<K, V> {
             return;
         }
         if (store.rawContains(key)) {
-            V old = hasListeners(CacheEventType.UPDATE) || hasListeners(CacheEventType.MUTATE)
-                    ? store.rawGet(key) : null;
             store.rawPut(key, value, duration);
             onPut(key, true);
             onTouch(key, true);
-            Supplier<V> oldValue = () -> old;
-            fire(CacheEventType.UPDATE, key, oldValue, () -> value);
-            fire(CacheEventType.MUTATE, key, oldValue, () -> value);
+            fire(CacheEventType.UPDATE, key, () -> store.rawGet(key), () -> value);
+            fire(CacheEventType.MUTATE, key, () -> store.rawGet(key), () -> value);
         } else {
             ensureCapacity();
             store.rawPut(key, value, duration);
@@ -174,9 +168,8 @@ public class CacheEngine<K, V> {
             store.rawSetTtl(key, duration);
             onTouch(key, true); // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度
             // cur 以惰性提供者传入：仅当确有 TOUCH/MUTATE 监听器时才回读存储
-            Supplier<V> cur = () -> store.rawGet(key);
-            fire(CacheEventType.TOUCH, key, cur, cur);
-            fire(CacheEventType.MUTATE, key, cur, cur);
+            fire(CacheEventType.TOUCH, key, () -> store.rawGet(key), () -> store.rawGet(key));
+            fire(CacheEventType.MUTATE, key, () -> store.rawGet(key), () -> store.rawGet(key));
         } else {
             store.rawSetTtl(key, duration);
         }
@@ -366,11 +359,9 @@ public class CacheEngine<K, V> {
                       Supplier<? extends V> oldValue, Supplier<? extends V> newValue) {
         List<CacheEventListener<? super K, ? super V>> list = listeners.get(type);
         if (list == null || list.isEmpty()) return;
-        V o = oldValue.get();
-        V n = newValue.get();
         for (CacheEventListener<? super K, ? super V> l : list) {
             try {
-                l.onEvent(type, key, () -> o, () -> n);
+                l.onEvent(type, key, oldValue, newValue);
             } catch (RuntimeException ignore) {
                 // 监听器故障不应影响缓存主流程与同批次其他监听器
             }

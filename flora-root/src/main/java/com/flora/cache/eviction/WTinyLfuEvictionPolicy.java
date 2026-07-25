@@ -174,13 +174,15 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
     }
 
     @Override
-    public void onAccess(K key) {
-        Integer r = region.get(key);
-        if (r == null) {        // 自愈合：索引缺失则重新入窗（并发摘除后的兜底）
-            onPut(key);
-            return;
-        }
+    public void onGet(K key) {
+        sketch.increment(key); // 读取即需求：累加频率素描（命中/未命中皆为需求预热）
+    }
+
+    @Override
+    public void onTouch(K key) {
         sketch.increment(key);
+        Integer r = region.get(key);
+        if (r == null) return; // 未登记（缺失键 / 已被摘除）：仅记需求，不纳入淘汰候选段
         switch (r) {
             case R_WINDOW -> {
                 windowLock.lock();
@@ -227,7 +229,7 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
     }
 
     @Override
-    public K evict() {
+    public K selectEvictVictim() {
         if (capacity <= 0) return null;
         // 阶段一：窗口超额走 W-TinyLFU 淘汰。循环至窗口降到 windowMax 或容量足够。
         // 准入分支（候选进入主区、本步不删存储）不返回、继续清窗口，与原 ensureCapacity 的 while 一致。

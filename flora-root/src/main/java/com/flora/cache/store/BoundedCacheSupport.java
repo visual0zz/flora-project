@@ -67,7 +67,7 @@ public abstract class BoundedCacheSupport<K, V> extends CacheSupport<K, V>
         try {
             EvictionPolicy<K, V> p = evictionPolicy();
             K victim;
-            while (p != null && (victim = p.evict()) != null) {
+            while (p != null && (victim = p.selectEvictVictim()) != null) {
                 V old = rawRemove(victim);
                 if (old != null) {
                     onRemove(victim);

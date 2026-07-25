@@ -40,10 +40,20 @@ public final class LRUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onAccess(K key) {
+    public void onGet(K key) {
         lock.lock();
         try {
-            if (order.containsKey(key)) order.get(key); // LRU touch → 移到 MRU
+            if (order.containsKey(key)) order.get(key); // 命中读取 → 移到 MRU
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void onTouch(K key) {
+        lock.lock();
+        try {
+            if (order.containsKey(key)) order.get(key); // 引用 → 移到 MRU（刷新最近使用）
         } finally {
             lock.unlock();
         }
@@ -60,7 +70,7 @@ public final class LRUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public K evict() {
+    public K selectEvictVictim() {
         if (capacity <= 0 || sizeOf.getAsLong() < capacity) return null;
         lock.lock();
         try {

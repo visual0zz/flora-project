@@ -40,8 +40,13 @@ public final class FIFOEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onAccess(K key) {
-        // FIFO 忽略访问：顺序仅由写入决定
+    public void onGet(K key) {
+        // FIFO 忽略读取：顺序仅由写入决定
+    }
+
+    @Override
+    public void onTouch(K key) {
+        // FIFO 忽略热度：顺序仅由写入决定
     }
 
     @Override
@@ -55,7 +60,7 @@ public final class FIFOEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public K evict() {
+    public K selectEvictVictim() {
         if (capacity <= 0 || sizeOf.getAsLong() < capacity) return null;
         lock.lock();
         try {

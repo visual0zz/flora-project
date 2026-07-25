@@ -1,5 +1,12 @@
 package com.flora.cache.store;
 
+import com.flora.cache.BoundedCache;
+import com.flora.cache.Cache;
+import com.flora.cache.CacheEventType;
+import com.flora.cache.CacheEventListener;
+import com.flora.cache.EvictableCache;
+import com.flora.cache.EvictionPolicy;
+import com.flora.cache.ObservableCache;
 import com.flora.cache.eviction.WTinyLfuEvictionPolicy;
 
 import java.time.Duration;
@@ -8,8 +15,9 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * W-TinyLFU + TTL 的本地内存缓存。
  * <p>
- * 继承 {@link LocalCacheSupport}，基于 {@link java.util.concurrent.ConcurrentHashMap} 维护 KV 与过期，
- * 并在构造时挂载 {@link WTinyLfuEvictionPolicy} 作为淘汰策略；更换策略可调用 {@link #setEvictionPolicy}。
+ * 直接实现 {@link RawStore} 提供本地 KV/TTL 存储钩子，组合 {@link CacheEngine} 获得完整的
+ * 缓存行为（读写、事件、可挂策略、容量约束）；构造时挂载 {@link WTinyLfuEvictionPolicy} 作为淘汰策略，
+ * 更换策略可调用 {@link #setEvictionPolicy}。
  * <p>
  * 过期采用惰性删除（{@code rawGet} 时发现过期即隐藏）+ 主动扫描（{@code cleanUp()} 触发 {@code EXPIRE} 事件）。
  * {@code capacity <= 0} 时为无界模式：策略不参与淘汰。
@@ -17,7 +25,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * @param <K> 键类型
  * @param <V> 值类型
  */
-public class MemoryCache<K, V> extends LocalCacheSupport<K, V> {
+public class MemoryCache<K, V>
+        implements RawStore<K, V>, Cache<K, V>, ObservableCache<K, V>, EvictableCache<K, V>, BoundedCache<K, V> {
 
     /** 永不过期标记：expiry 映射中不存在即表示永不过期 */
     private static final long IMMORTAL = 0L;
@@ -25,6 +34,8 @@ public class MemoryCache<K, V> extends LocalCacheSupport<K, V> {
     private final ConcurrentHashMap<K, V> map = new ConcurrentHashMap<>();
     /** key → 绝对过期时间戳(ms)；不存在表示永不过期 */
     private final ConcurrentHashMap<K, Long> expiry = new ConcurrentHashMap<>();
+
+    private final CacheEngine<K, V> engine;
 
     public MemoryCache() {
         this(-1);
@@ -34,7 +45,7 @@ public class MemoryCache<K, V> extends LocalCacheSupport<K, V> {
      * @param capacity 容量上限（{@code <=0} 表示无上限，自带 W-TinyLFU 休眠、永不淘汰）
      */
     public MemoryCache(long capacity) {
-        super(capacity);
+        this.engine = new CacheEngine<>(this, capacity);
         setEvictionPolicy(new WTinyLfuEvictionPolicy<>(capacity, this::approxCount));
     }
 
@@ -146,5 +157,108 @@ public class MemoryCache<K, V> extends LocalCacheSupport<K, V> {
     @Override
     public long rawCount() {
         return map.mappingCount();
+    }
+
+    // ========== Cache ==========
+
+    @Override
+    public void put(K key, V value) {
+        engine.put(key, value);
+    }
+
+    @Override
+    public boolean putIfAbsent(K key, V value) {
+        return engine.putIfAbsent(key, value);
+    }
+
+    @Override
+    public void put(K key, V value, Duration duration) {
+        engine.put(key, value, duration);
+    }
+
+    @Override
+    public boolean putIfAbsent(K key, V value, Duration duration) {
+        return engine.putIfAbsent(key, value, duration);
+    }
+
+    @Override
+    public V get(K key) {
+        return engine.get(key);
+    }
+
+    @Override
+    public void setTtl(K key, Duration duration) {
+        engine.setTtl(key, duration);
+    }
+
+    @Override
+    public Duration ttl(K key) {
+        return engine.ttl(key);
+    }
+
+    @Override
+    public V remove(K key) {
+        return engine.remove(key);
+    }
+
+    @Override
+    public void clear() {
+        engine.clear();
+    }
+
+    @Override
+    public long approxCount() {
+        return engine.approxCount();
+    }
+
+    @Override
+    public boolean containsKey(K key) {
+        return engine.containsKey(key);
+    }
+
+    // ========== ObservableCache ==========
+
+    @Override
+    public void addListener(CacheEventType type, CacheEventListener<? super K, ? super V> listener) {
+        engine.addListener(type, listener);
+    }
+
+    @Override
+    public void removeListener(CacheEventType type, CacheEventListener<? super K, ? super V> listener) {
+        engine.removeListener(type, listener);
+    }
+
+    @Override
+    public void removeListeners(CacheEventType type) {
+        engine.removeListeners(type);
+    }
+
+    // ========== EvictableCache ==========
+
+    @Override
+    public void setEvictionPolicy(EvictionPolicy<K, V> policy) {
+        engine.setEvictionPolicy(policy);
+    }
+
+    @Override
+    public EvictionPolicy<K, V> evictionPolicy() {
+        return engine.evictionPolicy();
+    }
+
+    // ========== BoundedCache ==========
+
+    @Override
+    public long cleanUp() {
+        return engine.cleanUp();
+    }
+
+    @Override
+    public boolean isFull() {
+        return engine.isFull();
+    }
+
+    @Override
+    public long capacity() {
+        return engine.capacity();
     }
 }

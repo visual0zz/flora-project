@@ -1,7 +1,6 @@
 package com.flora.cache.eviction;
 
 import com.flora.cache.EvictionPolicy;
-import com.flora.cache.RemovalCause;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -208,7 +207,7 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
     }
 
     @Override
-    public void onRemove(K key, RemovalCause cause) {
+    public void onRemove(K key) {
         windowLock.lock();
         try {
             window.remove(key);

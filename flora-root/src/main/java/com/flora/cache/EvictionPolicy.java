@@ -3,7 +3,7 @@ package com.flora.cache;
 /**
  * 缓存淘汰策略接口：依据 key 的读写通知决定淘汰谁。
  * <p>
- * 策略通过 {@code onPut}/{@code onGet}/{@code onTouch}/{@code onRemove} 接收 key 的事件通知，
+ * 策略通过 {@code onPut}/{@code onGet}/{@code onTouch} 接收 key 的事件通知，
  * 自行维护内部索引。策略只<b>决策</b>淘汰谁，不触碰存储：
  * 引擎在需要淘汰时调用 {@link #selectEvictVictim()} 取回待删的 key，由引擎负责真正删除与派发事件。
  * <p>
@@ -11,12 +11,16 @@ package com.flora.cache;
  * <ul>
  *   <li>写入（put / putIfAbsent，含覆盖写）→ {@link #onPut} + {@link #onTouch}</li>
  *   <li>读取（get，命中或未命中）→ {@link #onGet} + {@link #onTouch}</li>
- *   <li>删除 / 过期 → {@link #onRemove}（不再 touch）</li>
+ *   <li>任意删除（显式 / 淘汰 / 过期）→ {@link #onRemove}（不再 touch）</li>
  * </ul>
  * 其中 {@code onPut} / {@code onGet} 描述「发生了哪种操作」并负责把 key 登记进策略，
  * {@code onTouch} 负责刷新该 key 的热度（频率 / 最近使用位置）。
  * 三个回调都携带 {@code existed} 参数，表示<b>本次操作发生前</b>该 key 是否已存在于存储中，
  * 供策略区分新插入 / 覆盖写 / 命中 / 未命中。
+ * <p>
+ * 删除事件另按来源分别回调 {@link #onExplicitRemove}/{@link #onEvict}/{@link #onExpire}，
+ * 供策略针对显式删除、容量淘汰、TTL 过期做差异化处理（默认空实现；多数策略只需
+ * {@link #onRemove} 即可）。
  *
  * @param <K> 键类型
  * @param <V> 值类型（策略通常只基于 key 工作，V 仅为对称保留）
@@ -52,13 +56,40 @@ public interface EvictionPolicy<K, V> {
     void onTouch(K key, boolean existed);
 
     /**
-     * 条目被移除（显式删除 / 淘汰 / 过期）后回调，从候选集与索引中摘除。
+     * 条目被移除（显式删除 / 容量淘汰 / TTL 过期）后回调，从候选集与索引中摘除。
+     * 每次删除都会触发，与来源无关；如需按来源差异化处理，见
+     * {@link #onExplicitRemove}/{@link #onEvict}/{@link #onExpire}。
      *
-     * @param key   键
-     * @param cause 移除原因，见 {@link RemovalCause}（{@code EXPLICIT}=显式删除、
-     *              {@code EVICT}=容量淘汰、{@code EXPIRE}=TTL 过期）；策略可按原因差异化处理
+     * @param key 键
      */
-    void onRemove(K key, RemovalCause cause);
+    void onRemove(K key);
+
+    /**
+     * 条目被显式 {@code remove} 删除后回调（可选钩子）。默认空实现；
+     * 策略通常已在 {@link #onRemove} 中摘除，无需覆写，除非要对显式删除做特殊记账。
+     *
+     * @param key 键
+     */
+    default void onExplicitRemove(K key) {
+    }
+
+    /**
+     * 条目因容量超限被淘汰后回调（可选钩子）。默认空实现；
+     * 默认由 {@link #onRemove} 完成索引摘除，如需对淘汰做额外统计可覆写。
+     *
+     * @param key 键
+     */
+    default void onEvict(K key) {
+    }
+
+    /**
+     * 条目因 TTL 过期被删除后回调（可选钩子）。默认空实现；
+     * 默认由 {@link #onRemove} 完成索引摘除，如需对过期做额外统计可覆写。
+     *
+     * @param key 键
+     */
+    default void onExpire(K key) {
+    }
 
     /**
      * 选择并返回一个待淘汰的 key（仅决策，不删除存储）；当前无需淘汰（容量未满、

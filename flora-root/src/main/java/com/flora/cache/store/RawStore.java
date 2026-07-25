@@ -5,7 +5,7 @@ import java.time.Duration;
 /**
  * 原始存储 SPI：缓存引擎 {@link CacheEngine} 与具体 KV/TTL 存储之间的契约。
  * <p>
- * 实现者（如 {@link MemoryCache}、{@link RemoteCacheSupport}）只负责「真正的数据读写」，
+ * 实现者（如 {@link MemoryCache}、{@link RemoteCache}）只负责「真正的数据读写」，
  * 不承载任何淘汰、事件、过期语义判断——零/负时长、过期判定等统一由引擎处理。
  * 引擎在写入前已保证 {@code duration} 为正数（零/负已改走过期删除管线），故 {@code rawXxx}
  * 带 {@code Duration} 的重载无需再次校验时长合法性。

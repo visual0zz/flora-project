@@ -1,19 +1,13 @@
 package com.flora.cache;
 
 /**
- * 缓存淘汰策略接口：只做淘汰决策，不碰存储细节与事件监听。
+ * 缓存淘汰策略接口：依据 key 的访问通知决定淘汰谁。
  * <p>
- * 策略按 key 接收读写通知，自行维护全部索引（如 LRU 分段、频率素描），
- * 以 O(1) 产出待淘汰的 key。被淘汰的 key 由挂载它的 {@link BoundedCache}
- * （如 {@code MemoryCache} 经 {@link BoundedCache#setEvictionPolicy} 挂上本策略）
- * 负责从存储中删除并触发 {@code EVICT}/{@code INVALIDATE} 事件；策略本身不持有 value、
- * 不触发监听器，从而与具体存储实现完全解耦，可自由组合。
- * <p>
- * 单体缓存（把存储与策略焊死的实现）可继承 {@code com.flora.cache.store.BoundedCacheSupport}
- * （或自行实现 {@link BoundedCache}）；其内部复用某个 {@link EvictionPolicy} 实现。
+ * 策略通过 {@code onPut}/{@code onAccess}/{@code onRemove} 接收 key 的读写通知，
+ * 自行维护内部索引（如 LRU 链表、频率计数），并通过 {@code evict()} 返回待淘汰的 key。
  *
  * @param <K> 键类型
- * @param <V> 值类型（策略通常不感知具体值，仅为与 {@link Cache} 对称保留）
+ * @param <V> 值类型（策略通常只基于 key 工作，V 仅为对称保留）
  */
 public interface EvictionPolicy<K, V> {
 
@@ -25,7 +19,7 @@ public interface EvictionPolicy<K, V> {
     void onPut(K key);
 
     /**
-     * 命中读取后回调（含未命中也调用，便于识别突发流量），用于更新频率与分段位置。
+     * 命中读取后回调（未命中也会回调，用于统计访问），用于更新频率与分段位置。
      *
      * @param key 键
      */
@@ -39,8 +33,8 @@ public interface EvictionPolicy<K, V> {
     void onRemove(K key);
 
     /**
-     * 执行一次淘汰步骤，返回待淘汰的 key；当前无需淘汰（容量未满或无可淘汰项）
-     * 时返回 {@code null}。调用方负责从存储删除该 key 并触发事件。
+     * 执行一次淘汰步骤，返回待淘汰的 key；当前无需淘汰（容量未满或无可淘汰项）时返回 {@code null}。
+     * 调用方负责删除该 key。
      *
      * @return 待淘汰的 key，或 {@code null}
      */

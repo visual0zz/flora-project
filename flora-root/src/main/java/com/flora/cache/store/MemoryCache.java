@@ -7,16 +7,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * W-TinyLFU + TTL 的本地内存缓存（单类实现）。
+ * W-TinyLFU + TTL 的本地内存缓存。
  * <p>
- * 继承 {@link BoundedCacheSupport}，自行维护基于 {@link java.util.concurrent.ConcurrentHashMap}
- * 的 KV 与惰性/主动过期，并在构造时给自己挂载 {@link WTinyLfuEvictionPolicy}（容量约束 + 自适应淘汰）。
- * 对外以 {@link com.flora.cache.BoundedCache} 形式服务（存储 + 事件 + 尺寸 + 策略），
- * 无需额外的组合包装类型。更换策略（LRU / LFU / FIFO）只需调用
- * {@link #setEvictionPolicy} 替换插件。
+ * 继承 {@link BoundedCacheSupport}，基于 {@link java.util.concurrent.ConcurrentHashMap} 维护 KV 与过期，
+ * 并在构造时挂载 {@link WTinyLfuEvictionPolicy} 作为淘汰策略；更换策略可调用 {@link #setEvictionPolicy}。
  * <p>
- * 过期采用惰性删除（{@code rawGet} 时发现过期即移除）+ 主动扫描（{@code gc()} 触发
- * {@code EXPIRE} 事件）。{@code capacity <= 0} 时为无界模式：策略仅做统计、永不淘汰。
+ * 过期采用惰性删除（{@code rawGet} 时发现过期即移除）+ 主动扫描（{@code gc()} 触发 {@code EXPIRE} 事件）。
+ * {@code capacity <= 0} 时为无界模式：策略不参与淘汰。
  *
  * @param <K> 键类型
  * @param <V> 值类型

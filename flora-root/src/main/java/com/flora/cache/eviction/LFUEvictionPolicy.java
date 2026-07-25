@@ -12,7 +12,7 @@ import java.util.function.LongSupplier;
  * <p>
  * 为每个 key 维护访问计数与插入序号：命中时计数 +1；淘汰时取
  * 计数最小者，计数相同取最早写入者。O(1) 更新，淘汰为 O(n) 扫描
- * （仅发生在超限时，由挂载它的缓存引擎（{@code CacheSupport.enforce()}）循环驱动）。
+ * （仅发生在超限时，由挂载它的缓存循环调用 {@code evict()} 驱动）。
  *
  * @param <K> 键类型
  * @param <V> 值类型

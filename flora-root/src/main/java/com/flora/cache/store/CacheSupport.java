@@ -13,23 +13,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * 缓存抽象基类（共享引擎）：仅承诺 {@link Cache}（存储契约），把 put/get/remove、TTL、
- * 可选的淘汰策略回调（{@link EvictionPolicy}）与事件派发（含监听器异常隔离）「粘合」在一起，
- * 供具体存储子类复用。有界的 {@link BoundedCacheSupport} 与远程的
- * {@link RemoteCacheSupport} 都继承本类，从而共用同一套引擎。
- * <p>
- * 本类<b>不</b>直接声明 {@link com.flora.cache.ObservableCache} 或
- * {@link com.flora.cache.EvictableCache}——这两个能力由子类在类型层按需 opt-in
- * （见两个子类的 {@code implements} 子句）。但引擎在物理上已携带监听器表与策略字段，并提供
- * {@code addListener}/{@code setEvictionPolicy} 等 concrete 方法，子类继承后即可兑现对应接口。
- * <p>
- * 子类只需实现一组 {@code rawXxx} 原始存储钩子（KV 与 TTL 的真正读写），本类负责其余逻辑。
- * 这样存储实现与淘汰策略完全解耦，且 {@link EvictionPolicy} 作为插件挂在缓存上，而非与存储
- * 平等组合出的新类型。
- * <p>
- * 策略回调在「策略已挂载（{@code policy != null}）」时即生效——无界但挂了策略的缓存同样会
- * 向策略喂数据（仅统计 / 准入，不触发删除，因为 {@link EvictionPolicy#evict()} 在容量未超限时
- * 返回 {@code null}），从而让「可挂策略」成为与「有界」正交的独立能力。
+ * 缓存抽象基类：实现 {@link Cache} 的通用读写、TTL、可选的淘汰策略回调与事件派发，
+ * 供具体存储子类复用。子类只需实现一组 {@code rawXxx} 原始存储钩子（KV 与 TTL 的真正读写），
+ * 其余逻辑由本类负责。
  *
  * @param <K> 键类型
  * @param <V> 值类型
@@ -225,7 +211,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
         return rawIsExpired(key);
     }
 
-    // ========== 容量与回收（供有界子类 BoundedCacheSupport 继承以兑现 BoundedCache） ==========
+    // ========== 容量与回收 ==========
 
     public long gc() {
         long count = sweepExpired();
@@ -243,8 +229,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
 
     // ========== 内部：策略回调 ==========
 
-    // 唤醒闸门：策略已挂载即生效（不再要求 capacity > 0）。无界但挂了策略的缓存同样喂数据，
-    // 但 evict() 内部会因容量未超限返回 null，从而只统计不删除——使「可挂策略」与「有界」正交。
+    // 策略已挂载（policy != null）时即向策略喂数据；evict() 在容量未超限时返回 null，故不会触发删除。
     private void onPut(K key) {
         EvictionPolicy<K, V> p = policy;
         if (p != null) p.onPut(key);
@@ -301,7 +286,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
 
     // ========== 事件监听器 ==========
 
-    // 以下三个为 concrete 方法，供声明 ObservableCache 的子类继承兑现。
+    // 以下三个为 concrete 方法，供子类继承复用。
 
     public void addListener(CacheEventType type, CacheEventListener<? super K, ? super V> listener) {
         if (type == null || listener == null) return;

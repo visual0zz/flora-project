@@ -4,16 +4,7 @@ import java.time.Duration;
 import java.util.Collections;
 
 /**
- * 缓存存储契约（最瘦）：定义所有缓存后端必须实现的最小公共存储能力——KV 与 TTL。
- * <p>
- * 本接口是整套缓存抽象的根基。在其上分出两条<b>正交</b>的能力轴（均直接 {@code extends} 本接口）：
- * <ul>
- *   <li>{@link ObservableCache}：叠加事件监听（可观测）；</li>
- *   <li>{@link EvictableCache}：叠加「挂载淘汰策略插件」的能力，
- *       {@link BoundedCache} 再在其上叠加尺寸限制（有界）。</li>
- * </ul>
- * 两条轴互不依赖：一个缓存可以可观测但无界，也可以有界但不可观测，或两者兼具。
- * 本接口只谈数据（KV + TTL），把容量、事件、策略留给上层，保持最小、最易被各种后端实现。
+ * 缓存存储契约：定义 KV 读写、TTL 与基础查询的最小公共能力。
  *
  * @param <K> 键类型
  * @param <V> 值类型

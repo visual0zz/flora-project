@@ -3,12 +3,10 @@ package com.flora.cache;
 import java.util.Map;
 
 /**
- * 可观测缓存契约：在 {@link Cache}（存储）之上叠加事件监听。
+ * 可观测缓存契约：提供缓存事件监听能力。
  * <p>
- * 任何希望被监听（{@code INSERT}/{@code UPDATE}/{@code TOUCH}/{@code EVICT}/
- * {@code EXPIRE}/{@code REMOVE}/{@code INVALIDATE}/{@code MUTATE}）的缓存至少实现本接口。
- * 本接口属于「可观测轴」，与淘汰轴（{@link EvictableCache} / {@link BoundedCache}）正交：
- * 淘汰策略的挂载不在本接口，而在 {@link EvictableCache}（由 {@link BoundedCache} 继承并叠加容量）。
+ * 支持对 {@code INSERT}/{@code UPDATE}/{@code TOUCH}/{@code MUTATE}/{@code EVICT}/
+ * {@code EXPIRE}/{@code REMOVE}/{@code INVALIDATE} 各类事件注册监听器。
  *
  * @param <K> 键类型
  * @param <V> 值类型

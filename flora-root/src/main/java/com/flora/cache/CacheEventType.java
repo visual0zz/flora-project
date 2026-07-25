@@ -3,7 +3,9 @@ package com.flora.cache;
 /**
  * 缓存事件类型。
  * <p>
- * 用于 {@link ObservableCache#addListener(CacheEventType, CacheEventListener)} 注册监听器时指定事件类型。
+ * 写事件：{@code INSERT}/{@code UPDATE}/{@code TOUCH}，其总和为 {@code MUTATE}；
+ * 失效事件：{@code EVICT}/{@code EXPIRE}/{@code REMOVE}，其总和为 {@code INVALIDATE}。
+ * 监听 {@code MUTATE} 可覆盖全部写场景，监听 {@code INVALIDATE} 可覆盖全部失效场景。
  */
 public enum CacheEventType {
 

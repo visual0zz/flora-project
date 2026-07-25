@@ -25,7 +25,7 @@ import java.util.function.LongSupplier;
  * <p>
  * 线程安全：三段 LRU 各由一把 {@link ReentrantLock} 保护；分段只是 key 的顺序索引，
  * 允许与容量计数短暂不一致；锁顺序固定为 windowLock → probationLock → protectedLock。
- * 容量判断通过 {@code sizeOf} 读取存储当前条目数，与原 {@code MemoryCache} 语义一致。
+ * 容量判断通过 {@code sizeOf} 读取存储当前条目数。
  *
  * @param <K> 键类型
  * @param <V> 值类型
@@ -233,7 +233,7 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
         // 准入分支（候选进入主区、本步不删存储）不返回、继续清窗口，与原 ensureCapacity 的 while 一致。
         while (windowSize() > windowMax && sizeOf.getAsLong() > capacity - windowMax) {
             K v = evictFromWindow();
-            if (v != null) return v; // 本步真正删除了一个存储项，交由挂载它的缓存引擎处理
+            if (v != null) return v; // 本步真正删除了一个存储项，交由挂载它的缓存负责删除该 key
         }
         // 极端回退：仍超容时直接从 probation 尾部强删
         if (sizeOf.getAsLong() > capacity) {

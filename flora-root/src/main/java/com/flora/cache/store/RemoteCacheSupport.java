@@ -8,15 +8,9 @@ import java.time.Duration;
 import java.util.Collections;
 
 /**
- * 远程缓存抽象基类：继承共享引擎 {@link CacheSupport}，但<b>不</b>实现
- * {@link com.flora.cache.BoundedCache}——远程缓存的淘汰由服务端（如 Redis
- * maxmemory-policy）管理，本地没有容量维度，只对外呈现实质上的
- * {@link com.flora.cache.Cache} + {@link com.flora.cache.ObservableCache}
- * + {@link com.flora.cache.EvictableCache}。
+ * 远程缓存抽象基类：继承 {@link CacheSupport}，复用其 put/get/remove 与事件派发，
+ * 把网络读写留给子类实现的 {@code doXxx} 钩子（键与值均为 {@code String}，与 Redis 协议对应）：
  * <p>
- * 本类复用引擎的 put/get/remove/事件派发逻辑，把网络读写留给子类实现的 {@code doXxx} 钩子
- * （键与值均为 {@code String}，与 Redis 协议对应）：
- * </p>
  * <pre>{@code
  * RemoteCache cache = new RemoteCache("myapp:") {
  *     protected void doSet(String key, String value, long ttlMillis) { jedis.set(key, value); }
@@ -31,7 +25,8 @@ import java.util.Collections;
  * };
  * }</pre>
  * <p>
- * {@link #setEvictionPolicy} 为空操作（本地策略插件对远程无意义）。线程安全性取决于子类所用客户端。
+ * 淘汰由服务端（如 Redis maxmemory-policy）管理，故本地 {@link #setEvictionPolicy} 为空操作、无容量维度。
+ * 线程安全性取决于子类所用客户端。
  */
 public abstract class RemoteCacheSupport extends CacheSupport<String, String>
         implements ObservableCache<String, String>, EvictableCache<String, String> {

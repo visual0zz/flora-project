@@ -14,9 +14,7 @@ import java.util.Collections;
  * 的 {@link CacheEngine} 获得 put/get/remove 与事件派发能力。
  * <p>
  * 淘汰由服务端（如 Redis maxmemory-policy）管理，本地不暴露 {@link com.flora.cache.EvictableCache}
- * 能力、不持有容量维度——这正是把它从原本的 {@code CacheSupport} 父类体系中抽离为「组合引擎」的意义：
- * 不再被动继承用不上的 {@code policy} 字段与淘汰逻辑。
- * 线程安全性取决于子类所用客户端。
+ * 能力、不持有容量维度。线程安全性取决于子类所用客户端。
  *
  * <pre>{@code
  * RemoteCache cache = new RemoteCache("myapp:") {

@@ -34,7 +34,7 @@ public interface Cache<K, V> {
 
     // ---- TTL 管理 ----
 
-    /** 设置/更新 key 的过期时长；key 不存在由实现决定（静默忽略或抛异常）。 */
+    /** 设置/更新 key 的过期时长；key 不存在或已过期（逻辑删除）时静默忽略（不会复活过期键）。 */
     void setTtl(K key, Duration duration);
 
     /** 查询 key 剩余过期时间；永不过期返回 {@link Duration#MAX}，不存在或已过期返回 {@link Duration#ZERO}。 */

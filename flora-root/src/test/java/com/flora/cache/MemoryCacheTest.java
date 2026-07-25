@@ -72,6 +72,19 @@ class MemoryCacheTest {
     }
 
     @Test
+    void setTtlDoesNotReviveExpiredKey() throws InterruptedException {
+        MemoryCache<Integer, Integer> c = new MemoryCache<>();
+        c.put(1, 1, Duration.ofMillis(50));
+        Thread.sleep(90); // 已过期（逻辑删除），但物理仍在 map 中
+        c.setTtl(1, Duration.ofMillis(1000)); // 不应复活过期键
+        assertFalse(c.containsKey(1));
+        assertEquals(Duration.ZERO, c.ttl(1));
+        // 对完全不存在的键 setTtl 也是静默无操作
+        c.setTtl(99, Duration.ofMillis(1000));
+        assertEquals(Duration.ZERO, c.ttl(99));
+    }
+
+    @Test
     void ttlCleanUpFiresExpire() throws InterruptedException {
         MemoryCache<Integer, Integer> c = new MemoryCache<>(100);
         c.put(1, 1, Duration.ofMillis(50));

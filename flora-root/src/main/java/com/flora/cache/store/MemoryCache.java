@@ -131,7 +131,7 @@ public class MemoryCache<K, V>
     public void rawSetTtl(K key, Duration duration) {
         // duration 已由引擎保证为非 ZERO/非 NEGATIVE；MAX 表示永不过期（移除 TTL）
         if (duration == null) return;
-        if (!map.containsKey(key)) return;
+        if (!rawContains(key)) return; // 不存在或已过期（逻辑已删除）不赋 TTL，避免复活
         if (duration.equals(Duration.MAX)) {
             expiry.remove(key); // 永不过期
         } else {

@@ -170,6 +170,7 @@ public class CacheEngine<K, V> {
             return;
         }
         // Duration.MAX 表示永不过期（移除 TTL），由存储层转译为「无过期」
+        // 仅对存活键（rawContains=true）操作；缺失或已过期（逻辑已删除）的键静默忽略，避免复活
         if (store.rawContains(key)) {
             store.rawSetTtl(key, duration);
             onTouch(key, true); // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度
@@ -179,8 +180,6 @@ public class CacheEngine<K, V> {
                 if (hasListeners(CacheEventType.TOUCH)) fire(CacheEventType.TOUCH, key, cur, cur);
                 if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, cur, cur);
             }
-        } else {
-            store.rawSetTtl(key, duration);
         }
     }
 

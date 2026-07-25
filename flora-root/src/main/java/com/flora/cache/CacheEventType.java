@@ -45,4 +45,10 @@ public enum CacheEventType {
      * 当任意一种失效发生时，具体类型事件和 {@code INVALIDATE} 会一并触发。
      */
     INVALIDATE,
+
+    /**
+     * 缓存被整体清空（{@link Cache#clear()}）。与逐条失效不同，此事件的 {@code key} 为 {@code null}，
+     * 表示「全部条目失效」，监听器不应依赖具体 key（与 {@code INVALIDATE} 不属于同一聚合族）。
+     */
+    CLEAR,
 }

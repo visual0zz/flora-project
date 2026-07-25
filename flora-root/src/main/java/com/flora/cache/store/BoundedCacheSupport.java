@@ -4,7 +4,6 @@ import com.flora.cache.BoundedCache;
 import com.flora.cache.CacheEventType;
 import com.flora.cache.EvictionPolicy;
 import com.flora.cache.ObservableCache;
-import com.flora.cache.RemovalCause;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -12,8 +11,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 有界缓存抽象基类：继承 {@link CacheSupport} 并实现 {@link ObservableCache} 与 {@link BoundedCache}，
  * 供本地有界缓存（如 {@code MemoryCache}）复用，统一获得存储、事件监听、可挂策略与容量约束。
  * <p>
- * 容量相关能力（容量上限、是否已满、回收、写入后淘汰驱动）归属本类；{@link CacheSupport}
- * 只提供通用的存储引擎与写入后钩子 {@code afterWrite()}（默认空操作）。
+ * 容量相关能力（容量上限、是否已满、回收、写入前腾位驱动）归属本类；{@link CacheSupport}
+ * 只提供通用的存储引擎与写入前钩子 {@code ensureCapacity()}（默认空操作）。
  *
  * @param <K> 键类型
  * @param <V> 值类型
@@ -42,7 +41,7 @@ public abstract class BoundedCacheSupport<K, V> extends CacheSupport<K, V>
     @Override
     public long gc() {
         long count = sweepExpired();
-        afterWrite();
+        ensureCapacity();
         return count;
     }
 
@@ -56,12 +55,27 @@ public abstract class BoundedCacheSupport<K, V> extends CacheSupport<K, V>
         return capacity;
     }
 
+    // ========== EvictableCache：公开挂载/卸载策略（避免非淘汰子类继承该能力） ==========
+
+    @Override
+    public void setEvictionPolicy(EvictionPolicy<K, V> policy) {
+        setPolicy(policy);
+    }
+
+    @Override
+    public EvictionPolicy<K, V> evictionPolicy() {
+        return policy();
+    }
+
     /**
-     * 写入后钩子：清过期 → 驱动策略淘汰。try-lock 串行化，容量为软上限；
+     * 写入前钩子：清过期 → 驱动策略淘汰。try-lock 串行化，容量为软上限；
      * {@code capacity <= 0} 时直接返回（无界）。
+     * <p>
+     * 注意：容量淘汰的受害者已由策略在 {@link EvictionPolicy#selectEvictVictim()} 内自行从索引摘除，
+     * 引擎只负责真正删除存储 + 派发 EVICT/INVALIDATE 事件，不再回调 {@code onRemove(EVICT)}（避免双重摘除）。
      */
     @Override
-    protected void afterWrite() {
+    protected void ensureCapacity() {
         if (capacity <= 0) return;
         sweepExpired();
         if (!evicting.compareAndSet(false, true)) return;
@@ -71,7 +85,6 @@ public abstract class BoundedCacheSupport<K, V> extends CacheSupport<K, V>
             while (p != null && (victim = p.selectEvictVictim()) != null) {
                 V old = rawRemove(victim);
                 if (old != null) {
-                    onRemove(victim, RemovalCause.EVICT);
                     fire(CacheEventType.EVICT, victim, old, null);
                     fire(CacheEventType.INVALIDATE, victim, old, null);
                 }

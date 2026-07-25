@@ -130,10 +130,7 @@ public abstract class RemoteCacheSupport extends CacheSupport<String, String>
     @Override
     protected void rawSetTtl(String key, Duration duration) {
         if (duration == null) return;
-        if (duration.isZero() || duration.isNegative()) {
-            rawRemove(key);
-            return;
-        }
+        // duration 已为正数（零/负由引擎走 expireKey 路径）
         doExpire(wrapKey(key), duration.toMillis());
     }
 

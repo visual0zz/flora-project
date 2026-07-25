@@ -30,13 +30,15 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
     protected CacheSupport() {
     }
 
-    // ========== 淘汰策略插件（concrete 方法，供子类继承复用） ==========
+    // ========== 淘汰策略插件（字段仅在 CacheSupport 持有；公开挂载/卸载接口由 EvictableCache 实现类暴露） ==========
 
-    public void setEvictionPolicy(EvictionPolicy<K, V> policy) {
+    /** 供子类（有界可淘汰缓存）暴露为 {@link com.flora.cache.EvictableCache} 的公开方法，普通基类不直接暴露。 */
+    protected void setPolicy(EvictionPolicy<K, V> policy) {
         this.policy = policy;
     }
 
-    public EvictionPolicy<K, V> evictionPolicy() {
+    /** 读取当前挂载的策略（可能为 {@code null}）。 */
+    protected EvictionPolicy<K, V> policy() {
         return policy;
     }
 
@@ -53,7 +55,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             fire(CacheEventType.UPDATE, key, old, value);
             fire(CacheEventType.MUTATE, key, old, value);
         } else {
-            afterWrite();
+            ensureCapacity();
             rawPut(key, value);
             onPut(key, false);
             onTouch(key, false);
@@ -70,7 +72,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             onTouch(key, true);
             return false;
         }
-        afterWrite();
+        ensureCapacity();
         boolean inserted = rawPutIfAbsent(key, value);
             if (inserted) {
                 onPut(key, false);
@@ -92,7 +94,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             return;
         }
         if (duration.isZero() || duration.isNegative()) {
-            remove(key);
+            expireKey(key);
             return;
         }
         if (rawContains(key)) {
@@ -103,7 +105,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             fire(CacheEventType.UPDATE, key, old, value);
             fire(CacheEventType.MUTATE, key, old, value);
         } else {
-            afterWrite();
+            ensureCapacity();
             rawPut(key, value, duration);
             onPut(key, false);
             onTouch(key, false);
@@ -126,7 +128,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
             onTouch(key, true);
             return false;
         }
-        afterWrite();
+        ensureCapacity();
         boolean inserted = rawPutIfAbsent(key, value, duration);
             if (inserted) {
                 onPut(key, false);
@@ -145,8 +147,16 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
     @Override
     public V get(K key) {
         V v = rawGet(key);
-        onGet(key, v != null);
-        onTouch(key, v != null);
+        if (v == null) {
+            // 惰性过期：rawGet 已隐藏过期值（但不删除），此处把过期删除收归引擎管线，
+            // 统一派发 EXPIRE 事件并通知策略，避免存储层私自删除导致策略索引残留幽灵条目。
+            if (rawIsExpired(key)) expireKey(key);
+            onGet(key, false);
+            onTouch(key, false);
+            return null;
+        }
+        onGet(key, true);
+        onTouch(key, true);
         return v;
     }
 
@@ -156,7 +166,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
     public void setTtl(K key, Duration duration) {
         if (duration == null) return;
         if (duration.isZero() || duration.isNegative()) {
-            remove(key); // 刷新成零/负时长等价于删除
+            expireKey(key); // 刷新成零/负时长 = 立即过期，走过期删除管线（而非显式删除）
             return;
         }
         if (rawContains(key)) {
@@ -192,6 +202,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
         rawClear();
         EvictionPolicy<K, V> p = policy;
         if (p != null) p.clear();
+        fire(CacheEventType.CLEAR, null, null, null);
     }
 
     // ========== 查询 ==========
@@ -231,27 +242,36 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
 
     // ========== 内部：过期扫描 + 淘汰驱动 ==========
 
-    /** 扫描并清理过期项（O(n)，仅在 gc / afterWrite 时低频发生）。 */
+    /** 扫描并清理过期项（O(n)，仅在 gc / ensureCapacity 时低频发生）。 */
     protected long sweepExpired() {
         long count = 0;
         for (K key : rawKeys()) {
-            if (!rawIsExpired(key)) continue;
-            V old = rawRemove(key);
-            if (old != null) {
-                onRemove(key, RemovalCause.EXPIRE);
-                fire(CacheEventType.EXPIRE, key, old, null);
-                fire(CacheEventType.INVALIDATE, key, old, null);
-                count++;
-            }
+            if (rawIsExpired(key) && expireKey(key)) count++;
         }
         return count;
     }
 
     /**
-     * 写入后的钩子，由子类按需覆写。默认空操作：无界缓存写入后无需触发淘汰。
-     * 有界缓存在 {@code BoundedCacheSupport} 中覆写此方法以驱动容量淘汰。
+     * 把单个过期 key 走引擎删除管线：从存储移除 + 通知策略(EXPIRE) + 派发 EXPIRE/INVALIDATE 事件。
+     * 返回是否真的删除了一个值（并发已删则返回 {@code false}）。
+     * 惰性过期（{@link #get}）与主动扫描（{@link #sweepExpired}）共用此路径，保证删除语义唯一。
      */
-    protected void afterWrite() {
+    private boolean expireKey(K key) {
+        V old = rawRemove(key);
+        if (old == null) return false;
+        onRemove(key, RemovalCause.EXPIRE);
+        fire(CacheEventType.EXPIRE, key, old, null);
+        fire(CacheEventType.INVALIDATE, key, old, null);
+        return true;
+    }
+
+    /**
+     * 条目集合即将增长前的钩子（写路径在插入新 key 之前调用），用于腾出容量、清理过期。
+     * 默认空操作：无界缓存无需淘汰。有界缓存在 {@code BoundedCacheSupport} 中覆写此方法以驱动扫描过期 + 容量淘汰。
+     * <p>
+     * 命名强调「在会导致容量增长的写入之前」调用，而非「写入之后」，以明确其职责是提前腾位。
+     */
+    protected void ensureCapacity() {
     }
 
     // ========== 事件监听器 ==========

@@ -88,8 +88,8 @@ public class MemoryCache<K, V> extends BoundedCacheSupport<K, V> {
         if (v == null) return null;
         Long exp = expiry.get(key);
         if (exp != null && expired(exp)) {
-            map.remove(key, v);   // 惰性过期
-            expiry.remove(key);
+            // 惰性过期：只隐藏过期值，不在此删除；真正的删除由引擎管线
+            //（CacheSupport.get → expireKey）负责，以保证策略索引与 EXPIRE 事件一致。
             return null;
         }
         return v;
@@ -120,11 +120,8 @@ public class MemoryCache<K, V> extends BoundedCacheSupport<K, V> {
 
     @Override
     protected void rawSetTtl(K key, Duration duration) {
+        // duration 已由引擎保证为正数（零/负已在 CacheSupport.setTtl 走 expireKey 路径）
         if (duration == null) return;
-        if (duration.isZero() || duration.isNegative()) {
-            rawRemove(key);
-            return;
-        }
         if (map.containsKey(key)) {
             expiry.put(key, now() + duration.toMillis());
         }

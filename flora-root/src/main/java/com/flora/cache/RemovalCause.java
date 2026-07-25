@@ -15,6 +15,6 @@ public enum RemovalCause {
     /** 触发容量上限，被淘汰策略选中移除（引擎驱动的容量回收）。 */
     EVICT,
 
-    /** TTL 过期，被惰性删除或 {@code gc()} 主动扫描清理。 */
+    /** TTL 过期，被惰性删除或 {@code cleanUp()} 主动扫描清理。 */
     EXPIRE,
 }

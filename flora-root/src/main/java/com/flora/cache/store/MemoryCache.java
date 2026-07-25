@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 继承 {@link BoundedCacheSupport}，基于 {@link java.util.concurrent.ConcurrentHashMap} 维护 KV 与过期，
  * 并在构造时挂载 {@link WTinyLfuEvictionPolicy} 作为淘汰策略；更换策略可调用 {@link #setEvictionPolicy}。
  * <p>
- * 过期采用惰性删除（{@code rawGet} 时发现过期即移除）+ 主动扫描（{@code gc()} 触发 {@code EXPIRE} 事件）。
+ * 过期采用惰性删除（{@code rawGet} 时发现过期即移除）+ 主动扫描（{@code cleanUp()} 触发 {@code EXPIRE} 事件）。
  * {@code capacity <= 0} 时为无界模式：策略不参与淘汰。
  *
  * @param <K> 键类型

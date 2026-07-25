@@ -10,8 +10,8 @@ package com.flora.cache;
  */
 public interface BoundedCache<K, V> extends EvictableCache<K, V> {
 
-    /** 执行垃圾回收，清理过期或可淘汰的缓存项；返回被清理的数量。 */
-    long gc();
+    /** 执行清理回收，清除过期或可淘汰的缓存项；返回被清理的数量。 */
+    long cleanUp();
 
     /** 是否已到达容量上限。 */
     boolean isFull();

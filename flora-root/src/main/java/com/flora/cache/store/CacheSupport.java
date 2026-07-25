@@ -242,7 +242,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
 
     // ========== 内部：过期扫描 + 淘汰驱动 ==========
 
-    /** 扫描并清理过期项（O(n)，仅在 gc / ensureCapacity 时低频发生）。 */
+    /** 扫描并清理过期项（O(n)，仅在 cleanUp / ensureCapacity 时低频发生）。 */
     protected long sweepExpired() {
         long count = 0;
         for (K key : rawKeys()) {
@@ -342,7 +342,7 @@ public abstract class CacheSupport<K, V> implements Cache<K, V> {
     /** 清空全部。 */
     protected abstract void rawClear();
 
-    /** 所有 key 的快照（供 gc 扫描）。 */
+    /** 所有 key 的快照（供 cleanUp 扫描）。 */
     protected abstract Iterable<K> rawKeys();
 
     /** 指定 key 是否已过期（未过期或不存在返回 {@code false}）。 */

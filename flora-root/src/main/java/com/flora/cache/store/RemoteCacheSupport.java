@@ -141,7 +141,7 @@ public abstract class RemoteCacheSupport extends CacheSupport<String, String>
 
     @Override
     protected Iterable<String> rawKeys() {
-        return Collections.emptySet(); // 远端键集合不在本地维护，gc 不做本地扫描
+        return Collections.emptySet(); // 远端键集合不在本地维护，cleanUp 不做本地扫描
     }
 
     @Override

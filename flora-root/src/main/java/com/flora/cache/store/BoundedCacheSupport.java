@@ -39,7 +39,7 @@ public abstract class BoundedCacheSupport<K, V> extends CacheSupport<K, V>
     // ========== 容量与回收（兑现 BoundedCache） ==========
 
     @Override
-    public long gc() {
+    public long cleanUp() {
         long count = sweepExpired();
         ensureCapacity();
         return count;

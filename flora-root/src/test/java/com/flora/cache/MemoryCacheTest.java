@@ -46,13 +46,13 @@ class MemoryCacheTest {
     }
 
     @Test
-    void ttlGcFiresExpire() throws InterruptedException {
+    void ttlCleanUpFiresExpire() throws InterruptedException {
         MemoryCache<Integer, Integer> c = new MemoryCache<>(100);
         c.put(1, 1, Duration.ofMillis(50));
         Thread.sleep(90);
         List<CacheEventType> events = new ArrayList<>();
         c.addListener(CacheEventType.EXPIRE, (t, k, o, n) -> events.add(t));
-        long n = c.gc();
+        long n = c.cleanUp();
         assertEquals(1, n);
         assertEquals(List.of(CacheEventType.EXPIRE), events);
         assertFalse(c.containsKey(1));

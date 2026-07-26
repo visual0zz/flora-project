@@ -1,8 +1,7 @@
 package com.flora.cache.store;
 
-import com.flora.cache.AccessAction;
+import com.flora.cache.CacheEventType;
 import com.flora.cache.EvictionPolicy;
-import com.flora.cache.RemoveReason;
 import com.flora.cache.MemoryCache;
 import com.flora.cache.eviction.WTinyLfuEvictionPolicy;
 
@@ -106,7 +105,7 @@ public class ConcurrentHashMapCache<K, V>
             else expiry.put(key, exp);
         }
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onAccess(key, AccessAction.PUT, existed);
+        if (p != null) p.onAccess(key, CacheEventType.PUT, existed);
     }
 
     @Override
@@ -122,7 +121,7 @@ public class ConcurrentHashMapCache<K, V>
         if (storeContains(key)) {
             // 已存在：原子写未生效，仅当作一次引用刷新热度
             EvictionPolicy<K, V> p = policy;
-            if (p != null) p.onAccess(key, AccessAction.PUT, true);
+            if (p != null) p.onAccess(key, CacheEventType.PUT, true);
             return false;
         }
         ensureCapacity();
@@ -141,7 +140,7 @@ public class ConcurrentHashMapCache<K, V>
             }) == value;
         }
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onAccess(key, AccessAction.PUT, !inserted);
+        if (p != null) p.onAccess(key, CacheEventType.PUT, !inserted);
         return inserted;
     }
 
@@ -154,14 +153,14 @@ public class ConcurrentHashMapCache<K, V>
             Long exp = expiry.get(key);
             if (exp == null || !(System.currentTimeMillis() >= exp)) {
                 EvictionPolicy<K, V> p = policy;
-                if (p != null) p.onAccess(key, AccessAction.GET, true);
+                if (p != null) p.onAccess(key, CacheEventType.GET, true);
                 return v;
             }
         }
         // 惰性过期：访问时发现过期即走删除管线
         if (storeIsExpired(key)) expireKey(key);
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onAccess(key, AccessAction.GET, false);
+        if (p != null) p.onAccess(key, CacheEventType.GET, false);
         return null;
     }
 
@@ -185,7 +184,7 @@ public class ConcurrentHashMapCache<K, V>
         else expiry.put(key, System.currentTimeMillis() + duration.toMillis());
         // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onAccess(key, AccessAction.SET_TTL, true);
+        if (p != null) p.onAccess(key, CacheEventType.SET_TTL, true);
     }
 
     @Override
@@ -207,7 +206,7 @@ public class ConcurrentHashMapCache<K, V>
         expiry.remove(key);
         if (old == null) return null; // 并发已删
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onRemove(key, RemoveReason.REMOVE);
+        if (p != null) p.onRemove(key, CacheEventType.REMOVE);
         return old;
     }
 
@@ -236,7 +235,7 @@ public class ConcurrentHashMapCache<K, V>
     }
 
     /**
-     * 把单个过期 key 走删除管线：从存储移除 + 通知策略（onRemove 带 RemoveReason.EXPIRE）。
+     * 把单个过期 key 走删除管线：从存储移除 + 通知策略（onRemove 带 CacheEventType.EXPIRE）。
      * 返回是否真的删除了一个值（并发已删则返回 {@code false}）。
      * 惰性过期（{@link #get}）与主动扫描（{@link #sweepExpired}）共用此路径。
      */
@@ -245,7 +244,7 @@ public class ConcurrentHashMapCache<K, V>
         expiry.remove(key);
         if (old == null) return false;
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onRemove(key, RemoveReason.EXPIRE);
+        if (p != null) p.onRemove(key, CacheEventType.EXPIRE);
         return true;
     }
 
@@ -267,7 +266,7 @@ public class ConcurrentHashMapCache<K, V>
                 expiry.remove(victim);
                 if (old != null) {
                     EvictionPolicy<K, V> p1 = policy;
-                    if (p1 != null) p1.onRemove(victim, RemoveReason.EVICT);
+                    if (p1 != null) p1.onRemove(victim, CacheEventType.EVICT);
                 }
             }
         } finally {

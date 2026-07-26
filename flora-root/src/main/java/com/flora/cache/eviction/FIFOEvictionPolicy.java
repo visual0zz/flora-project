@@ -1,8 +1,7 @@
 package com.flora.cache.eviction;
 
-import com.flora.cache.AccessAction;
+import com.flora.cache.CacheEventType;
 import com.flora.cache.EvictionPolicy;
-import com.flora.cache.RemoveReason;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -32,8 +31,8 @@ public final class FIFOEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onAccess(K key, AccessAction action, boolean existed) {
-        if (action != AccessAction.PUT) return; // GET / TOUCH 不改变顺序：顺序仅由写入决定
+    public void onAccess(K key, CacheEventType action, boolean existed) {
+        if (action != CacheEventType.PUT) return; // GET / SET_TTL / GET_TTL 不改变顺序：顺序仅由写入决定
         lock.lock();
         try {
             queue.put(key, key);
@@ -43,7 +42,7 @@ public final class FIFOEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onRemove(K key, RemoveReason reason) {
+    public void onRemove(K key, CacheEventType reason) {
         lock.lock();
         try {
             queue.remove(key);

@@ -1,8 +1,7 @@
 package com.flora.cache.eviction;
 
-import com.flora.cache.AccessAction;
+import com.flora.cache.CacheEventType;
 import com.flora.cache.EvictionPolicy;
-import com.flora.cache.RemoveReason;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -32,7 +31,7 @@ public final class LRUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onAccess(K key, AccessAction action, boolean existed) {
+    public void onAccess(K key, CacheEventType action, boolean existed) {
         switch (action) {
             case PUT -> {
                 lock.lock();
@@ -55,7 +54,7 @@ public final class LRUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onRemove(K key, RemoveReason reason) {
+    public void onRemove(K key, CacheEventType reason) {
         lock.lock();
         try {
             order.remove(key);

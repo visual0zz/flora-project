@@ -25,11 +25,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * {@link ObservableCache}，通过 {@code of(...)} 工厂按被包装类型返回最具体的可观测视图：
  * <pre>{@code
  * ObservableMemoryCache<K,V> obs = CacheListenerAdapter.of(new ConcurrentHashMapCache<K,V>(1024));
- * obs.addListener(CacheEventType.EVICT, (type, key, oldV, newV) -> ...);
+ * obs.addListener(CacheEventType.PUT, (type, key, oldV, newV) -> ...);
  * }</pre>
- * 事件在装饰器拦截到的<b>显式</b>操作上派发（put / putIfAbsent / remove / clear / setTtl）；
- * 被包装缓存<b>内部</b>触发的淘汰与过期（如 {@code cleanUp()} 驱动的批量回收）不经过本装饰器，
- * 故不会派发对应事件——这是装饰器仅观察公开 API 面的固有限制。
+ * 事件在装饰器拦截到的<b>显式</b>操作上派发（put / putIfAbsent / get / ttl / containsKey / setTtl / remove / clear）；
+ * 其中 {@code GET} 在每次读取时都会派发，高频读场景需留意监听器开销。
+ * 被包装缓存<b>内部</b>触发的淘汰与过期（{@code EVICT} / {@code EXPIRE}，如 {@code cleanUp()} 驱动的批量回收）
+ * 不经过本装饰器，故不会派发对应事件——这是装饰器仅观察公开 API 面的固有限制。
  *
  * @param <K> 键类型
  * @param <V> 值类型
@@ -110,8 +111,8 @@ public class CacheListenerAdapter<K, V>
     @Override
     public void put(K key, V value) {
         Objects.requireNonNull(value, "value must not be null");
-        emitUpsert(key, value, delegate.containsKey(key));
         delegate.put(key, value);
+        if (hasListeners(CacheEventType.PUT)) fire(CacheEventType.PUT, key, null, value);
     }
 
     @Override
@@ -125,27 +126,16 @@ public class CacheListenerAdapter<K, V>
             remove(key); // 零/负时长 = 立即失效
             return;
         }
-        emitUpsert(key, value, delegate.containsKey(key));
         delegate.put(key, value, duration);
-    }
-
-    private void emitUpsert(K key, V value, boolean existed) {
-        CacheEventType specific = existed ? CacheEventType.UPDATE : CacheEventType.INSERT;
-        if (hasListeners(specific)) {
-            V old = existed ? delegate.get(key) : null;
-            fire(specific, key, old, value);
-        }
-        if (hasListeners(CacheEventType.MUTATE)) {
-            V old = existed ? delegate.get(key) : null;
-            fire(CacheEventType.MUTATE, key, old, value);
-        }
+        if (hasListeners(CacheEventType.PUT)) fire(CacheEventType.PUT, key, null, value);
     }
 
     @Override
     public boolean putIfAbsent(K key, V value) {
         Objects.requireNonNull(value, "value must not be null");
         boolean inserted = delegate.putIfAbsent(key, value);
-        if (inserted) emitInsert(key, value);
+        if (inserted && hasListeners(CacheEventType.PUT_IF_ABSENT))
+            fire(CacheEventType.PUT_IF_ABSENT, key, null, value);
         return inserted;
     }
 
@@ -154,25 +144,25 @@ public class CacheListenerAdapter<K, V>
         Objects.requireNonNull(value, "value must not be null");
         if (duration != null && (duration.isZero() || duration.isNegative())) return false;
         boolean inserted = delegate.putIfAbsent(key, value, duration);
-        if (inserted) emitInsert(key, value);
+        if (inserted && hasListeners(CacheEventType.PUT_IF_ABSENT))
+            fire(CacheEventType.PUT_IF_ABSENT, key, null, value);
         return inserted;
-    }
-
-    private void emitInsert(K key, V value) {
-        if (hasListeners(CacheEventType.INSERT)) fire(CacheEventType.INSERT, key, null, value);
-        if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, null, value);
     }
 
     // ========== 读取（纯委托） ==========
 
     @Override
     public V get(K key) {
-        return delegate.get(key);
+        V v = delegate.get(key);
+        if (hasListeners(CacheEventType.GET)) fire(CacheEventType.GET, key, null, v);
+        return v;
     }
 
     @Override
     public boolean containsKey(K key) {
-        return delegate.containsKey(key);
+        boolean c = delegate.containsKey(key);
+        if (hasListeners(CacheEventType.CONTAINS)) fire(CacheEventType.CONTAINS, key, null, null);
+        return c;
     }
 
     // ========== TTL 管理 ==========
@@ -186,13 +176,14 @@ public class CacheListenerAdapter<K, V>
         }
         if (!delegate.containsKey(key)) return; // 不复活缺失/过期键
         delegate.setTtl(key, duration);
-        if (hasListeners(CacheEventType.TOUCH)) fire(CacheEventType.TOUCH, key, null, null);
-        if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, null, null);
+        if (hasListeners(CacheEventType.SET_TTL)) fire(CacheEventType.SET_TTL, key, null, null);
     }
 
     @Override
     public Duration ttl(K key) {
-        return delegate.ttl(key);
+        Duration d = delegate.ttl(key);
+        if (hasListeners(CacheEventType.GET_TTL)) fire(CacheEventType.GET_TTL, key, null, null);
+        return d;
     }
 
     // ========== 删除（委托 + 派发） ==========
@@ -202,10 +193,8 @@ public class CacheListenerAdapter<K, V>
         if (!delegate.containsKey(key)) return null; // 不关心旧值且不存在则无操作
         V old = delegate.get(key);
         V removed = delegate.remove(key);
-        if (removed != null) {
-            if (hasListeners(CacheEventType.REMOVE)) fire(CacheEventType.REMOVE, key, old, null);
-            if (hasListeners(CacheEventType.INVALIDATE)) fire(CacheEventType.INVALIDATE, key, old, null);
-        }
+        if (removed != null && hasListeners(CacheEventType.REMOVE))
+            fire(CacheEventType.REMOVE, key, old, null);
         return removed;
     }
 

@@ -3,52 +3,67 @@ package com.flora.cache;
 /**
  * 缓存事件类型。
  * <p>
- * 写事件：{@code INSERT}/{@code UPDATE}/{@code TOUCH}，其总和为 {@code MUTATE}；
- * 失效事件：{@code EVICT}/{@code EXPIRE}/{@code REMOVE}，其总和为 {@code INVALIDATE}。
- * 监听 {@code MUTATE} 可覆盖全部写场景，监听 {@code INVALIDATE} 可覆盖全部失效场景。
+ * 每个常量对应缓存的一个<b>具体对外操作</b>（或一条内部生命周期事件），彼此独立、互不聚合；
+ * 不再提供 {@code MUTATE} / {@code INVALIDATE} 之类的复合聚合类型——若想监听多种操作，需为每个类型分别注册。
+ * <p>
+ * 操作类事件（由 {@code CacheListenerAdapter} 在拦截到对应公开 API 调用时派发）：
+ * <ul>
+ *   <li>{@code PUT}：写入（{@link Cache#put(Object, Object)} 及其带 TTL 重载），覆盖新建与覆盖写。</li>
+ *   <li>{@code PUT_IF_ABSENT}：原子写入（{@link Cache#putIfAbsent(Object, Object)} 及其带 TTL 重载），
+ *       仅当真正写入（key 原先不存在）时派发。</li>
+ *   <li>{@code GET}：读取（{@link Cache#get(Object)}）；{@code newValue} 为读到的值，未命中为 {@code null}。</li>
+ *   <li>{@code GET_TTL}：查询剩余过期（{@link Cache#ttl(Object)}），仅携带 {@code key} 信号
+ *       （返回的 {@code Duration} 非 {@code V}，不放入 {@code newValue}）。</li>
+ *   <li>{@code CONTAINS}：查询存在（{@link Cache#containsKey(Object)}），仅携带 {@code key} 信号。</li>
+ *   <li>{@code SET_TTL}：刷新过期（{@link Cache#setTtl(Object, java.time.Duration)}）。</li>
+ *   <li>{@code REMOVE}：显式删除（{@link Cache#remove(Object)}）。</li>
+ *   <li>{@code CLEAR}：整体清空（{@link Cache#clear()}），{@code key} 为 {@code null}。</li>
+ * </ul>
+ * 内部生命周期事件（由缓存引擎 / 后端驱动，<b>不经过装饰器</b>，故 {@code CacheListenerAdapter} 不派发）：
+ * <ul>
+ *   <li>{@code EVICT}：被淘汰策略移除。</li>
+ *   <li>{@code EXPIRE}：TTL 过期被自动清理。</li>
+ * </ul>
  */
 public enum CacheEventType {
 
-    // ========== 写操作（有副作用的写入） ==========
+    // ========== 写入 ==========
 
-    /** 缓存项被首次写入（put 一个原本不存在的 key） */
-    INSERT,
+    /** 写入（put / put(key, value, Duration)），覆盖新建与覆盖写。 */
+    PUT,
 
-    /** 缓存项被更新覆盖（put 一个已存在的 key） */
-    UPDATE,
+    /** 原子写入（putIfAbsent / 带 TTL 重载），仅当真正写入（key 原先不存在）时派发。 */
+    PUT_IF_ABSENT,
 
-    /** 缓存项 TTL 被刷新 */
-    TOUCH,
+    // ========== 读取 ==========
 
-    /**
-     * 任意写操作，是 {@link #INSERT}、{@link #UPDATE}、{@link #TOUCH} 的总和。
-     * <p>
-     * 当任意一种写操作发生时，具体类型事件和 {@code MUTATE} 会一并触发。
-     * 监听 {@code MUTATE} 即可覆盖「新建 / 更新 / 刷新 TTL」全部写场景。
-     */
-    MUTATE,
+    /** 读取（get）；newValue 为读到的值，未命中为 null。 */
+    GET,
 
-    // ========== 失效（被移出缓存） ==========
+    /** 查询剩余过期（ttl）；仅携带 key 信号（返回的 Duration 非 V，不放入 newValue）。 */
+    GET_TTL,
 
-    /** 缓存项因淘汰策略被移除 */
-    EVICT,
+    /** 查询存在（containsKey）；仅携带 key 信号。 */
+    CONTAINS,
 
-    /** 缓存项 TTL 过期被自动清理 */
-    EXPIRE,
+    // ========== TTL 维护 ==========
 
-    /** 缓存项被显式 {@link Cache#remove(Object)} 删除 */
+    /** 刷新过期（setTtl）。 */
+    SET_TTL,
+
+    // ========== 移除 ==========
+
+    /** 显式删除（remove）。 */
     REMOVE,
 
-    /**
-     * 缓存项失效，是 {@link #EVICT}、{@link #EXPIRE}、{@link #REMOVE} 的总和。
-     * <p>
-     * 当任意一种失效发生时，具体类型事件和 {@code INVALIDATE} 会一并触发。
-     */
-    INVALIDATE,
-
-    /**
-     * 缓存被整体清空（{@link Cache#clear()}）。与逐条失效不同，此事件的 {@code key} 为 {@code null}，
-     * 表示「全部条目失效」，监听器不应依赖具体 key（与 {@code INVALIDATE} 不属于同一聚合族）。
-     */
+    /** 整体清空（clear）；key 为 null，监听器不应依赖具体 key。 */
     CLEAR,
+
+    // ========== 内部生命周期（装饰器不派发） ==========
+
+    /** 被淘汰策略移除（内部事件，不由 CacheListenerAdapter 派发）。 */
+    EVICT,
+
+    /** TTL 过期被自动清理（内部事件，不由 CacheListenerAdapter 派发）。 */
+    EXPIRE,
 }

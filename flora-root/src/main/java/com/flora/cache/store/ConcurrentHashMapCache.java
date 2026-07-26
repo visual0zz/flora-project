@@ -1,42 +1,34 @@
 package com.flora.cache.store;
 
-import com.flora.cache.BoundedCache;
-import com.flora.cache.Cache;
-import com.flora.cache.CacheEventType;
-import com.flora.cache.CacheEventListener;
-import com.flora.cache.MemoryCache;
 import com.flora.cache.EvictionPolicy;
-import com.flora.cache.ObservableCache;
+import com.flora.cache.MemoryCache;
 import com.flora.cache.eviction.WTinyLfuEvictionPolicy;
 
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * W-TinyLFU + TTL 的本地内存缓存。
  * <p>
- * 直接承载完整缓存行为（读写、TTL、惰性/主动过期、可选淘汰策略与容量约束、事件派发），
+ * 直接承载完整缓存行为（读写、TTL、惰性/主动过期、可选淘汰策略与容量约束），
  * 不依赖任何独立引擎类。过期采用惰性删除（{@code get} 时发现过期即隐藏）+ 主动扫描
- * （{@code cleanUp()} 触发 {@code EXPIRE} 事件）。{@code capacity <= 0} 时为无界模式：策略不参与淘汰。
+ * （{@code cleanUp()}）。{@code capacity <= 0} 时为无界模式：策略不参与淘汰。
+ * <p>
+ * 本类只实现 {@link MemoryCache} 契约，不承载可观测能力；如需事件监听，请用
+ * {@link CacheListenerAdapter#of(MemoryCache)} 包装。
  *
  * @param <K> 键类型
  * @param <V> 值类型
  */
 public class ConcurrentHashMapCache<K, V>
-        implements Cache<K, V>, ObservableCache<K, V>, MemoryCache<K, V>, BoundedCache<K, V> {
+        implements MemoryCache<K, V> {
 
     /** 键 → 值 */
     private final ConcurrentHashMap<K, V> map = new ConcurrentHashMap<>();
     /** 键 → 绝对过期时间戳(ms)；不存在表示永不过期 */
     private final ConcurrentHashMap<K, Long> expiry = new ConcurrentHashMap<>();
-
-    private final Map<CacheEventType, List<CacheEventListener<? super K, ? super V>>> listeners
-            = new ConcurrentHashMap<>();
 
     private EvictionPolicy<K, V> policy;
     private final long capacity;
@@ -55,9 +47,7 @@ public class ConcurrentHashMapCache<K, V>
         setEvictionPolicy(new WTinyLfuEvictionPolicy<>(capacity, this::approxCount));
     }
 
-    // ========== 时间戳与过期计算 ==========
-
-    // ========== 存储原语（私有，直接操作 map/expiry） ==========
+    // ========== 逻辑存在判断 ==========
 
     /** 是否存在且未过期（逻辑存在）。 */
     private boolean storeContains(K key) {
@@ -95,30 +85,16 @@ public class ConcurrentHashMapCache<K, V>
     }
 
     /**
-     * put / put(K,V,Duration) 的合并实现：区分新建与覆盖写，保证 UPDATE/MUTATE 事件携带覆盖前的真实 oldValue。
+     * put / put(K,V,Duration) 的合并实现：区分新建与覆盖写以驱动淘汰策略热度。
      * 仅新增条目会增大容量，故仅在此路径触发 {@link #ensureCapacity()}。
      */
     private void upsert(K key, V value, Duration duration) {
         boolean existed = storeContains(key);
-        V old = null;
-        // 覆盖写时，派发前、覆盖后取值会导致 oldValue 变成新值；故先取值，且无监听器时不读取。
-        if (existed && (hasListeners(CacheEventType.UPDATE) || hasListeners(CacheEventType.MUTATE))) {
-            V result = null;
-            V v = map.get(key);
-            if (v != null) {
-                Long exp = expiry.get(key);
-                if (exp == null || !(System.currentTimeMillis() >= exp)) {
-                    result = v;
-                }
-            }
-            old = result;
-        }
         if (!existed) ensureCapacity();
         if (duration == null) {
             map.put(key, value);
             expiry.remove(key);
-        }
-        else {
+        } else {
             map.put(key, value);
             Long exp = null;
             if (!duration.isNegative() && !duration.equals(Duration.MAX)) {
@@ -128,10 +104,10 @@ public class ConcurrentHashMapCache<K, V>
             else expiry.put(key, exp);
         }
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onPut(key, existed);
-        EvictionPolicy<K, V> p1 = policy;
-        if (p1 != null) p1.onTouch(key, existed);
-        fireUpsert(key, old, value, existed);
+        if (p != null) {
+            p.onPut(key, existed);
+            p.onTouch(key, existed);
+        }
     }
 
     @Override
@@ -147,9 +123,10 @@ public class ConcurrentHashMapCache<K, V>
         if (storeContains(key)) {
             // 已存在：原子写未生效，仅当作一次引用刷新热度
             EvictionPolicy<K, V> p = policy;
-            if (p != null) p.onPut(key, true);
-            EvictionPolicy<K, V> p1 = policy;
-            if (p1 != null) p1.onTouch(key, true);
+            if (p != null) {
+                p.onPut(key, true);
+                p.onTouch(key, true);
+            }
             return false;
         }
         ensureCapacity();
@@ -157,28 +134,20 @@ public class ConcurrentHashMapCache<K, V>
         if (duration == null) {
             inserted = map.putIfAbsent(key, value) == null;
         } else {
-            Long result = null;
+            Long exp = null;
             if (!duration.isNegative() && !duration.equals(Duration.MAX)) {
-                result = System.currentTimeMillis() + duration.toMillis();
+                exp = System.currentTimeMillis() + duration.toMillis();
             }
-            Long exp = result;
+            Long finalExp = exp;
             inserted = map.computeIfAbsent(key, _ -> {
-                if (exp != null) expiry.put(key, exp);
+                if (finalExp != null) expiry.put(key, finalExp);
                 return value;
             }) == value;
         }
-        if (inserted) {
-            EvictionPolicy<K, V> p = policy;
-            if (p != null) p.onPut(key, false);
-            EvictionPolicy<K, V> p1 = policy;
-            if (p1 != null) p1.onTouch(key, false);
-            fireUpsert(key, null, value, false);
-        } else {
-            // 并发下被其它线程抢先写入
-            EvictionPolicy<K, V> p = policy;
-            if (p != null) p.onPut(key, true);
-            EvictionPolicy<K, V> p1 = policy;
-            if (p1 != null) p1.onTouch(key, true);
+        EvictionPolicy<K, V> p = policy;
+        if (p != null) {
+            p.onPut(key, !inserted);
+            p.onTouch(key, !inserted);
         }
         return inserted;
     }
@@ -187,28 +156,26 @@ public class ConcurrentHashMapCache<K, V>
 
     @Override
     public V get(K key) {
-        V v = null;
-        V v1 = map.get(key);
-        if (v1 != null) {
+        V v = map.get(key);
+        if (v != null) {
             Long exp = expiry.get(key);
             if (exp == null || !(System.currentTimeMillis() >= exp)) {
-                v = v1;
+                EvictionPolicy<K, V> p = policy;
+                if (p != null) {
+                    p.onGet(key, true);
+                    p.onTouch(key, true);
+                }
+                return v;
             }
         }
-        if (v == null) {
-            // 惰性过期：访问时发现过期即走删除管线（统一派发 EXPIRE 事件并通知策略）
-            if (storeIsExpired(key)) expireKey(key);
-            EvictionPolicy<K, V> p = policy;
-            if (p != null) p.onGet(key, false);
-            EvictionPolicy<K, V> p1 = policy;
-            if (p1 != null) p1.onTouch(key, false);
-            return null;
-        }
+        // 惰性过期：访问时发现过期即走删除管线
+        if (storeIsExpired(key)) expireKey(key);
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onGet(key, true);
-        EvictionPolicy<K, V> p1 = policy;
-        if (p1 != null) p1.onTouch(key, true);
-        return v;
+        if (p != null) {
+            p.onGet(key, false);
+            p.onTouch(key, false);
+        }
+        return null;
     }
 
     @Override
@@ -232,23 +199,10 @@ public class ConcurrentHashMapCache<K, V>
         // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度
         EvictionPolicy<K, V> p = policy;
         if (p != null) p.onTouch(key, true);
-        if (hasListeners(CacheEventType.TOUCH) || hasListeners(CacheEventType.MUTATE)) {
-            V cur = null;
-            V v = map.get(key);
-            if (v != null) {
-                Long exp = expiry.get(key);
-                if (exp == null || !(System.currentTimeMillis() >= exp)) {
-                    cur = v;
-                }
-            }
-            if (hasListeners(CacheEventType.TOUCH)) fire(CacheEventType.TOUCH, key, cur, cur);
-            if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, cur, cur);
-        }
     }
 
     @Override
     public Duration ttl(K key) {
-        // 已过期 → ZERO
         if (!map.containsKey(key)) return Duration.ZERO;          // 不存在
         Long exp = expiry.get(key);
         if (exp == null) return Duration.MAX;                     // 永不过期
@@ -260,18 +214,16 @@ public class ConcurrentHashMapCache<K, V>
 
     @Override
     public V remove(K key) {
-        // 不存在或已过期（逻辑删除）：与 get/containsKey 一致，视为不存在，静默无操作
+        // 不存在或已过期（逻辑删除）：视为不存在，静默无操作
         if (!storeContains(key)) return null;
-        V old1 = map.remove(key);
+        V old = map.remove(key);
         expiry.remove(key);
-        V old = old1;
         if (old == null) return null; // 并发已删
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onRemove(key);
-        EvictionPolicy<K, V> p1 = policy;
-        if (p1 != null) p1.onExplicitRemove(key);
-        fire(CacheEventType.REMOVE, key, old, null);
-        fire(CacheEventType.INVALIDATE, key, old, null);
+        if (p != null) {
+            p.onRemove(key);
+            p.onExplicitRemove(key);
+        }
         return old;
     }
 
@@ -281,15 +233,12 @@ public class ConcurrentHashMapCache<K, V>
         expiry.clear();
         EvictionPolicy<K, V> p = policy;
         if (p != null) p.clear();
-        if (hasListeners(CacheEventType.CLEAR)) fire(CacheEventType.CLEAR, null, null, null);
     }
 
     @Override
     public long approxCount() {
         return map.mappingCount();
     }
-
-    // ========== 策略回调（仅做空守卫后转发，具体语义由策略实现） ==========
 
     // ========== 过期扫描 + 容量淘汰 ==========
 
@@ -303,28 +252,26 @@ public class ConcurrentHashMapCache<K, V>
     }
 
     /**
-     * 把单个过期 key 走删除管线：从存储移除 + 通知策略（onRemove + onExpire）+ 派发 EXPIRE/INVALIDATE 事件。
+     * 把单个过期 key 走删除管线：从存储移除 + 通知策略（onRemove + onExpire）。
      * 返回是否真的删除了一个值（并发已删则返回 {@code false}）。
-     * 惰性过期（{@link #get}）与主动扫描（{@link #sweepExpired}）共用此路径，保证删除语义唯一。
+     * 惰性过期（{@link #get}）与主动扫描（{@link #sweepExpired}）共用此路径。
      */
     private boolean expireKey(K key) {
-        V old1 = map.remove(key);
+        V old = map.remove(key);
         expiry.remove(key);
-        V old = old1;
         if (old == null) return false;
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onRemove(key);
-        EvictionPolicy<K, V> p1 = policy;
-        if (p1 != null) p1.onExpire(key);
-        fire(CacheEventType.EXPIRE, key, old, null);
-        fire(CacheEventType.INVALIDATE, key, old, null);
+        if (p != null) {
+            p.onRemove(key);
+            p.onExpire(key);
+        }
         return true;
     }
 
     /**
      * 写入导致容量增长前的钩子：腾出容量、清理过期。
      * {@code capacity <= 0} 时无界，直接返回；否则先扫描过期、再驱动策略淘汰。
-     * 容量淘汰时由本方法删除存储并派发 EVICT/INVALIDATE 事件；受害者由策略在
+     * 容量淘汰时由本方法删除存储；受害者由策略在
      * {@link EvictionPolicy#selectEvictVictim()} 内摘除。
      */
     private void ensureCapacity() {
@@ -335,16 +282,14 @@ public class ConcurrentHashMapCache<K, V>
             EvictionPolicy<K, V> p = evictionPolicy();
             K victim;
             while (p != null && (victim = p.selectEvictVictim()) != null) {
-                V old1 = map.remove(victim);
+                V old = map.remove(victim);
                 expiry.remove(victim);
-                V old = old1;
                 if (old != null) {
                     EvictionPolicy<K, V> p1 = policy;
-                    if (p1 != null) p1.onRemove(victim);
-                    EvictionPolicy<K, V> p2 = policy;
-                    if (p2 != null) p2.onEvict(victim);
-                    fire(CacheEventType.EVICT, victim, old, null);
-                    fire(CacheEventType.INVALIDATE, victim, old, null);
+                    if (p1 != null) {
+                        p1.onRemove(victim);
+                        p1.onEvict(victim);
+                    }
                 }
             }
         } finally {
@@ -381,57 +326,5 @@ public class ConcurrentHashMapCache<K, V>
     @Override
     public EvictionPolicy<K, V> evictionPolicy() {
         return policy;
-    }
-
-    // ========== 事件监听器（ObservableCache） ==========
-
-    @Override
-    public void addListener(CacheEventType type, CacheEventListener<? super K, ? super V> listener) {
-        if (type == null || listener == null) return;
-        listeners.computeIfAbsent(type, _ -> new CopyOnWriteArrayList<>()).add(listener);
-    }
-
-    @Override
-    public void removeListener(CacheEventType type, CacheEventListener<? super K, ? super V> listener) {
-        if (type == null || listener == null) return;
-        List<CacheEventListener<? super K, ? super V>> list = listeners.get(type);
-        if (list != null) list.remove(listener);
-    }
-
-    @Override
-    public void removeListeners(CacheEventType type) {
-        if (type == null) return;
-        listeners.remove(type);
-    }
-
-    private boolean hasListeners(CacheEventType type) {
-        List<CacheEventListener<? super K, ? super V>> list = listeners.get(type);
-        return list != null && !list.isEmpty();
-    }
-
-    /** 写事件派发：具体类型（INSERT/UPDATE）与聚合 MUTATE 一并触发；无监听器时不读取或派发。 */
-    private void fireUpsert(K key, V oldValue, V newValue, boolean existed) {
-        CacheEventType specific = existed ? CacheEventType.UPDATE : CacheEventType.INSERT;
-        if (hasListeners(specific)) fire(specific, key, oldValue, newValue);
-        if (hasListeners(CacheEventType.MUTATE)) fire(CacheEventType.MUTATE, key, oldValue, newValue);
-    }
-
-    /**
-     * 触发事件。约定：实际存储操作已完成之后才调用本方法，故监听器异常不影响已提交的业务逻辑。
-     * 异常隔离：单个监听器异常被就地吞掉并继续派发其余监听器。
-     * <p>
-     * {@code oldValue} / {@code newValue} 为真实值，由各调用点在派发前通过 {@code if (hasListeners(type))}
-     * 判断后才求值传入，故没有监听器时不会触发任何无谓的存储读写。
-     */
-    private void fire(CacheEventType type, K key, V oldValue, V newValue) {
-        List<CacheEventListener<? super K, ? super V>> list = listeners.get(type);
-        if (list == null || list.isEmpty()) return;
-        for (CacheEventListener<? super K, ? super V> l : list) {
-            try {
-                l.onEvent(type, key, oldValue, newValue);
-            } catch (RuntimeException ignore) {
-                // 监听器故障不应影响缓存主流程与同批次其他监听器
-            }
-        }
     }
 }

@@ -185,7 +185,7 @@ public class ConcurrentHashMapCache<K, V>
         else expiry.put(key, System.currentTimeMillis() + duration.toMillis());
         // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onAccess(key, AccessAction.UPDATE_TTL, true);
+        if (p != null) p.onAccess(key, AccessAction.SET_TTL, true);
     }
 
     @Override

@@ -40,7 +40,7 @@ public final class LRUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
                     lock.unlock();
                 }
             }
-            case GET, UPDATE_TTL -> {
+            case GET, SET_TTL -> {
                 if (!existed) return;
                 lock.lock();
                 try {

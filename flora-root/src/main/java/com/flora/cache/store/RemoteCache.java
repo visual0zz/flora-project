@@ -33,7 +33,8 @@ import java.util.Objects;
  * 钩子约定：
  * <ul>
  *   <li>{@code ttlMillis <= 0}：持久化（不设过期）；{@code > 0}：毫秒级过期时长。</li>
- *   <li>{@code doTtl}：键缺失返回负数；永不过期返回 {@code 0}；否则返回剩余毫秒。</li>
+ *   <li>{@code doTtl}：遵循 Redis 规范——键缺失返回 {@code -2}；存在但无过期返回 {@code -1}；
+ *       其余返回剩余毫秒（{@code > 0}）。</li>
  * </ul>
  */
 public abstract class RemoteCache implements ObservableCache<String, String> {
@@ -55,7 +56,7 @@ public abstract class RemoteCache implements ObservableCache<String, String> {
     /** 刷新 key 的过期时长；{@code ttlMillis <= 0} 表示持久化；返回是否成功（key 存在）。 */
     protected abstract boolean doExpire(String key, long ttlMillis);
 
-    /** 查询剩余过期毫秒；键缺失返回负数，永不过期返回 {@code 0}，否则剩余毫秒。 */
+    /** 查询剩余过期毫秒（Redis 语义）：键缺失返回 {@code -2}，存在但无过期返回 {@code -1}，否则返回剩余毫秒。 */
     protected abstract long doTtl(String key);
 
     /** 删除 key；返回是否真的删除了一个存在的 key。 */
@@ -173,9 +174,9 @@ public abstract class RemoteCache implements ObservableCache<String, String> {
     @Override
     public java.time.Duration ttl(String key) {
         long millis = doTtl(key);
-        if (millis < 0) return java.time.Duration.ZERO;     // 不存在/已过期
-        if (millis == 0) return java.time.Duration.MAX;      // 永不过期
-        return java.time.Duration.ofMillis(millis);
+        if (millis == -1) return java.time.Duration.MAX;     // 存在但无过期（Redis 语义）
+        if (millis < 0) return java.time.Duration.ZERO;      // 键不存在（Redis 返回 -2）
+        return java.time.Duration.ofMillis(millis);          // 剩余毫秒
     }
 
     // ========== 删除 ==========

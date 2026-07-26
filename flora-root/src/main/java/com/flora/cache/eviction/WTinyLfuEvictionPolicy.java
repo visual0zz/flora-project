@@ -103,6 +103,9 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
         private final int size;      // 计数个数（2 的幂）
         private final long sampleSize;
         private long count;
+        /** 保护 table 与 count 的并发读写（estimate/increment 互斥，reset 在 increment 锁内执行） */
+        private final java.util.concurrent.locks.ReentrantLock lock
+                = new java.util.concurrent.locks.ReentrantLock();
 
         FrequencySketch(long capacity) {
             int s = 64;
@@ -113,21 +116,31 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
         }
 
         int estimate(Object key) {
-            long h = mix(key.hashCode());
-            int est = Integer.MAX_VALUE;
-            for (int i = 0; i < 4; i++) {
-                est = Math.min(est, get(index(h, i)));
+            lock.lock();
+            try {
+                long h = mix(key.hashCode());
+                int est = Integer.MAX_VALUE;
+                for (int i = 0; i < 4; i++) {
+                    est = Math.min(est, get(index(h, i)));
+                }
+                return est;
+            } finally {
+                lock.unlock();
             }
-            return est;
         }
 
         void increment(Object key) {
-            long h = mix(key.hashCode());
-            for (int i = 0; i < 4; i++) {
-                int idx = index(h, i);
-                if (get(idx) < MAX_COUNT) set(idx, get(idx) + 1);
+            lock.lock();
+            try {
+                long h = mix(key.hashCode());
+                for (int i = 0; i < 4; i++) {
+                    int idx = index(h, i);
+                    if (get(idx) < MAX_COUNT) set(idx, get(idx) + 1);
+                }
+                if (++count >= sampleSize) reset();
+            } finally {
+                lock.unlock();
             }
-            if (++count >= sampleSize) reset();
         }
 
         private void reset() {

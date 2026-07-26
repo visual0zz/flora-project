@@ -48,6 +48,22 @@ public class ConcurrentHashMapCache<K, V>
         setEvictionPolicy(new WTinyLfuEvictionPolicy<>(capacity, this::approxCount));
     }
 
+    /**
+     * 使用自定义淘汰策略构造。
+     * <p>
+     * 容量上限由 {@code capacity} 决定（仅影响 {@link #isFull()}/{@link #capacity()} 与
+     * {@link #ensureCapacity()} 的软阈值判断）；策略内部的容量与频率统计需由调用方自行
+     * 在其实现中配置。{@code capacity <= 0} 时为无界模式：{@link #ensureCapacity()} 直接返回，
+     * 是否淘汰完全交由 {@code policy} 决定。
+     *
+     * @param capacity 容量上限（{@code <=0} 表示无上限）
+     * @param policy   自定义淘汰策略（不可为 {@code null}）
+     */
+    public ConcurrentHashMapCache(long capacity, EvictionPolicy<K, V> policy) {
+        this.capacity = capacity;
+        setEvictionPolicy(Objects.requireNonNull(policy, "policy must not be null"));
+    }
+
     // ========== 逻辑存在判断 ==========
 
     /** 是否存在且未过期（逻辑存在）。 */

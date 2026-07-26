@@ -17,8 +17,10 @@
    委托全部读写操作，在拦截到的显式操作（`put`/`putIfAbsent`/`remove`/`clear`/`setTtl`）上派发事件；
    通过 `of(...)` 工厂按被包装类型返回最具体的可观测视图（`ObservableMemoryCache` 等）。
    同时其构造器对同包可见，可被 `RemoteCache` 当作「事件引擎」复用。
-3. **`RemoteCache` 实现为抽象基类**：定义 `doXxx` 钩子，实现 `Cache<String,String>` +
-   `ObservableCache<String,String>`，通过内部 `CacheListenerAdapter` 引擎派发事件。
+3. **`RemoteCache` 实现为纯 `Cache<String,String>` 抽象基类**：仅定义 `doXxx` 钩子，
+   **不实现 `ObservableCache`、不持有任何监听器、不内嵌事件引擎**。如需事件监听，同样用
+   `CacheListenerAdapter.of(remoteCache)` 装饰包装即可，与 `ConcurrentHashMapCache` 一致。
+   这样所有缓存实现都无需重复事件代码，监听职责唯一落在装饰器上。
 
 ## Why
 
@@ -29,6 +31,9 @@
 
 ## How to apply
 
-- 需要给 `ConcurrentHashMapCache` 加监听：`CacheListenerAdapter.of(cache)` 包一层，再 `addListener`。
-  **限制**：装饰器仅观察公开 API 面，被包装缓存内部触发的淘汰/过期（`cleanUp()` 批量回收）不会派发事件。
-- 新增缓存实现时，若需要可观测，优先复用 `CacheListenerAdapter` 引擎，而非各自实现监听注册。
+- 需要给 `ConcurrentHashMapCache` 或 `RemoteCache` 加监听：`CacheListenerAdapter.of(cache)` 包一层，
+  再 `addListener`。`RemoteCache` 内部不持有监听器，只能通过这种方式获得可观测能力。
+  **限制**：装饰器仅观察公开 API 面，被包装缓存内部触发的淘汰/过期（`cleanUp()` 批量回收、
+  远端后端的 maxmemory 淘汰/过期）不会派发事件。
+- 新增缓存实现时，若需要可观测，用 `CacheListenerAdapter.of(...)` 装饰包装即可，
+  而非让缓存自身实现监听注册或内嵌事件引擎。

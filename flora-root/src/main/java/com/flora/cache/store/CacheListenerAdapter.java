@@ -30,9 +30,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * 事件在装饰器拦截到的<b>显式</b>操作上派发（put / putIfAbsent / remove / clear / setTtl）；
  * 被包装缓存<b>内部</b>触发的淘汰与过期（如 {@code cleanUp()} 驱动的批量回收）不经过本装饰器，
  * 故不会派发对应事件——这是装饰器仅观察公开 API 面的固有限制。
- * <p>
- * 本类同时可作为「事件引擎」被其它缓存（如 {@link RemoteCache}）内部复用：
- * 直接 {@code new CacheListenerAdapter<>(this)} 后仅调用 {@link #addListener} 与 {@link #fire}。
  *
  * @param <K> 键类型
  * @param <V> 值类型
@@ -46,7 +43,7 @@ public class CacheListenerAdapter<K, V>
     private final Map<CacheEventType, List<CacheEventListener<? super K, ? super V>>> listeners
             = new ConcurrentHashMap<>();
 
-    /** 装饰器模式：包装一个已有缓存，使其可观测。包内可见，供 {@link RemoteCache} 等复用为事件引擎。 */
+    /** 装饰器模式：包装一个已有缓存，使其可观测。包内可见，仅供 {@code of(...)} 工厂方法使用。 */
     CacheListenerAdapter(Cache<K, V> delegate) {
         this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
     }

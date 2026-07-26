@@ -1,8 +1,6 @@
 package com.flora.cache.store;
 
-import com.flora.cache.CacheEventType;
-import com.flora.cache.CacheEventListener;
-import com.flora.cache.ObservableCache;
+import com.flora.cache.Cache;
 
 import java.util.Objects;
 
@@ -11,13 +9,16 @@ import java.util.Objects;
  * <p>
  * 子类用具体 Redis 客户端实现 {@code doXxx} 钩子即可获得完整远程缓存。本类刻意精简：
  * 远端过期与淘汰由后端（如 Redis maxmemory-policy）管理，故不承载容量维度、淘汰策略与本地过期扫描，
- * 也不区分 {@code INSERT}/{@code UPDATE}（每次 put 统一派发 INSERT）。线程安全性取决于子类所用客户端。
+ * 也不区分 {@code INSERT}/{@code UPDATE}（每次 put 统一写入）。线程安全性取决于子类所用客户端。
  * <p>
- * 本类实现 {@link ObservableCache}，事件派发复用 {@link CacheListenerAdapter} 引擎，
- * 因此可像本地缓存一样注册监听器（{@code addListener}/{@code removeListener}）。
+ * 本类只实现最小契约 {@link Cache}，<b>不管理任何监听器</b>。如需事件监听，请用可观测装饰器
+ * （{@code CacheListenerAdapter.of(this)}）包一层，调用方即可 {@code addListener} 订阅事件——
+ * 这与本地缓存 {@link ConcurrentHashMapCache} 的做法完全一致，避免在每个缓存实现里重复事件代码。
+ * 装饰器仅在公开 API 面（put / putIfAbsent / remove / clear / setTtl）上派发事件；
+ * 远端自身的淘汰 / 过期由后端驱动，不经过本地装饰器，故不会派发对应事件。
  *
  * <pre>{@code
- * RemoteCache cache = new RemoteCache("myapp:") {
+ * RemoteCache raw = new RemoteCache("myapp:") {
  *     protected void doSet(String key, String value, long ttlMillis) {
  *         if (ttlMillis == -1) jedis.set(key, value);
  *         else jedis.set(key, value, "PX", ttlMillis);
@@ -36,6 +37,8 @@ import java.util.Objects;
  *     protected long doSize()                                     { return jedis.dbSize(); }
  *     protected void doClear()                                    { jedis.flushDB(); }
  * };
+ * // 需要可观测时再装饰：
+ * ObservableCache<String, String> cache = CacheListenerAdapter.of(raw);
  * }</pre>
  *
  * 钩子约定（全部对齐 Redis 命令语义）：
@@ -48,10 +51,7 @@ import java.util.Objects;
  *   <li>{@code doExists}：返回键是否存在（Redis {@code EXISTS}，1/0）。</li>
  * </ul>
  */
-public abstract class RemoteCache implements ObservableCache<String, String> {
-
-    /** 事件引擎：复用 CacheListenerAdapter 的监听器注册与派发能力。 */
-    private final CacheListenerAdapter<String, String> observer = new CacheListenerAdapter<>(this);
+public abstract class RemoteCache implements Cache<String, String> {
 
     // ========== 子类钩子 ==========
 
@@ -85,33 +85,12 @@ public abstract class RemoteCache implements ObservableCache<String, String> {
     /** 清空所有条目。 */
     protected abstract void doClear();
 
-    // ========== ObservableCache：委托给事件引擎 ==========
-
-    @Override
-    public void addListener(CacheEventType type, CacheEventListener<? super String, ? super String> listener) {
-        observer.addListener(type, listener);
-    }
-
-    @Override
-    public void removeListener(CacheEventType type, CacheEventListener<? super String, ? super String> listener) {
-        observer.removeListener(type, listener);
-    }
-
-    @Override
-    public void removeListeners(CacheEventType type) {
-        observer.removeListeners(type);
-    }
-
     // ========== 写入 ==========
 
     @Override
     public void put(String key, String value) {
         Objects.requireNonNull(value, "value must not be null");
-        boolean existed = doExists(key);
         doSet(key, value, -1L);
-        CacheEventType specific = existed ? CacheEventType.UPDATE : CacheEventType.INSERT;
-        observer.fire(specific, key, null, value);
-        observer.fire(CacheEventType.MUTATE, key, null, value);
     }
 
     @Override
@@ -125,23 +104,14 @@ public abstract class RemoteCache implements ObservableCache<String, String> {
             remove(key);
             return;
         }
-        boolean existed = doExists(key);
         long ttlMillis = duration.equals(java.time.Duration.MAX) ? -1L : duration.toMillis();
         doSet(key, value, ttlMillis);
-        CacheEventType specific = existed ? CacheEventType.UPDATE : CacheEventType.INSERT;
-        observer.fire(specific, key, null, value);
-        observer.fire(CacheEventType.MUTATE, key, null, value);
     }
 
     @Override
     public boolean putIfAbsent(String key, String value) {
         Objects.requireNonNull(value, "value must not be null");
-        boolean inserted = doSetNx(key, value, -1L);
-        if (inserted) {
-            observer.fire(CacheEventType.INSERT, key, null, value);
-            observer.fire(CacheEventType.MUTATE, key, null, value);
-        }
-        return inserted;
+        return doSetNx(key, value, -1L);
     }
 
     @Override
@@ -149,12 +119,7 @@ public abstract class RemoteCache implements ObservableCache<String, String> {
         Objects.requireNonNull(value, "value must not be null");
         if (duration != null && (duration.isZero() || duration.isNegative())) return false;
         long ttlMillis = (duration == null || duration.equals(java.time.Duration.MAX)) ? -1L : duration.toMillis();
-        boolean inserted = doSetNx(key, value, ttlMillis);
-        if (inserted) {
-            observer.fire(CacheEventType.INSERT, key, null, value);
-            observer.fire(CacheEventType.MUTATE, key, null, value);
-        }
-        return inserted;
+        return doSetNx(key, value, ttlMillis);
     }
 
     // ========== 读取 ==========
@@ -181,8 +146,6 @@ public abstract class RemoteCache implements ObservableCache<String, String> {
         if (!doExists(key)) return; // 不复活缺失/过期键
         long ttlMillis = duration.equals(java.time.Duration.MAX) ? -1L : duration.toMillis();
         doExpire(key, ttlMillis);
-        observer.fire(CacheEventType.TOUCH, key, null, null);
-        observer.fire(CacheEventType.MUTATE, key, null, null);
     }
 
     @Override
@@ -200,15 +163,12 @@ public abstract class RemoteCache implements ObservableCache<String, String> {
         if (!doExists(key)) return null;
         String old = doGet(key);
         doDelete(key);
-        observer.fire(CacheEventType.REMOVE, key, old, null);
-        observer.fire(CacheEventType.INVALIDATE, key, old, null);
         return old;
     }
 
     @Override
     public void clear() {
         doClear();
-        observer.fire(CacheEventType.CLEAR, null, null, null);
     }
 
     @Override

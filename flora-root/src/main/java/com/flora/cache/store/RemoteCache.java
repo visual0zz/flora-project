@@ -18,23 +18,34 @@ import java.util.Objects;
  *
  * <pre>{@code
  * RemoteCache cache = new RemoteCache("myapp:") {
- *     protected void doSet(String key, String value, long ttlMillis) { jedis.set(key, value); }
+ *     protected void doSet(String key, String value, long ttlMillis) {
+ *         if (ttlMillis == -1) jedis.set(key, value);
+ *         else jedis.set(key, value, "PX", ttlMillis);
+ *     }
  *     protected String doGet(String key)                          { return jedis.get(key); }
- *     protected boolean doSetNx(String key, String value, long ttlMillis) { ... }
- *     protected boolean doExpire(String key, long ttlMillis)      { ... }
- *     protected long doTtl(String key)                            { ... }
- *     protected boolean doDelete(String key)                      { ... }
- *     protected boolean doExists(String key)                      { ... }
- *     protected long doSize()                                     { ... }
- *     protected void doClear()                                    { ... }
+ *     protected boolean doSetNx(String key, String value, long ttlMillis) {
+ *         return ttlMillis == -1 ? jedis.set(key, value, "NX") != null
+ *                                 : jedis.set(key, value, "NX", "PX", ttlMillis) != null;
+ *     }
+ *     protected boolean doExpire(String key, long ttlMillis) {
+ *         return ttlMillis == -1 ? jedis.persist(key) == 1 : jedis.pexpire(key, ttlMillis) == 1;
+ *     }
+ *     protected long doTtl(String key)                            { return jedis.pttl(key); } // -2 缺失 / -1 无过期
+ *     protected long doDelete(String key)                        { return jedis.del(key); }
+ *     protected boolean doExists(String key)                     { return jedis.exists(key); }
+ *     protected long doSize()                                     { return jedis.dbSize(); }
+ *     protected void doClear()                                    { jedis.flushDB(); }
  * };
  * }</pre>
  *
- * 钩子约定：
+ * 钩子约定（全部对齐 Redis 命令语义）：
  * <ul>
- *   <li>{@code ttlMillis <= 0}：持久化（不设过期）；{@code > 0}：毫秒级过期时长。</li>
- *   <li>{@code doTtl}：遵循 Redis 规范——键缺失返回 {@code -2}；存在但无过期返回 {@code -1}；
- *       其余返回剩余毫秒（{@code > 0}）。</li>
+ *   <li>{@code ttlMillis}：{@code -1} = 持久化（对应 Redis 的「无 PX」/ {@code PERSIST}，亦对应公开 API 的
+ *       {@code Duration.MAX}）；{@code > 0} = 设置该毫秒级过期（{@code PEXPIRE}）；
+ *       {@code <= 0} 且 {@code != -1}（即 0 或负）= 立即删除该键（与 Redis 非正过期即删除一致）。</li>
+ *   <li>{@code doTtl}：键缺失返回 {@code -2}；存在但无过期返回 {@code -1}；其余返回剩余毫秒（{@code > 0}）。</li>
+ *   <li>{@code doDelete}：返回被删除的键数量（Redis {@code DEL}，单键为 0 或 1）。</li>
+ *   <li>{@code doExists}：返回键是否存在（Redis {@code EXISTS}，1/0）。</li>
  * </ul>
  */
 public abstract class RemoteCache implements ObservableCache<String, String> {
@@ -44,25 +55,28 @@ public abstract class RemoteCache implements ObservableCache<String, String> {
 
     // ========== 子类钩子 ==========
 
-    /** 写入键值；{@code ttlMillis <= 0} 表示持久化（不设过期）。 */
+    /** 写入键值（对应 Redis {@code SET}）：{@code ttlMillis} 见类级约定——{@code -1} 持久化，{@code > 0} 设过期，非正非 -1 即删除。 */
     protected abstract void doSet(String key, String value, long ttlMillis);
 
-    /** 读取键值；缺失返回 {@code null}（与 {@link #get} 语义一致）。 */
+    /** 读取键值（对应 Redis {@code GET}）；缺失返回 {@code null}。 */
     protected abstract String doGet(String key);
 
-    /** 仅当 key 不存在时写入；返回是否写入成功（Redis SETNX 语义，含 TTL）。 */
+    /** 仅当 key 不存在时写入（对应 Redis {@code SET key value NX [PX ttlMillis]}）；
+     *  {@code ttlMillis} 语义同 {@link #doSet}；返回是否写入成功（OK / nil）。 */
     protected abstract boolean doSetNx(String key, String value, long ttlMillis);
 
-    /** 刷新 key 的过期时长；{@code ttlMillis <= 0} 表示持久化；返回是否成功（key 存在）。 */
+    /** 刷新 key 的过期时长（对应 Redis {@code PEXPIRE} / {@code PERSIST}）：
+     *  {@code ttlMillis == -1} 表示持久化（{@code PERSIST} 移除过期），{@code > 0} 设置过期（{@code PEXPIRE}），
+     *  非正非 -1 表示立即删除（{@code EXPIRE 0}）；返回键是否存在（{@code PEXPIRE}/{@code PERSIST} 的 1/0）。 */
     protected abstract boolean doExpire(String key, long ttlMillis);
 
     /** 查询剩余过期毫秒（Redis 语义）：键缺失返回 {@code -2}，存在但无过期返回 {@code -1}，否则返回剩余毫秒。 */
     protected abstract long doTtl(String key);
 
-    /** 删除 key；返回是否真的删除了一个存在的 key。 */
-    protected abstract boolean doDelete(String key);
+    /** 删除 key（对应 Redis {@code DEL}）；返回被删除的键数量（单键为 {@code 0} 或 {@code 1}）。 */
+    protected abstract long doDelete(String key);
 
-    /** key 是否存在（未过期）。 */
+    /** key 是否存在（对应 Redis {@code EXISTS}，1/0）。 */
     protected abstract boolean doExists(String key);
 
     /** 当前条目数量近似值。 */
@@ -94,7 +108,7 @@ public abstract class RemoteCache implements ObservableCache<String, String> {
     public void put(String key, String value) {
         Objects.requireNonNull(value, "value must not be null");
         boolean existed = doExists(key);
-        doSet(key, value, 0L);
+        doSet(key, value, -1L);
         CacheEventType specific = existed ? CacheEventType.UPDATE : CacheEventType.INSERT;
         observer.fire(specific, key, null, value);
         observer.fire(CacheEventType.MUTATE, key, null, value);
@@ -112,7 +126,7 @@ public abstract class RemoteCache implements ObservableCache<String, String> {
             return;
         }
         boolean existed = doExists(key);
-        long ttlMillis = duration.equals(java.time.Duration.MAX) ? 0L : duration.toMillis();
+        long ttlMillis = duration.equals(java.time.Duration.MAX) ? -1L : duration.toMillis();
         doSet(key, value, ttlMillis);
         CacheEventType specific = existed ? CacheEventType.UPDATE : CacheEventType.INSERT;
         observer.fire(specific, key, null, value);
@@ -122,7 +136,7 @@ public abstract class RemoteCache implements ObservableCache<String, String> {
     @Override
     public boolean putIfAbsent(String key, String value) {
         Objects.requireNonNull(value, "value must not be null");
-        boolean inserted = doSetNx(key, value, 0L);
+        boolean inserted = doSetNx(key, value, -1L);
         if (inserted) {
             observer.fire(CacheEventType.INSERT, key, null, value);
             observer.fire(CacheEventType.MUTATE, key, null, value);
@@ -134,7 +148,7 @@ public abstract class RemoteCache implements ObservableCache<String, String> {
     public boolean putIfAbsent(String key, String value, java.time.Duration duration) {
         Objects.requireNonNull(value, "value must not be null");
         if (duration != null && (duration.isZero() || duration.isNegative())) return false;
-        long ttlMillis = (duration == null || duration.equals(java.time.Duration.MAX)) ? 0L : duration.toMillis();
+        long ttlMillis = (duration == null || duration.equals(java.time.Duration.MAX)) ? -1L : duration.toMillis();
         boolean inserted = doSetNx(key, value, ttlMillis);
         if (inserted) {
             observer.fire(CacheEventType.INSERT, key, null, value);
@@ -165,7 +179,7 @@ public abstract class RemoteCache implements ObservableCache<String, String> {
             return;
         }
         if (!doExists(key)) return; // 不复活缺失/过期键
-        long ttlMillis = duration.equals(java.time.Duration.MAX) ? 0L : duration.toMillis();
+        long ttlMillis = duration.equals(java.time.Duration.MAX) ? -1L : duration.toMillis();
         doExpire(key, ttlMillis);
         observer.fire(CacheEventType.TOUCH, key, null, null);
         observer.fire(CacheEventType.MUTATE, key, null, null);

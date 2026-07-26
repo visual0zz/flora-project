@@ -28,7 +28,8 @@ public final class FIFOEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onPut(K key, boolean existed) {
+    public void onAccess(K key, AccessAction action, boolean existed) {
+        if (action != AccessAction.PUT) return; // GET / TOUCH 不改变顺序：顺序仅由写入决定
         lock.lock();
         try {
             queue.put(key, key);
@@ -38,27 +39,7 @@ public final class FIFOEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onGet(K key, boolean existed) {
-        // 读取不改变顺序：顺序仅由写入决定
-    }
-
-    @Override
-    public void onTouch(K key, boolean existed) {
-
-    }
-
-    @Override
-    public void onMutate(K key, boolean existed) {
-        // 热度刷新不影响顺序：顺序仅由写入决定
-    }
-
-    @Override
-    public void onAccess(K key, boolean existed) {
-
-    }
-
-    @Override
-    public void onInvalidate(K key) {
+    public void onRemove(K key, RemoveReason reason) {
         lock.lock();
         try {
             queue.remove(key);

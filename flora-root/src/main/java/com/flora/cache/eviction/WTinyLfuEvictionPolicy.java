@@ -160,62 +160,49 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
     // ========== EvictionPolicy 回调 ==========
 
     @Override
-    public void onPut(K key, boolean existed) {
-        sketch.increment(key);
-        region.put(key, R_WINDOW);
-        windowLock.lock();
-        try {
-            window.put(key, key);
-        } finally {
-            windowLock.unlock();
-        }
-    }
-
-    @Override
-    public void onGet(K key, boolean existed) {
-        sketch.increment(key); // 读取即需求：累加频率素描（命中/未命中皆为需求预热）
-    }
-
-    @Override
-    public void onTouch(K key, boolean existed) {
-
-    }
-
-    @Override
-    public void onMutate(K key, boolean existed) {
-        sketch.increment(key);
-        if (!existed) return; // 操作前未驻留：仅记需求，不纳入淘汰候选段（修复缺失键污染 window）
-        Integer r = region.get(key);
-        if (r == null) return;
-        switch (r) {
-            case R_WINDOW -> {
+    public void onAccess(K key, AccessAction action, boolean existed) {
+        switch (action) {
+            case PUT -> {
+                sketch.increment(key);
+                region.put(key, R_WINDOW);
                 windowLock.lock();
                 try {
-                    if (region.get(key) == R_WINDOW) window.get(key); // LRU touch
+                    window.put(key, key);
                 } finally {
                     windowLock.unlock();
                 }
             }
-            case R_PROBATION -> promoteToProtected(key);
-            case R_PROTECTED -> {
-                protectedLock.lock();
-                try {
-                    if (region.get(key) == R_PROTECTED) protectedSeg.get(key);
-                } finally {
-                    protectedLock.unlock();
+            case GET, TOUCH -> {
+                sketch.increment(key); // 读取即需求：累加频率素描（命中/未命中皆为需求预热）
+                if (!existed) return; // 操作前未驻留：仅记需求，不纳入淘汰候选段
+                Integer r = region.get(key);
+                if (r == null) return;
+                switch (r) {
+                    case R_WINDOW -> {
+                        windowLock.lock();
+                        try {
+                            if (region.get(key) == R_WINDOW) window.get(key); // LRU touch
+                        } finally {
+                            windowLock.unlock();
+                        }
+                    }
+                    case R_PROBATION -> promoteToProtected(key);
+                    case R_PROTECTED -> {
+                        protectedLock.lock();
+                        try {
+                            if (region.get(key) == R_PROTECTED) protectedSeg.get(key);
+                        } finally {
+                            protectedLock.unlock();
+                        }
+                    }
+                    default -> { /* R_DETACHED：已被摘除（并发淘汰/删除），忽略 */ }
                 }
             }
-            default -> { /* R_DETACHED：已被摘除（并发淘汰/删除），忽略 */ }
         }
     }
 
     @Override
-    public void onAccess(K key, boolean existed) {
-
-    }
-
-    @Override
-    public void onInvalidate(K key) {
+    public void onRemove(K key, RemoveReason reason) {
         windowLock.lock();
         try {
             window.remove(key);

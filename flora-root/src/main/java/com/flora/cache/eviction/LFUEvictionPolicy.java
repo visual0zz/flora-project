@@ -28,42 +28,30 @@ public final class LFUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onPut(K key, boolean existed) {
-        long s = seq.incrementAndGet();
-        freq.compute(key, (_, v) -> {
-            if (v == null) return new long[]{1, s};
-            v[0] = Math.max(v[0], 1);
-            v[1] = s;
-            return v;
-        });
+    public void onAccess(K key, AccessAction action, boolean existed) {
+        switch (action) {
+            case PUT -> {
+                long s = seq.incrementAndGet();
+                freq.compute(key, (_, v) -> {
+                    if (v == null) return new long[]{1, s};
+                    v[0] = Math.max(v[0], 1);
+                    v[1] = s;
+                    return v;
+                });
+            }
+            case GET, TOUCH -> {
+                if (!existed) return; // 未命中 / 不存在：不在索引中，自然无操作
+                freq.computeIfPresent(key, (_, v) -> {
+                    v[0]++;
+                    v[1] = seq.incrementAndGet();
+                    return v;
+                });
+            }
+        }
     }
 
     @Override
-    public void onGet(K key, boolean existed) {
-        // 读取热度由 onTouch 统一累加；未命中键不在索引中，自然无操作
-    }
-
-    @Override
-    public void onTouch(K key, boolean existed) {
-
-    }
-
-    @Override
-    public void onMutate(K key, boolean existed) {
-        freq.computeIfPresent(key, (_, v) -> {
-            v[0]++;
-            v[1] = seq.incrementAndGet();
-            return v;
-        });
-    }
-
-    @Override
-    public void onAccess(K key, boolean existed) {
-
-    }
-
-    @Override
-    public void onInvalidate(K key) {
+    public void onRemove(K key, RemoveReason reason) {
         freq.remove(key);
     }
 

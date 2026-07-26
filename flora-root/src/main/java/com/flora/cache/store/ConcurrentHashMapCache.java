@@ -1,6 +1,8 @@
 package com.flora.cache.store;
 
+import com.flora.cache.eviction.AccessAction;
 import com.flora.cache.eviction.EvictionPolicy;
+import com.flora.cache.eviction.RemoveReason;
 import com.flora.cache.MemoryCache;
 import com.flora.cache.eviction.WTinyLfuEvictionPolicy;
 
@@ -104,10 +106,7 @@ public class ConcurrentHashMapCache<K, V>
             else expiry.put(key, exp);
         }
         EvictionPolicy<K, V> p = policy;
-        if (p != null) {
-            p.onPut(key, existed);
-            p.onMutate(key, existed);
-        }
+        if (p != null) p.onAccess(key, AccessAction.PUT, existed);
     }
 
     @Override
@@ -123,10 +122,7 @@ public class ConcurrentHashMapCache<K, V>
         if (storeContains(key)) {
             // 已存在：原子写未生效，仅当作一次引用刷新热度
             EvictionPolicy<K, V> p = policy;
-            if (p != null) {
-                p.onPut(key, true);
-                p.onMutate(key, true);
-            }
+            if (p != null) p.onAccess(key, AccessAction.PUT, true);
             return false;
         }
         ensureCapacity();
@@ -145,10 +141,7 @@ public class ConcurrentHashMapCache<K, V>
             }) == value;
         }
         EvictionPolicy<K, V> p = policy;
-        if (p != null) {
-            p.onPut(key, !inserted);
-            p.onMutate(key, !inserted);
-        }
+        if (p != null) p.onAccess(key, AccessAction.PUT, !inserted);
         return inserted;
     }
 
@@ -161,20 +154,14 @@ public class ConcurrentHashMapCache<K, V>
             Long exp = expiry.get(key);
             if (exp == null || !(System.currentTimeMillis() >= exp)) {
                 EvictionPolicy<K, V> p = policy;
-                if (p != null) {
-                    p.onGet(key, true);
-                    p.onMutate(key, true);
-                }
+                if (p != null) p.onAccess(key, AccessAction.GET, true);
                 return v;
             }
         }
         // 惰性过期：访问时发现过期即走删除管线
         if (storeIsExpired(key)) expireKey(key);
         EvictionPolicy<K, V> p = policy;
-        if (p != null) {
-            p.onGet(key, false);
-            p.onMutate(key, false);
-        }
+        if (p != null) p.onAccess(key, AccessAction.GET, false);
         return null;
     }
 
@@ -198,7 +185,7 @@ public class ConcurrentHashMapCache<K, V>
         else expiry.put(key, System.currentTimeMillis() + duration.toMillis());
         // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onMutate(key, true);
+        if (p != null) p.onAccess(key, AccessAction.TOUCH, true);
     }
 
     @Override
@@ -220,10 +207,7 @@ public class ConcurrentHashMapCache<K, V>
         expiry.remove(key);
         if (old == null) return null; // 并发已删
         EvictionPolicy<K, V> p = policy;
-        if (p != null) {
-            p.onInvalidate(key);
-            p.onRemove(key);
-        }
+        if (p != null) p.onRemove(key, RemoveReason.REMOVE);
         return old;
     }
 
@@ -252,7 +236,7 @@ public class ConcurrentHashMapCache<K, V>
     }
 
     /**
-     * 把单个过期 key 走删除管线：从存储移除 + 通知策略（onRemove + onExpire）。
+     * 把单个过期 key 走删除管线：从存储移除 + 通知策略（onRemove 带 RemoveReason.EXPIRE）。
      * 返回是否真的删除了一个值（并发已删则返回 {@code false}）。
      * 惰性过期（{@link #get}）与主动扫描（{@link #sweepExpired}）共用此路径。
      */
@@ -261,10 +245,7 @@ public class ConcurrentHashMapCache<K, V>
         expiry.remove(key);
         if (old == null) return false;
         EvictionPolicy<K, V> p = policy;
-        if (p != null) {
-            p.onInvalidate(key);
-            p.onExpire(key);
-        }
+        if (p != null) p.onRemove(key, RemoveReason.EXPIRE);
         return true;
     }
 
@@ -286,10 +267,7 @@ public class ConcurrentHashMapCache<K, V>
                 expiry.remove(victim);
                 if (old != null) {
                     EvictionPolicy<K, V> p1 = policy;
-                    if (p1 != null) {
-                        p1.onInvalidate(victim);
-                        p1.onEvict(victim);
-                    }
+                    if (p1 != null) p1.onRemove(victim, RemoveReason.EVICT);
                 }
             }
         } finally {

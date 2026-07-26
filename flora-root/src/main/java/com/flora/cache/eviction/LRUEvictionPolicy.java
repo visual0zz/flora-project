@@ -28,47 +28,30 @@ public final class LRUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onPut(K key, boolean existed) {
-        lock.lock();
-        try {
-            order.put(key, key);
-        } finally {
-            lock.unlock();
+    public void onAccess(K key, AccessAction action, boolean existed) {
+        switch (action) {
+            case PUT -> {
+                lock.lock();
+                try {
+                    order.put(key, key); // 新建或覆盖都置 MRU 端
+                } finally {
+                    lock.unlock();
+                }
+            }
+            case GET, TOUCH -> {
+                if (!existed) return;
+                lock.lock();
+                try {
+                    if (order.containsKey(key)) order.get(key); // 命中 / 刷新 → 移到 MRU
+                } finally {
+                    lock.unlock();
+                }
+            }
         }
     }
 
     @Override
-    public void onGet(K key, boolean existed) {
-        lock.lock();
-        try {
-            if (order.containsKey(key)) order.get(key); // 命中读取 → 移到 MRU
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
-    public void onTouch(K key, boolean existed) {
-
-    }
-
-    @Override
-    public void onMutate(K key, boolean existed) {
-        lock.lock();
-        try {
-            if (order.containsKey(key)) order.get(key); // 引用 → 移到 MRU（刷新最近使用）
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
-    public void onAccess(K key, boolean existed) {
-
-    }
-
-    @Override
-    public void onInvalidate(K key) {
+    public void onRemove(K key, RemoveReason reason) {
         lock.lock();
         try {
             order.remove(key);

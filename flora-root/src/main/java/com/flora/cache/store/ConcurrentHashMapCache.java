@@ -1,6 +1,6 @@
 package com.flora.cache.store;
 
-import com.flora.cache.EvictionPolicy;
+import com.flora.cache.eviction.EvictionPolicy;
 import com.flora.cache.MemoryCache;
 import com.flora.cache.eviction.WTinyLfuEvictionPolicy;
 
@@ -106,7 +106,7 @@ public class ConcurrentHashMapCache<K, V>
         EvictionPolicy<K, V> p = policy;
         if (p != null) {
             p.onPut(key, existed);
-            p.onTouch(key, existed);
+            p.onMutate(key, existed);
         }
     }
 
@@ -125,7 +125,7 @@ public class ConcurrentHashMapCache<K, V>
             EvictionPolicy<K, V> p = policy;
             if (p != null) {
                 p.onPut(key, true);
-                p.onTouch(key, true);
+                p.onMutate(key, true);
             }
             return false;
         }
@@ -147,7 +147,7 @@ public class ConcurrentHashMapCache<K, V>
         EvictionPolicy<K, V> p = policy;
         if (p != null) {
             p.onPut(key, !inserted);
-            p.onTouch(key, !inserted);
+            p.onMutate(key, !inserted);
         }
         return inserted;
     }
@@ -163,7 +163,7 @@ public class ConcurrentHashMapCache<K, V>
                 EvictionPolicy<K, V> p = policy;
                 if (p != null) {
                     p.onGet(key, true);
-                    p.onTouch(key, true);
+                    p.onMutate(key, true);
                 }
                 return v;
             }
@@ -173,7 +173,7 @@ public class ConcurrentHashMapCache<K, V>
         EvictionPolicy<K, V> p = policy;
         if (p != null) {
             p.onGet(key, false);
-            p.onTouch(key, false);
+            p.onMutate(key, false);
         }
         return null;
     }
@@ -198,7 +198,7 @@ public class ConcurrentHashMapCache<K, V>
         else expiry.put(key, System.currentTimeMillis() + duration.toMillis());
         // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onTouch(key, true);
+        if (p != null) p.onMutate(key, true);
     }
 
     @Override
@@ -221,8 +221,8 @@ public class ConcurrentHashMapCache<K, V>
         if (old == null) return null; // 并发已删
         EvictionPolicy<K, V> p = policy;
         if (p != null) {
+            p.onInvalidate(key);
             p.onRemove(key);
-            p.onExplicitRemove(key);
         }
         return old;
     }
@@ -232,7 +232,7 @@ public class ConcurrentHashMapCache<K, V>
         map.clear();
         expiry.clear();
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.clear();
+        if (p != null) p.onClear();
     }
 
     @Override
@@ -262,7 +262,7 @@ public class ConcurrentHashMapCache<K, V>
         if (old == null) return false;
         EvictionPolicy<K, V> p = policy;
         if (p != null) {
-            p.onRemove(key);
+            p.onInvalidate(key);
             p.onExpire(key);
         }
         return true;
@@ -272,7 +272,7 @@ public class ConcurrentHashMapCache<K, V>
      * 写入导致容量增长前的钩子：腾出容量、清理过期。
      * {@code capacity <= 0} 时无界，直接返回；否则先扫描过期、再驱动策略淘汰。
      * 容量淘汰时由本方法删除存储；受害者由策略在
-     * {@link EvictionPolicy#selectEvictVictim()} 内摘除。
+     * {@link EvictionPolicy#selectVictim()} 内摘除。
      */
     private void ensureCapacity() {
         if (capacity <= 0) return;
@@ -281,13 +281,13 @@ public class ConcurrentHashMapCache<K, V>
         try {
             EvictionPolicy<K, V> p = evictionPolicy();
             K victim;
-            while (p != null && (victim = p.selectEvictVictim()) != null) {
+            while (p != null && (victim = p.selectVictim()) != null) {
                 V old = map.remove(victim);
                 expiry.remove(victim);
                 if (old != null) {
                     EvictionPolicy<K, V> p1 = policy;
                     if (p1 != null) {
-                        p1.onRemove(victim);
+                        p1.onInvalidate(victim);
                         p1.onEvict(victim);
                     }
                 }

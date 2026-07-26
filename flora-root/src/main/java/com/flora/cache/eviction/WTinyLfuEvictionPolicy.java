@@ -1,7 +1,5 @@
 package com.flora.cache.eviction;
 
-import com.flora.cache.EvictionPolicy;
-
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -180,6 +178,11 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
 
     @Override
     public void onTouch(K key, boolean existed) {
+
+    }
+
+    @Override
+    public void onMutate(K key, boolean existed) {
         sketch.increment(key);
         if (!existed) return; // 操作前未驻留：仅记需求，不纳入淘汰候选段（修复缺失键污染 window）
         Integer r = region.get(key);
@@ -207,7 +210,12 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
     }
 
     @Override
-    public void onRemove(K key) {
+    public void onAccess(K key, boolean existed) {
+
+    }
+
+    @Override
+    public void onInvalidate(K key) {
         windowLock.lock();
         try {
             window.remove(key);
@@ -230,7 +238,7 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
     }
 
     @Override
-    public K selectEvictVictim() {
+    public K selectVictim() {
         if (capacity <= 0) return null;
         // 阶段一：窗口超额走 W-TinyLFU 淘汰。循环至窗口降到 windowMax 或容量足够。
         while (windowSize() > windowMax && sizeOf.getAsLong() > capacity - windowMax) {
@@ -249,7 +257,7 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
     }
 
     @Override
-    public void clear() {
+    public void onClear() {
         windowLock.lock();
         try {
             window.clear();

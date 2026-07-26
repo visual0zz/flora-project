@@ -1,7 +1,5 @@
 package com.flora.cache.eviction;
 
-import com.flora.cache.EvictionPolicy;
-
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -46,11 +44,21 @@ public final class FIFOEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
 
     @Override
     public void onTouch(K key, boolean existed) {
+
+    }
+
+    @Override
+    public void onMutate(K key, boolean existed) {
         // 热度刷新不影响顺序：顺序仅由写入决定
     }
 
     @Override
-    public void onRemove(K key) {
+    public void onAccess(K key, boolean existed) {
+
+    }
+
+    @Override
+    public void onInvalidate(K key) {
         lock.lock();
         try {
             queue.remove(key);
@@ -60,7 +68,7 @@ public final class FIFOEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public K selectEvictVictim() {
+    public K selectVictim() {
         if (capacity <= 0 || sizeOf.getAsLong() < capacity) return null;
         lock.lock();
         try {
@@ -75,7 +83,7 @@ public final class FIFOEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void clear() {
+    public void onClear() {
         lock.lock();
         try {
             queue.clear();

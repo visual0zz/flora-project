@@ -1,7 +1,5 @@
 package com.flora.cache.eviction;
 
-import com.flora.cache.EvictionPolicy;
-
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -47,6 +45,11 @@ public final class LFUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
 
     @Override
     public void onTouch(K key, boolean existed) {
+
+    }
+
+    @Override
+    public void onMutate(K key, boolean existed) {
         freq.computeIfPresent(key, (_, v) -> {
             v[0]++;
             v[1] = seq.incrementAndGet();
@@ -55,12 +58,17 @@ public final class LFUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onRemove(K key) {
+    public void onAccess(K key, boolean existed) {
+
+    }
+
+    @Override
+    public void onInvalidate(K key) {
         freq.remove(key);
     }
 
     @Override
-    public K selectEvictVictim() {
+    public K selectVictim() {
         if (capacity <= 0 || sizeOf.getAsLong() < capacity) return null;
         K best = null;
         long bestF = Long.MAX_VALUE;
@@ -79,7 +87,7 @@ public final class LFUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void clear() {
+    public void onClear() {
         freq.clear();
     }
 }

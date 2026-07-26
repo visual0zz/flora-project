@@ -4,7 +4,7 @@ import com.flora.cache.BoundedCache;
 import com.flora.cache.Cache;
 import com.flora.cache.CacheEventType;
 import com.flora.cache.CacheEventListener;
-import com.flora.cache.EvictionPolicy;
+import com.flora.cache.eviction.EvictionPolicy;
 import com.flora.cache.MemoryCache;
 import com.flora.cache.ObservableBoundedCache;
 import com.flora.cache.ObservableCache;
@@ -233,7 +233,6 @@ public class CacheListenerAdapter<K, V>
     @Override
     public long cleanUp() {
         if (delegate instanceof BoundedCache<?, ?>) {
-            @SuppressWarnings("unchecked")
             BoundedCache<K, V> bc = (BoundedCache<K, V>) delegate;
             return bc.cleanUp();
         }
@@ -243,7 +242,6 @@ public class CacheListenerAdapter<K, V>
     @Override
     public boolean isFull() {
         if (delegate instanceof BoundedCache<?, ?>) {
-            @SuppressWarnings("unchecked")
             BoundedCache<K, V> bc = (BoundedCache<K, V>) delegate;
             return bc.isFull();
         }
@@ -253,7 +251,6 @@ public class CacheListenerAdapter<K, V>
     @Override
     public long capacity() {
         if (delegate instanceof BoundedCache<?, ?>) {
-            @SuppressWarnings("unchecked")
             BoundedCache<K, V> bc = (BoundedCache<K, V>) delegate;
             return bc.capacity();
         }
@@ -265,7 +262,6 @@ public class CacheListenerAdapter<K, V>
     @Override
     public void setEvictionPolicy(EvictionPolicy<K, V> policy) {
         if (delegate instanceof MemoryCache<?, ?>) {
-            @SuppressWarnings("unchecked")
             MemoryCache<K, V> mc = (MemoryCache<K, V>) delegate;
             mc.setEvictionPolicy(policy);
             return;
@@ -276,7 +272,6 @@ public class CacheListenerAdapter<K, V>
     @Override
     public EvictionPolicy<K, V> evictionPolicy() {
         if (delegate instanceof MemoryCache<?, ?>) {
-            @SuppressWarnings("unchecked")
             MemoryCache<K, V> mc = (MemoryCache<K, V>) delegate;
             return mc.evictionPolicy();
         }

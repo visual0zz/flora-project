@@ -9,7 +9,7 @@ package com.flora.cache.eviction;
  * <ul>
  *   <li>{@link #PUT}：写入（put / putIfAbsent 生效），由 {@code existed} 区分 INSERT(新建) 与 UPDATE(覆盖)；</li>
  *   <li>{@link #GET}：读取（get），{@code existed == true} 视为命中、刷新热度，{@code false} 视为未命中；</li>
- *   <li>{@link #TOUCH}：TTL 刷新（setTtl），重新确认条目仍被需要，刷新其热度。</li>
+ *   <li>{@link #UPDATE_TTL}：TTL 刷新（setTtl），重新确认条目仍被需要，刷新其热度。</li>
  * </ul>
  * 命中读与写都会刷新条目热度、影响淘汰；未命中读通常仅预热频率素描、不进入淘汰候选段。
  *
@@ -24,5 +24,7 @@ public enum AccessAction {
     GET,
 
     /** TTL 刷新（setTtl）：重新确认条目仍被需要 */
-    TOUCH,
+    UPDATE_TTL,
+    GET_TTL,
+
 }

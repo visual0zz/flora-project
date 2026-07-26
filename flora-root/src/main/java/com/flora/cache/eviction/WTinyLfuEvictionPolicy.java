@@ -172,7 +172,7 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
                     windowLock.unlock();
                 }
             }
-            case GET, TOUCH -> {
+            case GET, UPDATE_TTL -> {
                 sketch.increment(key); // 读取即需求：累加频率素描（命中/未命中皆为需求预热）
                 if (!existed) return; // 操作前未驻留：仅记需求，不纳入淘汰候选段
                 Integer r = region.get(key);

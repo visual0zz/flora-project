@@ -39,7 +39,7 @@ public final class LFUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
                     return v;
                 });
             }
-            case GET, TOUCH -> {
+            case GET, UPDATE_TTL -> {
                 if (!existed) return; // 未命中 / 不存在：不在索引中，自然无操作
                 freq.computeIfPresent(key, (_, v) -> {
                     v[0]++;

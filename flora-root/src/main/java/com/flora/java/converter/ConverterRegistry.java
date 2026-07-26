@@ -48,7 +48,7 @@ public final class ConverterRegistry {
         ALL_CONVERTERS.addAll(SPI_CONVERTERS);
     }
     private final List<Converter> executors;
-    private final ConcurrentHashMapCache<FindKey, Converter> cache = new ConcurrentHashMapCache<>();
+    private final ConcurrentHashMapCache<FindKey, Converter> cache = new ConcurrentHashMapCache<>(4096);
     private ConverterRegistry(List<Converter> executors){
         this.executors = new CopyOnWriteArrayList<>(executors);
     }

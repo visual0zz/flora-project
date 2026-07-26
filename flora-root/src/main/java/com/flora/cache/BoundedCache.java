@@ -1,7 +1,5 @@
 package com.flora.cache;
 
-import com.flora.cache.eviction.EvictionPolicy;
-
 /**
  * 有界缓存契约：提供容量约束与回收能力（容量上限、是否已满、垃圾回收）。
  * <p>

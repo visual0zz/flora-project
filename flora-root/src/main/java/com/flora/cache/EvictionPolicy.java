@@ -1,7 +1,7 @@
-package com.flora.cache.eviction;
+package com.flora.cache;
 
-import com.flora.cache.Cache;
-import com.flora.cache.MemoryCache;
+import com.flora.cache.eviction.AccessAction;
+import com.flora.cache.eviction.RemoveReason;
 
 /**
  * 淘汰策略回调接口。

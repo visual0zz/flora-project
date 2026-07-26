@@ -4,7 +4,7 @@ import com.flora.cache.BoundedCache;
 import com.flora.cache.Cache;
 import com.flora.cache.CacheEventType;
 import com.flora.cache.CacheEventListener;
-import com.flora.cache.eviction.EvictionPolicy;
+import com.flora.cache.EvictionPolicy;
 import com.flora.cache.MemoryCache;
 import com.flora.cache.ObservableBoundedCache;
 import com.flora.cache.ObservableCache;

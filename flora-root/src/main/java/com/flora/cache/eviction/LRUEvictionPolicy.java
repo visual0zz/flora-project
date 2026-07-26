@@ -1,5 +1,7 @@
 package com.flora.cache.eviction;
 
+import com.flora.cache.EvictionPolicy;
+
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;

@@ -1,5 +1,7 @@
 package com.flora.cache.eviction;
 
+import com.flora.cache.EvictionPolicy;
+
 /**
  * 触发淘汰策略「访问 / 写」回调的动作类型。
  * <p>

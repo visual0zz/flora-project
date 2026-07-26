@@ -1,7 +1,7 @@
 package com.flora.cache.store;
 
 import com.flora.cache.eviction.AccessAction;
-import com.flora.cache.eviction.EvictionPolicy;
+import com.flora.cache.EvictionPolicy;
 import com.flora.cache.eviction.RemoveReason;
 import com.flora.cache.MemoryCache;
 import com.flora.cache.eviction.WTinyLfuEvictionPolicy;

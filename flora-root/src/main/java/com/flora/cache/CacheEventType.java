@@ -40,13 +40,13 @@ public enum CacheEventType {
     /** 读取（get）；newValue 为读到的值，未命中为 null。 */
     GET,
 
-    /** 查询剩余过期（ttl）；仅携带 key 信号（返回的 Duration 非 V，不放入 newValue）。 */
-    GET_TTL,
-
     /** 查询存在（containsKey）；仅携带 key 信号。 */
     CONTAINS,
 
     // ========== TTL 维护 ==========
+
+    /** 查询剩余过期（ttl）；仅携带 key 信号（返回的 Duration 非 V，不放入 newValue）。 */
+    GET_TTL,
 
     /** 刷新过期（setTtl）。 */
     SET_TTL,

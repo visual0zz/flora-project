@@ -101,7 +101,7 @@ public class CacheListenerAdapter<K, V>
             try {
                 l.onEvent(type, key, oldValue, newValue);
             } catch (RuntimeException ignore) {
-                // 监听器故障不应影响缓存主流程与同批次其他监听器
+                // todo 等log部分代码最终定型调试好之后，这里要记录异常
             }
         }
     }

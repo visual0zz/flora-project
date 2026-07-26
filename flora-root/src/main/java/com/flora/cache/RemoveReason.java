@@ -1,6 +1,4 @@
-package com.flora.cache.eviction;
-
-import com.flora.cache.EvictionPolicy;
+package com.flora.cache;
 
 /**
  * 触发淘汰策略「移除」回调的原因。

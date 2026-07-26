@@ -8,7 +8,7 @@ package com.flora.cache;
  * @param <K> 键类型
  * @param <V> 值类型
  */
-public interface BoundedCache<K, V> extends EvictableCache<K, V> {
+public interface BoundedCache<K, V> extends Cache<K, V> {
 
     /** 执行清理回收，清除过期或可淘汰的缓存项；返回被清理的数量。 */
     long cleanUp();

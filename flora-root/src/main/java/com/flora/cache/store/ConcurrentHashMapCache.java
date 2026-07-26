@@ -4,7 +4,7 @@ import com.flora.cache.BoundedCache;
 import com.flora.cache.Cache;
 import com.flora.cache.CacheEventType;
 import com.flora.cache.CacheEventListener;
-import com.flora.cache.EvictableCache;
+import com.flora.cache.MemoryCache;
 import com.flora.cache.EvictionPolicy;
 import com.flora.cache.ObservableCache;
 import com.flora.cache.eviction.WTinyLfuEvictionPolicy;
@@ -27,8 +27,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @param <K> 键类型
  * @param <V> 值类型
  */
-public class MemoryCache<K, V>
-        implements Cache<K, V>, ObservableCache<K, V>, EvictableCache<K, V>, BoundedCache<K, V> {
+public class ConcurrentHashMapCache<K, V>
+        implements Cache<K, V>, ObservableCache<K, V>, MemoryCache<K, V>, BoundedCache<K, V> {
 
     /** 键 → 值 */
     private final ConcurrentHashMap<K, V> map = new ConcurrentHashMap<>();
@@ -43,14 +43,14 @@ public class MemoryCache<K, V>
     /** 容量淘汰时的并发闸门，避免 ensureCapacity 重入导致重复淘汰 */
     private final AtomicBoolean evicting = new AtomicBoolean();
 
-    public MemoryCache() {
+    public ConcurrentHashMapCache() {
         this(-1);
     }
 
     /**
      * @param capacity 容量上限（{@code <=0} 表示无上限，自带 W-TinyLFU 休眠、永不淘汰）
      */
-    public MemoryCache(long capacity) {
+    public ConcurrentHashMapCache(long capacity) {
         this.capacity = capacity;
         setEvictionPolicy(new WTinyLfuEvictionPolicy<>(capacity, this::approxCount));
     }
@@ -121,7 +121,7 @@ public class MemoryCache<K, V>
         else {
             map.put(key, value);
             Long exp = null;
-            if (duration != null && !duration.isNegative() && !duration.equals(Duration.MAX)) {
+            if (!duration.isNegative() && !duration.equals(Duration.MAX)) {
                 exp = System.currentTimeMillis() + duration.toMillis();
             }
             if (exp == null) expiry.remove(key);
@@ -158,7 +158,7 @@ public class MemoryCache<K, V>
             inserted = map.putIfAbsent(key, value) == null;
         } else {
             Long result = null;
-            if (duration != null && !duration.isNegative() && !duration.equals(Duration.MAX)) {
+            if (!duration.isNegative() && !duration.equals(Duration.MAX)) {
                 result = System.currentTimeMillis() + duration.toMillis();
             }
             Long exp = result;
@@ -371,7 +371,7 @@ public class MemoryCache<K, V>
         return capacity;
     }
 
-    // ========== 可选：淘汰策略（EvictableCache） ==========
+    // ========== 可选：淘汰策略（MemoryCache） ==========
 
     @Override
     public void setEvictionPolicy(EvictionPolicy<K, V> policy) {

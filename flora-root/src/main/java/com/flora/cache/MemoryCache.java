@@ -6,7 +6,7 @@ package com.flora.cache;
  * @param <K> 键类型
  * @param <V> 值类型
  */
-public interface EvictableCache<K, V> extends Cache<K, V> {
+public interface MemoryCache<K, V> extends BoundedCache<K,V> {
 
     /**
      * 挂载淘汰策略插件；传入 {@code null} 表示移除插件。重复挂载只会替换插件，不会嵌套。

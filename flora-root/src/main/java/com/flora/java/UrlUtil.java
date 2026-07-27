@@ -1,6 +1,4 @@
-package com.flora.data;
-
-import com.flora.java.CheckUtil;
+package com.flora.java;
 
 import java.net.URLDecoder;
 import java.net.URLEncoder;

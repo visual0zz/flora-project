@@ -1,6 +1,5 @@
-package com.flora.data;
+package com.flora.java;
 
-import com.flora.java.CollectionUtil;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;

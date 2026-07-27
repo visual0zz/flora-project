@@ -1,6 +1,4 @@
-package com.flora.data;
-
-import com.flora.java.CheckUtil;
+package com.flora.java;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;

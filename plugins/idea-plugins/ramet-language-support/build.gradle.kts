@@ -207,6 +207,18 @@ intellijPlatform {
         // 避免源码 plugin.xml 与 gradle 版本号再次脱节。
         version.set(project.version.toString())
     }
+    // Marketplace 发布 token：绝不写死在仓库里。
+    // 优先读环境变量 JETBRAINS_MARKETPLACE_TOKEN，
+    // 否则读本机全局 ~/.gradle/gradle.properties 里的 jetbrainsMarketplaceToken。
+    // 实际 token 值只存在于本机/CI 环境，不会进入版本控制。
+    publishing {
+        // 传 Provider 本身（不调用 .get()），让 token 仅在 publishPlugin 执行时才解析，
+        // 避免本地 buildPlugin 因取不到 token 而失败。
+        token.set(
+            providers.environmentVariable("JETBRAINS_MARKETPLACE_TOKEN")
+                .orElse(providers.gradleProperty("jetbrainsMarketplaceToken"))
+        )
+    }
 }
 
 tasks {

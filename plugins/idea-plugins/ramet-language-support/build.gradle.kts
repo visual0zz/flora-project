@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "io.gitee.visual0zz"
-version = "0.7"
+version = "0.8"
 
 java {
     toolchain {

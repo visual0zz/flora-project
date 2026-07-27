@@ -2,7 +2,7 @@
 <idea-plugin>
     <id>io.gitee.visual0zz.ramet</id>
     <name>Ramet Language Support</name>
-    <version>0.7</version>
+    <version>0.8</version>
     <vendor email="indiancarriernoac@qq.com" url="https://gitee.com/visual0zz">flora</vendor>
 
     <icon main="pluginIcon.svg"/>
@@ -53,8 +53,12 @@
                 language="Ramet"
                 implementationClass="com.flora.ramet.idea.highlighter.RametAnnotator"/>
 
-        <additionalTextAttributes
-                scheme="Default"
-                file="colorSchemes/RametDefault.xml"/>
+    <additionalTextAttributes
+            scheme="Default"
+            file="colorSchemes/RametDefault.xml"/>
+
+    <additionalTextAttributes
+            scheme="Darcula"
+            file="colorSchemes/RametDarcula.xml"/>
     </extensions>
 </idea-plugin>

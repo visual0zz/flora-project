@@ -10,7 +10,7 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.18.1"
 }
 
-group = "com.flora.ramet"
+group = "io.gitee.visual0zz"
 version = "0.6"
 
 java {

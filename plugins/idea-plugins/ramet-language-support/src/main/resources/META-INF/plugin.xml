@@ -1,21 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <idea-plugin>
-    <id>com.flora.ramet</id>
+    <id>io.gitee.visual0zz.ramet</id>
     <name>Ramet 模板语言支持</name>
     <version>0.5</version>
-    <vendor>flora</vendor>
+    <vendor url="https://gitee.com/visual0zz">flora</vendor>
 
     <icon main="pluginIcon.svg"/>
 
     <description><![CDATA[
-      <h3>Ramet 模板引擎语言支持</h3>
+      <h3>Ramet 模板引擎语言高亮支持</h3>
       <p>为 <code>.ramet</code> 文件提供两级细粒度语法高亮。</p>
       <h4>功能</h4>
       <ul>
         <li>模板指令关键字、操作符、字符串、数字、函数分区着色</li>
         <li>被动文本暗淡低饱和度，逻辑块鲜艳高饱和度</li>
         <li>Meta 块 (@Param/@Cartesian/@Path/@Config/@SkipWhen) 完整语法高亮</li>
-        <li>文件气泡镶嵌图标</li>
       </ul>
     ]]></description>
 

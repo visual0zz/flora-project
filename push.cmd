@@ -117,15 +117,10 @@ git commit -m "%message%" || echo %ESC%[33m(nothing to commit)%ESC%[0m
 for /f "eol=# tokens=*" %%i in (addition\config\remoteRepoList.txt) do (
     echo %ESC%[36mgit push %%i %LOCAL_BRANCH%:%REMOTE_BRANCH%%ESC%[0m
     git push "%%i" "%LOCAL_BRANCH%:%REMOTE_BRANCH%" && (echo %ESC%[32m    OK%ESC%[0m) || (echo %ESC%[31m    FAILED%ESC%[0m)
-    echo [DEBUG] after branch push, cwd=%CD%
     if exist addition\config\tagPrefixes.txt (
-        echo [DEBUG] if-exist TRUE
-        for /f "eol=# tokens=*" %%p in (addition\config\tagPrefixes.txt) do (
-            echo [DEBUG] inner p=%%p
+        for /f "tokens=*" %%p in ('findstr /b /v "#" addition\config\tagPrefixes.txt') do (
             call :push_tag "%%i" "%%p"
         )
-    ) else (
-        echo [DEBUG] if-exist FALSE
     )
 )
 endlocal

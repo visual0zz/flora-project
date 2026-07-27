@@ -11,7 +11,46 @@ plugins {
 }
 
 group = "io.gitee.visual0zz"
-version = "0.8.2"
+
+// ===== 版本号：由 git tag 自动推导（格式 ramet-idea-plugin-vX.Y.Z）=====
+// 仅识别该前缀的 tag，方便仓库内多个产物各自维护独立版本线。
+// 用法：发布前打 tag `git tag ramet-idea-plugin-vX.Y.Z`，构建即采用该版本。
+fun readVersionFromGitTag(): String {
+    val proc = ProcessBuilder("git", "describe", "--tags", "--match", "ramet-idea-plugin-v*", "--abbrev=0")
+        .directory(projectDir)
+        .redirectErrorStream(true)
+        .start()
+    val out = proc.inputStream.bufferedReader().readText().trim()
+    proc.waitFor()
+    return if (out.startsWith("ramet-idea-plugin-v")) {
+        out.removePrefix("ramet-idea-plugin-v")
+    } else {
+        logger.lifecycle("WARN: 未找到 ramet-idea-plugin-v* 格式的 git tag，回退到 0.0.0")
+        "0.0.0"
+    }
+}
+
+val rametVersion = readVersionFromGitTag()
+version = rametVersion
+
+// ===== What's New：从 CHANGELOG.md 提取当前版本段落 =====
+fun readChangelogSection(ver: String): String {
+    val file = File(projectDir, "CHANGELOG.md")
+    if (!file.exists()) return ""
+    val header = Regex("^##\\s+\\[?\\s*$ver\\s*\\]?\\s*$")
+    val sb = StringBuilder()
+    var inSection = false
+    for (line in file.readLines()) {
+        if (header.matches(line)) { inSection = true; continue }
+        if (inSection) {
+            if (line.startsWith("## ")) break
+            sb.appendLine(line)
+        }
+    }
+    return sb.toString().trim()
+}
+
+val rametChangeNotes = readChangelogSection(rametVersion)
 
 java {
     toolchain {
@@ -203,9 +242,11 @@ val ideaHome: String? = when {
 
 intellijPlatform {
     pluginConfiguration {
-        // 单一版本来源：从 project.version（当前 0.6）注入到构建产物 plugin.xml，
+        // 单一版本来源：从 project.version（由 git tag 推导）注入到构建产物 plugin.xml，
         // 避免源码 plugin.xml 与 gradle 版本号再次脱节。
         version.set(project.version.toString())
+        // 更新说明来自 CHANGELOG.md 的当前版本段落，同步进 IDE 插件管理器。
+        changeNotes.set(rametChangeNotes)
     }
     // Marketplace 发布 token：绝不写死在仓库里。
     // 优先读环境变量 JETBRAINS_MARKETPLACE_TOKEN，

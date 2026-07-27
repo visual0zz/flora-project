@@ -3,8 +3,14 @@
 # ===========================================================================
 # deploy: 发布 ramet-language-support（IDEA 插件）到 JetBrains Marketplace
 # ===========================================================================
-# 前置条件（必须配置“其中之一”，否则 publishPlugin 会报
-#   'token' property must be specified for plugin publishing）：
+# 前置条件：
+#   1) 发布 token：配置“其中之一”，否则 publishPlugin 会报
+#      'token' property must be specified for plugin publishing'
+#      （详见下方“安全提醒 / 方式一·方式二”）。
+#   2) 版本号由 git tag 决定，格式 ramet-idea-plugin-vX.Y.Z：
+#      - 发布前先在 CHANGELOG.md 增加对应 [X.Y.Z] 段落；
+#      - 再执行 `git tag ramet-idea-plugin-vX.Y.Z`；
+#      - 本脚本会用该 tag 推导版本并注入插件包，未打对应 tag 时版本不会更新。
 #
 #   方式一（推荐）：配置“系统/用户级”环境变量
 #       JETBRAINS_MARKETPLACE_TOKEN=<你的 Marketplace 发布 token>

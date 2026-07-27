@@ -16,22 +16,7 @@
         <li>Low-saturation dimming for passive text, high-saturation coloring for logic blocks</li>
         <li>Full Lson syntax highlighting for Meta blocks (@Param/@Cartesian/@Path/@Config/@SkipWhen)</li>
       </ul>
-    ]]></description>
-
-    <change-notes><![CDATA[
-      <h4>v0.8.2</h4>
-      <ul>
-        <li>修复被动文本区（TEXT）被错误高亮的问题：普通被动区仅以暗淡色显示，不再对 @Override、rehash( 等做细分着色</li>
-        <li>仅 &lt;#xxx ...&gt;、&lt;#meta&gt;...&lt;/#meta&gt;、${...} 三类逻辑结构内部保留语法高亮</li>
-      </ul>
-      <h4>v0.6</h4>
-      <ul>
-        <li>新增 continue/break/meta 指令语法高亮支持</li>
-        <li>Meta 块 (@Param/@Cartesian/@Path/@Config/@SkipWhen) 完整 Lson 语法高亮</li>
-        <li>逻辑块内标识符亮色、被动块灰色</li>
-        <li>移除引用跳转功能，专注语法高亮</li>
-      </ul>
-    ]]></change-notes>
+    ]]>    </description>
 
     <depends>com.intellij.modules.platform</depends>
 

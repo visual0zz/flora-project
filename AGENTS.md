@@ -65,3 +65,5 @@ the `generate-sources` phase.
 - **Decision**: Whenever the agent makes a decision (e.g., technology selection or
   implementation approach), record it in `addition/decision/`.
   Naming: `decision{YYYYMMDD}-{NN}-{module}.md`.
+- **Changelog**: If a submodule contains a `CHANGELOG.md` file, update it
+  after each code change to reflect what was modified, added, or removed.

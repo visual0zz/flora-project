@@ -19,6 +19,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>
  * 本类只实现 {@link MemoryCache} 契约，不承载可观测能力；如需事件监听，请用
  * {@link CacheListenerAdapter#of(MemoryCache)} 包装。
+ * <p>
+ * 空值契约：{@code key} 与 {@code value} 均不可为 {@code null}，所有公开方法在入口处
+ * 显式校验，违反即抛出 {@link NullPointerException}。
  *
  * @param <K> 键类型
  * @param <V> 值类型
@@ -83,12 +86,14 @@ public class ConcurrentHashMapCache<K, V>
 
     @Override
     public void put(K key, V value) {
+        Objects.requireNonNull(key, "key must not be null");
         Objects.requireNonNull(value, "value must not be null");
         upsert(key, value, null);
     }
 
     @Override
     public void put(K key, V value, Duration duration) {
+        Objects.requireNonNull(key, "key must not be null");
         Objects.requireNonNull(value, "value must not be null");
         if (duration == null) {
             put(key, value);
@@ -126,12 +131,14 @@ public class ConcurrentHashMapCache<K, V>
 
     @Override
     public boolean putIfAbsent(K key, V value) {
+        Objects.requireNonNull(key, "key must not be null");
         Objects.requireNonNull(value, "value must not be null");
         return putIfAbsent(key, value, null);
     }
 
     @Override
     public boolean putIfAbsent(K key, V value, Duration duration) {
+        Objects.requireNonNull(key, "key must not be null");
         Objects.requireNonNull(value, "value must not be null");
         if (duration != null && (duration.isZero() || duration.isNegative())) return false;
         if (storeContains(key)) {
@@ -164,6 +171,7 @@ public class ConcurrentHashMapCache<K, V>
 
     @Override
     public V get(K key) {
+        Objects.requireNonNull(key, "key must not be null");
         V v = map.get(key);
         if (v != null) {
             Long exp = expiry.get(key);
@@ -182,6 +190,7 @@ public class ConcurrentHashMapCache<K, V>
 
     @Override
     public boolean containsKey(K key) {
+        Objects.requireNonNull(key, "key must not be null");
         return storeContains(key);
     }
 
@@ -189,6 +198,7 @@ public class ConcurrentHashMapCache<K, V>
 
     @Override
     public void setTtl(K key, Duration duration) {
+        Objects.requireNonNull(key, "key must not be null");
         if (duration == null) return;
         if (duration.isZero() || duration.isNegative()) {
             expireKey(key); // 刷新成零/负时长 = 立即过期，走过期删除管线
@@ -205,6 +215,7 @@ public class ConcurrentHashMapCache<K, V>
 
     @Override
     public Duration ttl(K key) {
+        Objects.requireNonNull(key, "key must not be null");
         if (!map.containsKey(key)) return Duration.ZERO;          // 不存在
         Long exp = expiry.get(key);
         if (exp == null) return Duration.MAX;                     // 永不过期
@@ -216,6 +227,7 @@ public class ConcurrentHashMapCache<K, V>
 
     @Override
     public V remove(K key) {
+        Objects.requireNonNull(key, "key must not be null");
         // 不存在或已过期（逻辑删除）：视为不存在，静默无操作
         if (!storeContains(key)) return null;
         V old = map.remove(key);

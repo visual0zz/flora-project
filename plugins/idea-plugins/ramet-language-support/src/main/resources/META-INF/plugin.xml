@@ -2,7 +2,7 @@
 <idea-plugin>
     <id>io.gitee.visual0zz.ramet</id>
     <name>Ramet Language Support</name>
-    <version>0.8.1</version>
+    <version>0.8.2</version>
     <vendor email="indiancarriernoac@qq.com" url="https://gitee.com/visual0zz">flora</vendor>
 
     <icon main="pluginIcon.svg"/>
@@ -19,6 +19,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
+      <h4>v0.8.2</h4>
+      <ul>
+        <li>修复被动文本区（TEXT）被错误高亮的问题：普通被动区仅以暗淡色显示，不再对 @Override、rehash( 等做细分着色</li>
+        <li>仅 &lt;#xxx ...&gt;、&lt;#meta&gt;...&lt;/#meta&gt;、${...} 三类逻辑结构内部保留语法高亮</li>
+      </ul>
       <h4>v0.6</h4>
       <ul>
         <li>新增 continue/break/meta 指令语法高亮支持</li>

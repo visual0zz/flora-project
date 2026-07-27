@@ -248,73 +248,16 @@ public class RametAnnotator implements Annotator {
     // ========== TEXT 块 ==========
 
     private void annotateTextBlock(PsiElement element, String text, int offset, AnnotationHolder holder) {
-        // 检查是否在 <#meta>...</#meta> 块内部
+        // <#meta>...</#meta> 块内部的内容属于逻辑区域，使用鲜艳语法色高亮。
         boolean insideMeta = isInsideMetaBlock(element);
         if (insideMeta) {
             annotateMetaContent(text, offset, holder);
             return;
         }
-
-        // 多语言注释高亮：//（C系列）、#（Python/Shell/Ruby）、
-        // --（SQL/Lua）、%（LaTeX/Erlang）、/* */（C系列）
-        // 先收集所有注释区间，避免注释内部的内容被其他规则覆盖
-        List<int[]> commentRanges = new ArrayList<>();
-
-        // 行注释
-        for (int k = 0; k < text.length(); k++) {
-            char c = text.charAt(k);
-            boolean isLineComment = false;
-            if (c == '/' && k + 1 < text.length() && text.charAt(k + 1) == '/') {
-                isLineComment = true;
-            } else if (c == '#') {
-                isLineComment = true;
-            } else if (c == '-' && k + 1 < text.length() && text.charAt(k + 1) == '-') {
-                isLineComment = true;
-            } else if (c == '%') {
-                isLineComment = true;
-            }
-            if (isLineComment) {
-                int start = k;
-                while (k < text.length() && text.charAt(k) != '\n') k++;
-                range(holder, offset + start, k - start, RametSyntaxHighlighter.RAMET_COMMENT);
-                commentRanges.add(new int[]{start, k});
-            }
-        }
-        // 块注释：/* */
-        for (int k = 0; k < text.length() - 1; k++) {
-            if (text.charAt(k) == '/' && text.charAt(k + 1) == '*') {
-                int start = k;
-                k += 2;
-                while (k < text.length() - 1 && !(text.charAt(k) == '*' && text.charAt(k + 1) == '/')) k++;
-                if (k < text.length() - 1) k += 2;
-                range(holder, offset + start, k - start, RametSyntaxHighlighter.RAMET_COMMENT);
-                commentRanges.add(new int[]{start, k});
-            }
-        }
-
-        // 注解 @Xxx
-        Matcher am = TEXT_ANNOTATION.matcher(text);
-        while (am.find()) {
-            if (!insideRanges(am.start(), commentRanges)) {
-                range(holder, offset + am.start(), am.group().length(), RametSyntaxHighlighter.TEXT_ANNOTATION);
-            }
-        }
-
-        // 函数调用 name(
-        Matcher fm = TEXT_FUNC_CALL.matcher(text);
-        while (fm.find()) {
-            if (!insideRanges(fm.start(), commentRanges)) {
-                range(holder, offset + fm.start(1), fm.group(1).length(), RametSyntaxHighlighter.TEXT_FUNCTION);
-            }
-        }
-
-        // 字符串
-        Matcher sm = STRING_LITERAL.matcher(text);
-        while (sm.find()) {
-            if (!insideRanges(sm.start(), commentRanges)) {
-                range(holder, offset + sm.start(), sm.group().length(), RametSyntaxHighlighter.TEXT_STRING);
-            }
-        }
+        // 普通被动文本区域：整体使用暗淡色，不做任何细分高亮。
+        // 基础着色由 SyntaxHighlighter（PASSIVE -> TEXT_DEFAULT）提供，
+        // 这里显式覆盖为 TEXT_DEFAULT，确保 @Override、rehash( 等不再被着色。
+        range(holder, offset, text.length(), RametSyntaxHighlighter.TEXT_DEFAULT);
     }
 
     // ========== Meta 块 Lson 辅助 ==========

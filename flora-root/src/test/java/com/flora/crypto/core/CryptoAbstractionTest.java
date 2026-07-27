@@ -1,6 +1,7 @@
 package com.flora.crypto.core;
 
 import com.flora.codec.HexUtil;
+import com.flora.crypto.core.engine.JdkDigest;
 import org.junit.jupiter.api.Test;
 
 import java.security.KeyPair;
@@ -189,5 +190,65 @@ class CryptoAbstractionTest {
         assertNotNull(CryptoProvider.mac("HmacSHA256"));
         assertNotNull(CryptoProvider.signer("SHA256withRSA"));
         assertNotNull(CryptoProvider.keyPairGenerator("RSA"));
+    }
+
+    // ── 自定义注册表：按名优先返回自定义实现，未命中回退 JDK ──
+
+    /** 一个最小的自定义 Digest 实现，仅用于验证注册表优先逻辑。 */
+    private static final class NoopDigest implements Digest {
+        private final String name;
+        private final int size;
+
+        NoopDigest(String name, int size) {
+            this.name = name;
+            this.size = size;
+        }
+
+        @Override
+        public String getAlgorithmName() {
+            return name;
+        }
+
+        @Override
+        public int getDigestSize() {
+            return size;
+        }
+
+        @Override
+        public void update(byte in) {
+        }
+
+        @Override
+        public void update(byte[] in, int inOff, int len) {
+        }
+
+        @Override
+        public int doFinal(byte[] out, int outOff) {
+            return 0;
+        }
+
+        @Override
+        public void reset() {
+        }
+    }
+
+    @Test
+    void customRegistryPreferredAndFallsBack() {
+        // 未注册时回退到 JDK 适配器
+        assertInstanceOf(JdkDigest.class, CryptoProvider.digest("SHA-256"));
+
+        // 注册自定义实现后，同名优先返回自定义实例
+        CryptoProvider.registerDigest("MyHash", () -> new NoopDigest("MyHash", 7));
+        Digest custom = CryptoProvider.digest("MyHash");
+        assertEquals("MyHash", custom.getAlgorithmName());
+        assertEquals(7, custom.getDigestSize());
+        assertInstanceOf(NoopDigest.class, custom);
+
+        // 覆盖同名 JDK 算法：注册 "SHA-1" 后优先返回自定义（prefer 自己的算法）。
+        // 注意：注册表是 JVM 全局的，此处故意避开其它测试依赖的 "SHA-256" 以免污染。
+        CryptoProvider.registerDigest("SHA-1", () -> new NoopDigest("SHA-1", 9));
+        Digest overridden = CryptoProvider.digest("SHA-1");
+        assertInstanceOf(NoopDigest.class, overridden);
+        assertEquals(9, overridden.getDigestSize());
     }
 }

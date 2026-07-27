@@ -12,11 +12,9 @@ import java.security.NoSuchAlgorithmException;
  */
 public final class JdkKeyPairGenerator {
 
-    private final String algorithm;
     private final KeyPairGenerator kpg;
 
     private JdkKeyPairGenerator(String algorithm) {
-        this.algorithm = algorithm;
         try {
             this.kpg = KeyPairGenerator.getInstance(algorithm);
         } catch (NoSuchAlgorithmException e) {

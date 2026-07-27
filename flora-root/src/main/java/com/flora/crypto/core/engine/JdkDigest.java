@@ -1,4 +1,5 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.engine;
+import com.flora.crypto.core.Digest;
 
 import com.flora.java.CheckUtil;
 

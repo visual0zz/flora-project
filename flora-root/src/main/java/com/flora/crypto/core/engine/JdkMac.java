@@ -1,4 +1,6 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.engine;
+import com.flora.crypto.core.Mac;
+import com.flora.crypto.core.CipherParameters;
 
 import com.flora.java.CheckUtil;
 

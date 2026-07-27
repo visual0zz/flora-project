@@ -1,8 +1,10 @@
 package com.flora.java.converter;
 
 import com.flora.java.ConvertUtil;
+import com.flora.java.ConversionContext;
 import com.flora.java.Converter;
 import com.flora.java.TargetMatcher;
+import com.flora.java.converter.ConverterRegistry;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
@@ -73,12 +75,31 @@ public final class CollectionConverter implements Converter {
         Collection<?> source = toCollection(from);
         if (elementType != null) {
             for (Object elem : source) {
-                result.add(ConvertUtil.convert(elementType, elem));
+                result.add(convertElement(elem, elementType));
             }
         } else {
             result.addAll(source);
         }
         return result;
+    }
+
+    /**
+     * 将单个元素转换为指定元素类型。优先使用当前转换上下文中的注册中心，
+     * 以保证与外层转换一致的转换器集合；上下文缺失时回退到全局 {@link ConvertUtil}。
+     *
+     * @param elem        待转换的元素
+     * @param elementType 元素目标类型
+     * @return 转换后的元素
+     */
+    private Object convertElement(Object elem, Class<?> elementType) {
+        if (elementType == Object.class) {
+            return elem;
+        }
+        ConverterRegistry registry = ConversionContext.currentRegistry();
+        if (registry != null) {
+            return registry.convertElement(elem, elementType, null);
+        }
+        return ConvertUtil.convert(elementType, elem);
     }
 
     /**

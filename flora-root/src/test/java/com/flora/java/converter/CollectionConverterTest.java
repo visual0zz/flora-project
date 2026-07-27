@@ -1,4 +1,4 @@
-package com.flora.codec;
+package com.flora.java.converter;
 
 import com.flora.java.converter.CollectionConverter;
 import com.flora.java.Converter;

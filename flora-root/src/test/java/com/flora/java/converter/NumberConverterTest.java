@@ -172,4 +172,47 @@ class NumberConverterTest {
         assertThrows(NumberFormatException.class,
                 () -> converter.convert("99999999999999999999999999999", Long.class));
     }
+
+    // ========== 数值类型互转（fix #2） ==========
+
+    /**
+     * Double -> Integer 应按数值转换（截断），而非 toString 后解析失败。
+     */
+    @Test
+    void doubleToIntegerViaNumber() {
+        assertEquals(Integer.valueOf(5), converter.convert(5.7d, Integer.class));
+    }
+
+    /**
+     * Double -> Long 应按数值转换。
+     */
+    @Test
+    void doubleToLongViaNumber() {
+        assertEquals(Long.valueOf(5L), converter.convert(5.7d, Long.class));
+    }
+
+    /**
+     * BigDecimal -> Integer 应按数值转换（截断小数），而非 toString 后解析失败。
+     */
+    @Test
+    void bigDecimalToIntegerViaNumber() {
+        assertEquals(Integer.valueOf(1), converter.convert(new BigDecimal("1.5"), Integer.class));
+    }
+
+    /**
+     * Long -> Integer 应按数值转换。
+     */
+    @Test
+    void longToIntegerViaNumber() {
+        assertEquals(Integer.valueOf(7), converter.convert(7L, Integer.class));
+    }
+
+    /**
+     * 超过 int 范围的数值转换为 Integer 应抛出异常（溢出）。
+     */
+    @Test
+    void numberOverflowIntegerThrows() {
+        assertThrows(IllegalArgumentException.class,
+                () -> converter.convert(Double.valueOf(3.0e20), Integer.class));
+    }
 }

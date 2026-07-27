@@ -8,7 +8,8 @@ import java.util.Optional;
 
 /**
  * Optional 转换器：将任意对象包装为 {@link Optional}。
- * 优先级设为 Integer.MIN_VALUE，确保仅在无其他匹配时被选中。
+ * <p>目标类型固定为 {@link Optional}，其匹配器仅在目标类型为 Optional 时命中，
+ * 不会与其它转换器产生歧义，故使用默认优先级 0 即可（无需设为最低优先级）。</p>
  */
 public final class OptionalConverter implements Converter {
 

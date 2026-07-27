@@ -1,7 +1,9 @@
 package com.flora.java.converter;
 
 import com.flora.java.ConvertUtil;
+import com.flora.java.ConversionContext;
 import com.flora.java.Converter;
+import com.flora.java.converter.ConverterRegistry;
 
 import java.lang.reflect.Array;
 import java.util.Collection;
@@ -72,6 +74,12 @@ public final class ArrayConverter implements Converter {
      */
     private Object convertElement(Object element, Class<?> targetComponentType) {
         if (targetComponentType != Object.class) {
+            // 优先使用当前转换上下文中的注册中心，以保证与外层转换一致的转换器集合；
+            // 上下文缺失时回退到全局 ConvertUtil（向后兼容直接调用 converter 的场景）
+            ConverterRegistry registry = ConversionContext.currentRegistry();
+            if (registry != null) {
+                return registry.convertElement(element, targetComponentType, null);
+            }
             return ConvertUtil.convert(targetComponentType, element);
         }
         return element;

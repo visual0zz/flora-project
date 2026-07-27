@@ -9,6 +9,7 @@ import com.flora.java.clazz.InheritDistanceCalculator;
 import com.flora.tag.LogicFragile;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -31,6 +32,26 @@ public final class ConverterRegistry {
     private static final List<Converter> ALL_CONVERTERS = new CopyOnWriteArrayList<>();
 
     private static final Converter NOOP_CONVERTER = new NoopConverter();
+
+    /**
+     * 哨兵：代表“查无可用转换器”。缓存禁止 {@code null} 值，无法用 {@code null} 直接表达
+     * “未命中结果”，故以专用哨兵对象占位；读取时拆包为 {@code null} 返回给调用方。
+     * 该哨兵永不暴露给外部，仅用于缓存内部标记。
+     */
+    private static final Converter NO_CONVERTER_MARKER = new Converter() {
+        @Override
+        public Collection<Class<?>> declareSourceTypes() {
+            throw new UnsupportedOperationException("NO_CONVERTER_MARKER 仅作缓存哨兵，不可作为转换器调用");
+        }
+        @Override
+        public Collection<Class<?>> declareTargetTypes() {
+            throw new UnsupportedOperationException("NO_CONVERTER_MARKER 仅作缓存哨兵，不可作为转换器调用");
+        }
+        @Override
+        public Object convert(Object obj, Class<?> targetType, Class<?> elementType) {
+            throw new UnsupportedOperationException("NO_CONVERTER_MARKER 仅作缓存哨兵，不可作为转换器调用");
+        }
+    };
 
     static {
         BUILT_IN_CONVERTERS.add(new BooleanConverter());
@@ -95,6 +116,9 @@ public final class ConverterRegistry {
     public void register(Converter executor) {
         CheckUtil.notNull(executor, "转换器不能为空");
         executors.add(executor);
+        // 转换器集合已变更：既有命中与未命中（含哨兵）缓存全部失效，
+        // 否则新注册的转换器可能永远查不到。find 会在下次访问时惰性重建。
+        cache.clear();
     }
 
     /**
@@ -111,13 +135,35 @@ public final class ConverterRegistry {
         FindKey key = new FindKey(sourceType, targetType, elementType);
         Converter cached = cache.get(key);
         if (cached != null) {
-            return cached;
+            // 命中缓存：哨兵代表“查无转换器”，拆包为 null 返回；否则返回真实转换器
+            return cached == NO_CONVERTER_MARKER ? null : cached;
         }
         Converter result = resolve(sourceType, targetType, elementType);
-        if (result != null) {
-            cache.put(key, result);
-        }
+        // 无论解析结果是否为 null，都写入缓存（null 以哨兵占位），避免对“查无结果”的键反复重算
+        cache.put(key, result != null ? result : NO_CONVERTER_MARKER);
         return result;
+    }
+
+    /**
+     * 在当前注册表内转换单个元素，供集合 / 数组转换器做元素级转换时使用，
+     * 以确保元素转换遵循与外层一致的转换器集合（而非全局默认注册表）。
+     *
+     * @param value       待转换的元素
+     * @param targetType  元素目标类型
+     * @param elementType 元素的元素类型（用于嵌套集合 / 数组），可为 null
+     * @return 转换后的元素
+     * @throws IllegalArgumentException 若未找到合适的转换器
+     */
+    public Object convertElement(Object value, Class<?> targetType, Class<?> elementType) {
+        if (value == null) {
+            return null;
+        }
+        Converter executor = find(value.getClass(), targetType, elementType);
+        if (executor == null) {
+            throw new IllegalArgumentException("未找到将 " + value.getClass().getName()
+                    + " 转换为 " + targetType.getName() + " 的元素转换器");
+        }
+        return executor.convert(value, targetType, elementType);
     }
 
     /**

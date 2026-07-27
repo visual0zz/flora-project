@@ -1,6 +1,7 @@
 package com.flora.java.converter;
 
 import com.flora.java.CheckUtil;
+import com.flora.java.ConversionContext;
 import com.flora.java.Converter;
 
 /**
@@ -43,7 +44,13 @@ public class ConvertFacade {
             throw new IllegalArgumentException("未找到将 " + value.getClass().getName()
                     + " 转换为 " + targetType.getName() + " 的转换器");
         }
-        return targetType.cast(executor.convert(value, targetType, elementType));
+        // 在转换执行期间暴露当前注册中心，供集合 / 数组转换器做元素级转换时复用同一套转换器集合
+        ConversionContext.setRegistry(registry);
+        try {
+            return targetType.cast(executor.convert(value, targetType, elementType));
+        } finally {
+            ConversionContext.clear();
+        }
     }
 
     /**

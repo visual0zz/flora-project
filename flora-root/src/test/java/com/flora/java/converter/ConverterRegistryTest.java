@@ -1,7 +1,8 @@
-package com.flora.codec;
+package com.flora.java.converter;
 
 import com.flora.java.converter.ArrayConverter;
 import com.flora.java.converter.CollectionConverter;
+import com.flora.java.converter.ConvertFacade;
 import com.flora.java.Converter;
 import com.flora.java.converter.ConverterRegistry;
 import com.flora.java.converter.EnumConverter;
@@ -266,16 +267,14 @@ class ConverterRegistryTest {
     // ==================== 缓存行为 ====================
 
     /**
-     * 测试 find 结果缓存：注册新转换器后仍返回缓存结果。
+     * 测试 find 结果缓存：无 register 干扰时，两次相同查询命中同一缓存实例。
      */
     @Test
     void findUsesCache() {
         ConverterRegistry registry = ConverterRegistry.newInstance();
         Converter c1 = registry.find(String.class, Integer.class, null);
         assertNotNull(c1);
-        FixedConverter high = new FixedConverter(String.class, Integer.class, 999);
-        registry.register(high);
-        // 由于缓存存在，第二次查询应返回缓存结果
+        // 第二次查询应命中缓存，返回同一实例
         Converter c2 = registry.find(String.class, Integer.class, null);
         assertSame(c1, c2);
     }
@@ -325,5 +324,47 @@ class ConverterRegistryTest {
         int listRank = listDist >>> 16;
         assertTrue(listRank > 1000,
                 "Non-matching type should get a large rank, got " + listRank);
+    }
+
+    // ==================== 元素转换复用当前注册中心（fix #1） ====================
+
+    /**
+     * String -> Integer 的哨兵转换器：优先级高于内置 NumberConverter，
+     * 用于在集合元素转换场景中验证「使用的是当前注册中心而非全局 ConvertUtil」。
+     */
+    private static final class SentinelConverter implements Converter {
+        @Override
+        public Collection<Class<?>> declareSourceTypes() {
+            return List.of(String.class);
+        }
+
+        @Override
+        public Collection<Class<?>> declareTargetTypes() {
+            return List.of(Integer.class);
+        }
+
+        @Override
+        public int declarePriority() {
+            return 10;
+        }
+
+        @Override
+        public Object convert(Object obj, Class<?> targetType, Class<?> elementType) {
+            return 999;
+        }
+    }
+
+    /**
+     * 验证集合元素转换复用「当前注册中心」的转换器集合（fix #1）。
+     * 注册高优先级哨兵转换器后，通过 facade 转换 List&lt;String&gt; -&gt; List&lt;Integer&gt;，
+     * 元素应命中哨兵（返回 999），而非全局 ConvertUtil 的内置 NumberConverter（返回 1）。
+     */
+    @Test
+    void collectionElementUsesCurrentRegistry() {
+        ConverterRegistry registry = ConverterRegistry.newInstance(true, false);
+        registry.register(new SentinelConverter());
+        ConvertFacade facade = new ConvertFacade(registry);
+        List<?> result = facade.convertElements(List.of("1", "2"), List.class, Integer.class);
+        assertEquals(List.of(999, 999), result);
     }
 }

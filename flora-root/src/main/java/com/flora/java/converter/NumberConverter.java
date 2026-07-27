@@ -47,6 +47,12 @@ public final class NumberConverter implements Converter {
         if (toType.isInstance(from)) {
             return from;
         }
+        // 数值类型之间的互转：先按数值（而非 toString 后解析）提取，
+        // 避免 Double(5.7) -> Integer 之类场景因字符串解析失败而意外抛异常；
+        // 仅在整数目标发生溢出时才抛出异常。
+        if (from instanceof Number num) {
+            return convertNumber(num, toType);
+        }
         String str = from.toString().trim();
         if (toType == Integer.class) {
             return Integer.parseInt(str);
@@ -73,5 +79,72 @@ public final class NumberConverter implements Converter {
             return new BigInteger(str);
         }
         throw new IllegalArgumentException("不支持的数值类型: " + toType.getName());
+    }
+
+    /**
+     * 数值类型之间的互转。整数目标（Integer/Short/Byte）在溢出时抛异常，
+     * 其余目标按 {@link Number} 的数值直接转换。
+     */
+    private Object convertNumber(Number num, Class<?> toType) {
+        if (toType == Integer.class) {
+            long v = num.longValue();
+            if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
+                throw new IllegalArgumentException("数值 " + v + " 溢出 int");
+            }
+            return (int) v;
+        }
+        if (toType == Long.class) {
+            return num.longValue();
+        }
+        if (toType == Double.class) {
+            return num.doubleValue();
+        }
+        if (toType == Float.class) {
+            return num.floatValue();
+        }
+        if (toType == Short.class) {
+            long v = num.longValue();
+            if (v < Short.MIN_VALUE || v > Short.MAX_VALUE) {
+                throw new IllegalArgumentException("数值 " + v + " 溢出 short");
+            }
+            return (short) v;
+        }
+        if (toType == Byte.class) {
+            long v = num.longValue();
+            if (v < Byte.MIN_VALUE || v > Byte.MAX_VALUE) {
+                throw new IllegalArgumentException("数值 " + v + " 溢出 byte");
+            }
+            return (byte) v;
+        }
+        if (toType == BigDecimal.class) {
+            return toBigDecimal(num);
+        }
+        if (toType == BigInteger.class) {
+            return toBigInteger(num);
+        }
+        throw new IllegalArgumentException("不支持的数值类型: " + toType.getName());
+    }
+
+    private BigDecimal toBigDecimal(Number num) {
+        if (num instanceof BigDecimal bd) {
+            return bd;
+        }
+        if (num instanceof BigInteger bi) {
+            return new BigDecimal(bi);
+        }
+        if (num instanceof Double || num instanceof Float) {
+            return BigDecimal.valueOf(num.doubleValue());
+        }
+        return BigDecimal.valueOf(num.longValue());
+    }
+
+    private BigInteger toBigInteger(Number num) {
+        if (num instanceof BigInteger bi) {
+            return bi;
+        }
+        if (num instanceof BigDecimal bd) {
+            return bd.toBigInteger();
+        }
+        return BigInteger.valueOf(num.longValue());
     }
 }

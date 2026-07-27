@@ -201,6 +201,14 @@ val ideaHome: String? = when {
         failOnNoDiscoveredTests = false
     }
 
+intellijPlatform {
+    pluginConfiguration {
+        // 单一版本来源：从 project.version（当前 0.6）注入到构建产物 plugin.xml，
+        // 避免源码 plugin.xml 与 gradle 版本号再次脱节。
+        version.set(project.version.toString())
+    }
+}
+
 tasks {
     withType<JavaCompile> {
         options.release.set(21)

@@ -2,8 +2,8 @@
 <idea-plugin>
     <id>io.gitee.visual0zz.ramet</id>
     <name>Ramet 模板语言支持</name>
-    <version>0.5</version>
-    <vendor url="https://gitee.com/visual0zz">flora</vendor>
+    <version>0.6</version>
+    <vendor email="indiancarriernoac@qq.com" url="https://gitee.com/visual0zz">flora</vendor>
 
     <icon main="pluginIcon.svg"/>
 

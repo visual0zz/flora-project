@@ -1,0 +1,155 @@
+# crypto 包缺失的角色接口清单
+
+- 日期: 2026-07-28
+- 作者: CodeBuddy
+- 背景: 在对比 `flora-root` 的 `com.flora.crypto`(BC 轻量 API 风格的抽象层)与 JDK JCA 时,
+  结论是「JDK 接口在概念上能覆盖 BC 的约 90% 算法族,但有几类 JDK 的接口形状本身装不下,
+  且 `flora-root` 还缺一批 BC 式轻量角色」。本文列出 `com.flora.crypto.core` 当前缺失的角色接口,
+  用于指导后续补齐,使本项目的抽象在**概念上对齐 BC 的接口族**。
+
+## 一、现状:已有哪些角色
+
+`com.flora.crypto.core` 当前角色接口:
+
+- `Digest` —— 定长摘要
+- `BlockCipher` —— 分组密码(块/流统一在 `Cipher` 概念下)
+- `StreamCipher` —— 流密码
+- `AsymmetricBlockCipher` —— 非对称分组密码(RSA 等)
+- `Mac` —— 带密钥 MAC
+- `Signer` —— 签名/验签
+- `BufferedBlockCipher` —— 缓冲装饰器(非独立角色,包裹 `BlockCipher`)
+- `CryptoProvider` —— 按名注册/查询的注册表
+- 参数族: `CipherParameters` / `KeyParameter` / `AsymmetricKeyParameter` /
+  `ParametersWithIV` / `ParametersWithRandom`
+- 引擎: `JdkKeyPairGenerator`(仅包装 JCA 的 `KeyPairGenerator`)
+
+## 二、缺失角色清单
+
+缺口分四类:A = JDK 也装不下的真概念缺口;B = JDK 有槽位但缺 BC 式轻量角色;
+C = BC 用可组合对象表达、JDK/flora-root 用字符串折叠的部分;D = 支撑型(多属 B 子类)。
+
+### A 类 —— 真正的概念缺口(JDK 接口也没有干净槽位)
+
+| 缺失角色 | 代表算法 | 说明 |
+|---|---|---|
+| `Xof` | SHAKE128/256、SHA-3 XOF、cSHAKE、KangarooTwelve | `MessageDigest.doFinal()` 是定长语义,JDK 无「给我 N 字节输出」概念。BC 用 `Xof extends Digest` 单独表达。 |
+| `DerivationFunction`(+ `DerivationParameters`) | HKDF、KDF1/2、scrypt、bcrypt、Argon2 | JCA 无第一等 KDF 接口,仅有 `SecretKeyFactory` 的 PBKDF2。BC 用 `DerivationFunction` 一族(含 `MacDerivationFunction`、`DigestDerivationFunction`)。 |
+
+这两类 JDK 概念上也装不下,必须新增角色接口;即使给 `CryptoProvider` 加 `registerXxx`,
+也得先定义这两个新角色——这正是 BC 没有把它们塞进 `Digest`/`Mac`、而是另立接口的原因。
+
+### B 类 —— JDK 有槽位,但 flora-root 缺 BC 式轻量角色
+
+| 缺失角色 | 代表算法 | JDK 对应槽位 | flora-root 现状 |
+|---|---|---|---|
+| `Agreement`(+ `BasicAgreement`) | ECDH、X25519/X448 | `KeyAgreement` | 无轻量角色 |
+| `Wrapper` | AESWrap、AESWrapPad(密钥包装) | `Cipher.WRAP_MODE` | 无独立角色 |
+| `KEM`(+ `Encapsulator`/`Decapsulator`) | ML-KEM/Kyber、HPKE | JDK 21+ `javax.crypto.KEM` | 无角色 |
+| `EntropySource` / DRBG(`DigestRandomGenerator`、`SP80090DRBG`) | 确定性随机数 | `SecureRandom`(+ `DRBG` 实现) | 无角色 |
+| `AsymmetricCipherKeyPairGenerator`(+ `KeyGenerationParameters`) | 轻量级密钥对生成 | `KeyPairGenerator` | 只有包装 JCA 的 `JdkKeyPairGenerator` |
+
+这些 JDK 概念上能覆盖,但若要「BC 式即插即用 + 与现有角色同构」,需补成独立接口而非继续走 JCA。
+
+### C 类 —— BC 的「可组合」角色(JDK/flora-root 用字符串折叠了)
+
+| 缺失角色 | 表达什么 | flora-root 现状 |
+|---|---|---|
+| 模式/运算对象(`CBCBlockCipher`、`GCMBlockCipher`、`CTR`/`SIC`、`CFB`/`OFB`…) | 把 mode 做成可套在任意 `BlockCipher` 上的对象 | 折叠进 `"AES/CBC/PKCS5Padding"` 变换字符串,`JdkBlockCipher` 内部处理 |
+| `BlockCipherPadding` | PKCS7、ISO7816、ISO10126 等填充策略对象 | 折叠进变换字符串 |
+| `AEADBlockCipher` | 一等 AEAD 角色(暴露 `processAADByte`/`getOutputSize`/`doFinal`) | `JdkBlockCipher.process` 内部吞掉 GCM 标签逻辑 |
+| `AsymmetricCipher`(流式非对称)+ `BufferedAsymmetricBlockCipher` | 非对称流式(ECIES 类) | 只有 `AsymmetricBlockCipher` 块式 |
+| `ExtendedDigest` | `getByteLength()` 等扩展 | `Digest` 无此 |
+| `Verifier` | 仅验签角色(与 `Signer` 分离) | 无 |
+
+C 类不改变「能表达哪些算法」,只改变「怎么组合」——这正是 BC 对象组合 vs JDK 字符串变换的本质差异。
+
+### D 类 —— 支撑型(多属 B 子类)
+
+- `PBEParametersGenerator`(PBE → `CipherParameters`,与 KDF 关联)
+- `DigestDerivationFunction` / `MacDerivationFunction`(`DerivationFunction` 子类型)
+- `Commitment`(ECIES 承诺,极窄众)
+
+## 三、概念对齐 BC 的最小必补清单(优先级)
+
+1. **`Xof`** —— 真缺口,无法靠 JDK 槽位绕过
+2. **`DerivationFunction`**(+ `PBEParametersGenerator` 等子类)—— 真缺口
+3. **`Agreement` / `Wrapper` / `KEM` / `AsymmetricCipherKeyPairGenerator`** —— B 类,补齐后获 BC 式同构
+4. (可选)**模式对象 / `BlockCipherPadding` / `AEADBlockCipher`** —— C 类,决定「对象组合 vs 字符串变换」风格
+
+## 四、关键角色接口草稿方法签名(供实现参考,参照 BC)
+
+```java
+// A 类:可变长输出摘要
+public interface Xof extends Digest {
+    int doFinal(byte[] out, int outOff, int outLen);   // 输出 outLen 字节
+    int doOutput(byte[] out, int outOff, int outLen);  // 增量吐出,可多次调用
+}
+
+// A 类:KDF / 口令派生
+public interface DerivationParameters { }              // 标记接口
+public interface DerivationFunction {
+    void init(DerivationParameters params);
+    void update(byte[] in, int inOff, int len);
+    int generateBytes(byte[] out, int outOff, int len);
+}
+
+// B 类:密钥协商
+public interface Agreement {
+    void init(CipherParameters param);
+    byte[] calculateAgreement(CipherParameters pubKey);   // 新 BC 用 byte[],旧用 BigInteger
+}
+
+// B 类:密钥包装
+public interface Wrapper {
+    void init(boolean forWrapping, CipherParameters params);
+    byte[] wrap(byte[] in, int inOff, int len);
+    byte[] unwrap(byte[] in, int inOff, int len);
+}
+
+// B 类:轻量级密钥对生成
+public interface KeyGenerationParameters { int getStrength(); SecureRandom getRandom(); }
+public interface AsymmetricCipherKeyPairGenerator {
+    void init(KeyGenerationParameters param);
+    AsymmetricCipherKeyPair generateKeyPair();
+}
+
+// C 类:AEAD 一等角色(暴露 AAD 与输出长度)
+public interface AEADBlockCipher {
+    void init(boolean forEncryption, CipherParameters params);
+    String getAlgorithmName();
+    int getOutputSize(int len);
+    int getUpdateOutputSize(int len);
+    void processAADByte(byte in);
+    void processAADBytes(byte[] in, int inOff, int len);
+    int processByte(byte in, byte[] out, int outOff);
+    int processBytes(byte[] in, int inOff, int len, byte[] out, int outOff);
+    int doFinal(byte[] out, int outOff);
+    byte[] getMac();
+}
+
+// C 类:填充策略对象
+public interface BlockCipherPadding {
+    String getPaddingName();
+    void init(SecureRandom random);
+    int addPadding(byte[] in, int inOff);
+    int padCount(byte[] in);
+    int getPaddingSize();
+}
+```
+
+## 五、JDK 适配思路
+
+- `Xof` / `DerivationFunction` / `Agreement` / `Wrapper` / `AsymmetricCipherKeyPairGenerator`
+  的 `Jdk*` 适配器应包 JDK 对应类(`MessageDigest`(仅定长,需另寻 XOF 实现)、
+  `SecretKeyFactory`(PBKDF2)、`KeyAgreement`、`Cipher.WRAP_MODE`、`KeyPairGenerator`)。
+  `Xof` 与 `DerivationFunction` 若无 JDK 实现,可挂 BC 引擎或自定义实现(走 `registerXxx`)。
+- 模式对象 / `BlockCipherPadding` / `AEADBlockCipher` 的 `Jdk*` 适配器直接复用
+  `javax.crypto.Cipher` 的 transformation 字符串,仅把「对象组合」翻译成「字符串」。
+
+## 六、待决策
+
+1. 是否要补全 C 类(对象组合风格)?这会决定 `flora-root` 是「BC 式接口 + JDK 字符串引擎」
+   还是进一步走向「BC 式接口 + BC 式对象组合」。前者改动小,后者更贴近 BC 本质。
+2. `Xof` / `DerivationFunction` 的真缺口,是否引入 BC 作为可选依赖(仅提供引擎),
+   还是坚持零依赖、自己实现 SM3/SHAKE 等?
+3. `KEM` / `EntropySource` 是否纳入本期范围,还是仅占位接口、留待后续。

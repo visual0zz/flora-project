@@ -39,8 +39,7 @@ the `generate-sources` phase.
   plus IntelliJ plugin sandbox fixture tests
 - `./action/produce.cmd` — Full build without tests.
 - `./action/regenerate.cmd` — Regenerate code from templates
-  (`mvnw generate-sources -Pregenerate`)
--
+- 
 - `./mvnw test` — Run all tests
 - `./mvnw test -Dtest=TokenTest` — Run a single test class
 - `./mvnw test -Dtest=TokenTest#testVarToken` — Run a single test method
@@ -67,9 +66,6 @@ the `generate-sources` phase.
   Naming: `decision{YYYYMMDD}-{NN}-{module}.md`.
 - **Changelog**: If a submodule contains a `CHANGELOG.md` file, update it
   after each code change to reflect what was modified, added, or removed.
-
-## Important Notes (Encoding)
-
 - **All OS console scripts must be pure English.** This includes every
   cross-platform script such as `*.cmd`, `*.sh`, `*.ps1`, and any shell
   helper invoked from the terminal. Do **not** put Chinese (or any

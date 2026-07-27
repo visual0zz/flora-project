@@ -114,14 +114,19 @@ git commit -m "%message%" || echo %ESC%[33m(nothing to commit)%ESC%[0m
 for /f "eol=# tokens=*" %%i in (addition\config\remoteRepoList.txt) do (
     echo %ESC%[36mgit push %%i %LOCAL_BRANCH%:%REMOTE_BRANCH%%ESC%[0m
     git push "%%i" "%LOCAL_BRANCH%:%REMOTE_BRANCH%" && (echo %ESC%[32m    OK%ESC%[0m) || (echo %ESC%[31m    FAILED%ESC%[0m)
-    REM 推送匹配前缀清单的 tag（addition\config\tagPrefixes.txt）
-    REM 用 refspec 通配一次性推送整组前缀 tag，避免命令型嵌套 for /f 的坑
+    REM push tags whose prefix is listed in addition\config\tagPrefixes.txt
     if exist addition\config\tagPrefixes.txt (
-        for /f "eol=# tokens=* delims=" %%p in (addition\config\tagPrefixes.txt) do (
-            echo %ESC%[36mgit push %%i tags %%p*%ESC%[0m
-            git push "%%i" "refs/tags/%%p*:refs/tags/%%p*" && (echo %ESC%[32m    OK%ESC%[0m) || (echo %ESC%[31m    FAILED%ESC%[0m)
+        for /f "eol=# tokens=*" %%p in (addition\config\tagPrefixes.txt) do (
+            call :push_tag "%%i" "%%p"
         )
     )
 )
 endlocal
 exit /b 0
+
+:push_tag
+set "R=%~1"
+set "P=%~2"
+echo [tag push] %R%  refs/tags/%P%*
+git push "%R%" "refs/tags/%P%*:refs/tags/%P%*" && echo     OK || echo     FAILED
+goto :eof

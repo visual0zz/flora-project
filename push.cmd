@@ -1,5 +1,28 @@
 #!/usr/bin/env bash
 @goto :windows || true
+# ============================================================
+#  push.cmd — 跨平台推送脚本（bash 段 / Windows cmd 段）
+#
+#  功能：
+#   1. 读取 addition/config/pushConfig.txt 拿到 LOCAL_BRANCH /
+#      REMOTE_BRANCH / DEFAULT_COMMIT_MESSAGE。
+#   2. git add -A 并提交（若无可提交内容则跳过）。
+#   3. 把当前分支推送到 addition/config/remoteRepoList.txt 中
+#      列出的所有远程仓库。
+#   4. 额外推送 addition/config/tagPrefixes.txt 中列出的「前缀」
+#      对应的所有本地 git tag（按前缀隔离多产物的版本线，例如
+#      ramet-idea-plugin-v0.8.2）。tag 是幂等的，已推送过的会被
+#      远程跳过。
+#
+#  用法（任一操作系统通用）：
+#      ./push.cmd                 # 使用默认提交信息
+#      ./push.cmd "提交信息"       # 使用指定提交信息
+#
+#  注意：运行此脚本前，请确保你已：
+#      - 在 addition/config/tagPrefixes.txt 维护了需要附带推送的
+#        tag 前缀（每行一个，# 开头为注释）。
+#      - 打好了对应前缀的 git tag（如 git tag ramet-idea-plugin-v0.8.2）。
+# ============================================================
 script_path="$(cd "$(dirname "$0")" && pwd)"
 cd "$script_path" || exit
 eval "$(grep -v '^#' "addition/config/pushConfig.txt" | sed '/^$/d;s/=/="/;s/$/"/')"
@@ -21,9 +44,10 @@ else
 fi
 
 git add -A
-git commit -m "$message"
+git commit -m "$message" || echo "(nothing to commit)"
 
 # 推送匹配前缀清单的 tag（addition/config/tagPrefixes.txt）
+# 用 refspec 通配一次性推送该前缀下的所有本地 tag。
 push_matching_tags() {
   local repo="$1"
   local pf="addition/config/tagPrefixes.txt"
@@ -31,15 +55,14 @@ push_matching_tags() {
   grep -v '^#' "$pf" | while IFS= read -r prefix || [ -n "$prefix" ]; do
     prefix="$(echo "$prefix" | xargs)"   # 去掉首尾空白
     [ -z "$prefix" ] && continue
-    git tag -l "${prefix}*" | while IFS= read -r t || [ -n "$t" ]; do
-      [ -z "$t" ] && continue
-      printf '%b\n' "${CYAN}git push $repo tag $t${NC}"
-      if git push "$repo" "$t"; then
+    if git tag -l "${prefix}*" | grep -q .; then
+      printf '%b\n' "${CYAN}git push $repo tags ${prefix}*${NC}"
+      if git push "$repo" "refs/tags/${prefix}*:refs/tags/${prefix}*"; then
         printf '%b\n' "${GREEN}    \xe2\x9c\x93 OK${NC}"
       else
         printf '%b\n' "${RED}    \xe2\x9c\x97 FAILED${NC}"
       fi
-    done
+    fi
   done
 }
 
@@ -58,6 +81,13 @@ exit 0
 :windows
 @echo off
 setlocal
+REM ============================================================
+REM  push.cmd Windows 段（由 cmd.exe 执行）
+REM  说明见上方 bash 段注释。tag 推送使用 refspec 通配：
+REM      git push <remote> "refs/tags/<prefix>*:refs/tags/<prefix>*"
+REM  该写法只需单层 for /f 读取前缀文件，避免命令型嵌套 for /f
+REM  在部分 cmd 环境下的解析问题。
+REM ============================================================
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 
 set "script_path=%~dp0"
@@ -79,18 +109,19 @@ if "%~1"=="" (
 )
 
 git add -A
-git commit -m "%message%"
+git commit -m "%message%" || echo %ESC%[33m(nothing to commit)%ESC%[0m
 
 for /f "eol=# tokens=*" %%i in (addition\config\remoteRepoList.txt) do (
     echo %ESC%[36mgit push %%i %LOCAL_BRANCH%:%REMOTE_BRANCH%%ESC%[0m
     git push "%%i" "%LOCAL_BRANCH%:%REMOTE_BRANCH%" && (echo %ESC%[32m    OK%ESC%[0m) || (echo %ESC%[31m    FAILED%ESC%[0m)
     REM 推送匹配前缀清单的 tag（addition\config\tagPrefixes.txt）
+    REM 用 refspec 通配一次性推送整组前缀 tag，避免命令型嵌套 for /f 的坑
     if exist addition\config\tagPrefixes.txt (
-        for /f "eol=# tokens=*" %%p in (addition\config\tagPrefixes.txt) do (
-            for /f "tokens=*" %%t in ('git tag --list "%%p*"') do (
-                echo %ESC%[36mgit push %%i tag %%t%ESC%[0m
-                git push "%%i" "%%t" && (echo %ESC%[32m    OK%ESC%[0m) || (echo %ESC%[31m    FAILED%ESC%[0m)
-            )
+        for /f "eol=# tokens=* delims=" %%p in (addition\config\tagPrefixes.txt) do (
+            echo %ESC%[36mgit push %%i tags %%p*%ESC%[0m
+            git push "%%i" "refs/tags/%%p*:refs/tags/%%p*" && (echo %ESC%[32m    OK%ESC%[0m) || (echo %ESC%[31m    FAILED%ESC%[0m)
         )
     )
 )
+endlocal
+exit /b 0

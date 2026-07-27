@@ -35,10 +35,14 @@
                 language="Ramet"
                 implementationClass="com.flora.ramet.idea.parser.RametParserDefinition"/>
 
-        <fileTypeRegistrar
-                implementation="com.flora.ramet.idea.RametFileTypeRegistrar"/>
+    <fileType
+            name="Ramet"
+            implementationClass="com.flora.ramet.idea.RametFileType"
+            fieldName="INSTANCE"
+            language="Ramet"
+            extensions="ramet"/>
 
-        <lang.syntaxHighlighterFactory
+    <lang.syntaxHighlighterFactory
                 language="Ramet"
                 implementationClass="com.flora.ramet.idea.highlighter.RametSyntaxHighlighterFactory"/>
 

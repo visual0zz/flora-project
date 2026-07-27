@@ -34,61 +34,61 @@ public class RametSyntaxHighlighter extends SyntaxHighlighterBase {
 
     /** 指令关键字（if, for, list, include, macro, else, continue, break, meta）。 */
     public static final TextAttributesKey RAMET_KEYWORD =
-            TextAttributesKey.createTextAttributesKey("RAMET_KEYWORD");
+            TextAttributesKey.createTextAttributesKey("RAMET_KEYWORD", DefaultLanguageHighlighterColors.KEYWORD);
     /** 字符串 */
     public static final TextAttributesKey RAMET_STRING =
-            TextAttributesKey.createTextAttributesKey("RAMET_STRING");
+            TextAttributesKey.createTextAttributesKey("RAMET_STRING", DefaultLanguageHighlighterColors.STRING);
     /** 数字 */
     public static final TextAttributesKey RAMET_NUMBER =
-            TextAttributesKey.createTextAttributesKey("RAMET_NUMBER");
+            TextAttributesKey.createTextAttributesKey("RAMET_NUMBER", DefaultLanguageHighlighterColors.NUMBER);
     /** 函数名（concat, javaPackageToPath 等） */
     public static final TextAttributesKey RAMET_FUNCTION =
-            TextAttributesKey.createTextAttributesKey("RAMET_FUNCTION");
+            TextAttributesKey.createTextAttributesKey("RAMET_FUNCTION", DefaultLanguageHighlighterColors.FUNCTION_DECLARATION);
     /** 变量引用（${...} 中的引用标识符）——粉红色，与定义处的橙黄色区分 */
     public static final TextAttributesKey RAMET_VARIABLE =
-            TextAttributesKey.createTextAttributesKey("RAMET_VARIABLE");
+            TextAttributesKey.createTextAttributesKey("RAMET_VARIABLE", DefaultLanguageHighlighterColors.INSTANCE_FIELD);
     /** Meta 注解（@Param, @Cartesian, @Path, @Config） */
     public static final TextAttributesKey RAMET_ANNOTATION =
-            TextAttributesKey.createTextAttributesKey("RAMET_ANNOTATION");
+            TextAttributesKey.createTextAttributesKey("RAMET_ANNOTATION", DefaultLanguageHighlighterColors.METADATA);
     /** 运算符/内置函数（greaterThan, and, not 等） */
     public static final TextAttributesKey RAMET_OPERATOR =
-            TextAttributesKey.createTextAttributesKey("RAMET_OPERATOR");
+            TextAttributesKey.createTextAttributesKey("RAMET_OPERATOR", DefaultLanguageHighlighterColors.OPERATION_SIGN);
     /** Lson key（package:, name: 等），与 KEYWORD 和 STRING 区分开 */
     public static final TextAttributesKey RAMET_LSON_KEY =
-            TextAttributesKey.createTextAttributesKey("RAMET_LSON_KEY");
+            TextAttributesKey.createTextAttributesKey("RAMET_LSON_KEY", DefaultLanguageHighlighterColors.KEYWORD);
     /** 尖括号/括号（表达式块内的 (){}[] 也用此键，统一着白色以提升可读性） */
     public static final TextAttributesKey RAMET_BRACKET =
-            TextAttributesKey.createTextAttributesKey("RAMET_BRACKET");
+            TextAttributesKey.createTextAttributesKey("RAMET_BRACKET", DefaultLanguageHighlighterColors.BRACKETS);
     /** 注释：内置指令注释和被动块内多语言注释。 */
     public static final TextAttributesKey RAMET_COMMENT =
-            TextAttributesKey.createTextAttributesKey("RAMET_COMMENT");
+            TextAttributesKey.createTextAttributesKey("RAMET_COMMENT", DefaultLanguageHighlighterColors.LINE_COMMENT);
 
     // ===== TEXT（非模板区域）—— 暗淡低饱和度 =====
 
     /** TEXT 块默认文本色 */
     public static final TextAttributesKey TEXT_DEFAULT =
-            TextAttributesKey.createTextAttributesKey("TEXT_DEFAULT");
+            TextAttributesKey.createTextAttributesKey("TEXT_DEFAULT", DefaultLanguageHighlighterColors.IDENTIFIER);
     /** TEXT 块内字符串 */
     public static final TextAttributesKey TEXT_STRING =
-            TextAttributesKey.createTextAttributesKey("TEXT_STRING");
+            TextAttributesKey.createTextAttributesKey("TEXT_STRING", DefaultLanguageHighlighterColors.STRING);
     /** TEXT 块内注释 */
     public static final TextAttributesKey TEXT_COMMENT =
-            TextAttributesKey.createTextAttributesKey("TEXT_COMMENT");
+            TextAttributesKey.createTextAttributesKey("TEXT_COMMENT", DefaultLanguageHighlighterColors.LINE_COMMENT);
     /** TEXT 块内数字 */
     public static final TextAttributesKey TEXT_NUMBER =
-            TextAttributesKey.createTextAttributesKey("TEXT_NUMBER");
+            TextAttributesKey.createTextAttributesKey("TEXT_NUMBER", DefaultLanguageHighlighterColors.NUMBER);
     /** TEXT 块内注解（@Override 等）和函数调用——统一用暗黄色 */
     public static final TextAttributesKey TEXT_ANNOTATION =
-            TextAttributesKey.createTextAttributesKey("TEXT_ANNOTATION");
+            TextAttributesKey.createTextAttributesKey("TEXT_ANNOTATION", DefaultLanguageHighlighterColors.METADATA);
     /** TEXT 块内函数调用 */
     public static final TextAttributesKey TEXT_FUNCTION =
-            TextAttributesKey.createTextAttributesKey("TEXT_FUNCTION");
+            TextAttributesKey.createTextAttributesKey("TEXT_FUNCTION", DefaultLanguageHighlighterColors.FUNCTION_DECLARATION);
     /** TEXT 块内运算符（==, !=, +=, && 等） */
     public static final TextAttributesKey TEXT_OPERATOR =
-            TextAttributesKey.createTextAttributesKey("TEXT_OPERATOR");
+            TextAttributesKey.createTextAttributesKey("TEXT_OPERATOR", DefaultLanguageHighlighterColors.OPERATION_SIGN);
     /** TEXT 块内尖括号（< > 泛型或比较） */
     public static final TextAttributesKey TEXT_ANGLE =
-            TextAttributesKey.createTextAttributesKey("TEXT_ANGLE");
+            TextAttributesKey.createTextAttributesKey("TEXT_ANGLE", DefaultLanguageHighlighterColors.BRACKETS);
 
     // ===== Token 到颜色映射 =====
 

@@ -87,7 +87,14 @@ public class RametColorSettingsPage implements ColorSettingsPage {
     @Override
     public @NotNull AttributesDescriptor @NotNull [] getAttributeDescriptors() {
         return new AttributesDescriptor[]{
+                new AttributesDescriptor("Ramet: Keyword", RametSyntaxHighlighter.RAMET_KEYWORD),
+                new AttributesDescriptor("Ramet: String", RametSyntaxHighlighter.RAMET_STRING),
+                new AttributesDescriptor("Ramet: Number", RametSyntaxHighlighter.RAMET_NUMBER),
+                new AttributesDescriptor("Ramet: Function", RametSyntaxHighlighter.RAMET_FUNCTION),
                 new AttributesDescriptor("Ramet: Variable", RametSyntaxHighlighter.RAMET_VARIABLE),
+                new AttributesDescriptor("Ramet: Annotation", RametSyntaxHighlighter.RAMET_ANNOTATION),
+                new AttributesDescriptor("Ramet: Operator", RametSyntaxHighlighter.RAMET_OPERATOR),
+                new AttributesDescriptor("Ramet: Lson Key", RametSyntaxHighlighter.RAMET_LSON_KEY),
                 new AttributesDescriptor("Ramet: Bracket", RametSyntaxHighlighter.RAMET_BRACKET),
                 new AttributesDescriptor("Ramet: Comment", RametSyntaxHighlighter.RAMET_COMMENT),
                 new AttributesDescriptor("Text: Default", RametSyntaxHighlighter.TEXT_DEFAULT),
@@ -97,6 +104,7 @@ public class RametColorSettingsPage implements ColorSettingsPage {
                 new AttributesDescriptor("Text: Function", RametSyntaxHighlighter.TEXT_FUNCTION),
                 new AttributesDescriptor("Text: Operator", RametSyntaxHighlighter.TEXT_OPERATOR),
                 new AttributesDescriptor("Text: Angle", RametSyntaxHighlighter.TEXT_ANGLE),
+                new AttributesDescriptor("Text: Comment", RametSyntaxHighlighter.TEXT_COMMENT),
         };
     }
 

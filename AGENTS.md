@@ -59,9 +59,12 @@ the `generate-sources` phase.
 - **Git commits**: When making git commits, include your AI agent name in
   the commit message (e.g., `feat(ramet) by AgentName: add numberFormat function.`).
 - **Code review**: Store AI-generated code review reports in
-  `addition/codereview/`. Naming: `review{YYYYMMDD}-{NN}:{subject}.md`.
+  `addition/codereview/`. Naming: `review{YYYYMMDD}-{NN}-{subject}.md`.
 - **Planning**: Store AI-generated plan or design documents in
-  `addition/design/`. Naming: `idea{YYYYMMDD}-{NN}:{subject}.md`.
+  `addition/design/`. Naming: `idea{YYYYMMDD}-{NN}-{subject}.md`.
 - **Decision**: Whenever the agent makes a decision (e.g., technology selection or
   implementation approach), record it in `addition/decision/`.
-  Naming: `decision{YYYYMMDD}-{NN}:{module}.md`.
+  Naming: `decision{YYYYMMDD}-{NN}-{module}.md`.
+
+  注意：文件名中不得使用冒号 `:`，因为 Windows 文件系统不允许，
+  会导致 clone/checkout 失败。请使用短横 `-` 作为分隔符。

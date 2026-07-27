@@ -1,4 +1,4 @@
-package com.flora.container;
+package com.flora.java;
 
 import java.util.Objects;
 import java.util.function.Supplier;

@@ -1,4 +1,4 @@
-package com.flora.container;
+package com.flora.java;
 
 import java.util.ArrayList;
 import java.util.Collection;

@@ -1,5 +1,6 @@
 package com.flora.data;
 
+import com.flora.java.CheckUtil;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 
@@ -13,6 +14,7 @@ public final class PropDesc {
     private final Object value;
 
     PropDesc(Field field, Object value) {
+        CheckUtil.notNull(field, "字段不能为空");
         this.field = field;
         this.value = value;
     }

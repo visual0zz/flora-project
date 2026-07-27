@@ -217,10 +217,10 @@ public final class BytesUtil {
             throw new InvalidParameterException("合并后数组长度超出限制。");
         }
         if (alen == 0) {
-            return b;
+            return b.clone();
         }
         if (blen == 0) {
-            return a;
+            return a.clone();
         }
         byte[] result = new byte[alen + blen];
         System.arraycopy(a, 0, result, 0, alen);

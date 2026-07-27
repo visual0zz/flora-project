@@ -42,7 +42,7 @@ public final class ClassUtil {
     public static Class<?> loadClass(String className) {
         CheckUtil.notEmpty(className, "类名不能为空");
         try {
-            return Class.forName(className);
+            return Class.forName(className, true, Thread.currentThread().getContextClassLoader());
         } catch (ClassNotFoundException e) {
             throw new RuntimeException("未找到类: " + className, e);
         }
@@ -73,6 +73,7 @@ public final class ClassUtil {
      * @return 如果是抽象类返回 true
      */
     public static boolean isAbstract(Class<?> clazz) {
+        CheckUtil.notNull(clazz, "类不能为空");
         return Modifier.isAbstract(clazz.getModifiers());
     }
 
@@ -83,6 +84,7 @@ public final class ClassUtil {
      * @return 如果是接口返回 true
      */
     public static boolean isInterface(Class<?> clazz) {
+        CheckUtil.notNull(clazz, "类不能为空");
         return clazz.isInterface();
     }
 
@@ -93,6 +95,7 @@ public final class ClassUtil {
      * @return 如果是原始类型返回 true
      */
     public static boolean isPrimitive(Class<?> clazz) {
+        CheckUtil.notNull(clazz, "类不能为空");
         return clazz.isPrimitive();
     }
 
@@ -125,14 +128,26 @@ public final class ClassUtil {
      * @return 不可修改的接口集合
      */
     public static Set<Class<?>> getAllInterfaces(Class<?> clazz) {
+        CheckUtil.notNull(clazz, "类不能为空");
         Set<Class<?>> interfaces = new HashSet<>();
         Class<?> current = clazz;
         while (current != null) {
-            Class<?>[] ifaces = current.getInterfaces();
-            Collections.addAll(interfaces, ifaces);
+            for (Class<?> iface : current.getInterfaces()) {
+                if (interfaces.add(iface)) {
+                    collectInterfaces(iface, interfaces);
+                }
+            }
             current = current.getSuperclass();
         }
         return Collections.unmodifiableSet(interfaces);
+    }
+
+    private static void collectInterfaces(Class<?> iface, Set<Class<?>> out) {
+        for (Class<?> parent : iface.getInterfaces()) {
+            if (out.add(parent)) {
+                collectInterfaces(parent, out);
+            }
+        }
     }
 
     /**

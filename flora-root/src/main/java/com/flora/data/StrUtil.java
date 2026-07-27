@@ -142,13 +142,11 @@ public final class StrUtil {
     
     public static String substring(String str, int begin) {
         CheckUtil.notNull(str, "字符串不能为空");
-        if (begin < 0) {
-            return substring(str, str.length() + begin);
-        }
-        if (begin >= str.length()) {
+        int start = begin < 0 ? Math.max(str.length() + begin, 0) : begin;
+        if (start >= str.length()) {
             return EMPTY;
         }
-        return str.substring(begin);
+        return str.substring(start);
     }
 
     

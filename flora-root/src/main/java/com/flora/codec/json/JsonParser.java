@@ -19,6 +19,8 @@ public final class JsonParser {
     private static final Pattern JSON_NUMBER = Pattern.compile(
             "-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?");
 
+    private static final int MAX_DEPTH = 1000;
+
     private final String s;
     private int i;
 
@@ -40,7 +42,7 @@ public final class JsonParser {
         if (j.i < j.s.length() && j.s.charAt(0) == '\uFEFF') j.i++;
         j.skipWs();
         if (j.i >= j.s.length()) throw j.err("空白输入或仅含 BOM");
-        Object v = j.parseValue();
+        Object v = j.parseValue(0);
         j.skipWs();
         if (j.i != j.s.length()) throw j.err("解析后存在多余字符");
         return v;
@@ -81,13 +83,14 @@ public final class JsonParser {
      *
      * @return 解析出的 Java 对象
      */
-    private Object parseValue() {
+    private Object parseValue(int depth) {
+        if (depth > MAX_DEPTH) throw err("JSON 嵌套层级过深 (超过 " + MAX_DEPTH + " 层)");
         skipWs();
         if (i >= s.length()) throw err("期望 JSON 值");
         char c = s.charAt(i);
         switch (c) {
-            case '{': return parseObject();
-            case '[': return parseArray();
+            case '{': return parseObject(depth);
+            case '[': return parseArray(depth);
             case '"': return parseString();
             case 't': case 'f': return parseBool();
             case 'n': return parseNull();
@@ -95,7 +98,7 @@ public final class JsonParser {
         }
     }
 
-    private Map<String, Object> parseObject() {
+    private Map<String, Object> parseObject(int depth) {
         expect('{');
         skipWs();
         Map<String, Object> m = new LinkedHashMap<>();
@@ -106,7 +109,7 @@ public final class JsonParser {
             skipWs();
             expect(':');
             skipWs();
-            m.put(key, parseValue());
+            m.put(key, parseValue(depth + 1));
             skipWs();
             char c = next();
             if (c == '}') break;
@@ -115,14 +118,14 @@ public final class JsonParser {
         return m;
     }
 
-    private List<Object> parseArray() {
+    private List<Object> parseArray(int depth) {
         expect('[');
         skipWs();
         List<Object> list = new ArrayList<>();
         if (peek() == ']') { i++; return list; }
         while (true) {
             skipWs();
-            list.add(parseValue());
+            list.add(parseValue(depth + 1));
             skipWs();
             char c = next();
             if (c == ']') break;
@@ -187,7 +190,7 @@ public final class JsonParser {
 
     private Object parseNumber() {
         int start = i;
-        while (i < s.length() && "0123456789-.eE".indexOf(s.charAt(i)) >= 0) i++;
+        while (i < s.length() && "0123456789-.eE+".indexOf(s.charAt(i)) >= 0) i++;
         String num = s.substring(start, i);
         if (num.isEmpty() || num.equals("-") || num.equals(".")) throw err("期望数字");
         

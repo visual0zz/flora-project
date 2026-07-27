@@ -65,6 +65,9 @@ public final class HexUtil {
         CheckUtil.notNull(hex, "十六进制字符串不能为空");
         int len = hex.length();
         CheckUtil.mustTrue(len % 2 == 0, "十六进制字符串长度必须为偶数");
+        if (len > 0 && !isValidHex(hex)) {
+            throw new IllegalArgumentException("包含非法的十六进制字符: " + hex);
+        }
         byte[] data = new byte[len / 2];
         for (int i = 0; i < data.length; i++) {
             int high = HEX_TO_BYTE[hex.charAt(i * 2)] & 0xFF;

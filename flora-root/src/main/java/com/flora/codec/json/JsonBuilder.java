@@ -2,6 +2,7 @@ package com.flora.codec.json;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.lang.reflect.InaccessibleObjectException;
 import java.lang.reflect.Modifier;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
@@ -67,7 +68,7 @@ public final class JsonBuilder {
             sb.append("null");
             return;
         }
-        if (obj instanceof CharSequence || obj instanceof Enum) {
+        if (obj instanceof CharSequence || obj instanceof Enum || obj instanceof Character) {
             serializeString(obj.toString(), sb);
             return;
         }
@@ -152,7 +153,8 @@ public final class JsonBuilder {
             if (Double.isNaN(d) || Double.isInfinite(d)) {
                 throw new IllegalArgumentException("不可序列化为 JSON 的 double 值: " + d);
             }
-            if (d == Math.floor(d) && !Double.isInfinite(d)) {
+            if (d == Math.floor(d) && !Double.isInfinite(d)
+                    && d >= Long.MIN_VALUE && d <= Long.MAX_VALUE) {
                 sb.append((long) d);
             } else {
                 sb.append(d);
@@ -164,7 +166,8 @@ public final class JsonBuilder {
             if (Float.isNaN(f) || Float.isInfinite(f)) {
                 throw new IllegalArgumentException("不可序列化为 JSON 的 float 值: " + f);
             }
-            if (f == Math.floor(f) && !Float.isInfinite(f)) {
+            if (f == Math.floor(f) && !Float.isInfinite(f)
+                    && f >= Long.MIN_VALUE && f <= Long.MAX_VALUE) {
                 sb.append((long) f);
             } else {
                 sb.append(f);
@@ -190,7 +193,8 @@ public final class JsonBuilder {
         while (it.hasNext()) {
             Entry<?, ?> entry = it.next();
             if (pretty) sb.append('\n').append(entryIndent);
-            serializeString(entry.getKey().toString(), sb);
+            Object key = entry.getKey();
+            serializeString(key == null ? "null" : key.toString(), sb);
             sb.append(pretty ? ": " : ":");
             serialize(entry.getValue(), sb, entryIndent, visiting);
             if (it.hasNext()) sb.append(',');
@@ -267,7 +271,7 @@ public final class JsonBuilder {
                 f.setAccessible(true);
                 try {
                     map.put(f.getName(), f.get(obj));
-                } catch (IllegalAccessException e) {
+                } catch (IllegalAccessException | InaccessibleObjectException e) {
                     map.put(f.getName(), "<无法访问: " + e.getMessage() + ">");
                 }
             }

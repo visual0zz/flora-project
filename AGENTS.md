@@ -67,3 +67,19 @@ the `generate-sources` phase.
   Naming: `decision{YYYYMMDD}-{NN}-{module}.md`.
 - **Changelog**: If a submodule contains a `CHANGELOG.md` file, update it
   after each code change to reflect what was modified, added, or removed.
+
+## Important Notes (Encoding)
+
+- **All OS console scripts must be pure English.** This includes every
+  cross-platform script such as `*.cmd`, `*.sh`, `*.ps1`, and any shell
+  helper invoked from the terminal. Do **not** put Chinese (or any
+  non-ASCII) text in code, comments, `echo`/`printf` strings, or labels.
+  Reason: on Windows, `cmd.exe` reads `.cmd` files in the system codepage
+  (e.g. GBK). UTF-8 Chinese makes `for /f "eol=#"` and other parsing
+  silently skip all lines, breaking the script. Commit messages may still
+  contain Chinese — mojibake there is harmless.
+- **Every file under `addition/config/` must be pure English** (ASCII only),
+  including comments inside `remoteRepoList.txt`, `pushConfig.txt`,
+  `tagPrefixes.txt`, etc. The same codepage trap applies: a Chinese
+  comment in a config file consumed by `cmd` can disable the whole file
+  read. Keep keys, values, and comments in English.

@@ -1,5 +1,6 @@
-# 发布用 git tag 前缀清单。
-# push.cmd 每次推送分支后，会一并推送本地匹配这些前缀的 tag。
-# 每行一个前缀；# 开头为注释，空行忽略。
+# Git tag prefix list for push.cmd
+# After pushing the branch, push.cmd also pushes every local tag
+# whose prefix is listed here (one prefix per line).
+# Lines starting with # are comments; blank lines are ignored.
 ramet-idea-plugin-v
-# ramet-vscode-v   # VSCode 插件接入版本自动化后可取消注释
+# ramet-vscode-v   # uncomment when VSCode plugin adopts version automation

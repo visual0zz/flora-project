@@ -96,7 +96,7 @@ for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 set "script_path=%~dp0"
 cd /d "%script_path%" || exit /b 1
 
-for /f "usebackq eol=# tokens=1,* delims==" %%a in ("addition\config\pushConfig.txt") do set "%%a=%%b"
+for /f "tokens=1,* delims==" %%a in ('findstr /b /v "#" "addition\config\pushConfig.txt"') do set "%%a=%%b"
 
 if not defined LOCAL_BRANCH   (echo %ESC%[31mERROR: missing LOCAL_BRANCH%ESC%[0m   & exit /b 1)
 if not defined REMOTE_BRANCH  (echo %ESC%[31mERROR: missing REMOTE_BRANCH%ESC%[0m  & exit /b 1)
@@ -114,7 +114,7 @@ if "%~1"=="" (
 git add -A
 git commit -m "%message%" || echo %ESC%[33m(nothing to commit)%ESC%[0m
 
-for /f "eol=# tokens=*" %%i in (addition\config\remoteRepoList.txt) do (
+for /f "tokens=*" %%i in ('findstr /b /v "#" addition\config\remoteRepoList.txt') do (
     echo %ESC%[36mgit push %%i %LOCAL_BRANCH%:%REMOTE_BRANCH%%ESC%[0m
     git push "%%i" "%LOCAL_BRANCH%:%REMOTE_BRANCH%" && (echo %ESC%[32m    OK%ESC%[0m) || (echo %ESC%[31m    FAILED%ESC%[0m)
     if exist addition\config\tagPrefixes.txt (

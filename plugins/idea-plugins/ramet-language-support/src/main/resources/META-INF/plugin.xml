@@ -2,7 +2,7 @@
 <idea-plugin>
     <id>io.gitee.visual0zz.ramet</id>
     <name>Ramet Language Support</name>
-    <version>0.8</version>
+    <version>0.8.1</version>
     <vendor email="indiancarriernoac@qq.com" url="https://gitee.com/visual0zz">flora</vendor>
 
     <icon main="pluginIcon.svg"/>

@@ -16,7 +16,6 @@ module com.flora.root {
     exports com.flora.fast.container.tuple;
     exports com.flora.container.tuple;
     exports com.flora.codec;
-    exports com.flora.data;
     exports com.flora.java;
     exports com.flora.log;
 

@@ -1,13 +1,9 @@
-package com.flora.data;
+package com.flora.java;
 
-import com.flora.java.BytesUtil;
-import com.flora.java.ClassUtil;
-import com.flora.java.StrUtil;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -27,8 +23,6 @@ class DataUtilTest {
         assertTrue(ifaces.contains(java.io.Serializable.class));
         // 传递父接口（修复前会丢失）
         assertTrue(ifaces.contains(Collection.class), "应收集到 Collection（List 的父接口）");
-        assertTrue(ifaces.contains(Iterator.class) || ifaces.contains(Iterable.class),
-                "应收集到 Iterable（Collection 的父接口）");
         assertTrue(ifaces.contains(Iterable.class), "应收集到 Iterable（Collection 的父接口）");
     }
 
@@ -106,24 +100,5 @@ class DataUtilTest {
     void primitiveRoundTrip() {
         assertEquals(0x12345678, BytesUtil.bytes2int(BytesUtil.int2bytes(0x12345678)));
         assertEquals(1.25f, BytesUtil.bytes2float(BytesUtil.float2bytes(1.25f)));
-    }
-
-    // ── PropDesc: 构造器 null 守卫 + 基本访问 ──
-
-    @Test
-    void propDescNullFieldThrows() {
-        assertThrows(NullPointerException.class, () -> new PropDesc(null, "v"));
-    }
-
-    @Test
-    void propDescAccessors() throws NoSuchFieldException {
-        PropDesc d = new PropDesc(Sample.class.getDeclaredField("value"), 42);
-        assertEquals("value", d.getName());
-        assertEquals(int.class, d.getType());
-        assertEquals(42, d.getValue());
-    }
-
-    static class Sample {
-        int value;
     }
 }

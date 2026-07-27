@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+### Added
+-
+
+### Changed
+-
+
+### Fixed
+-
+
 ## [0.8.2]
 ### Fixed
 - 修复被动文本区（TEXT）被错误高亮的问题：普通被动区仅以暗淡色显示，不再对 `@Override`、`rehash(` 等做细分着色

@@ -23,6 +23,26 @@ fi
 git add -A
 git commit -m "$message"
 
+# 推送匹配前缀清单的 tag（addition/config/tagPrefixes.txt）
+push_matching_tags() {
+  local repo="$1"
+  local pf="addition/config/tagPrefixes.txt"
+  [ -f "$pf" ] || return 0
+  grep -v '^#' "$pf" | while IFS= read -r prefix || [ -n "$prefix" ]; do
+    prefix="$(echo "$prefix" | xargs)"   # 去掉首尾空白
+    [ -z "$prefix" ] && continue
+    git tag -l "${prefix}*" | while IFS= read -r t || [ -n "$t" ]; do
+      [ -z "$t" ] && continue
+      printf '%b\n' "${CYAN}git push $repo tag $t${NC}"
+      if git push "$repo" "$t"; then
+        printf '%b\n' "${GREEN}    \xe2\x9c\x93 OK${NC}"
+      else
+        printf '%b\n' "${RED}    \xe2\x9c\x97 FAILED${NC}"
+      fi
+    done
+  done
+}
+
 grep -v '^#' "addition/config/remoteRepoList.txt" | while IFS= read -r repo_url || [ -n "$repo_url" ]; do
   [ -z "$repo_url" ] && continue
   printf '%b\n' "${CYAN}git push $repo_url ${LOCAL_BRANCH}:${REMOTE_BRANCH}${NC}"
@@ -31,6 +51,7 @@ grep -v '^#' "addition/config/remoteRepoList.txt" | while IFS= read -r repo_url 
   else
     printf '%b\n' "${RED}    \xe2\x9c\x97 FAILED${NC}"
   fi
+  push_matching_tags "$repo_url"
 done
 exit 0
 
@@ -63,4 +84,13 @@ git commit -m "%message%"
 for /f "eol=# tokens=*" %%i in (addition\config\remoteRepoList.txt) do (
     echo %ESC%[36mgit push %%i %LOCAL_BRANCH%:%REMOTE_BRANCH%%ESC%[0m
     git push "%%i" "%LOCAL_BRANCH%:%REMOTE_BRANCH%" && (echo %ESC%[32m    OK%ESC%[0m) || (echo %ESC%[31m    FAILED%ESC%[0m)
+    REM 推送匹配前缀清单的 tag（addition\config\tagPrefixes.txt）
+    if exist addition\config\tagPrefixes.txt (
+        for /f "eol=# tokens=*" %%p in (addition\config\tagPrefixes.txt) do (
+            for /f "tokens=*" %%t in ('git tag --list "%%p*"') do (
+                echo %ESC%[36mgit push %%i tag %%t%ESC%[0m
+                git push "%%i" "%%t" && (echo %ESC%[32m    OK%ESC%[0m) || (echo %ESC%[31m    FAILED%ESC%[0m)
+            )
+        )
+    )
 )

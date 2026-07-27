@@ -20,6 +20,8 @@ import com.flora.fast.container.consumer.*;
  * Char→Byte 类型专用开地址哈希映射。
  * <p>使用开放寻址法 + 线性探测，零值作为空槽标记。
  * 避免装箱拆箱开销，适合高性能场景。</p>
+ * <p><b>线程安全：</b>本类非线程安全（标注 {@code @ThreadFragile}）。并发读写可能导致数据损坏或不一致，
+ * 且迭代器非 fail-fast。仅可在单线程或由外部同步保护的场景中使用。</p>
  *
  * @param <K> 键类型
  * @param <V> 值类型
@@ -75,6 +77,7 @@ public class Char2ByteFastHashMap
 
     @Override
     public boolean containsKey(Object key) {
+        if (key == null) throw new NullPointerException("null key is not supported");
         if (!(key instanceof Character)) return false;
         return containsKey((char) (Character) key);
     }
@@ -86,6 +89,7 @@ public class Char2ByteFastHashMap
 
     @Override
     public Byte get(Object key) {
+        if (key == null) throw new NullPointerException("null key is not supported");
         if (!(key instanceof Character)) return null;
         char kk = (char) (Character) key;
         if (!containsKey(kk)) return null;
@@ -222,15 +226,22 @@ public class Char2ByteFastHashMap
         return new EntrySet();
     }
 
-    private static final class FastEntry
+    private final class FastEntry
             implements Map.Entry<Character, Byte> {
         char k;
         byte v;
+        int pos;
+        boolean zero;
 
         @Override public Character getKey()   { return k; }
         @Override public Byte getValue() { return v; }
         @Override public Byte setValue(Byte value) {
             Byte old = v;
+            if (zero) {
+                values[values.length - 1] = (byte) value;
+            } else {
+                values[pos] = (byte) value;
+            }
             v = (byte) value;
             return old;
         }
@@ -262,9 +273,13 @@ public class Char2ByteFastHashMap
                 zeroKeyPending = false;
                 entry.k = '\0';
                 entry.v = values[values.length - 1];
+                entry.zero = true;
+                entry.pos = -1;
             } else {
                 entry.k = keys[pos];
                 entry.v = values[pos];
+                entry.zero = false;
+                entry.pos = pos;
                 pos++;
                 while (pos <= mask && !(keys[pos] != '\0')) pos++;
             }

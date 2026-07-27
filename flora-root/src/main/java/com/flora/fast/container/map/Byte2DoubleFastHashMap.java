@@ -20,6 +20,8 @@ import com.flora.fast.container.consumer.*;
 /**
  * byte→Double 类型专用开地址哈希映射。
  * <p>Byte 键类型不支持零值作为空槽标记，使用独立标志位 trackOccupied[] 记录槽位占用状态。</p>
+ * <p><b>线程安全：</b>本类非线程安全（标注 {@code @ThreadFragile}）。并发读写可能导致数据损坏或不一致，
+ * 且迭代器非 fail-fast。仅可在单线程或由外部同步保护的场景中使用。</p>
  */
 @ThreadFragile
 public class Byte2DoubleFastHashMap
@@ -86,6 +88,7 @@ public class Byte2DoubleFastHashMap
      */
     @Override
     public boolean containsKey(Object key) {
+        if (key == null) throw new NullPointerException("null key is not supported");
         if (!(key instanceof Byte)) return false;
         return containsKey((byte) key);
     }
@@ -121,6 +124,7 @@ public class Byte2DoubleFastHashMap
      */
     @Override
     public Double get(Object key) {
+        if (key == null) throw new NullPointerException("null key is not supported");
         if (!(key instanceof Byte)) return null;
         byte kk = (byte) key;
         if (!containsKey(kk)) return null;
@@ -379,15 +383,22 @@ public class Byte2DoubleFastHashMap
         return new ByteEntrySet();
     }
 
-    private static final class ByteFastEntry
+    private final class ByteFastEntry
             implements Map.Entry<Byte, Double> {
         byte k;
         double v;
+        int pos;
+        boolean zero;
 
         @Override public Byte getKey()     { return k; }
         @Override public Double getValue() { return v; }
         @Override public Double setValue(Double value) {
             Double old = v;
+            if (zero) {
+                values[values.length - 1] = (double) value;
+            } else {
+                values[pos] = (double) value;
+            }
             v = (double) value;
             return old;
         }
@@ -433,14 +444,20 @@ public class Byte2DoubleFastHashMap
                 zeroKeyPending = false;
                 entry.k = (byte) 0;
                 entry.v = values[values.length - 1];
+                entry.zero = true;
+                entry.pos = -1;
             } else if (keys == null) {
                 entry.k = (byte) cursor;
                 entry.v = values[cursor];
+                entry.zero = false;
+                entry.pos = cursor;
                 cursor++;
                 advanceDirect();
             } else {
                 entry.k = keys[cursor];
                 entry.v = values[cursor];
+                entry.zero = false;
+                entry.pos = cursor;
                 cursor++;
                 advanceHash();
             }

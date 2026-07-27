@@ -133,6 +133,51 @@ class FastHashMapMapApiTest {
     }
 
     @Test
+    void int2int_entrySet_setValue() {
+        var map = new Int2IntFastHashMap();
+        map.put(1, 100);
+        map.put(2, 200);
+        map.put(3, 300);
+
+        for (Map.Entry<Integer, Integer> e : map.entrySet()) {
+            e.setValue(e.getValue() * 10);
+        }
+        assertEquals(1000, map.get(1));
+        assertEquals(2000, map.get(2));
+        assertEquals(3000, map.get(3));
+        assertEquals(3, map.size());
+    }
+
+    @Test
+    void int2int_entrySet_setValue_zeroKey() {
+        var map = new Int2IntFastHashMap();
+        map.put(0, 999);
+
+        var it = map.entrySet().iterator();
+        assertTrue(it.hasNext());
+        var e = it.next();
+        assertEquals(Integer.valueOf(0), e.getKey());
+        e.setValue(1234);
+        assertEquals(1234, map.get(0));
+    }
+
+    @Test
+    void float2int_nanKeyCanonical() {
+        var map = new Float2IntFastHashMap();
+        map.put(Float.NaN, 42);
+        assertEquals(Integer.valueOf(42), map.get(Float.NaN));
+        assertTrue(map.containsKey(Float.NaN));
+        assertEquals(1, map.size());
+    }
+
+    @Test
+    void int2int_getObject_nullKeyUnsupported() {
+        var map = new Int2IntFastHashMap();
+        assertThrows(NullPointerException.class, () -> map.get((Object) null));
+        assertThrows(NullPointerException.class, () -> map.containsKey((Object) null));
+    }
+
+    @Test
     void int2int_forEach() {
         var map = new Int2IntFastHashMap();
         map.put(1, 10);

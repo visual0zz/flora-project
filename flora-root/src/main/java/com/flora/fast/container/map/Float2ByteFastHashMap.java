@@ -20,6 +20,8 @@ import com.flora.fast.container.consumer.*;
  * Float→Byte 类型专用开地址哈希映射。
  * <p>使用开放寻址法 + 线性探测，零值作为空槽标记。
  * 避免装箱拆箱开销，适合高性能场景。</p>
+ * <p><b>线程安全：</b>本类非线程安全（标注 {@code @ThreadFragile}）。并发读写可能导致数据损坏或不一致，
+ * 且迭代器非 fail-fast。仅可在单线程或由外部同步保护的场景中使用。</p>
  *
  * @param <K> 键类型
  * @param <V> 值类型
@@ -64,10 +66,10 @@ public class Float2ByteFastHashMap
 
     /** 是否包含指定键。 */
     public boolean containsKey(float key) {
-        if (Float.floatToRawIntBits(key) == 0) return containsZeroKey;
+        if (Float.floatToIntBits(key) == 0) return containsZeroKey;
         int pos = hash(key) & mask;
-        while (Float.floatToRawIntBits(keys[pos]) != 0) {
-            if (Float.floatToRawIntBits(keys[pos]) == Float.floatToRawIntBits(key)) return true;
+        while (Float.floatToIntBits(keys[pos]) != 0) {
+            if (Float.floatToIntBits(keys[pos]) == Float.floatToIntBits(key)) return true;
             pos = (pos + 1) & mask;
         }
         return false;
@@ -75,6 +77,7 @@ public class Float2ByteFastHashMap
 
     @Override
     public boolean containsKey(Object key) {
+        if (key == null) throw new NullPointerException("null key is not supported");
         if (!(key instanceof Float)) return false;
         return containsKey((float) (Float) key);
     }
@@ -86,6 +89,7 @@ public class Float2ByteFastHashMap
 
     @Override
     public Byte get(Object key) {
+        if (key == null) throw new NullPointerException("null key is not supported");
         if (!(key instanceof Float)) return null;
         float kk = (float) (Float) key;
         if (!containsKey(kk)) return null;
@@ -93,10 +97,10 @@ public class Float2ByteFastHashMap
     }
 
     public byte getOrDefault(float key, byte defaultValue) {
-        if (Float.floatToRawIntBits(key) == 0) return containsZeroKey ? values[values.length - 1] : defaultValue;
+        if (Float.floatToIntBits(key) == 0) return containsZeroKey ? values[values.length - 1] : defaultValue;
         int pos = hash(key) & mask;
-        while (Float.floatToRawIntBits(keys[pos]) != 0) {
-            if (Float.floatToRawIntBits(keys[pos]) == Float.floatToRawIntBits(key)) return values[pos];
+        while (Float.floatToIntBits(keys[pos]) != 0) {
+            if (Float.floatToIntBits(keys[pos]) == Float.floatToIntBits(key)) return values[pos];
             pos = (pos + 1) & mask;
         }
         return defaultValue;
@@ -104,7 +108,7 @@ public class Float2ByteFastHashMap
 
     /** 放入键值对。@return 旧值或默认返回值 */
     public byte put(float key, byte value) {
-        if (Float.floatToRawIntBits(key) == 0) {
+        if (Float.floatToIntBits(key) == 0) {
             if (containsZeroKey) {
                 byte old = values[values.length - 1];
                 values[values.length - 1] = value;
@@ -118,8 +122,8 @@ public class Float2ByteFastHashMap
         }
 
         int pos = hash(key) & mask;
-        while (Float.floatToRawIntBits(keys[pos]) != 0) {
-            if (Float.floatToRawIntBits(keys[pos]) == Float.floatToRawIntBits(key)) {
+        while (Float.floatToIntBits(keys[pos]) != 0) {
+            if (Float.floatToIntBits(keys[pos]) == Float.floatToIntBits(key)) {
                 byte old = values[pos];
                 values[pos] = value;
                 return old;
@@ -146,7 +150,7 @@ public class Float2ByteFastHashMap
 
     /** 移除键值对。@return 旧值或默认返回值 */
     public byte remove(float key) {
-        if (Float.floatToRawIntBits(key) == 0) {
+        if (Float.floatToIntBits(key) == 0) {
             if (containsZeroKey) {
                 byte old = values[values.length - 1];
                 containsZeroKey = false;
@@ -158,8 +162,8 @@ public class Float2ByteFastHashMap
         }
 
         int pos = hash(key) & mask;
-        while (Float.floatToRawIntBits(keys[pos]) != 0) {
-            if (Float.floatToRawIntBits(keys[pos]) == Float.floatToRawIntBits(key)) {
+        while (Float.floatToIntBits(keys[pos]) != 0) {
+            if (Float.floatToIntBits(keys[pos]) == Float.floatToIntBits(key)) {
                 byte old = values[pos];
                 keys[pos] = 0.0f;
                 size--;
@@ -199,7 +203,7 @@ public class Float2ByteFastHashMap
     /** 遍历所有键值对。@param action 消费接口 */
     public void forEach(Float2ByteConsumer action) {
         for (int pos = 0; pos <= mask; pos++) {
-            if (!(Float.floatToRawIntBits(keys[pos]) != 0)) continue;
+            if (!(Float.floatToIntBits(keys[pos]) != 0)) continue;
             action.accept(keys[pos], values[pos]);
         }
         if (containsZeroKey) action.accept(0.0f, values[values.length - 1]);
@@ -222,15 +226,22 @@ public class Float2ByteFastHashMap
         return new EntrySet();
     }
 
-    private static final class FastEntry
+    private final class FastEntry
             implements Map.Entry<Float, Byte> {
         float k;
         byte v;
+        int pos;
+        boolean zero;
 
         @Override public Float getKey()   { return k; }
         @Override public Byte getValue() { return v; }
         @Override public Byte setValue(Byte value) {
             Byte old = v;
+            if (zero) {
+                values[values.length - 1] = (byte) value;
+            } else {
+                values[pos] = (byte) value;
+            }
             v = (byte) value;
             return old;
         }
@@ -247,7 +258,7 @@ public class Float2ByteFastHashMap
         FastEntry entry = new FastEntry();
 
         {
-            while (pos <= mask && !(Float.floatToRawIntBits(keys[pos]) != 0)) pos++;
+            while (pos <= mask && !(Float.floatToIntBits(keys[pos]) != 0)) pos++;
         }
 
         @Override
@@ -262,11 +273,15 @@ public class Float2ByteFastHashMap
                 zeroKeyPending = false;
                 entry.k = 0.0f;
                 entry.v = values[values.length - 1];
+                entry.zero = true;
+                entry.pos = -1;
             } else {
                 entry.k = keys[pos];
                 entry.v = values[pos];
+                entry.zero = false;
+                entry.pos = pos;
                 pos++;
-                while (pos <= mask && !(Float.floatToRawIntBits(keys[pos]) != 0)) pos++;
+                while (pos <= mask && !(Float.floatToIntBits(keys[pos]) != 0)) pos++;
             }
             return entry;
         }
@@ -338,7 +353,7 @@ public class Float2ByteFastHashMap
             scan = (scan + 1) & mask;
 
             float _v = key[scan];
-            if (Float.floatToRawIntBits(_v) == 0) {
+            if (Float.floatToIntBits(_v) == 0) {
                 key[hole] = 0.0f;
                 return;
             }
@@ -372,9 +387,9 @@ public class Float2ByteFastHashMap
 
         for (int i = 0; i < oldKeys.length - 1; i++) {
             float _v = oldKeys[i];
-            if (!(Float.floatToRawIntBits(_v) == 0)) {
+            if (!(Float.floatToIntBits(_v) == 0)) {
                 int pos = hash(oldKeys[i]) & mask;
-                while (Float.floatToRawIntBits(keys[pos]) != 0) pos = (pos + 1) & mask;
+                while (Float.floatToIntBits(keys[pos]) != 0) pos = (pos + 1) & mask;
                 keys[pos] = oldKeys[i];
                 values[pos] = oldValues[i];
             }

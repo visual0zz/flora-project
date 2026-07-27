@@ -20,6 +20,8 @@ import com.flora.fast.container.consumer.*;
  * Object→Object 类型专用开地址哈希映射。
  * <p>使用开放寻址法 + 线性探测，零值作为空槽标记。
  * 避免装箱拆箱开销，适合高性能场景。</p>
+ * <p><b>线程安全：</b>本类非线程安全（标注 {@code @ThreadFragile}）。并发读写可能导致数据损坏或不一致，
+ * 且迭代器非 fail-fast。仅可在单线程或由外部同步保护的场景中使用。</p>
  *
  * @param <K> 键类型
  * @param <V> 值类型
@@ -192,15 +194,22 @@ public class Object2ObjectFastHashMap
         return new EntrySet();
     }
 
-    private static final class FastEntry
+    private final class FastEntry
             implements Map.Entry<Object, Object> {
         Object k;
         Object v;
+        int pos;
+        boolean zero;
 
         @Override public Object getKey()   { return k; }
         @Override public Object getValue() { return v; }
         @Override public Object setValue(Object value) {
             Object old = v;
+            if (zero) {
+                values[values.length - 1] = (Object) value;
+            } else {
+                values[pos] = (Object) value;
+            }
             v = (Object) value;
             return old;
         }
@@ -232,9 +241,13 @@ public class Object2ObjectFastHashMap
                 zeroKeyPending = false;
                 entry.k = null;
                 entry.v = values[values.length - 1];
+                entry.zero = true;
+                entry.pos = -1;
             } else {
                 entry.k = keys[pos];
                 entry.v = values[pos];
+                entry.zero = false;
+                entry.pos = pos;
                 pos++;
                 while (pos <= mask && !(keys[pos] != null)) pos++;
             }

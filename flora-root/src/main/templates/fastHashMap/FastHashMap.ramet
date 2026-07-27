@@ -19,16 +19,16 @@
           freeTest: "_v == '\\0'", keyEq: "keys[pos] == key",
           hashfn: "HashUtil.goldenHash((int) key)" },
   Float: { name: "Float", type: "float", boxed: "Float", zeroKey: "0.0f", noEntry: "0.0f", defRet: "0.0f",
-           nullTest: "Float.floatToRawIntBits(key) == 0",
-           emptyTest: "Float.floatToRawIntBits(keys[pos]) != 0",
-           freeTest: "Float.floatToRawIntBits(_v) == 0",
-           keyEq: "Float.floatToRawIntBits(keys[pos]) == Float.floatToRawIntBits(key)",
+           nullTest: "Float.floatToIntBits(key) == 0",
+           emptyTest: "Float.floatToIntBits(keys[pos]) != 0",
+           freeTest: "Float.floatToIntBits(_v) == 0",
+           keyEq: "Float.floatToIntBits(keys[pos]) == Float.floatToIntBits(key)",
            hashfn: "HashUtil.goldenHash(Float.floatToIntBits(key))" },
   Double: { name: "Double", type: "double", boxed: "Double", zeroKey: "0.0d", noEntry: "0.0d", defRet: "0.0d",
-            nullTest: "Double.doubleToRawLongBits(key) == 0",
-            emptyTest: "Double.doubleToRawLongBits(keys[pos]) != 0",
-            freeTest: "Double.doubleToRawLongBits(_v) == 0",
-            keyEq: "Double.doubleToRawLongBits(keys[pos]) == Double.doubleToRawLongBits(key)",
+            nullTest: "Double.doubleToLongBits(key) == 0",
+            emptyTest: "Double.doubleToLongBits(keys[pos]) != 0",
+            freeTest: "Double.doubleToLongBits(_v) == 0",
+            keyEq: "Double.doubleToLongBits(keys[pos]) == Double.doubleToLongBits(key)",
             hashfn: "(int) HashUtil.goldenHash(Double.doubleToLongBits(key))" },
   Object: { name: "Object", type: "Object", boxed: "Object", zeroKey: "null", noEntry: "null", defRet: "null",
             nullTest: "key == null", emptyTest: "keys[pos] != null",
@@ -58,6 +58,8 @@ import com.flora.fast.container.consumer.*;
  * ${K.name}→${V.name} 类型专用开地址哈希映射。
  * <p>使用开放寻址法 + 线性探测，零值作为空槽标记。
  * 避免装箱拆箱开销，适合高性能场景。</p>
+ * <p><b>线程安全：</b>本类非线程安全（标注 {@code @ThreadFragile}）。并发读写可能导致数据损坏或不一致，
+ * 且迭代器非 fail-fast。仅可在单线程或由外部同步保护的场景中使用。</p>
  *
  * @param <K> 键类型
  * @param <V> 值类型
@@ -319,6 +321,7 @@ public class ${K.name}2${V.name}FastHashMap
 
     @Override
     public boolean containsKey(Object key) {
+        if (key == null) throw new NullPointerException("null key is not supported");
         if (!(key instanceof ${K.boxed})) return false;
         return containsKey((${K.type}) (${K.boxed}) key);
     }
@@ -330,6 +333,7 @@ public class ${K.name}2${V.name}FastHashMap
 
     @Override
     public ${V.boxed} get(Object key) {
+        if (key == null) throw new NullPointerException("null key is not supported");
         if (!(key instanceof ${K.boxed})) return null;
         ${K.type} kk = (${K.type}) (${K.boxed}) key;
         if (!containsKey(kk)) return null;
@@ -468,15 +472,22 @@ public class ${K.name}2${V.name}FastHashMap
         return new EntrySet();
     }
 
-    private static final class FastEntry
+    private final class FastEntry
             implements Map.Entry<${K.boxed}, ${V.boxed}> {
         ${K.type} k;
         ${V.type} v;
+        int pos;
+        boolean zero;
 
         @Override public ${K.boxed} getKey()   { return k; }
         @Override public ${V.boxed} getValue() { return v; }
         @Override public ${V.boxed} setValue(${V.boxed} value) {
             ${V.boxed} old = v;
+            if (zero) {
+                values[values.length - 1] = (${V.type}) value;
+            } else {
+                values[pos] = (${V.type}) value;
+            }
             v = (${V.type}) value;
             return old;
         }
@@ -508,9 +519,13 @@ public class ${K.name}2${V.name}FastHashMap
                 zeroKeyPending = false;
                 entry.k = ${K.zeroKey};
                 entry.v = values[values.length - 1];
+                entry.zero = true;
+                entry.pos = -1;
             } else {
                 entry.k = keys[pos];
                 entry.v = values[pos];
+                entry.zero = false;
+                entry.pos = pos;
                 pos++;
                 while (pos <= mask && !(${K.emptyTest})) pos++;
             }

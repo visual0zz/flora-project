@@ -20,6 +20,8 @@ import com.flora.fast.container.consumer.*;
  * Double→Int 类型专用开地址哈希映射。
  * <p>使用开放寻址法 + 线性探测，零值作为空槽标记。
  * 避免装箱拆箱开销，适合高性能场景。</p>
+ * <p><b>线程安全：</b>本类非线程安全（标注 {@code @ThreadFragile}）。并发读写可能导致数据损坏或不一致，
+ * 且迭代器非 fail-fast。仅可在单线程或由外部同步保护的场景中使用。</p>
  *
  * @param <K> 键类型
  * @param <V> 值类型
@@ -64,10 +66,10 @@ public class Double2IntFastHashMap
 
     /** 是否包含指定键。 */
     public boolean containsKey(double key) {
-        if (Double.doubleToRawLongBits(key) == 0) return containsZeroKey;
+        if (Double.doubleToLongBits(key) == 0) return containsZeroKey;
         int pos = hash(key) & mask;
-        while (Double.doubleToRawLongBits(keys[pos]) != 0) {
-            if (Double.doubleToRawLongBits(keys[pos]) == Double.doubleToRawLongBits(key)) return true;
+        while (Double.doubleToLongBits(keys[pos]) != 0) {
+            if (Double.doubleToLongBits(keys[pos]) == Double.doubleToLongBits(key)) return true;
             pos = (pos + 1) & mask;
         }
         return false;
@@ -75,6 +77,7 @@ public class Double2IntFastHashMap
 
     @Override
     public boolean containsKey(Object key) {
+        if (key == null) throw new NullPointerException("null key is not supported");
         if (!(key instanceof Double)) return false;
         return containsKey((double) (Double) key);
     }
@@ -86,6 +89,7 @@ public class Double2IntFastHashMap
 
     @Override
     public Integer get(Object key) {
+        if (key == null) throw new NullPointerException("null key is not supported");
         if (!(key instanceof Double)) return null;
         double kk = (double) (Double) key;
         if (!containsKey(kk)) return null;
@@ -93,10 +97,10 @@ public class Double2IntFastHashMap
     }
 
     public int getOrDefault(double key, int defaultValue) {
-        if (Double.doubleToRawLongBits(key) == 0) return containsZeroKey ? values[values.length - 1] : defaultValue;
+        if (Double.doubleToLongBits(key) == 0) return containsZeroKey ? values[values.length - 1] : defaultValue;
         int pos = hash(key) & mask;
-        while (Double.doubleToRawLongBits(keys[pos]) != 0) {
-            if (Double.doubleToRawLongBits(keys[pos]) == Double.doubleToRawLongBits(key)) return values[pos];
+        while (Double.doubleToLongBits(keys[pos]) != 0) {
+            if (Double.doubleToLongBits(keys[pos]) == Double.doubleToLongBits(key)) return values[pos];
             pos = (pos + 1) & mask;
         }
         return defaultValue;
@@ -104,7 +108,7 @@ public class Double2IntFastHashMap
 
     /** 放入键值对。@return 旧值或默认返回值 */
     public int put(double key, int value) {
-        if (Double.doubleToRawLongBits(key) == 0) {
+        if (Double.doubleToLongBits(key) == 0) {
             if (containsZeroKey) {
                 int old = values[values.length - 1];
                 values[values.length - 1] = value;
@@ -118,8 +122,8 @@ public class Double2IntFastHashMap
         }
 
         int pos = hash(key) & mask;
-        while (Double.doubleToRawLongBits(keys[pos]) != 0) {
-            if (Double.doubleToRawLongBits(keys[pos]) == Double.doubleToRawLongBits(key)) {
+        while (Double.doubleToLongBits(keys[pos]) != 0) {
+            if (Double.doubleToLongBits(keys[pos]) == Double.doubleToLongBits(key)) {
                 int old = values[pos];
                 values[pos] = value;
                 return old;
@@ -146,7 +150,7 @@ public class Double2IntFastHashMap
 
     /** 移除键值对。@return 旧值或默认返回值 */
     public int remove(double key) {
-        if (Double.doubleToRawLongBits(key) == 0) {
+        if (Double.doubleToLongBits(key) == 0) {
             if (containsZeroKey) {
                 int old = values[values.length - 1];
                 containsZeroKey = false;
@@ -158,8 +162,8 @@ public class Double2IntFastHashMap
         }
 
         int pos = hash(key) & mask;
-        while (Double.doubleToRawLongBits(keys[pos]) != 0) {
-            if (Double.doubleToRawLongBits(keys[pos]) == Double.doubleToRawLongBits(key)) {
+        while (Double.doubleToLongBits(keys[pos]) != 0) {
+            if (Double.doubleToLongBits(keys[pos]) == Double.doubleToLongBits(key)) {
                 int old = values[pos];
                 keys[pos] = 0.0d;
                 size--;
@@ -199,7 +203,7 @@ public class Double2IntFastHashMap
     /** 遍历所有键值对。@param action 消费接口 */
     public void forEach(Double2IntConsumer action) {
         for (int pos = 0; pos <= mask; pos++) {
-            if (!(Double.doubleToRawLongBits(keys[pos]) != 0)) continue;
+            if (!(Double.doubleToLongBits(keys[pos]) != 0)) continue;
             action.accept(keys[pos], values[pos]);
         }
         if (containsZeroKey) action.accept(0.0d, values[values.length - 1]);
@@ -222,15 +226,22 @@ public class Double2IntFastHashMap
         return new EntrySet();
     }
 
-    private static final class FastEntry
+    private final class FastEntry
             implements Map.Entry<Double, Integer> {
         double k;
         int v;
+        int pos;
+        boolean zero;
 
         @Override public Double getKey()   { return k; }
         @Override public Integer getValue() { return v; }
         @Override public Integer setValue(Integer value) {
             Integer old = v;
+            if (zero) {
+                values[values.length - 1] = (int) value;
+            } else {
+                values[pos] = (int) value;
+            }
             v = (int) value;
             return old;
         }
@@ -247,7 +258,7 @@ public class Double2IntFastHashMap
         FastEntry entry = new FastEntry();
 
         {
-            while (pos <= mask && !(Double.doubleToRawLongBits(keys[pos]) != 0)) pos++;
+            while (pos <= mask && !(Double.doubleToLongBits(keys[pos]) != 0)) pos++;
         }
 
         @Override
@@ -262,11 +273,15 @@ public class Double2IntFastHashMap
                 zeroKeyPending = false;
                 entry.k = 0.0d;
                 entry.v = values[values.length - 1];
+                entry.zero = true;
+                entry.pos = -1;
             } else {
                 entry.k = keys[pos];
                 entry.v = values[pos];
+                entry.zero = false;
+                entry.pos = pos;
                 pos++;
-                while (pos <= mask && !(Double.doubleToRawLongBits(keys[pos]) != 0)) pos++;
+                while (pos <= mask && !(Double.doubleToLongBits(keys[pos]) != 0)) pos++;
             }
             return entry;
         }
@@ -338,7 +353,7 @@ public class Double2IntFastHashMap
             scan = (scan + 1) & mask;
 
             double _v = key[scan];
-            if (Double.doubleToRawLongBits(_v) == 0) {
+            if (Double.doubleToLongBits(_v) == 0) {
                 key[hole] = 0.0d;
                 return;
             }
@@ -372,9 +387,9 @@ public class Double2IntFastHashMap
 
         for (int i = 0; i < oldKeys.length - 1; i++) {
             double _v = oldKeys[i];
-            if (!(Double.doubleToRawLongBits(_v) == 0)) {
+            if (!(Double.doubleToLongBits(_v) == 0)) {
                 int pos = hash(oldKeys[i]) & mask;
-                while (Double.doubleToRawLongBits(keys[pos]) != 0) pos = (pos + 1) & mask;
+                while (Double.doubleToLongBits(keys[pos]) != 0) pos = (pos + 1) & mask;
                 keys[pos] = oldKeys[i];
                 values[pos] = oldValues[i];
             }

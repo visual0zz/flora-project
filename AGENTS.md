@@ -65,6 +65,3 @@ the `generate-sources` phase.
 - **Decision**: Whenever the agent makes a decision (e.g., technology selection or
   implementation approach), record it in `addition/decision/`.
   Naming: `decision{YYYYMMDD}-{NN}-{module}.md`.
-
-  注意：文件名中不得使用冒号 `:`，因为 Windows 文件系统不允许，
-  会导致 clone/checkout 失败。请使用短横 `-` 作为分隔符。

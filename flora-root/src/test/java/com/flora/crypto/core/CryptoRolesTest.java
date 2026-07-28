@@ -2,9 +2,12 @@ package com.flora.crypto.core;
 
 import org.junit.jupiter.api.Test;
 
+import com.flora.crypto.core.engine.HMacDrbg;
+
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.security.SecureRandom;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -230,5 +233,129 @@ class CryptoRolesTest {
         System.arraycopy(out, 0, recovered, 0, m);
 
         assertArrayEquals(data, recovered);
+    }
+
+    // ── KEM：ECDH 封装/解封装得到同一对称密钥 ──
+
+    @Test
+    void kemEcdhRoundTrip() {
+        AsymmetricCipherKeyPairGenerator gen = CryptoProvider.asymmetricKeyPairGenerator("EC");
+        gen.init(new KeyGenerationParameters(RANDOM, 256));
+        AsymmetricCipherKeyPair kp = gen.generateKeyPair();
+
+        KEM kem = CryptoProvider.kem("ECDH");
+        Encapsulator enc = kem.newEncapsulator(kp.getPublic());
+        SecretWithEncapsulation swc = enc.encapsulate();
+        assertEquals(32, enc.getSecretLength());
+        assertEquals(enc.getEncapsulationLength(), swc.getEncapsulation().length);
+
+        Decapsulator dec = kem.newDecapsulator(kp.getPrivate());
+        SecretWithEncapsulation swc2 = dec.decapsulate(swc.getEncapsulation());
+
+        assertArrayEquals(swc.getSecret(), swc2.getSecret());
+        assertNotEquals(0, swc.getSecret().length);
+    }
+
+    // ── KEM：X25519 封装/解封装往返 ──
+
+    @Test
+    void kemX25519RoundTrip() throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("X25519");
+        KeyPair kp = kpg.generateKeyPair();
+
+        KEM kem = CryptoProvider.kem("X25519");
+        Encapsulator enc = kem.newEncapsulator(new AsymmetricKeyParameter(kp.getPublic()));
+        SecretWithEncapsulation swc = enc.encapsulate();
+
+        Decapsulator dec = kem.newDecapsulator(new AsymmetricKeyParameter(kp.getPrivate()));
+        SecretWithEncapsulation swc2 = dec.decapsulate(swc.getEncapsulation());
+
+        assertArrayEquals(swc.getSecret(), swc2.getSecret());
+    }
+
+    // ── KEM：destroy 清除密钥材料 ──
+
+    @Test
+    void kemSecretDestroyZeroes() {
+        AsymmetricCipherKeyPairGenerator gen = CryptoProvider.asymmetricKeyPairGenerator("EC");
+        gen.init(new KeyGenerationParameters(RANDOM, 256));
+        AsymmetricCipherKeyPair kp = gen.generateKeyPair();
+
+        KEM kem = CryptoProvider.kem("ECDH");
+        SecretWithEncapsulation swc = kem.newEncapsulator(kp.getPublic()).encapsulate();
+        byte[] secretBefore = swc.getSecret().clone();
+        assertNotEquals(0, secretBefore.length);
+
+        swc.destroy();
+        assertArrayEquals(new byte[0], swc.getSecret());
+    }
+
+    // ── KEM：未知算法走占位实现，抛 UnsupportedOperationException ──
+
+    @Test
+    void kemPlaceholderThrows() {
+        KEM kem = CryptoProvider.kem("ML-KEM");
+        assertThrows(UnsupportedOperationException.class,
+                () -> kem.newEncapsulator(new AsymmetricKeyParameter(
+                        CryptoProvider.keyPairGenerator("RSA").generate(2048).getPublic())));
+    }
+
+    // ── EntropySource：默认实现取熵长度正确 ──
+
+    @Test
+    void entropySourceLength() {
+        EntropySource es = CryptoProvider.entropySource();
+        assertTrue(es.isPredictionResistant());
+        byte[] entropy = es.getEntropy(256);
+        assertEquals(32, entropy.length); // ceil(256/8)
+    }
+
+    // ── SP800-90A HMAC_DRBG：确定性（同种子同输出）──
+
+    @Test
+    void hmacDrbgDeterministic() {
+        byte[] entropy = randomBytes(32);
+        byte[] nonce = randomBytes(16);
+        Mac mac1 = CryptoProvider.mac("HmacSHA256");
+        Mac mac2 = CryptoProvider.mac("HmacSHA256");
+        HMacDrbg d1 = new HMacDrbg(mac1, entropy, nonce, null);
+        HMacDrbg d2 = new HMacDrbg(mac2, entropy, nonce, null);
+
+        byte[] out1 = new byte[64];
+        byte[] out2 = new byte[64];
+        assertEquals(64 * 8, d1.generate(out1, null, false));
+        assertEquals(64 * 8, d2.generate(out2, null, false));
+        assertArrayEquals(out1, out2);
+
+        // 不同种子 → 不同输出
+        HMacDrbg d3 = new HMacDrbg(CryptoProvider.mac("HmacSHA256"), randomBytes(32), nonce, null);
+        byte[] out3 = new byte[64];
+        d3.generate(out3, null, false);
+        assertFalse(java.util.Arrays.equals(out1, out3));
+    }
+
+    // ── HMAC_DRBG：个性化字符串影响输出 ──
+
+    @Test
+    void hmacDrbgPersonalizationChangesOutput() {
+        byte[] entropy = randomBytes(32);
+        byte[] nonce = randomBytes(16);
+        HMacDrbg a = new HMacDrbg(CryptoProvider.mac("HmacSHA256"), entropy, nonce, "p1".getBytes());
+        HMacDrbg b = new HMacDrbg(CryptoProvider.mac("HmacSHA256"), entropy, nonce, "p2".getBytes());
+        byte[] oa = new byte[64];
+        byte[] ob = new byte[64];
+        a.generate(oa, null, false);
+        b.generate(ob, null, false);
+        assertFalse(java.util.Arrays.equals(oa, ob));
+    }
+
+    // ── HMAC_DRBG：CryptoProvider 工厂（实时熵源）可生成 ──
+
+    @Test
+    void hmacDrbgFactoryGenerates() {
+        SP80090DRBG drbg = CryptoProvider.hmacDrbg("HmacSHA256", 256, null);
+        assertEquals(32, drbg.getBlockSize());
+        byte[] out = new byte[48];
+        assertTrue(drbg.generate(out, null, false) > 0);
     }
 }

@@ -152,11 +152,29 @@ public interface BlockCipherPadding {
    还是进一步走向「BC 式接口 + BC 式对象组合」。前者改动小,后者更贴近 BC 本质。
 2. `Xof` / `DerivationFunction` 的真缺口,是否引入 BC 作为可选依赖(仅提供引擎),
    还是坚持零依赖、自己实现 SM3/SHAKE 等?
-3. `KEM` / `EntropySource` 是否纳入本期范围，还是仅占位接口、留待后续。
+3. `KEM` / `EntropySource` 是否纳入本期范围，还是仅占位接口、留待后续。→ **已决策纳入本期**：KEM 用 `AgreementBasedKem`（经典曲线真实实现），EntropySource/DRBG 用 `SecureRandomEntropySource` + `HMacDrbg`，均已实现并测试。
 
 ## 七、实施状态（2026-07-28）
 
-已按「不引入 BC 依赖、全面对齐 BC 轻量 API」的方针落地，`flora-root` 编译与全部 1239 个测试通过。
+已按「不引入 BC 依赖、全面对齐 BC 轻量 API」的方针落地，`flora-root` 编译与全部 1247 个测试通过。
+
+### KEM（密钥封装机制）—— 2026-07-28 补充
+- 角色接口：`KEM` + `Encapsulator` / `Decapsulator` / `SecretWithEncapsulation` + `SecretWithEncapsulationImpl`（`destroy()` 清零密钥材料）
+- 真实实现 `engine.AgreementBasedKem`：以「`Agreement`（ECDH/X25519/X448/DH）+ `DerivationFunction("HKDF")`」构造经典 KEM。
+  封装=生成临时密钥对 → 用接收方公钥协商得共享秘密 Z → HKDF 派生 32 字节对称密钥，临时公钥编码作为封装密文；
+  解封装=从封装密文经 `KeyFactory` 重建临时公钥 → 相同协商+派生得同一密钥。
+- 占位 `PlaceholderKem`：未知算法（如后量子 ML-KEM）抛 `UnsupportedOperationException`
+- `CryptoProvider.kem(name)`：对 `ECDH`/`X25519`/`X448`/`DH` 默认 `AgreementBasedKem`，其余 `PlaceholderKem`；含 `registerKem`
+
+### EntropySource / SP800-90A DRBG —— 2026-07-28 补充
+- 角色接口：`EntropySource`（熵源，`getEntropy(numBits)`、`entropySize`、`isPredictionResistant`）、
+  `SP80090DRBG`（`generate`/`getBlockSize`/`reseed`）
+- 真实实现 `engine.SecureRandomEntropySource`（包 `SecureRandom`，默认抗预测）、
+  `engine.HMacDrbg`（NIST SP800-90A §10.1.2 HMAC_DRBG，纯 Java，以任意 `Mac` 为原语；
+  提供「熵源实时取熵」与「固定熵/nonce 可复现」两种构造）
+- `CryptoProvider.entropySource()` / `entropySource(name)` / `hmacDrbg(hmacAlgorithm, securityStrengthBits, personalizationString)`；
+  含 `registerEntropySource` / `registerDrbg`
+- 注：JDK 仅 `SecureRandom`，无第一等 DRBG 抽象，故 `HMacDrbg` 为自实现（零依赖）
 
 ### 新增角色接口（core）
 - 摘要扩展：`ExtendedDigest`（`JdkDigest` 已实现，含 `getByteLength`）、`Xof`（可变长输出）
@@ -183,4 +201,6 @@ JDK 无能力者默认回退占位实现。
 
 ### 测试
 `CryptoRolesTest` 覆盖上述新角色（Wrapper 往返、ECDH 协商、PBKDF2 与 JDK 对齐、KDF2/HKDF 自洽、
-AES-GCM AEAD 往返、CBC/SIC 模式链式、PKCS7 填充、RSA 流式非对称、Xof/派生占位抛异常）。
+AES-GCM AEAD 往返、CBC/SIC 模式链式、PKCS7 填充、RSA 流式非对称、Xof/派生占位抛异常；
+补充 KEM 的 ECDH/X25519 往返、secret `destroy()` 清零、未知算法占位抛异常，
+EntropySource 取熵长度、HMAC_DRBG 确定性/个性化/工厂生成）。

@@ -1,6 +1,7 @@
 package com.flora.java;
 
 import java.util.Collection;
+import java.util.List;
 
 /**
  * 类型转换器接口，定义了将对象从来源类型转换为目标类型的基本契约。
@@ -19,16 +20,28 @@ public interface Converter {
     default int declarePriority() {return 0;}
     /**
      * 声明此转换器支持的来源类型集合。
+     * <p>
+     * 默认返回空集合。若转换器通过覆盖 {@link #declareSourceMatcher()}
+     * 以谓词方式声明来源（如「任意 Bean」），则无需重写本方法；
+     * 依赖类型集合做精确匹配的转换器应重写为具体的类型集合。
      *
      * @return 支持的来源类型集合
      */
-    Collection<Class<?>> declareSourceTypes();
+    default Collection<Class<?>> declareSourceTypes() {
+        return List.of();
+    }
     /**
      * 声明此转换器支持的目标类型集合。
+     * <p>
+     * 默认返回空集合。若转换器通过覆盖 {@link #declareTargetMatcher()}
+     * 以谓词方式声明目标（如「任意 Bean」），则无需重写本方法；
+     * 依赖类型集合做精确匹配的转换器应重写为具体的类型集合。
      *
      * @return 支持的目标类型集合
      */
-    Collection<Class<?>> declareTargetTypes();
+    default Collection<Class<?>> declareTargetTypes() {
+        return List.of();
+    }
     /**
      * 将对象转换为指定目标类型。
      *

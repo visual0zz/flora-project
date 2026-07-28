@@ -25,12 +25,6 @@ public final class BeanConverter implements Converter {
     }
 
     @Override
-    public Collection<Class<?>> declareTargetTypes() {
-        // 目标匹配由 declareTargetMatcher() 谓词决定；本方法在 matcher 被覆盖时不参与解析，返回空集合。
-        return List.of();
-    }
-
-    @Override
     public TypeMatcher declareTargetMatcher() {
         return (targetType, elementType) -> targetType != null && BeanSupport.isBeanType(targetType);
     }

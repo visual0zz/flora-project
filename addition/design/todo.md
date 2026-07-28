@@ -1,11 +1,7 @@
 
 ### 问题
-1. inheritanceHierarchyDistance 对接口源的潜在 bug（最重要）
-调试时暴露的：inheritanceHierarchyDistance(Object.class, List.class) 返回 Integer.MAX_VALUE。原因——List 是接口，其 getSuperclass() 为 null，向上走父类链立刻终止、到不了
-Object；而兜底分支只对"声明源是接口"生效（这里是 Object 类）。
-后果：凡 find 的 sourceType 是接口类型时，所有"声明源为 Object.class"的转换器 sourceDistance 一律 -1、直接落选。门面里 sourceType = value.getClass() 永远是具体类，所以被掩盖了；但 find 是公开
-API，直接传 List.class 就会解析失败（我那个测试就是这么踩中的）。
-建议修 inheritanceHierarchyDistance：当 valueType 是接口或走完父类链仍未命中时，继续遍历 valueType.getInterfaces()（递归到 Object）。这样接口源也能正确算出距离。这是真正的健壮性缺陷，不是风格问题。
+1. flora-root/src/main/java/com/flora/entropy/probds 里面的算法缺少人工核对
+2. flora-root/src/main/java/com/flora/fast/container/tuple 缺少人工核对
 
 
 ### 想法

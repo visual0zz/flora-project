@@ -81,10 +81,22 @@ public final class JsonUtil {
      *
      * @param root 根对象（通常为 Map 或 List）
      * @param path JSONPath 表达式，如 {@code "$.key1.key2[0]"}
-     * @return 查询结果，路径不存在时返回 null
+     * @return 查询结果，路径不存在时返回 null；多个结果时返回 List
      * @see JsonPath#eval(Object, String)
      */
     public static Object eval(Object root, String path) {
         return JsonPath.eval(root, path);
+    }
+
+    /**
+     * 在解析后的 JSON 对象上执行 JSONPath 表达式查询，始终返回结果列表。
+     *
+     * @param root 根对象
+     * @param path JSONPath 表达式
+     * @return 匹配节点的值列表（永不 null）
+     * @see JsonPath#evalAll(Object, String)
+     */
+    public static List<Object> evalAll(Object root, String path) {
+        return JsonPath.evalAll(root, path);
     }
 }

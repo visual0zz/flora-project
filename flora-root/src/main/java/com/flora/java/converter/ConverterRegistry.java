@@ -67,6 +67,8 @@ public final class ConverterRegistry {
         BUILT_IN_CONVERTERS.add(new ArrayConverter());
         BUILT_IN_CONVERTERS.add(new CollectionConverter());
         BUILT_IN_CONVERTERS.add(new OptionalConverter());
+        BUILT_IN_CONVERTERS.add(new BeanConverter());
+        BUILT_IN_CONVERTERS.add(new MapConverter());
 
         SPI_CONVERTERS.addAll(ServiceLoader.load(Converter.class).stream().map(ServiceLoader.Provider::get).toList());
 

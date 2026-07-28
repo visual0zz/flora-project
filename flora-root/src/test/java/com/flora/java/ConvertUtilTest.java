@@ -482,4 +482,64 @@ class ConvertUtilTest {
     void convertQuietlyNullTargetReturnsDefault() {
         assertEquals("d", ConvertUtil.convertQuietly((Class<String>) null, "x", "d"));
     }
+
+    // ==================== canConvert 探测 ====================
+
+    /**
+     * 测试 canConvert：存在转换器时返回 true（int -> String）。
+     */
+    @Test
+    void canConvertTrueForSupportedValue() {
+        assertTrue(ConvertUtil.canConvert(String.class, 123));
+    }
+
+    /**
+     * 测试 canConvert：identity / upcast 经 NoopConverter 判定为可转换。
+     */
+    @Test
+    void canConvertTrueForIdentityAndUpcast() {
+        assertTrue(ConvertUtil.canConvert(Integer.class, 42));
+        assertTrue(ConvertUtil.canConvert(Number.class, 42));
+    }
+
+    /**
+     * 测试 canConvert：null 值视为可转换（任意目标均返回 null）。
+     */
+    @Test
+    void canConvertTrueForNullValue() {
+        assertTrue(ConvertUtil.canConvert(String.class, (Object) null));
+        assertTrue(ConvertUtil.canConvert(Thread.class, (Object) null));
+    }
+
+    /**
+     * 测试 canConvert：无可用转换器时返回 false（String -> Thread）。
+     */
+    @Test
+    void canConvertFalseForUnsupportedValue() {
+        assertFalse(ConvertUtil.canConvert(Thread.class, "x"));
+    }
+
+    /**
+     * 测试 typed canConvert：已知来源类型且存在转换器时返回 true。
+     */
+    @Test
+    void canConvertTypedTrueForSupportedPair() {
+        assertTrue(ConvertUtil.canConvert(Integer.class, String.class, null));
+    }
+
+    /**
+     * 测试 typed canConvert：来源类型未知（null）时按 null 值语义返回 true。
+     */
+    @Test
+    void canConvertTypedTrueForNullSource() {
+        assertTrue(ConvertUtil.canConvert(null, Thread.class, null));
+    }
+
+    /**
+     * 测试 typed canConvert：来源/目标均不匹配且无继承关系时返回 false。
+     */
+    @Test
+    void canConvertTypedFalseForUnsupportedPair() {
+        assertFalse(ConvertUtil.canConvert(String.class, Thread.class, null));
+    }
 }

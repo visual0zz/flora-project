@@ -55,4 +55,29 @@ public final class ConvertUtil extends ConvertFacade {
     public static <T> T convertElements(Class<T> targetType, Object value, Class<?> elementType) {
         return INSTANCE.convertElements(value, targetType, elementType);
     }
+
+    /**
+     * 探测能否将给定值转换为目标类型。
+     *
+     * @param targetType 目标类型
+     * @param value      待转换的值
+     * @return 若存在可用转换器则返回 true
+     * @see ConvertFacade#canConvert(Object, Class)
+     */
+    public static boolean canConvert(Class<?> targetType, Object value) {
+        return INSTANCE.canConvert(value, targetType);
+    }
+
+    /**
+     * 探测能否将来源类型转换为目标类型（含元素类型）。
+     *
+     * @param sourceType  来源类型
+     * @param targetType  目标类型
+     * @param elementType 元素类型，可为 null
+     * @return 若存在可用转换器则返回 true
+     * @see ConvertFacade#canConvert(Class, Class, Class)
+     */
+    public static boolean canConvert(Class<?> sourceType, Class<?> targetType, Class<?> elementType) {
+        return INSTANCE.canConvertType(sourceType, targetType, elementType);
+    }
 }

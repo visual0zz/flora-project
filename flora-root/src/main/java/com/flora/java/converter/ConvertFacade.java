@@ -69,4 +69,41 @@ public class ConvertFacade {
             return defaultValue;
         }
     }
+
+    /**
+     * 探测能否将给定值转换为目标类型。
+     * <p>
+     * 内部复用 {@link ConverterRegistry#find} 的查找逻辑（含来源/目标匹配、优先级、
+     * 继承距离计算），仅判定是否存在可用转换器而不实际执行转换。
+     * </p>
+     *
+     * @param value      待转换的值，若 value 为 null 则返回 true（null 值转换为任意目标均返回 null）
+     * @param targetType 目标类型，不能为 null
+     * @return 若存在可用转换器则返回 true
+     * @throws NullPointerException 若 targetType 为 null
+     */
+    public boolean canConvert(Object value, Class<?> targetType) {
+        CheckUtil.notNull(targetType, "目标类型不能为空");
+        if (value == null) {
+            return true;
+        }
+        return registry.find(value.getClass(), targetType, null) != null;
+    }
+
+    /**
+     * 探测能否将来源类型转换为目标类型（含元素类型），用于编译期已知类型而非具体值的场景。
+     *
+     * @param sourceType  来源类型，若未知可传 null（此时按“null 值可转换为任意目标”返回 true）
+     * @param targetType  目标类型，不能为 null
+     * @param elementType 元素类型（用于集合/数组转换），可为 null
+     * @return 若存在可用转换器则返回 true
+     * @throws NullPointerException 若 targetType 为 null
+     */
+    public boolean canConvertType(Class<?> sourceType, Class<?> targetType, Class<?> elementType) {
+        CheckUtil.notNull(targetType, "目标类型不能为空");
+        if (sourceType == null) {
+            return true;
+        }
+        return registry.find(sourceType, targetType, elementType) != null;
+    }
 }

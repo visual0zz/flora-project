@@ -20,7 +20,8 @@ public final class MapConverter implements Converter {
 
     @Override
     public Collection<Class<?>> declareSourceTypes() {
-        return List.of(Object.class);
+        // 来源匹配由 declareSourceMatcher() 谓词决定；本方法在 matcher 被覆盖时不参与解析，返回空集合。
+        return List.of();
     }
 
     @Override

@@ -20,6 +20,7 @@ module com.flora.root {
     exports com.flora.codec;
     exports com.flora.java;
     exports com.flora.runtime.log;
+    exports com.flora.os.virtual.file;
 
     uses Converter;
 }

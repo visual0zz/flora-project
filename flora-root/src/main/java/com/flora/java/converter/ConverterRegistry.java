@@ -62,6 +62,7 @@ public final class ConverterRegistry {
         BUILT_IN_CONVERTERS.add(new FromLocalTimeConverter());
         BUILT_IN_CONVERTERS.add(new UuidStringConverter());
         BUILT_IN_CONVERTERS.add(new UuidBytesConverter());
+        BUILT_IN_CONVERTERS.add(new ByteArrayConverter());
         BUILT_IN_CONVERTERS.add(new EnumConverter());
         BUILT_IN_CONVERTERS.add(new ArrayConverter());
         BUILT_IN_CONVERTERS.add(new CollectionConverter());

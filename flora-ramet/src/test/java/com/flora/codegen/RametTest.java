@@ -3,29 +3,33 @@ package com.flora.codegen;
 import com.flora.codegen.engine.CodeGenException;
 import com.flora.os.virtual.file.VFS;
 import com.flora.os.virtual.file.backend.MemoryFileSystem;
+import com.flora.os.virtual.file.nio.VfsFileSystem;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 覆盖 {@link Ramet} 集成测试。
- * <p>所有文件操作在 VFS + MemoryFileSystem 上执行，不涉及真实文件系统。</p>
+ * <p>所有文件操作在 VFS + MemoryFileSystem（通过 NIO 桥接）上执行，不涉及真实文件系统。</p>
  */
 class RametTest {
 
-    private static VFS createMemVfs() {
+    private static VfsFileSystem newMemFs() {
         VFS vfs = new VFS();
         vfs.mount("/", new MemoryFileSystem());
-        return vfs;
+        return new VfsFileSystem(vfs);
     }
 
     @Test
     void generatesSingleTemplate() throws IOException {
-        VFS vfs = createMemVfs();
-        vfs.get("/tpl", "test.ramet").writeString("""
+        VfsFileSystem fs = newMemFs();
+        Path tplDir = fs.getPath("/tpl");
+        Files.createDirectories(tplDir);
+        Files.writeString(fs.getPath("/tpl/test.ramet"), """
                 <#meta>
                 @Param{ pkg: "com.x", name: "Foo" }
                 @Path{ "Foo.java" }
@@ -34,9 +38,9 @@ class RametTest {
                 public class ${name} {}
                 """);
 
-        Ramet.run(vfs, "/tpl", "/out", false);
+        Ramet.run(fs, tplDir, fs.getPath("/out"), false);
 
-        String content = vfs.get("/out/Foo.java").readString();
+        String content = Files.readString(fs.getPath("/out/Foo.java"));
         assertAll(
                 () -> assertTrue(content.contains("package com.x;")),
                 () -> assertTrue(content.contains("public class Foo {}"))
@@ -45,19 +49,23 @@ class RametTest {
 
     @Test
     void dryRunDoesNotCreateOutput() throws IOException {
-        VFS vfs = createMemVfs();
-        vfs.get("/tpl", "d.ramet").writeString("<#meta>@Path{ \"D.java\" }</#meta>body");
+        VfsFileSystem fs = newMemFs();
+        Path tplDir = fs.getPath("/tpl");
+        Files.createDirectories(tplDir);
+        Files.writeString(fs.getPath("/tpl/d.ramet"), "<#meta>@Path{ \"D.java\" }</#meta>body");
 
-        Ramet.run(vfs, "/tpl", "/out", true);
+        Ramet.run(fs, tplDir, fs.getPath("/out"), true);
 
-        assertFalse(vfs.get("/out").exists(), "dry-run 模式下不应写入文件");
+        assertFalse(Files.exists(fs.getPath("/out")), "dry-run 模式下不应写入文件");
     }
 
     @Test
     void resolvesIncludes() throws IOException {
-        VFS vfs = createMemVfs();
-        vfs.get("/tpl", "included.ramet").writeString("<#meta>@Path{ \"inc.java\" }</#meta>[${x}]");
-        vfs.get("/tpl", "host.ramet").writeString("""
+        VfsFileSystem fs = newMemFs();
+        Path tplDir = fs.getPath("/tpl");
+        Files.createDirectories(tplDir);
+        Files.writeString(fs.getPath("/tpl/included.ramet"), "<#meta>@Path{ \"inc.java\" }</#meta>[${x}]");
+        Files.writeString(fs.getPath("/tpl/host.ramet"), """
                 <#meta>
                 @Param{ x: "hello" }
                 @Path{ "host.java" }
@@ -65,53 +73,54 @@ class RametTest {
                 A<#include "included.ramet">B
                 """);
 
-        Ramet.run(vfs, "/tpl", "/out", false);
+        Ramet.run(fs, tplDir, fs.getPath("/out"), false);
 
-        String content = vfs.get("/out/host.java").readString().replace("\n", "");
+        String content = Files.readString(fs.getPath("/out/host.java")).replace("\n", "");
         assertTrue(content.contains("A[hello]B"), content);
     }
 
     @Test
     void resolvesIncludesRelativeToIncludingFile() throws IOException {
-        // include 路径以「发起 include 的文件所在文件夹」为基准
-        VFS vfs = createMemVfs();
-        vfs.get("/tpl/sub", "included.ramet").mkDirs();
-        vfs.get("/tpl/sub/included.ramet").writeString("<#meta>@Path{ \"inc.java\" }</#meta>[${x}]");
-        vfs.get("/tpl/sub/host.ramet").writeString("""
+        VfsFileSystem fs = newMemFs();
+        Path tplDir = fs.getPath("/tpl");
+        Files.createDirectories(fs.getPath("/tpl/sub"));
+        Files.writeString(fs.getPath("/tpl/sub/included.ramet"), "<#meta>@Path{ \"inc.java\" }</#meta>[${x}]");
+        Files.writeString(fs.getPath("/tpl/sub/host.ramet"), """
                 <#meta>
                 @Param{ x: "hi" }
                 @Path{ "host.java" }
                 </#meta>
                 A<#include "included.ramet">B
                 """);
-        // 根目录下同名文件，不应误命中
-        vfs.get("/tpl/included.ramet").writeString("<#meta>@Path{ \"root-inc.java\" }</#meta>[ROOT]");
+        Files.writeString(fs.getPath("/tpl/included.ramet"),
+                "<#meta>@Path{ \"root-inc.java\" }</#meta>[ROOT]");
 
-        Ramet.run(vfs, "/tpl", "/out", false);
+        Ramet.run(fs, tplDir, fs.getPath("/out"), false);
 
-        String content = vfs.get("/out/host.java").readString().replace("\n", "");
+        String content = Files.readString(fs.getPath("/out/host.java")).replace("\n", "");
         assertTrue(content.contains("A[hi]B"), content);
         assertFalse(content.contains("[ROOT]"), "不应误命中根目录下同名文件");
     }
 
     @Test
     void throwsOnMissingTemplateDir() {
-        VFS vfs = new VFS();
-        vfs.mount("/", new MemoryFileSystem());
+        VfsFileSystem fs = newMemFs();
         // 不创建 /tpl 目录
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> Ramet.run(vfs, "/tpl", "/out", false));
+                () -> Ramet.run(fs, fs.getPath("/tpl"), fs.getPath("/out"), false));
         assertTrue(ex.getMessage().contains("目录不存在"));
     }
 
     @Test
     void throwsOnCrossTemplateCaseInsensitivePathCollision() throws IOException {
-        VFS vfs = createMemVfs();
-        vfs.get("/tpl", "lower.ramet").writeString("<#meta>@Path{ \"dup.java\" }</#meta>lower");
-        vfs.get("/tpl", "upper.ramet").writeString("<#meta>@Path{ \"DUP.java\" }</#meta>UPPER");
+        VfsFileSystem fs = newMemFs();
+        Path tplDir = fs.getPath("/tpl");
+        Files.createDirectories(tplDir);
+        Files.writeString(fs.getPath("/tpl/lower.ramet"), "<#meta>@Path{ \"dup.java\" }</#meta>lower");
+        Files.writeString(fs.getPath("/tpl/upper.ramet"), "<#meta>@Path{ \"DUP.java\" }</#meta>UPPER");
 
         CodeGenException ex = assertThrows(CodeGenException.class,
-                () -> Ramet.run(vfs, "/tpl", "/out", false));
+                () -> Ramet.run(fs, tplDir, fs.getPath("/out"), false));
         assertTrue(ex.getMessage().contains("大小写不敏感碰撞"), ex.getMessage());
     }
 }

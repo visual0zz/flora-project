@@ -62,7 +62,13 @@ public final class VFS {
 
     private record Mount(String prefix, FSBackend backend) {}
 
-    private record FSBackendMatch(String path, FSBackend backend) {}
+    /** 包内可见：返回后端 + 相对路径，供 {@code nio} 包使用。 */
+    public record FSBackendMatch(String path, FSBackend backend) {}
+
+    /** 根据路径找到匹配的 backend 和相对路径。 */
+    public FSBackendMatch resolveInternal(String path) {
+        return resolve(PathUtil.normalize(path));
+    }
 
     /** 根据路径找到匹配的 backend，返回去掉前缀后的相对路径。 */
     private FSBackendMatch resolve(String path) {

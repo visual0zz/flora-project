@@ -1,4 +1,6 @@
-package com.flora.log;
+package com.flora.runtime.log;
+
+import com.flora.runtime.log.impl.LoggerImpl;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,7 +17,7 @@ public final class LoggerFactory {
     private LoggerFactory() {
     }
 
-    private static final Map<String, LoggerImpl> LOGGER_MAP = new ConcurrentHashMap<>();
+    private static final Map<String, Logger> LOGGER_MAP = new ConcurrentHashMap<>();
 
     static {
         
@@ -34,12 +36,12 @@ public final class LoggerFactory {
      * @return Logger 实例
      */
     public static Logger getLogger(String name) {
-        LoggerImpl existing = LOGGER_MAP.get(name);
+        LoggerImpl existing = (LoggerImpl) LOGGER_MAP.get(name);
         if (existing != null) {
             return existing;
         }
         LoggerImpl logger = new LoggerImpl(name);
-        LoggerImpl old = LOGGER_MAP.putIfAbsent(name, logger);
+        LoggerImpl old = (LoggerImpl) LOGGER_MAP.putIfAbsent(name, logger);
         if (old != null) {
             return old; 
         }
@@ -67,10 +69,8 @@ public final class LoggerFactory {
      *
      * @return 根日志器实例
      */
-    static LoggerImpl getRootLogger() {
-        LoggerImpl root = LOGGER_MAP.get("root");
-        assert root != null;
-        return root;
+    public static Logger getRootLogger() {
+        return LOGGER_MAP.get("root");
     }
 
     
@@ -82,18 +82,18 @@ public final class LoggerFactory {
      * @param name 日志器名称
      * @return 父级日志器实例，如果没有父级则返回 null
      */
-    static LoggerImpl getParent(String name) {
+    public static Logger getParent(String name) {
         if (name == null || name.isEmpty() || "root".equals(name)) {
             return null;
         }
         int dot = name.lastIndexOf('.');
         if (dot > 0) {
             String parentName = name.substring(0, dot);
-            LoggerImpl parent = LOGGER_MAP.get(parentName);
+            LoggerImpl parent = (LoggerImpl) LOGGER_MAP.get(parentName);
             if (parent != null) {
                 return parent;
             }
-            
+
             return getParent(parentName);
         }
         return LOGGER_MAP.get("root");
@@ -108,20 +108,20 @@ public final class LoggerFactory {
      * @param name 日志器名称
      * @return 有效日志级别
      */
-    static Level getEffectiveLevel(String name) {
-        LoggerImpl logger = LOGGER_MAP.get(name);
+    public static Level getEffectiveLevel(String name) {
+        LoggerImpl logger = (LoggerImpl) LOGGER_MAP.get(name);
         if (logger != null && logger.getLevel() != null) {
             return logger.getLevel();
         }
-        
-        LoggerImpl parent = getParent(name);
+
+        LoggerImpl parent = (LoggerImpl) getParent(name);
         if (parent != null) {
             if (parent.getLevel() != null) {
                 return parent.getLevel();
             }
             return getEffectiveLevel(parent.getName());
         }
-        return Level.DEBUG; 
+        return Level.DEBUG;
     }
 
     
@@ -132,7 +132,7 @@ public final class LoggerFactory {
      *
      * @return 名称到 LoggerImpl 的映射（只读视图）
      */
-    public static Map<String, LoggerImpl> getLoggerMap() {
+    public static Map<String, Logger> getLoggerMap() {
         return LOGGER_MAP;
     }
 

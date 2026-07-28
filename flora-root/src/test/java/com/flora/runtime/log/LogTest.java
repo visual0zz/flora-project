@@ -1,4 +1,7 @@
-package com.flora.log;
+package com.flora.runtime.log;
+
+import com.flora.runtime.log.impl.LoggerImpl;
+import com.flora.runtime.log.impl.MessageFormatter;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -47,7 +50,7 @@ class LogTest {
      */
     @Test
     void testDefaultRootLevelIsDebug() {
-        assertEquals(Level.DEBUG, LoggerFactory.getRootLogger().getEffectiveLevel());
+        assertEquals(Level.DEBUG, ((LoggerImpl) LoggerFactory.getRootLogger()).getEffectiveLevel());
     }
 
     // ==================== 消息格式化 ====================
@@ -150,7 +153,7 @@ class LogTest {
      */
     @Test
     void testLevelThreshold() {
-        LoggerFactory.getRootLogger().setLevel(Level.WARN);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).setLevel(Level.WARN);
         Logger log = LoggerFactory.getLogger("thresholdTest");
         assertFalse(log.isInfoEnabled());
         assertTrue(log.isWarnEnabled());
@@ -164,10 +167,10 @@ class LogTest {
      */
     @Test
     void testConsoleAppender() {
-        LoggerFactory.getRootLogger().setLevel(Level.INFO);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).setLevel(Level.INFO);
         ConsoleAppender appender = new ConsoleAppender();
         appender.setLayout(new Layout("%level %msg%n"));
-        LoggerFactory.getRootLogger().addAppender(appender);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).addAppender(appender);
         Logger log = LoggerFactory.getLogger("consoleTest");
         log.info("console test message");
         log.error("error message");
@@ -184,10 +187,10 @@ class LogTest {
         Path tmpFile = Files.createTempFile("log-test-", ".log");
         tmpFile.toFile().deleteOnExit();
 
-        LoggerFactory.getRootLogger().setLevel(Level.INFO);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).setLevel(Level.INFO);
         FileAppender appender = new FileAppender(tmpFile.toString());
         appender.setLayout(new Layout("%msg%n"));
-        LoggerFactory.getRootLogger().addAppender(appender);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).addAppender(appender);
 
         Logger log = LoggerFactory.getLogger("fileTest");
         log.info("hello file");
@@ -206,12 +209,12 @@ class LogTest {
      */
     @Test
     void testLevelInheritance() {
-        LoggerFactory.getRootLogger().setLevel(Level.INFO);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).setLevel(Level.INFO);
         Logger child = LoggerFactory.getLogger("com.example");
         assertEquals(Level.INFO, ((LoggerImpl) child).getEffectiveLevel());
         assertTrue(child.isInfoEnabled());
 
-        LoggerFactory.getRootLogger().setLevel(Level.DEBUG);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).setLevel(Level.DEBUG);
         assertEquals(Level.DEBUG, ((LoggerImpl) child).getEffectiveLevel());
     }
 
@@ -220,7 +223,7 @@ class LogTest {
      */
     @Test
     void testChildOverridesLevel() {
-        LoggerFactory.getRootLogger().setLevel(Level.INFO);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).setLevel(Level.INFO);
         Logger child = LoggerFactory.getLogger("com.example");
         ((LoggerImpl) child).setLevel(Level.ERROR);
         assertEquals(Level.ERROR, ((LoggerImpl) child).getEffectiveLevel());
@@ -234,10 +237,10 @@ class LogTest {
     @Test
     void testAdditivity() {
         LoggerFactory.reset();
-        LoggerFactory.getRootLogger().setLevel(Level.INFO);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).setLevel(Level.INFO);
 
         CountingAppender rootAppender = new CountingAppender();
-        LoggerFactory.getRootLogger().addAppender(rootAppender);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).addAppender(rootAppender);
 
         LoggerImpl child = (LoggerImpl) LoggerFactory.getLogger("com.example");
         child.setLevel(Level.INFO);
@@ -288,7 +291,7 @@ class LogTest {
         Logger log = LoggerFactory.getLogger("configTest");
         log.info("config file test");
         log.info("second");
-        LoggerFactory.getRootLogger().getAppenders().forEach(Appender::close);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).getAppenders().forEach(Appender::close);
 
         String content = Files.readString(tmpFile);
         assertTrue(content.contains("config file test"), "content=[" + content + "]");
@@ -317,7 +320,7 @@ class LogTest {
         Logger log = LoggerFactory.getLogger("routingTest");
         log.info("info msg");
         log.error("error msg");
-        LoggerFactory.getRootLogger().getAppenders().forEach(Appender::close);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).getAppenders().forEach(Appender::close);
 
         String infoContent = Files.readString(infoFile);
         String errorContent = Files.readString(errorFile);
@@ -335,9 +338,9 @@ class LogTest {
      */
     @Test
     void testParameterizedLogging() {
-        LoggerFactory.getRootLogger().setLevel(Level.INFO);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).setLevel(Level.INFO);
         CountingAppender appender = new CountingAppender();
-        LoggerFactory.getRootLogger().addAppender(appender);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).addAppender(appender);
         Logger log = LoggerFactory.getLogger("paramTest");
         log.info("hello {}, you have {} messages", "Alice", 42);
         assertEquals(1, appender.count);

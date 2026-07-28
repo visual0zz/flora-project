@@ -1,4 +1,4 @@
-package com.flora.log;
+package com.flora.runtime.log;
 
 
 /**
@@ -24,7 +24,7 @@ public class LogEvent {
      * @param args             消息参数
      * @param formattedMessage 格式化后的完整消息
      */
-    LogEvent(String loggerName, Level level, String message, Object[] args, String formattedMessage) {
+    public LogEvent(String loggerName, Level level, String message, Object[] args, String formattedMessage) {
         this.loggerName = loggerName;
         this.level = level;
         this.message = message;

@@ -1,4 +1,6 @@
-package com.flora.log;
+package com.flora.runtime.log;
+
+import com.flora.runtime.log.impl.LoggerImpl;
 
 import java.util.function.Consumer;
 
@@ -42,7 +44,7 @@ public final class LogConfig {
      * @return 当前 LogConfig 实例（流式 API）
      */
     public LogConfig rootLevel(Level level) {
-        LoggerImpl root = LoggerFactory.getRootLogger();
+        LoggerImpl root = (LoggerImpl) LoggerFactory.getRootLogger();
         root.setLevel(level);
         return this;
     }
@@ -61,7 +63,7 @@ public final class LogConfig {
         appender.setName(c.name != null ? c.name : "console");
         if (c.pattern != null) appender.setLayout(new Layout(c.pattern));
         if (c.threshold != null) appender.setThreshold(c.threshold);
-        LoggerFactory.getRootLogger().addAppender(appender);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).addAppender(appender);
         return this;
     }
 
@@ -80,7 +82,7 @@ public final class LogConfig {
         appender.setName(c.name != null ? c.name : "file");
         if (c.pattern != null) appender.setLayout(new Layout(c.pattern));
         if (c.threshold != null) appender.setThreshold(c.threshold);
-        LoggerFactory.getRootLogger().addAppender(appender);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).addAppender(appender);
         return this;
     }
 
@@ -103,7 +105,7 @@ public final class LogConfig {
         if (c.datePattern != null) appender.datePattern(c.datePattern);
         if (c.maxSize > 0) appender.maxSize(c.maxSize);
         if (c.maxHistory > 0) appender.maxHistory(c.maxHistory);
-        LoggerFactory.getRootLogger().addAppender(appender);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).addAppender(appender);
         return this;
     }
 
@@ -123,7 +125,7 @@ public final class LogConfig {
         appender.setName(c.name != null ? c.name : "level-" + level.name().toLowerCase());
         if (c.pattern != null) appender.setLayout(new Layout(c.pattern));
         appender.setThreshold(level); 
-        LoggerFactory.getRootLogger().addAppender(appender);
+        ((LoggerImpl) LoggerFactory.getRootLogger()).addAppender(appender);
         return this;
     }
 

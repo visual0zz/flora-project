@@ -1,4 +1,10 @@
-package com.flora.log;
+package com.flora.runtime.log.impl;
+
+import com.flora.runtime.log.Appender;
+import com.flora.runtime.log.Level;
+import com.flora.runtime.log.LogEvent;
+import com.flora.runtime.log.Logger;
+import com.flora.runtime.log.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -21,7 +27,7 @@ public final class LoggerImpl implements Logger {
     
     volatile Level effectiveLevel;
 
-    LoggerImpl(String name) {
+    public LoggerImpl(String name) {
         this.name = name;
     }
 
@@ -99,7 +105,7 @@ public final class LoggerImpl implements Logger {
     /**
      * 重新计算有效级别：如果当前已设置级别则使用之，否则从 LoggerFactory 获取。
      */
-    void recomputeEffectiveLevel() {
+    public void recomputeEffectiveLevel() {
         if (level != null) {
             effectiveLevel = level;
         } else {
@@ -223,7 +229,7 @@ public final class LoggerImpl implements Logger {
             if (!current.additivity) {
                 break;
             }
-            current = LoggerFactory.getParent(current.name);
+            current = (LoggerImpl) LoggerFactory.getParent(current.name);
         }
     }
 }

@@ -19,7 +19,7 @@ module com.flora.root {
     exports com.flora.container.tuple;
     exports com.flora.codec;
     exports com.flora.java;
-    exports com.flora.log;
+    exports com.flora.runtime.log;
 
     uses Converter;
 }

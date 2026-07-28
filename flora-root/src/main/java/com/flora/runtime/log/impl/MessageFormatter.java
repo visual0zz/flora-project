@@ -1,11 +1,11 @@
-package com.flora.log;
+package com.flora.runtime.log.impl;
 
 
 /**
  * 消息格式化工具，将模板字符串中的 {@code {}} 占位符依次替换为参数值。
- * <p>包级私有，仅供日志框架内部使用。</p>
+ * <p>模块内公开，仅供日志框架内部使用（所在 impl 包不导出，外部不可见）。</p>
  */
-final class MessageFormatter {
+public final class MessageFormatter {
 
     private MessageFormatter() {
     }
@@ -17,7 +17,7 @@ final class MessageFormatter {
      * @param args     要替换的参数数组，多余参数将被忽略
      * @return 格式化后的字符串，模板为 null 时返回 null
      */
-    static String format(String template, Object[] args) {
+    public static String format(String template, Object[] args) {
         if (template == null) {
             return null;
         }

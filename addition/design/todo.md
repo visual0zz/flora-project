@@ -2,6 +2,7 @@
 ### 问题
 1. flora-root/src/main/java/com/flora/entropy/probds 里面的算法缺少人工核对
 2. flora-root/src/main/java/com/flora/fast/container/tuple 缺少人工核对
+3. flora-root/src/main/java/com/flora/os/virtual/file 缺少人工核对
 
 
 ### 想法

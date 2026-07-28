@@ -80,4 +80,21 @@ public interface Converter {
             return false;
         };
     }
+
+    /**
+     * 声明来源类型匹配器，用于更精确地判断是否支持某来源类型。
+     * <p>
+     * 默认实现基于 {@link #declareSourceTypes()} 返回的类型集合，沿用
+     * {@code declared.isAssignableFrom(sourceType)} 的判定（与 {@code filterBySourceMatch}
+     * 的原有行为一致），对已有转换器零影响、向后兼容。覆盖此方法可表达
+     * 「来源是任意 Bean」等谓词式匹配，与目标侧 {@link #declareTargetMatcher()} 对称。
+     * </p>
+     *
+     * @return 来源类型匹配器
+     */
+    default TargetMatcher declareSourceMatcher() {
+        Collection<Class<?>> declaredSources = declareSourceTypes();
+        return (sourceType, elementType) -> declaredSources.stream()
+                .anyMatch(st -> st.isAssignableFrom(sourceType));
+    }
 }

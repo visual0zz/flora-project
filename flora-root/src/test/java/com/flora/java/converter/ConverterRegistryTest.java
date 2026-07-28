@@ -367,4 +367,63 @@ class ConverterRegistryTest {
         List<?> result = facade.convertElements(List.of("1", "2"), List.class, Integer.class);
         assertEquals(List.of(999, 999), result);
     }
+
+    // ==================== 谓词式来源匹配（declareSourceMatcher） ====================
+
+    /**
+     * 覆盖 {@link Converter#declareSourceMatcher()} 的转换器，仅匹配简单名为
+     * "PredicateBean" 的来源类型，与 {@link #declareSourceTypes()} 返回的 {@link Object} 不同，
+     * 用于验证 filterBySourceMatch 改用谓词而非固定 Class 集合。
+     */
+    private static final class PredicateSourceConverter implements Converter {
+        @Override
+        public Collection<Class<?>> declareSourceTypes() {
+            return List.of(Object.class);
+        }
+
+        @Override
+        public Collection<Class<?>> declareTargetTypes() {
+            return List.of(String.class);
+        }
+
+        @Override
+        public TargetMatcher declareSourceMatcher() {
+            return (sourceType, elementType) ->
+                    sourceType != null && "PredicateBean".equals(sourceType.getSimpleName());
+        }
+
+        @Override
+        public Object convert(Object obj, Class<?> targetType, Class<?> elementType) {
+            return "converted";
+        }
+    }
+
+    private static final class PredicateBean {
+    }
+
+    /**
+     * 测试覆盖了 declareSourceMatcher 的转换器，来源匹配由谓词决定而非 declareSourceTypes。
+     */
+    @Test
+    void predicateSourceMatcherDrivesSourceMatch() {
+        ConverterRegistry registry = ConverterRegistry.newInstance(false, false);
+        registry.register(new PredicateSourceConverter());
+        // 谓词匹配：PredicateBean -> String 命中
+        assertNotNull(registry.find(PredicateBean.class, String.class, null));
+        // 谓词拒绝：String 不是 PredicateBean，即便 declareSourceTypes 含 Object
+        // 注意用非恒等式（String -> Integer）避免 identity 短路到 NoopConverter
+        assertNull(registry.find(String.class, Integer.class, null));
+    }
+
+    /**
+     * 测试默认 declareSourceMatcher（从 declareSourceTypes 推导）与原有行为一致，向后兼容。
+     */
+    @Test
+    void defaultSourceMatcherMirrorsDeclareSourceTypes() {
+        ConverterRegistry registry = ConverterRegistry.newInstance(false, false);
+        FixedConverter objectWide = new FixedConverter(Object.class, String.class, 0);
+        registry.register(objectWide);
+        assertSame(objectWide, registry.find(Integer.class, String.class, null));
+        assertSame(objectWide, registry.find(Long.class, String.class, null));
+    }
 }

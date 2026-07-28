@@ -207,11 +207,11 @@ public final class ConverterRegistry {
     }
 
     /**
-     * 过滤出声明类型可匹配来源类型的转换器。
+     * 过滤出声明来源匹配器可匹配来源类型的转换器。
      */
     private static List<Converter> filterBySourceMatch(List<Converter> list, Class<?> sourceType) {
         return list.stream()
-                .filter(e -> e.declareSourceTypes().stream().anyMatch(st -> st.isAssignableFrom(sourceType)))
+                .filter(e -> e.declareSourceMatcher().matches(sourceType, null))
                 .toList();
     }
 
@@ -266,10 +266,16 @@ public final class ConverterRegistry {
 
     /**
      * 计算转换器声明类型与来源类型之间的继承距离。
+     * <p>若转换器覆盖了 {@link Converter#declareSourceMatcher()}（谓词式匹配），
+     * 视为显式 opt-in，匹配时距离记为 0（最贴近）；否则按 {@code declareSourceTypes()}
+     * 的继承链计算最小距离，无匹配返回 -1。</p>
      *
      * @return 距离值，若无匹配则返回 -1
      */
     private static int sourceDistance(Converter executor, Class<?> sourceType) {
+        if (isSourceMatcherOverridden(executor)) {
+            return executor.declareSourceMatcher().matches(sourceType, null) ? 0 : -1;
+        }
         int min = MAX_DISTANCE;
         for (Class<?> declared : executor.declareSourceTypes()) {
             if (declared.isAssignableFrom(sourceType)) {
@@ -280,6 +286,18 @@ public final class ConverterRegistry {
             }
         }
         return min == MAX_DISTANCE ? -1 : min;
+    }
+
+    /**
+     * 判断转换器是否覆盖了默认的 {@link Converter#declareSourceMatcher()}。
+     * 通过反射定位方法声明的类：若声明类非 {@link Converter} 自身，则为覆盖实现。
+     */
+    private static boolean isSourceMatcherOverridden(Converter executor) {
+        try {
+            return executor.getClass().getMethod("declareSourceMatcher").getDeclaringClass() != Converter.class;
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
     }
 
     /**

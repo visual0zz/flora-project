@@ -1,6 +1,7 @@
 package com.flora.java;
 
 import java.util.StringJoiner;
+import java.util.regex.Pattern;
 
 /**
  * 字符串处理工具类。
@@ -335,7 +336,7 @@ public final class StrUtil {
     
     public static byte[] toBytes(String str) {
         if (str == null) {
-            return new byte[0];
+            return null;
         }
         return str.getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
@@ -348,5 +349,136 @@ public final class StrUtil {
         return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    
+
+    // ==================== 比较 / 包含 ====================
+
+    /**
+     * 忽略大小写比较两个字符串（null 安全）。
+     * <p>两个均为 null 时返回 true；仅其一为 null 时返回 false。</p>
+     *
+     * @param a 字符串 a
+     * @param b 字符串 b
+     * @return 忽略大小写相等时返回 true
+     */
+    public static boolean equalsIgnoreCase(String a, String b) {
+        if (a == b) {
+            return true;
+        }
+        return a != null && b != null && a.equalsIgnoreCase(b);
+    }
+
+    /**
+     * 判断字符串是否包含指定子串（null 安全）。
+     *
+     * @param str    原字符串，可为 null
+     * @param search 子串，可为 null（视为不包含）
+     * @return 若包含则返回 true
+     */
+    public static boolean contains(String str, String search) {
+        if (str == null || search == null) {
+            return false;
+        }
+        return str.contains(search);
+    }
+
+    /**
+     * 判断字符串是否包含指定字符（null 安全）。
+     *
+     * @param str     原字符串，可为 null
+     * @param leading 目标字符
+     * @return 若包含则返回 true
+     */
+    public static boolean contains(String str, char c) {
+        return str != null && str.indexOf(c) >= 0;
+    }
+
+    // ==================== 拆分 / 截取 ====================
+
+    /**
+     * 按分隔符拆分字符串，保留尾部空段。
+     *
+     * @param str       原字符串，可为 null（返回空数组）
+     * @param delimiter 分隔符，可为 null（视为空串分隔，即逐字符拆分）
+     * @return 拆分后的片段数组
+     */
+    public static String[] split(String str, String delimiter) {
+        if (str == null) {
+            return new String[0];
+        }
+        if (isEmpty(delimiter)) {
+            return str.split("", -1);
+        }
+        return str.split(Pattern.quote(delimiter), -1);
+    }
+
+    /**
+     * 返回分隔符首次出现之前的子串。
+     * <p>分隔符为 null、空串或不存在时返回原字符串；原字符串为 null 时返回 null。</p>
+     *
+     * @param str       原字符串
+     * @param separator 分隔符
+     * @return 分隔符之前的子串
+     */
+    public static String substringBefore(String str, String separator) {
+        if (str == null) {
+            return null;
+        }
+        if (isEmpty(separator)) {
+            return str;
+        }
+        int idx = str.indexOf(separator);
+        return idx < 0 ? str : str.substring(0, idx);
+    }
+
+    /**
+     * 返回分隔符首次出现之后的子串。
+     * <p>分隔符为 null、空串或不存在时返回空串；原字符串为 null 时返回 null。</p>
+     *
+     * @param str       原字符串
+     * @param separator 分隔符
+     * @return 分隔符之后的子串
+     */
+    public static String substringAfter(String str, String separator) {
+        if (str == null) {
+            return null;
+        }
+        if (isEmpty(separator)) {
+            return EMPTY;
+        }
+        int idx = str.indexOf(separator);
+        return idx < 0 ? EMPTY : str.substring(idx + separator.length());
+    }
+
+    // ==================== 类型判断 ====================
+
+    /**
+     * 判断字符串是否仅由数字字符组成（不含符号、小数点或空白）。
+     *
+     * @param str 待检查的字符串
+     * @return 若非空且全为数字字符则返回 true
+     */
+    public static boolean isNumeric(String str) {
+        if (isEmpty(str)) {
+            return false;
+        }
+        for (int i = 0; i < str.length(); i++) {
+            if (!Character.isDigit(str.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // ==================== Unicode 修剪 ====================
+
+    /**
+     * 去除字符串两端的 Unicode 空白字符（等价于 {@link String#strip()}）。
+     *
+     * @param str 待处理的字符串，可以为 null
+     * @return 修剪后的字符串，null 返回 null
+     */
+    public static String strip(String str) {
+        return str == null ? null : str.strip();
+    }
+
 }

@@ -56,17 +56,13 @@ public final class Ramet {
     }
 
     /**
-     * 在默认文件系统上执行代码生成（等用于 {@link #run(Path, Path, boolean)})）。
+     * 递归扫描 templatesDir 下所有 .ramet 文件（不区分大小写），
+     * 按模板元数据生成源码到 outputDir。
+     * <p>文件系统通过 {@code templatesDir.getFileSystem()} 确定 ——
+     * 传入 {@code VfsFileSystem} 创建的 Path 即运行在虚拟文件系统上。</p>
      */
     public static void run(Path templatesDir, Path outputDir, boolean dryRun) throws IOException {
-        run(templatesDir.getFileSystem(), templatesDir, outputDir, dryRun);
-    }
-
-    /**
-     * 在指定 {@code java.nio.file.FileSystem} 上执行代码生成。
-     * <p>接受默认文件系统（真实磁盘）或 {@code VfsFileSystem}（内存虚拟文件系统）。</p>
-     */
-    public static void run(java.nio.file.FileSystem fs, Path templatesDir, Path outputDir, boolean dryRun) throws IOException {
+        java.nio.file.FileSystem fs = templatesDir.getFileSystem();
         if (!Files.isDirectory(templatesDir)) {
             throw new IllegalArgumentException("模板目录不存在: " + templatesDir);
         }

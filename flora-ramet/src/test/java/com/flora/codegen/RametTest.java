@@ -38,7 +38,7 @@ class RametTest {
                 public class ${name} {}
                 """);
 
-        Ramet.run(fs, tplDir, fs.getPath("/out"), false);
+        Ramet.run(tplDir, fs.getPath("/out"), false);
 
         String content = Files.readString(fs.getPath("/out/Foo.java"));
         assertAll(
@@ -54,7 +54,7 @@ class RametTest {
         Files.createDirectories(tplDir);
         Files.writeString(fs.getPath("/tpl/d.ramet"), "<#meta>@Path{ \"D.java\" }</#meta>body");
 
-        Ramet.run(fs, tplDir, fs.getPath("/out"), true);
+        Ramet.run(tplDir, fs.getPath("/out"), true);
 
         assertFalse(Files.exists(fs.getPath("/out")), "dry-run 模式下不应写入文件");
     }
@@ -73,7 +73,7 @@ class RametTest {
                 A<#include "included.ramet">B
                 """);
 
-        Ramet.run(fs, tplDir, fs.getPath("/out"), false);
+        Ramet.run(tplDir, fs.getPath("/out"), false);
 
         String content = Files.readString(fs.getPath("/out/host.java")).replace("\n", "");
         assertTrue(content.contains("A[hello]B"), content);
@@ -95,7 +95,7 @@ class RametTest {
         Files.writeString(fs.getPath("/tpl/included.ramet"),
                 "<#meta>@Path{ \"root-inc.java\" }</#meta>[ROOT]");
 
-        Ramet.run(fs, tplDir, fs.getPath("/out"), false);
+        Ramet.run(tplDir, fs.getPath("/out"), false);
 
         String content = Files.readString(fs.getPath("/out/host.java")).replace("\n", "");
         assertTrue(content.contains("A[hi]B"), content);
@@ -107,7 +107,7 @@ class RametTest {
         VfsFileSystem fs = newMemFs();
         // 不创建 /tpl 目录
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> Ramet.run(fs, fs.getPath("/tpl"), fs.getPath("/out"), false));
+                () -> Ramet.run(fs.getPath("/tpl"), fs.getPath("/out"), false));
         assertTrue(ex.getMessage().contains("目录不存在"));
     }
 
@@ -120,7 +120,7 @@ class RametTest {
         Files.writeString(fs.getPath("/tpl/upper.ramet"), "<#meta>@Path{ \"DUP.java\" }</#meta>UPPER");
 
         CodeGenException ex = assertThrows(CodeGenException.class,
-                () -> Ramet.run(fs, tplDir, fs.getPath("/out"), false));
+                () -> Ramet.run(tplDir, fs.getPath("/out"), false));
         assertTrue(ex.getMessage().contains("大小写不敏感碰撞"), ex.getMessage());
     }
 }

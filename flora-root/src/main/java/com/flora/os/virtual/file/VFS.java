@@ -87,8 +87,9 @@ public final class VFS {
 
     /** 虚拟根目录后端 —— 仅返回挂载点列表。 */
     private class RootBackend implements FSBackend {
-        @Override public FileAttributes getAttributes(String path) {
-            if (path.equals("/")) return new FileAttributes(true, false, true, 0, 0, 0, true, false);
+        @Override public FileAttributes getAttributes(String path) { return getAttributes(path, true); }
+        @Override public FileAttributes getAttributes(String path, boolean followLinks) {
+            if (path.equals("/")) return new FileAttributes(true, false, true, false, 0, 0, 0, true, false);
             return FileAttributes.NOT_FOUND;
         }
         @Override public java.io.InputStream read(String path) { throw new UnsupportedOperationException("根目录不支持读"); }
@@ -100,5 +101,7 @@ public final class VFS {
         @Override public List<String> list(String path) {
             return mounts.stream().map(Mount::prefix).sorted().toList();
         }
+        @Override public boolean createSymbolicLink(String path, String target) { return false; }
+        @Override public String readSymbolicLink(String path) { throw new UnsupportedOperationException("根目录不支持符号链接"); }
     }
 }

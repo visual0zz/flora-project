@@ -35,6 +35,11 @@ public final class RealFileSystem implements FSBackend {
 
     @Override
     public FileAttributes getAttributes(String path) {
+        return getAttributes(path, true);
+    }
+
+    @Override
+    public FileAttributes getAttributes(String path, boolean followLinks) {
         Path p = realPath(path);
         try {
             BasicFileAttributes attr = Files.readAttributes(p, BasicFileAttributes.class);
@@ -42,6 +47,7 @@ public final class RealFileSystem implements FSBackend {
                     true,
                     attr.isRegularFile(),
                     attr.isDirectory(),
+                    attr.isSymbolicLink(),
                     attr.size(),
                     attr.lastModifiedTime().toMillis(),
                     attr.creationTime().toMillis(),
@@ -97,5 +103,19 @@ public final class RealFileSystem implements FSBackend {
         try (Stream<Path> stream = Files.list(p)) {
             return stream.map(p2 -> p2.getFileName().toString()).toList();
         }
+    }
+
+    @Override
+    public boolean createSymbolicLink(String path, String target) throws IOException {
+        Path link = realPath(path);
+        Path parent = link.getParent();
+        if (parent != null) Files.createDirectories(parent);
+        Files.createSymbolicLink(link, Path.of(target));
+        return true;
+    }
+
+    @Override
+    public String readSymbolicLink(String path) throws IOException {
+        return Files.readSymbolicLink(realPath(path)).toString();
     }
 }

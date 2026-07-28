@@ -12,8 +12,13 @@ import java.util.List;
  */
 public interface FSBackend {
 
-    /** 获取文件/目录元数据。路径不存在返回 {@link FileAttributes#NOT_FOUND}。 */
-    FileAttributes getAttributes(String path);
+    /** 获取文件/目录元数据（跟随符号链接）。路径不存在返回 {@link FileAttributes#NOT_FOUND}。 */
+    default FileAttributes getAttributes(String path) {
+        return getAttributes(path, true);
+    }
+
+    /** 获取文件/目录元数据。 */
+    FileAttributes getAttributes(String path, boolean followLinks);
 
     /** 打开输入流读取文件内容。路径必须为合法文件。 */
     InputStream read(String path) throws IOException;
@@ -38,4 +43,10 @@ public interface FSBackend {
 
     /** 列出目录下的子项名称（不含路径）。返回空列表若不存在或非目录。 */
     List<String> list(String path) throws IOException;
+
+    /** 创建符号链接。返回 false 若 path 已存在。 */
+    boolean createSymbolicLink(String path, String target) throws IOException;
+
+    /** 读取符号链接的目标路径。路径非符号链接时抛出 IOException。 */
+    String readSymbolicLink(String path) throws IOException;
 }

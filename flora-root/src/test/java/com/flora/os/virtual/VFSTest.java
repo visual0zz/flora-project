@@ -4,12 +4,15 @@ import com.flora.os.virtual.file.VFile;
 import com.flora.os.virtual.file.VFS;
 import com.flora.os.virtual.file.backend.MemoryFileSystem;
 import com.flora.os.virtual.file.backend.RealFileSystem;
+import com.flora.os.virtual.file.nio.VfsFileSystem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -265,5 +268,78 @@ class VFSTest {
         VFile f = vfs.get("/tmp/test.txt");
         f.writeString("isolated");
         assertEquals("isolated", f.readString());
+    }
+
+    // ===================== 符号链接 =====================
+
+    @Test
+    void symlinkCreateAndRead() throws IOException {
+        VFS vfs = new VFS();
+        vfs.mount("/", new MemoryFileSystem());
+
+        vfs.get("/target.txt").writeString("hello");
+
+        assertTrue(vfs.get("/target.txt").exists());
+
+        // 通过 NIO 创建符号链接
+        VfsFileSystem fs = new VfsFileSystem(vfs);
+        Files.createSymbolicLink(fs.getPath("/link.txt"), fs.getPath("/target.txt"));
+
+        // 读取链接目标
+        assertTrue(Files.isSymbolicLink(fs.getPath("/link.txt")));
+        assertEquals("/target.txt", Files.readSymbolicLink(fs.getPath("/link.txt")).toString());
+
+        // 通过符号链接读取内容
+        assertEquals("hello", Files.readString(fs.getPath("/link.txt")));
+    }
+
+    @Test
+    void symlinkNoFollowAttributes() throws IOException {
+        VFS vfs = new VFS();
+        vfs.mount("/", new MemoryFileSystem());
+        VfsFileSystem fs = new VfsFileSystem(vfs);
+
+        vfs.get("/real").writeString("data");
+        Files.createSymbolicLink(fs.getPath("/link"), fs.getPath("/real"));
+
+        // 不跟随链接的读属性 → 标记为符号链接
+        BasicFileAttributes linkAttr = Files.readAttributes(fs.getPath("/link"),
+                BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        assertTrue(linkAttr.isSymbolicLink());
+        assertFalse(linkAttr.isRegularFile());
+
+        // 跟随链接的读属性 → 标记为普通文件
+        BasicFileAttributes followAttr = Files.readAttributes(fs.getPath("/link"),
+                BasicFileAttributes.class);
+        assertTrue(followAttr.isRegularFile());
+    }
+
+    @Test
+    void symlinkDeleteDoesNotRemoveTarget() throws IOException {
+        VFS vfs = new VFS();
+        vfs.mount("/", new MemoryFileSystem());
+        VfsFileSystem fs = new VfsFileSystem(vfs);
+
+        vfs.get("/target").writeString("data");
+        Files.createSymbolicLink(fs.getPath("/link"), fs.getPath("/target"));
+
+        Files.delete(fs.getPath("/link"));
+        assertTrue(vfs.get("/target").exists());
+        assertFalse(vfs.get("/link").exists());
+    }
+
+    @Test
+    void symlinkRelativeTarget() throws IOException {
+        VFS vfs = new VFS();
+        vfs.mount("/", new MemoryFileSystem());
+        VfsFileSystem fs = new VfsFileSystem(vfs);
+
+        vfs.get("/dir/target.txt").mkDirs();
+        vfs.get("/dir/target.txt").writeString("data");
+        // VfsFileSystem 路径总是绝对路径，因此符号链接目标为 /dir/target.txt
+        Files.createSymbolicLink(fs.getPath("/dir/link.txt"), fs.getPath("dir/target.txt"));
+
+        assertEquals("/dir/target.txt", Files.readSymbolicLink(fs.getPath("/dir/link.txt")).toString());
+        assertEquals("data", Files.readString(fs.getPath("/dir/link.txt")));
     }
 }

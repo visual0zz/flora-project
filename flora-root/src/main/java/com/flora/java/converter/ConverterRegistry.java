@@ -58,7 +58,8 @@ public final class ConverterRegistry {
         BUILT_IN_CONVERTERS.add(new NumberConverter());
         BUILT_IN_CONVERTERS.add(new StringConverter());
         BUILT_IN_CONVERTERS.add(new DateConverter());
-        BUILT_IN_CONVERTERS.add(new LocalTimeConverter());
+        BUILT_IN_CONVERTERS.add(new ToLocalTimeConverter());
+        BUILT_IN_CONVERTERS.add(new FromLocalTimeConverter());
         BUILT_IN_CONVERTERS.add(new EnumConverter());
         BUILT_IN_CONVERTERS.add(new ArrayConverter());
         BUILT_IN_CONVERTERS.add(new CollectionConverter());

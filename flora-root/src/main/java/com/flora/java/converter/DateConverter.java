@@ -27,7 +27,7 @@ import java.util.Locale;
  * 内部以 {@link LocalDateTime} 为中枢：含时区的类型（{@code OffsetDateTime}/
  * {@code ZonedDateTime}/{@code Instant}/{@code Date}）按系统默认时区与中枢互转。
  * 仅含时间分量的 {@link java.time.LocalTime} 不属于本转换器职责，由
- * {@link LocalTimeConverter} 全权承接，二者正交、互不抢源。
+ * {@link ToLocalTimeConverter} / {@link FromLocalTimeConverter} 全权承接，二者正交、互不抢源。
  * </p>
  */
 public final class DateConverter implements Converter {

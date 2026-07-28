@@ -2,8 +2,13 @@ package com.flora.java.converter;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -215,5 +220,97 @@ class DateConverterTest {
         DateConverter custom = new DateConverter("dd/MM/yyyy");
         Object result = custom.convert("04/03/2025", LocalDate.class);
         assertEquals(LocalDate.of(2025, 3, 4), result);
+    }
+
+    // ========== 新增时间类型：Instant / OffsetDateTime / ZonedDateTime / LocalTime ==========
+
+    /**
+     * 测试 Instant 转 LocalDateTime（按系统默认时区）。
+     */
+    @Test
+    void instantToLocalDateTime() {
+        Instant now = Instant.now();
+        LocalDateTime result = (LocalDateTime) converter.convert(now, LocalDateTime.class);
+        assertEquals(LocalDateTime.ofInstant(now, ZoneId.systemDefault()), result);
+    }
+
+    /**
+     * 测试 LocalDateTime 转 Instant。
+     */
+    @Test
+    void localDateTimeToInstant() {
+        LocalDateTime ldt = LocalDateTime.of(2025, 6, 15, 10, 30);
+        Instant result = (Instant) converter.convert(ldt, Instant.class);
+        assertEquals(ldt.atZone(ZoneId.systemDefault()).toInstant(), result);
+    }
+
+    /**
+     * 测试 OffsetDateTime 与 LocalDateTime 互转（保留墙钟时间）。
+     */
+    @Test
+    void offsetDateTimeRoundTrip() {
+        OffsetDateTime odt = OffsetDateTime.of(2025, 6, 15, 10, 30, 0, 0, ZoneId.of("+08:00").getRules().getOffset(LocalDateTime.of(2025, 6, 15, 10, 30)));
+        LocalDateTime ldt = (LocalDateTime) converter.convert(odt, LocalDateTime.class);
+        assertEquals(odt.toLocalDateTime(), ldt);
+        OffsetDateTime back = (OffsetDateTime) converter.convert(ldt, OffsetDateTime.class);
+        assertEquals(ldt.atZone(ZoneId.systemDefault()).toOffsetDateTime(), back);
+    }
+
+    /**
+     * 测试 ZonedDateTime 与 LocalDateTime 互转。
+     */
+    @Test
+    void zonedDateTimeRoundTrip() {
+        ZonedDateTime zdt = ZonedDateTime.of(2025, 6, 15, 10, 30, 0, 0, ZoneId.of("America/New_York"));
+        LocalDateTime ldt = (LocalDateTime) converter.convert(zdt, LocalDateTime.class);
+        assertEquals(zdt.toLocalDateTime(), ldt);
+        ZonedDateTime back = (ZonedDateTime) converter.convert(ldt, ZonedDateTime.class);
+        assertEquals(ldt.atZone(ZoneId.systemDefault()), back);
+    }
+
+    /**
+     * 测试 LocalTime 转字符串（仅时间分量）。
+     */
+    @Test
+    void localTimeToString() {
+        Object result = converter.convert(LocalTime.of(10, 30, 45), String.class);
+        assertEquals("10:30:45", result);
+    }
+
+    /**
+     * 测试 LocalTime 转 LocalDateTime（以纪元首日补齐日期）。
+     */
+    @Test
+    void localTimeToLocalDateTime() {
+        LocalDateTime result = (LocalDateTime) converter.convert(LocalTime.of(10, 30), LocalDateTime.class);
+        assertEquals(LocalDateTime.of(1970, 1, 1, 10, 30), result);
+    }
+
+    /**
+     * 测试 LocalTime 转无日期语义目标（Long/Instant）应抛异常。
+     */
+    @Test
+    void localTimeToLongThrows() {
+        assertThrows(IllegalArgumentException.class,
+                () -> converter.convert(LocalTime.of(10, 30), Long.class));
+    }
+
+    /**
+     * 测试 Date 转 Instant。
+     */
+    @Test
+    void dateToInstant() {
+        Date d = new Date(1700000000000L);
+        Instant result = (Instant) converter.convert(d, Instant.class);
+        assertEquals(d.toInstant(), result);
+    }
+
+    /**
+     * 测试 Long 时间戳转 Instant。
+     */
+    @Test
+    void longToInstant() {
+        Instant result = (Instant) converter.convert(1700000000000L, Instant.class);
+        assertEquals(Instant.ofEpochMilli(1700000000000L), result);
     }
 }

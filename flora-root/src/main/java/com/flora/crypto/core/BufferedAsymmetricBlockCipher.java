@@ -1,4 +1,5 @@
 package com.flora.crypto.core;
+import com.flora.tag.ThreadFragile;
 
 import com.flora.java.CheckUtil;
 
@@ -10,6 +11,7 @@ import java.io.ByteArrayOutputStream;
  * 「逐字节/逐段流式」接口：输入累积到整块大小即调用底层处理，余下不足一块的部分留待后续
  * （非对称块密码本就要求整块输入）。</p>
  */
+@ThreadFragile
 public final class BufferedAsymmetricBlockCipher implements AsymmetricCipher {
 
     private final AsymmetricBlockCipher cipher;

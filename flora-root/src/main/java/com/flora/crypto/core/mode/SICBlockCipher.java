@@ -1,4 +1,5 @@
 package com.flora.crypto.core.mode;
+import com.flora.tag.ThreadFragile;
 
 import com.flora.crypto.core.BlockCipher;
 import com.flora.crypto.core.CipherParameters;
@@ -10,6 +11,7 @@ import com.flora.java.CheckUtil;
  * <p>包裹一个原始分组密码，以 IV 为初始计数器，逐块加密计数器并异或明文。
  * 加密与解密操作相同。{@link #process(byte[])} 要求输入块对齐。</p>
  */
+@ThreadFragile
 public final class SICBlockCipher implements BlockCipher {
 
     private final BlockCipher cipher;

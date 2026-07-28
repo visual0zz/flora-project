@@ -1,4 +1,5 @@
 package com.flora.crypto.core.mode;
+import com.flora.tag.ThreadFragile;
 
 import com.flora.crypto.core.AEADBlockCipher;
 import com.flora.crypto.core.BlockCipher;
@@ -11,6 +12,7 @@ import com.flora.crypto.core.engine.JdkAeadBlockCipher;
  * {@link AEADBlockCipher}。内部 GCM 认证逻辑委托给 JDK（GHASH 自实现风险较高，故走 JDK 适配器），
  * 但接口面与 BC 的 {@code GCMBlockCipher} 一致。</p>
  */
+@ThreadFragile
 public final class GCMBlockCipher implements AEADBlockCipher {
 
     private final JdkAeadBlockCipher delegate;

@@ -1,4 +1,5 @@
 package com.flora.crypto.core.engine;
+import com.flora.tag.ThreadFragile;
 import com.flora.crypto.core.Signer;
 import com.flora.crypto.core.CipherParameters;
 
@@ -16,6 +17,7 @@ import java.security.SignatureException;
  * 把 JDK 自带的 {@link Signature} 接入 {@link Signer} 接口。
  * <p>示例：{@code CryptoProvider.signer("SHA256withRSA")}。</p>
  */
+@ThreadFragile
 public final class JdkSigner implements Signer {
 
     private final String algorithm;

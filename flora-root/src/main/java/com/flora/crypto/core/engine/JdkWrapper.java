@@ -1,4 +1,5 @@
 package com.flora.crypto.core.engine;
+import com.flora.tag.ThreadFragile;
 
 import com.flora.crypto.core.AsymmetricKeyParameter;
 import com.flora.crypto.core.CipherParameters;
@@ -16,6 +17,7 @@ import java.security.Key;
  * <p>JDK 的 {@code Cipher.wrap/unwrap} 要求传入 {@code Key} 对象；本适配器把「待包装的字节」
  * 与「包装密钥」都按 JCE 算法名构造为 {@code SecretKeySpec}，从而以字节数组形态完成包装/解包。</p>
  */
+@ThreadFragile
 public final class JdkWrapper implements Wrapper {
 
     private final String algorithm;

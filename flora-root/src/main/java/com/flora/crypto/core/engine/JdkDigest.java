@@ -1,4 +1,5 @@
 package com.flora.crypto.core.engine;
+import com.flora.tag.ThreadFragile;
 import com.flora.crypto.core.Digest;
 import com.flora.crypto.core.ExtendedDigest;
 
@@ -11,6 +12,7 @@ import java.security.NoSuchAlgorithmException;
  * 把 JDK 自带的 {@link MessageDigest} 接入 {@link ExtendedDigest} 接口。
  * <p>示例：{@code CryptoProvider.digest("SHA-256")} 或 {@code JdkDigest.of("SHA-512")}。</p>
  */
+@ThreadFragile
 public final class JdkDigest implements ExtendedDigest {
 
     private final String algorithm;

@@ -1,4 +1,5 @@
 package com.flora.crypto.core.engine;
+import com.flora.tag.ThreadFragile;
 
 import com.flora.crypto.core.AsymmetricCipherKeyPair;
 import com.flora.crypto.core.AsymmetricCipherKeyPairGenerator;
@@ -15,6 +16,7 @@ import java.security.NoSuchAlgorithmException;
  * 把 JDK 的 {@link KeyPairGenerator} 接入 {@link AsymmetricCipherKeyPairGenerator} 接口，
  * 返回本项目的轻量级 {@link AsymmetricCipherKeyPair}（持有 {@link AsymmetricKeyParameter}）。
  */
+@ThreadFragile
 public final class JdkAsymmetricKeyPairGenerator implements AsymmetricCipherKeyPairGenerator {
 
     private final String algorithm;

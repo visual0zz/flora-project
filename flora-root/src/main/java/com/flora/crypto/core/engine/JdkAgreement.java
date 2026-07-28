@@ -1,4 +1,5 @@
 package com.flora.crypto.core.engine;
+import com.flora.tag.ThreadFragile;
 
 import com.flora.crypto.core.Agreement;
 import com.flora.crypto.core.AsymmetricKeyParameter;
@@ -12,6 +13,7 @@ import java.security.NoSuchAlgorithmException;
 /**
  * 把 JDK 的 {@link KeyAgreement} 接入 {@link Agreement} 接口（ECDH / DH / X25519 等）。
  */
+@ThreadFragile
 public final class JdkAgreement implements Agreement {
 
     private final String algorithm;

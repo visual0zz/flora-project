@@ -1,4 +1,5 @@
 package com.flora.crypto.core.mode;
+import com.flora.tag.ThreadFragile;
 
 import com.flora.crypto.core.BlockCipher;
 import com.flora.crypto.core.CipherParameters;
@@ -10,6 +11,7 @@ import com.flora.java.CheckUtil;
  * <p>包裹一个原始分组密码，把分组密码变成同步流密码。加密与解密使用完全相同的操作，
  * IV 作为初始状态。{@link #process(byte[])} 要求输入块对齐。</p>
  */
+@ThreadFragile
 public final class OFBBlockCipher implements BlockCipher {
 
     private final BlockCipher cipher;

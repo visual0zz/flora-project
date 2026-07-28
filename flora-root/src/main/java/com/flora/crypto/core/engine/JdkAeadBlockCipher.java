@@ -1,4 +1,5 @@
 package com.flora.crypto.core.engine;
+import com.flora.tag.ThreadFragile;
 
 import com.flora.crypto.core.AEADBlockCipher;
 import com.flora.crypto.core.AsymmetricKeyParameter;
@@ -20,6 +21,7 @@ import java.security.Key;
  * <p>注意：JDK 把 GCM 标签直接附在 {@code doFinal} 密文末尾，因此 {@link #getMac()} 在加密后返回
  * 密文末 16 字节（GCM 标签）；解密后调用通常无独立标签可读，返回空数组。</p>
  */
+@ThreadFragile
 public final class JdkAeadBlockCipher implements AEADBlockCipher {
 
     private final String transformation;

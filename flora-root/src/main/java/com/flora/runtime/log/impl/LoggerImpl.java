@@ -1,4 +1,5 @@
 package com.flora.runtime.log.impl;
+import com.flora.tag.ThreadFragile;
 
 import com.flora.runtime.log.Appender;
 import com.flora.runtime.log.Level;
@@ -17,6 +18,7 @@ import java.util.List;
  * 维护日志级别、附加器列表和层级追加功能（additivity）。
  * 通过 LoggerFactory 获取有效级别，并支持向父级日志器传递日志事件。
  */
+@ThreadFragile
 public final class LoggerImpl implements Logger {
 
     private final String name;

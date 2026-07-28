@@ -1,4 +1,5 @@
 package com.flora.crypto.core.engine;
+import com.flora.tag.ThreadFragile;
 
 import com.flora.crypto.core.EntropySource;
 import com.flora.crypto.core.KeyParameter;
@@ -16,6 +17,7 @@ import java.util.Arrays;
  * <p>提供两种构造：{@link #HMacDrbg(Mac, EntropySource, int, byte[])} 由熵源实时取熵（生产用）；
  * {@link #HMacDrbg(Mac, byte[], byte[], byte[])} 直接指定熵/nonce（测试可复现用）。</p>
  */
+@ThreadFragile
 public final class HMacDrbg implements SP80090DRBG {
 
     private static final long MAX_BITS_REQUEST = 1L << 19;   // 单次请求上限 2^19 bits

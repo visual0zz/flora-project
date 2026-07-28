@@ -1,4 +1,5 @@
 package com.flora.crypto.core.engine;
+import com.flora.tag.ThreadFragile;
 import com.flora.crypto.core.Mac;
 import com.flora.crypto.core.CipherParameters;
 
@@ -12,6 +13,7 @@ import java.security.NoSuchAlgorithmException;
  * 把 JDK 自带的 {@link javax.crypto.Mac} 接入 {@link Mac} 接口。
  * <p>示例：{@code CryptoProvider.mac("HmacSHA256")}。</p>
  */
+@ThreadFragile
 public final class JdkMac implements Mac {
 
     private final String algorithm;

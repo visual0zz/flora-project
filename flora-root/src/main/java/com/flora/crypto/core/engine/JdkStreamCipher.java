@@ -1,4 +1,5 @@
 package com.flora.crypto.core.engine;
+import com.flora.tag.ThreadFragile;
 import com.flora.crypto.core.StreamCipher;
 import com.flora.crypto.core.CipherParameters;
 
@@ -13,6 +14,7 @@ import java.security.NoSuchAlgorithmException;
  * 把 JDK 自带的 {@link Cipher}（流密码模式）接入 {@link StreamCipher} 接口。
  * <p>示例：{@code CryptoProvider.streamCipher("RC4")}。</p>
  */
+@ThreadFragile
 public final class JdkStreamCipher implements StreamCipher {
 
     private final String transformation;

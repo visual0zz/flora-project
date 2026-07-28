@@ -1,4 +1,5 @@
 package com.flora.crypto.core;
+import com.flora.tag.ThreadFragile;
 
 import com.flora.java.CheckUtil;
 
@@ -12,6 +13,7 @@ import java.io.ByteArrayOutputStream;
  * <p>本装饰器只做缓冲，不实现任何加密逻辑。对于 {@code NoPadding} 引擎，要求输入长度为
  * 块大小的整数倍；非对齐数据请改用带填充的 {@link JdkBlockCipher#process(byte[])}。</p>
  */
+@ThreadFragile
 public final class BufferedBlockCipher {
 
     private final BlockCipher cipher;

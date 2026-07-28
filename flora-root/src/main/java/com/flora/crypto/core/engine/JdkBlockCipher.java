@@ -1,4 +1,5 @@
 package com.flora.crypto.core.engine;
+import com.flora.tag.ThreadFragile;
 import com.flora.crypto.core.BlockCipher;
 import com.flora.crypto.core.CipherParameters;
 
@@ -21,6 +22,7 @@ import java.security.NoSuchAlgorithmException;
  * {@link #process(byte[])}：一次性处理整段数据（JDK 负责填充与 GCM 认证标签），
  * 是日常使用的主要入口。</p>
  */
+@ThreadFragile
 public final class JdkBlockCipher implements BlockCipher {
 
     private final String transformation;

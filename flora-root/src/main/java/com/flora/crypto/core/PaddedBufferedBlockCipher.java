@@ -1,4 +1,5 @@
 package com.flora.crypto.core;
+import com.flora.tag.ThreadFragile;
 
 import com.flora.crypto.core.padding.PKCS7Padding;
 import com.flora.java.CheckUtil;
@@ -11,6 +12,7 @@ import java.security.SecureRandom;
  * <p>组合一个 {@link BlockCipher} 与一个 {@link BlockCipherPadding}，使「逐块」引擎也能直接处理
  * 任意长度数据：加密时在末块加填充，解密时从末块去除填充。默认使用 PKCS7 填充。</p>
  */
+@ThreadFragile
 public final class PaddedBufferedBlockCipher {
 
     private final BlockCipher cipher;

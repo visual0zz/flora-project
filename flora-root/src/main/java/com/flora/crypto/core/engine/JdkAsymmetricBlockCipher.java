@@ -1,4 +1,5 @@
 package com.flora.crypto.core.engine;
+import com.flora.tag.ThreadFragile;
 import com.flora.crypto.core.AsymmetricBlockCipher;
 import com.flora.crypto.core.CipherParameters;
 
@@ -16,6 +17,7 @@ import java.security.interfaces.RSAPublicKey;
  * 把 JDK 自带的 {@link Cipher}（非对称，如 RSA）接入 {@link AsymmetricBlockCipher} 接口。
  * <p>示例：{@code CryptoProvider.asymmetricCipher("RSA/ECB/PKCS1Padding")} 或 {@code JdkAsymmetricBlockCipher.rsa()}。</p>
  */
+@ThreadFragile
 public final class JdkAsymmetricBlockCipher implements AsymmetricBlockCipher {
 
     private final String transformation;

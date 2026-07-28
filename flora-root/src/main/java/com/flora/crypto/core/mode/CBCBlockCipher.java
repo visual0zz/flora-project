@@ -1,4 +1,5 @@
 package com.flora.crypto.core.mode;
+import com.flora.tag.ThreadFragile;
 
 import com.flora.crypto.core.BlockCipher;
 import com.flora.crypto.core.CipherParameters;
@@ -12,6 +13,7 @@ import com.flora.java.CheckUtil;
  * <p>注意：本类不做填充，{@link #process(byte[])} 要求输入为块大小整数倍；
  * 需要填充请改用 {@code PaddedBufferedBlockCipher} 或在 JDK 适配器里处理。</p>
  */
+@ThreadFragile
 public final class CBCBlockCipher implements BlockCipher {
 
     private final BlockCipher cipher;

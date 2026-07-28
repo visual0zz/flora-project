@@ -1,7 +1,7 @@
 package com.flora.java.converter;
 
 import com.flora.java.Converter;
-import com.flora.java.TargetMatcher;
+import com.flora.java.TypeMatcher;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -29,8 +29,8 @@ public final class MapConverter implements Converter {
     }
 
     @Override
-    public TargetMatcher declareSourceMatcher() {
-        return (sourceType, elementType) -> sourceType != null && BeanSupport.isBeanType(sourceType);
+    public TypeMatcher declareSourceMatcher() {
+        return (sourceType, elementType) -> BeanSupport.isBeanType(sourceType);
     }
 
     @Override

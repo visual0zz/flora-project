@@ -7,7 +7,7 @@ package com.flora.java;
  * </p>
  */
 @FunctionalInterface
-public interface TargetMatcher {
+public interface TypeMatcher {
 
     /**
      * 判断是否匹配指定的目标类型和元素类型。

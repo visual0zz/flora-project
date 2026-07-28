@@ -3,7 +3,7 @@ package com.flora.java.converter;
 import com.flora.cache.store.ConcurrentHashMapCache;
 import com.flora.java.CheckUtil;
 import com.flora.java.Converter;
-import com.flora.java.TargetMatcher;
+import com.flora.java.TypeMatcher;
 import com.flora.java.clazz.InheritTreeTraverser;
 import com.flora.java.clazz.InheritDistanceCalculator;
 import com.flora.tag.LogicFragile;
@@ -315,7 +315,7 @@ public final class ConverterRegistry {
      * @param elementType 元素类型
      * @return 打包后的距离值（高16位为 targetRank，低16位为 elementRank）
      */
-    public static int targetRejectionDistance(TargetMatcher matcher, Class<?> targetType, Class<?> elementType) {
+    public static int targetRejectionDistance(TypeMatcher matcher, Class<?> targetType, Class<?> elementType) {
         int targetRank = rankDepth(matcher, targetType, elementType, true);
         int elementRank = rankDepth(matcher, targetType, elementType, false);
         return (targetRank << 16) | elementRank;
@@ -335,8 +335,8 @@ public final class ConverterRegistry {
      * @param isTarget    true 计算 targetRank，false 计算 elementRank
      * @return 匹配深度（0 表示无匹配），无匹配返回 {@link #MAX_RANK}
      */
-    private static int rankDepth(TargetMatcher matcher, Class<?> targetType,
-                                  Class<?> elementType, boolean isTarget) {
+    private static int rankDepth(TypeMatcher matcher, Class<?> targetType,
+                                 Class<?> elementType, boolean isTarget) {
         Class<?> root = isTarget ? targetType : elementType;
         if (root == null) {
             return MAX_RANK;

@@ -3,8 +3,7 @@ package com.flora.java.converter;
 import com.flora.java.ConvertUtil;
 import com.flora.java.ConversionContext;
 import com.flora.java.Converter;
-import com.flora.java.TargetMatcher;
-import com.flora.java.converter.ConverterRegistry;
+import com.flora.java.TypeMatcher;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
@@ -50,7 +49,7 @@ public final class CollectionConverter implements Converter {
     }
 
     @Override
-    public TargetMatcher declareTargetMatcher() {
+    public TypeMatcher declareTargetMatcher() {
         return (targetType, elementType) ->
                 Collection.class.isAssignableFrom(targetType)
                 && (elementType == null || !Collection.class.isAssignableFrom(elementType));

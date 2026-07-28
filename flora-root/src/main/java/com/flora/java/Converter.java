@@ -60,7 +60,7 @@ public interface Converter {
      *
      * @return 目标类型匹配器
      */
-    default TargetMatcher declareTargetMatcher() {
+    default TypeMatcher declareTargetMatcher() {
         Collection<Class<?>> declaredTargets = declareTargetTypes();
         return (targetType, elementType) -> {
             for (Class<?> declared : declaredTargets) {
@@ -92,7 +92,7 @@ public interface Converter {
      *
      * @return 来源类型匹配器
      */
-    default TargetMatcher declareSourceMatcher() {
+    default TypeMatcher declareSourceMatcher() {
         Collection<Class<?>> declaredSources = declareSourceTypes();
         return (sourceType, elementType) -> declaredSources.stream()
                 .anyMatch(st -> st.isAssignableFrom(sourceType));

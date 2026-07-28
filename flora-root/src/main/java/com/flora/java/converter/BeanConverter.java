@@ -1,13 +1,11 @@
 package com.flora.java.converter;
 
 import com.flora.java.Converter;
-import com.flora.java.TargetMatcher;
+import com.flora.java.TypeMatcher;
 
-import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.RecordComponent;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -32,7 +30,7 @@ public final class BeanConverter implements Converter {
     }
 
     @Override
-    public TargetMatcher declareTargetMatcher() {
+    public TypeMatcher declareTargetMatcher() {
         return (targetType, elementType) -> targetType != null && BeanSupport.isBeanType(targetType);
     }
 

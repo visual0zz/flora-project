@@ -1,12 +1,7 @@
 package com.flora.java.converter;
 
-import com.flora.java.converter.ArrayConverter;
-import com.flora.java.converter.CollectionConverter;
-import com.flora.java.converter.ConvertFacade;
 import com.flora.java.Converter;
-import com.flora.java.converter.ConverterRegistry;
-import com.flora.java.converter.EnumConverter;
-import com.flora.java.TargetMatcher;
+import com.flora.java.TypeMatcher;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -287,7 +282,7 @@ class ConverterRegistryTest {
      */
     @Test
     void targetRejectionDistanceInterfaceRankReflectsDepth() {
-        TargetMatcher matchesObject = (type, elem) -> Object.class.isAssignableFrom(type);
+        TypeMatcher matchesObject = (type, elem) -> Object.class.isAssignableFrom(type);
 
         // ArrayList（类）→ 应有完整继承深度（ArrayList→AbstractList→AbstractCollection→Object→...）
         int arrayListDist = ConverterRegistry.targetRejectionDistance(matchesObject, ArrayList.class, null);
@@ -313,7 +308,7 @@ class ConverterRegistryTest {
     @Test
     void targetRejectionDistanceSpecificMatcher() {
         // 只匹配 ArrayList 的匹配器
-        TargetMatcher onlyArrayList = (type, elem) -> type == ArrayList.class;
+        TypeMatcher onlyArrayList = (type, elem) -> type == ArrayList.class;
 
         int dist = ConverterRegistry.targetRejectionDistance(onlyArrayList, ArrayList.class, null);
         int rank = dist >>> 16;
@@ -387,7 +382,7 @@ class ConverterRegistryTest {
         }
 
         @Override
-        public TargetMatcher declareSourceMatcher() {
+        public TypeMatcher declareSourceMatcher() {
             return (sourceType, elementType) ->
                     sourceType != null && "PredicateBean".equals(sourceType.getSimpleName());
         }

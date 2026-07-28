@@ -73,4 +73,54 @@ class CheckUtilTest {
         assertThrows(IllegalArgumentException.class,
                 () -> CheckUtil.mustTrue(false, "条件不满足"));
     }
+
+    // ── isInstanceOf ──
+
+    @Test
+    void isInstanceOfReturnsCasted() {
+        Object o = "hello";
+        String s = CheckUtil.isInstanceOf(o, String.class);
+        assertEquals("hello", s);
+    }
+
+    @Test
+    void isInstanceOfThrowsOnMismatch() {
+        assertThrows(IllegalArgumentException.class,
+                () -> CheckUtil.isInstanceOf(42, String.class));
+        assertThrows(IllegalArgumentException.class,
+                () -> CheckUtil.isInstanceOf(null, String.class));
+        assertThrows(IllegalArgumentException.class,
+                () -> CheckUtil.isInstanceOf("x", null));
+    }
+
+    // ── areEqual ──
+
+    @Test
+    void areEqualPassesWhenEqual() {
+        CheckUtil.areEqual("a", "a");
+        CheckUtil.areEqual(null, null);
+        CheckUtil.areEqual(Integer.valueOf(1), 1);
+    }
+
+    @Test
+    void areEqualThrowsWhenNotEqual() {
+        assertThrows(IllegalArgumentException.class, () -> CheckUtil.areEqual("a", "b"));
+        assertThrows(IllegalArgumentException.class, () -> CheckUtil.areEqual("a", null));
+        assertThrows(IllegalArgumentException.class,
+                () -> CheckUtil.areEqual("a", "b", "custom msg"));
+    }
+
+    // ── state ──
+
+    @Test
+    void statePassesWhenTrue() {
+        CheckUtil.state(true, "should not throw");
+    }
+
+    @Test
+    void stateThrowsIllegalStateException() {
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> CheckUtil.state(false, "bad state"));
+        assertEquals("bad state", ex.getMessage());
+    }
 }

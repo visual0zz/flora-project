@@ -11,6 +11,14 @@ import com.flora.crypto.core.engine.JdkAgreement;
 import com.flora.crypto.core.engine.JdkPBEParametersGenerator;
 import com.flora.crypto.core.engine.JdkAeadBlockCipher;
 import com.flora.crypto.core.engine.JdkAsymmetricKeyPairGenerator;
+import com.flora.crypto.core.engine.AgreementBasedKem;
+import com.flora.crypto.core.engine.SecureRandomEntropySource;
+import com.flora.crypto.core.engine.HMacDrbg;
+
+import com.flora.crypto.core.KEM;
+import com.flora.crypto.core.PlaceholderKem;
+import com.flora.crypto.core.EntropySource;
+import com.flora.crypto.core.SP80090DRBG;
 
 import com.flora.crypto.core.padding.PKCS7Padding;
 import com.flora.crypto.core.padding.ISO7816d4Padding;
@@ -66,6 +74,9 @@ public final class CryptoProvider {
     private static final Map<String, Supplier<? extends BlockCipherPadding>> PADDING_REGISTRY = new ConcurrentHashMap<>();
     private static final Map<String, Supplier<? extends AEADBlockCipher>> AEAD_REGISTRY = new ConcurrentHashMap<>();
     private static final Map<String, Supplier<? extends AsymmetricCipherKeyPairGenerator>> ASYM_KPG_REGISTRY = new ConcurrentHashMap<>();
+    private static final Map<String, Supplier<? extends KEM>> KEM_REGISTRY = new ConcurrentHashMap<>();
+    private static final Map<String, Supplier<? extends EntropySource>> ENTROPY_REGISTRY = new ConcurrentHashMap<>();
+    private static final Map<String, Supplier<? extends SP80090DRBG>> DRBG_REGISTRY = new ConcurrentHashMap<>();
 
     static {
         // 随附两个纯 Java KDF 实现，按名即可直接使用（无需注册）
@@ -175,6 +186,24 @@ public final class CryptoProvider {
         CheckUtil.notEmpty(name, "算法名不能为空");
         CheckUtil.notNull(factory, "工厂不能为空");
         ASYM_KPG_REGISTRY.put(name, factory);
+    }
+
+    public static void registerKem(String name, Supplier<? extends KEM> factory) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        CheckUtil.notNull(factory, "工厂不能为空");
+        KEM_REGISTRY.put(name, factory);
+    }
+
+    public static void registerEntropySource(String name, Supplier<? extends EntropySource> factory) {
+        CheckUtil.notEmpty(name, "熵源名不能为空");
+        CheckUtil.notNull(factory, "工厂不能为空");
+        ENTROPY_REGISTRY.put(name, factory);
+    }
+
+    public static void registerDrbg(String name, Supplier<? extends SP80090DRBG> factory) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        CheckUtil.notNull(factory, "工厂不能为空");
+        DRBG_REGISTRY.put(name, factory);
     }
 
     // ── 查询入口：注册表优先，未命中回退 JDK 适配器 ──
@@ -305,6 +334,54 @@ public final class CryptoProvider {
         CheckUtil.notEmpty(name, "算法名不能为空");
         Supplier<? extends AsymmetricCipherKeyPairGenerator> f = ASYM_KPG_REGISTRY.get(name);
         return f != null ? f.get() : JdkAsymmetricKeyPairGenerator.of(name);
+    }
+
+    /**
+     * 密钥封装机制（KEM）。默认实现 {@link AgreementBasedKem} 支持经典协商算法
+     * （{@code ECDH} / {@code X25519} / {@code X448} / {@code DH}）；其余（如后量子 ML-KEM）
+     * 无 JDK 引擎，返回占位 {@link PlaceholderKem}，注册真实引擎后按名优先返回。
+     */
+    public static KEM kem(String name) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        Supplier<? extends KEM> f = KEM_REGISTRY.get(name);
+        if (f != null) {
+            return f.get();
+        }
+        return switch (name) {
+            case "ECDH", "X25519", "X448", "DH" -> AgreementBasedKem.of(name);
+            default -> new PlaceholderKem();
+        };
+    }
+
+    /**
+     * 熵源（供 DRBG 取种）。默认返回基于 JDK {@link java.security.SecureRandom} 的实现。
+     */
+    public static EntropySource entropySource(String name) {
+        CheckUtil.notEmpty(name, "熵源名不能为空");
+        Supplier<? extends EntropySource> f = ENTROPY_REGISTRY.get(name);
+        return f != null ? f.get() : new SecureRandomEntropySource();
+    }
+
+    /** 默认熵源（名为 {@code "default"}）。 */
+    public static EntropySource entropySource() {
+        return entropySource("default");
+    }
+
+    /**
+     * NIST SP800-90A HMAC_DRBG。默认以指定 HMAC 算法 + JDK 熵源构建；
+     * 注册同名 DRBG 后优先返回（如替换为 CTR_DRBG / Hash_DRBG）。
+     *
+     * @param hmacAlgorithm       底层 HMAC（如 {@code "HmacSHA256"}）
+     * @param securityStrengthBits 安全强度（位），应 ≤ HMAC 输出长度一半
+     * @param personalizationString 个性化字符串（可为 {@code null}）
+     */
+    public static SP80090DRBG hmacDrbg(String hmacAlgorithm, int securityStrengthBits, byte[] personalizationString) {
+        CheckUtil.notEmpty(hmacAlgorithm, "HMAC 算法名不能为空");
+        Supplier<? extends SP80090DRBG> f = DRBG_REGISTRY.get(hmacAlgorithm);
+        if (f != null) {
+            return f.get();
+        }
+        return new HMacDrbg(mac(hmacAlgorithm), new SecureRandomEntropySource(), securityStrengthBits, personalizationString);
     }
 
     private static String wrapAlgorithm(String name) {

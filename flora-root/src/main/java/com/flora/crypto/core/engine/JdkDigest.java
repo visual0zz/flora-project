@@ -1,5 +1,6 @@
 package com.flora.crypto.core.engine;
 import com.flora.crypto.core.Digest;
+import com.flora.crypto.core.ExtendedDigest;
 
 import com.flora.java.CheckUtil;
 
@@ -7,10 +8,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 /**
- * 把 JDK 自带的 {@link MessageDigest} 接入 {@link Digest} 接口。
+ * 把 JDK 自带的 {@link MessageDigest} 接入 {@link ExtendedDigest} 接口。
  * <p>示例：{@code CryptoProvider.digest("SHA-256")} 或 {@code JdkDigest.of("SHA-512")}。</p>
  */
-public final class JdkDigest implements Digest {
+public final class JdkDigest implements ExtendedDigest {
 
     private final String algorithm;
     private final MessageDigest md;
@@ -37,6 +38,26 @@ public final class JdkDigest implements Digest {
     @Override
     public int getDigestSize() {
         return md.getDigestLength();
+    }
+
+    @Override
+    public int getByteLength() {
+        return byteLengthOf(algorithm);
+    }
+
+    /**
+     * JDK 不暴露摘要内部块长度，按算法名给出已知值；未知算法返回 0。
+     */
+    private static int byteLengthOf(String algorithm) {
+        return switch (algorithm) {
+            case "MD5", "SHA", "SHA-1", "SHA-224", "SHA-256" -> 64;
+            case "SHA-384", "SHA-512", "SHA-512/224", "SHA-512/256" -> 128;
+            case "SHA3-224" -> 144;
+            case "SHA3-256" -> 136;
+            case "SHA3-384" -> 104;
+            case "SHA3-512" -> 72;
+            default -> 0;
+        };
     }
 
     @Override

@@ -152,4 +152,35 @@ public interface BlockCipherPadding {
    还是进一步走向「BC 式接口 + BC 式对象组合」。前者改动小,后者更贴近 BC 本质。
 2. `Xof` / `DerivationFunction` 的真缺口,是否引入 BC 作为可选依赖(仅提供引擎),
    还是坚持零依赖、自己实现 SM3/SHAKE 等?
-3. `KEM` / `EntropySource` 是否纳入本期范围,还是仅占位接口、留待后续。
+3. `KEM` / `EntropySource` 是否纳入本期范围，还是仅占位接口、留待后续。
+
+## 七、实施状态（2026-07-28）
+
+已按「不引入 BC 依赖、全面对齐 BC 轻量 API」的方针落地，`flora-root` 编译与全部 1239 个测试通过。
+
+### 新增角色接口（core）
+- 摘要扩展：`ExtendedDigest`（`JdkDigest` 已实现，含 `getByteLength`）、`Xof`（可变长输出）
+- 非对称流式：`AsymmetricCipher` + `BufferedAsymmetricBlockCipher`（包裹 `AsymmetricBlockCipher`）
+- 密钥包装/协商：`Wrapper` + `JdkWrapper`（Cipher WRAP_MODE）、`Agreement` + `JdkAgreement`（KeyAgreement）
+- 派生/口令：`DerivationParameters` / `DerivationFunction` / `DigestDerivationFunction` / `MacDerivationFunction`；
+  纯 Java 真实实现 `Kdf2DerivationFunction`（KDF2）、`HkdfDerivationFunction`（HKDF）；
+  `PBEParametersGenerator` + `JdkPBEParametersGenerator`（JDK PBKDF2）
+- 轻量密钥生成：`AsymmetricCipherKeyPair` / `KeyGenerationParameters` / `AsymmetricCipherKeyPairGenerator` + `JdkAsymmetricKeyPairGenerator`
+- 填充/模式：`BlockCipherPadding` + `PKCS7Padding` / `ISO7816d4Padding` / `ZeroBytePadding`；
+  `PaddedBufferedBlockCipher`；模式 `CBCBlockCipher` / `CFBBlockCipher` / `OFBBlockCipher` / `SICBlockCipher`（纯 Java 链式）；
+  `AEADBlockCipher` + `JdkAeadBlockCipher` / `GCMBlockCipher`
+- 标记：`Verifier extends Signer`
+
+### 占位实现（JDK 概念缺口）
+- `PlaceholderXof`：XOF（JDK 无「N 字节输出」槽位），可变长方法抛 `UnsupportedOperationException`
+- `PlaceholderDerivationFunction`：通用 KDF（JCA 无第一等 KDF 抽象），`generateBytes` 抛 `UnsupportedOperationException`
+- `KDF2` / `HKDF` 已预注册，按名（`CryptoProvider.derivationFunction("KDF2"|"HKDF")`）即可用
+
+### CryptoProvider 扩展
+新增 `registerXxx` / 工厂：`extendedDigest`、`xof`、`asymmetricStreamCipher`、`wrapper`、`agreement`、
+`derivationFunction`、`pbeParametersGenerator`、`blockCipherPadding`、`aeadBlockCipher`、`asymmetricKeyPairGenerator`。
+JDK 无能力者默认回退占位实现。
+
+### 测试
+`CryptoRolesTest` 覆盖上述新角色（Wrapper 往返、ECDH 协商、PBKDF2 与 JDK 对齐、KDF2/HKDF 自洽、
+AES-GCM AEAD 往返、CBC/SIC 模式链式、PKCS7 填充、RSA 流式非对称、Xof/派生占位抛异常）。

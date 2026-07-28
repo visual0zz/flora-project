@@ -6,6 +6,15 @@ import com.flora.crypto.core.engine.JdkAsymmetricBlockCipher;
 import com.flora.crypto.core.engine.JdkMac;
 import com.flora.crypto.core.engine.JdkSigner;
 import com.flora.crypto.core.engine.JdkKeyPairGenerator;
+import com.flora.crypto.core.engine.JdkWrapper;
+import com.flora.crypto.core.engine.JdkAgreement;
+import com.flora.crypto.core.engine.JdkPBEParametersGenerator;
+import com.flora.crypto.core.engine.JdkAeadBlockCipher;
+import com.flora.crypto.core.engine.JdkAsymmetricKeyPairGenerator;
+
+import com.flora.crypto.core.padding.PKCS7Padding;
+import com.flora.crypto.core.padding.ISO7816d4Padding;
+import com.flora.crypto.core.padding.ZeroBytePadding;
 
 import com.flora.java.CheckUtil;
 
@@ -48,6 +57,27 @@ public final class CryptoProvider {
     private static final Map<String, Supplier<? extends Mac>> MAC_REGISTRY = new ConcurrentHashMap<>();
     private static final Map<String, Supplier<? extends Signer>> SIGNER_REGISTRY = new ConcurrentHashMap<>();
     private static final Map<String, Supplier<? extends JdkKeyPairGenerator>> KPG_REGISTRY = new ConcurrentHashMap<>();
+    private static final Map<String, Supplier<? extends Xof>> XOF_REGISTRY = new ConcurrentHashMap<>();
+    private static final Map<String, Supplier<? extends AsymmetricCipher>> ASYM_CIPHER_REGISTRY = new ConcurrentHashMap<>();
+    private static final Map<String, Supplier<? extends Wrapper>> WRAPPER_REGISTRY = new ConcurrentHashMap<>();
+    private static final Map<String, Supplier<? extends Agreement>> AGREEMENT_REGISTRY = new ConcurrentHashMap<>();
+    private static final Map<String, Supplier<? extends DerivationFunction>> DERIVATION_REGISTRY = new ConcurrentHashMap<>();
+    private static final Map<String, Supplier<? extends PBEParametersGenerator>> PBE_REGISTRY = new ConcurrentHashMap<>();
+    private static final Map<String, Supplier<? extends BlockCipherPadding>> PADDING_REGISTRY = new ConcurrentHashMap<>();
+    private static final Map<String, Supplier<? extends AEADBlockCipher>> AEAD_REGISTRY = new ConcurrentHashMap<>();
+    private static final Map<String, Supplier<? extends AsymmetricCipherKeyPairGenerator>> ASYM_KPG_REGISTRY = new ConcurrentHashMap<>();
+
+    static {
+        // 随附两个纯 Java KDF 实现，按名即可直接使用（无需注册）
+        DERIVATION_REGISTRY.put("KDF2", () -> new Kdf2DerivationFunction(digest("SHA-256")));
+        DERIVATION_REGISTRY.put("HKDF", () -> new HkdfDerivationFunction(mac("HmacSHA256")));
+        // 常用填充策略预注册
+        PADDING_REGISTRY.put("PKCS7", PKCS7Padding::new);
+        PADDING_REGISTRY.put("PKCS5", PKCS7Padding::new);
+        PADDING_REGISTRY.put("ISO7816", ISO7816d4Padding::new);
+        PADDING_REGISTRY.put("ISO7816-4", ISO7816d4Padding::new);
+        PADDING_REGISTRY.put("ZeroByte", ZeroBytePadding::new);
+    }
 
     // ── 注册入口 ──
 
@@ -93,6 +123,60 @@ public final class CryptoProvider {
         KPG_REGISTRY.put(name, factory);
     }
 
+    public static void registerXof(String name, Supplier<? extends Xof> factory) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        CheckUtil.notNull(factory, "工厂不能为空");
+        XOF_REGISTRY.put(name, factory);
+    }
+
+    public static void registerAsymmetricStreamCipher(String name, Supplier<? extends AsymmetricCipher> factory) {
+        CheckUtil.notEmpty(name, "变换字符串不能为空");
+        CheckUtil.notNull(factory, "工厂不能为空");
+        ASYM_CIPHER_REGISTRY.put(name, factory);
+    }
+
+    public static void registerWrapper(String name, Supplier<? extends Wrapper> factory) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        CheckUtil.notNull(factory, "工厂不能为空");
+        WRAPPER_REGISTRY.put(name, factory);
+    }
+
+    public static void registerAgreement(String name, Supplier<? extends Agreement> factory) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        CheckUtil.notNull(factory, "工厂不能为空");
+        AGREEMENT_REGISTRY.put(name, factory);
+    }
+
+    public static void registerDerivationFunction(String name, Supplier<? extends DerivationFunction> factory) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        CheckUtil.notNull(factory, "工厂不能为空");
+        DERIVATION_REGISTRY.put(name, factory);
+    }
+
+    public static void registerPbeParametersGenerator(String name, Supplier<? extends PBEParametersGenerator> factory) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        CheckUtil.notNull(factory, "工厂不能为空");
+        PBE_REGISTRY.put(name, factory);
+    }
+
+    public static void registerBlockCipherPadding(String name, Supplier<? extends BlockCipherPadding> factory) {
+        CheckUtil.notEmpty(name, "填充名不能为空");
+        CheckUtil.notNull(factory, "工厂不能为空");
+        PADDING_REGISTRY.put(name, factory);
+    }
+
+    public static void registerAeadBlockCipher(String name, Supplier<? extends AEADBlockCipher> factory) {
+        CheckUtil.notEmpty(name, "变换字符串不能为空");
+        CheckUtil.notNull(factory, "工厂不能为空");
+        AEAD_REGISTRY.put(name, factory);
+    }
+
+    public static void registerAsymmetricKeyPairGenerator(String name, Supplier<? extends AsymmetricCipherKeyPairGenerator> factory) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        CheckUtil.notNull(factory, "工厂不能为空");
+        ASYM_KPG_REGISTRY.put(name, factory);
+    }
+
     // ── 查询入口：注册表优先，未命中回退 JDK 适配器 ──
 
     public static Digest digest(String name) {
@@ -135,5 +219,96 @@ public final class CryptoProvider {
         CheckUtil.notEmpty(name, "算法名不能为空");
         Supplier<? extends JdkKeyPairGenerator> f = KPG_REGISTRY.get(name);
         return f != null ? f.get() : JdkKeyPairGenerator.of(name);
+    }
+
+    // ── 新增角色查询入口（对齐 Bouncy Castle 轻量 API）──
+
+    /**
+     * 扩展摘要（含内部块长度）。
+     *
+     * @throws ClassCastException 若同名注册的自定义实现未实现 {@link ExtendedDigest}
+     */
+    public static ExtendedDigest extendedDigest(String name) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        return (ExtendedDigest) digest(name);
+    }
+
+    /**
+     * 可变长输出函数（XOF）。JDK 无对应能力，默认返回最简占位实现 {@link PlaceholderXof}，
+     * 注册真实引擎（如 SHAKE）后按名优先返回。
+     */
+    public static Xof xof(String name) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        Supplier<? extends Xof> f = XOF_REGISTRY.get(name);
+        return f != null ? f.get() : new PlaceholderXof();
+    }
+
+    /**
+     * 流式非对称密码。默认以 {@link BufferedAsymmetricBlockCipher} 包裹同名非对称分组密码。
+     */
+    public static AsymmetricCipher asymmetricStreamCipher(String name) {
+        CheckUtil.notEmpty(name, "变换字符串不能为空");
+        Supplier<? extends AsymmetricCipher> f = ASYM_CIPHER_REGISTRY.get(name);
+        return f != null ? f.get() : new BufferedAsymmetricBlockCipher(asymmetricCipher(name));
+    }
+
+    /** 密钥包装（如 AESWrap）。 */
+    public static Wrapper wrapper(String name) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        Supplier<? extends Wrapper> f = WRAPPER_REGISTRY.get(name);
+        return f != null ? f.get() : JdkWrapper.of(wrapAlgorithm(name));
+    }
+
+    /** 密钥协商（如 ECDH / DH / X25519）。 */
+    public static Agreement agreement(String name) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        Supplier<? extends Agreement> f = AGREEMENT_REGISTRY.get(name);
+        return f != null ? f.get() : JdkAgreement.of(name);
+    }
+
+    /**
+     * 密钥派生函数（KDF）。JCA 无第一等 KDF 抽象，默认返回占位实现；
+     * 已预注册 {@code "KDF2"} / {@code "HKDF"} 两个纯 Java 实现。
+     */
+    public static DerivationFunction derivationFunction(String name) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        Supplier<? extends DerivationFunction> f = DERIVATION_REGISTRY.get(name);
+        return f != null ? f.get() : new PlaceholderDerivationFunction();
+    }
+
+    /** 基于口令的参数生成器（如 PBKDF2）。 */
+    public static PBEParametersGenerator pbeParametersGenerator(String name) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        Supplier<? extends PBEParametersGenerator> f = PBE_REGISTRY.get(name);
+        return f != null ? f.get() : JdkPBEParametersGenerator.of(name);
+    }
+
+    /** 分组密码填充策略。 */
+    public static BlockCipherPadding blockCipherPadding(String name) {
+        CheckUtil.notEmpty(name, "填充名不能为空");
+        Supplier<? extends BlockCipherPadding> f = PADDING_REGISTRY.get(name);
+        if (f != null) {
+            return f.get();
+        }
+        throw new IllegalArgumentException("不支持的填充策略: " + name);
+    }
+
+    /** 关联数据认证加密（如 AES/GCM/NoPadding）。 */
+    public static AEADBlockCipher aeadBlockCipher(String transformation) {
+        CheckUtil.notEmpty(transformation, "变换字符串不能为空");
+        Supplier<? extends AEADBlockCipher> f = AEAD_REGISTRY.get(transformation);
+        return f != null ? f.get() : JdkAeadBlockCipher.of(transformation);
+    }
+
+    /** 轻量级非对称密钥对生成器（返回 {@link AsymmetricCipherKeyPair}）。 */
+    public static AsymmetricCipherKeyPairGenerator asymmetricKeyPairGenerator(String name) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        Supplier<? extends AsymmetricCipherKeyPairGenerator> f = ASYM_KPG_REGISTRY.get(name);
+        return f != null ? f.get() : JdkAsymmetricKeyPairGenerator.of(name);
+    }
+
+    private static String wrapAlgorithm(String name) {
+        String a = name.replace("Wrap", "").replace("Pad", "");
+        return a.isEmpty() ? name : a;
     }
 }

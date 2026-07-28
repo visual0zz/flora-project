@@ -68,8 +68,11 @@ public final class VFS {
     private FSBackendMatch resolve(String path) {
         if (path.equals("/")) return new FSBackendMatch("/", new RootBackend());
         for (Mount m : mounts) {
-            if (path.equals(m.prefix) || path.startsWith(m.prefix + "/")) {
-                String relative = path.equals(m.prefix) ? "/" : path.substring(m.prefix.length());
+            if (m.prefix.equals("/") || path.equals(m.prefix) || path.startsWith(m.prefix + "/")) {
+                String relative;
+                if (m.prefix.equals("/")) relative = path;
+                else if (path.equals(m.prefix)) relative = "/";
+                else relative = path.substring(m.prefix.length());
                 return new FSBackendMatch(relative, m.backend);
             }
         }

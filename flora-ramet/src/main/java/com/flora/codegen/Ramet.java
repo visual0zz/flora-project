@@ -1,12 +1,16 @@
 package com.flora.codegen;
 
 import com.flora.codegen.engine.CodeGenException;
+import com.flora.os.virtual.file.FSBackend;
+import com.flora.os.virtual.file.VFS;
+import com.flora.os.virtual.file.VFile;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -129,6 +133,124 @@ public final class Ramet {
         }
 
         System.out.println((dryRun ? "[dry-run] " : "done: ") + count + " file(s)");
+    }
+
+    // ===================== VFS 重载 =====================
+
+    /**
+     * 在 VFS 上执行代码生成，不涉及真实文件系统。
+     * 模板和输出均通过 VFS 的挂载后端（如 MemoryFileSystem）操作。
+     *
+     * @param vfs               VFS 实例
+     * @param templatesMount 模板目录的 VFS 路径（如 "/tpl"）
+     * @param outputMount    输出目录的 VFS 路径（如 "/out"）
+     * @param dryRun          仅预览不写入
+     */
+    public static void run(VFS vfs, String templatesMount, String outputMount, boolean dryRun) throws IOException {
+        VFile tplDir = vfs.get(templatesMount);
+        if (!tplDir.isDirectory()) {
+            throw new IllegalArgumentException("模板目录不存在: " + templatesMount);
+        }
+
+        Set<String> seenLowerPaths = new HashSet<>();
+        int count = 0;
+
+        // VFS 版 include 缓存
+        VfsIncludeCache cache = new VfsIncludeCache(tplDir);
+
+        for (VFile tplFile : collectTemplates(tplDir)) {
+            String tplContent = tplFile.readString();
+            Map<String, CompiledTemplate> includes = cache.asCompiledMap();
+            String source = relativize(tplDir, tplFile);
+
+            List<CodeGenUtil.Generated> results;
+            try {
+                results = CodeGenUtil.generate(tplContent, includes, source, tplDir.getPath());
+            } catch (CodeGenException e) {
+                throw new CodeGenException("模板 " + tplFile.getPath() + ": " + e.getMessage(), e);
+            }
+
+            for (CodeGenUtil.Generated g : results) {
+                String lowerPath = g.relativePath().toLowerCase();
+                if (!seenLowerPaths.add(lowerPath)) {
+                    throw new CodeGenException(
+                            "跨模板输出路径大小写不敏感碰撞: " + g.relativePath()
+                                    + "\n  该路径（不区分大小写）已被其他模板占用，"
+                                    + "在大小写不敏感的文件系统上会相互覆盖。");
+                }
+                VFile outputFile = vfs.get(outputMount, g.relativePath());
+                count++;
+                if (dryRun) {
+                    System.out.println("[dry-run] " + outputFile.getPath());
+                } else {
+                    writeVFile(outputFile, g.content());
+                    System.out.println("generated: " + outputFile.getPath());
+                }
+            }
+        }
+        System.out.println((dryRun ? "[dry-run] " : "done: ") + count + " file(s)");
+    }
+
+    private static List<VFile> collectTemplates(VFile dir) throws IOException {
+        List<VFile> result = new ArrayList<>();
+        collectTemplatesRecursive(dir, result);
+        return result;
+    }
+
+    private static void collectTemplatesRecursive(VFile dir, List<VFile> result) throws IOException {
+        for (VFile f : dir.list()) {
+            if (f.getName().toLowerCase().endsWith(".ramet")) {
+                result.add(f);
+            }
+            if (f.isDirectory()) {
+                collectTemplatesRecursive(f, result);
+            }
+        }
+    }
+
+    private static String relativize(VFile base, VFile file) {
+        String basePath = base.getPath();
+        String filePath = file.getPath();
+        if (filePath.startsWith(basePath + "/")) {
+            return filePath.substring(basePath.length() + 1);
+        }
+        return filePath;
+    }
+
+    private static void writeVFile(VFile file, String content) throws IOException {
+        String normalized = content
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
+                .replace("\n", System.lineSeparator());
+        if (!normalized.endsWith(System.lineSeparator())) {
+            normalized += System.lineSeparator();
+        }
+        VFile parent = file.getParent();
+        if (parent != null && !parent.exists()) parent.mkDirs();
+        file.writeString(normalized);
+    }
+
+    /** VFS 版 include 缓存。 */
+    private static final class VfsIncludeCache {
+        private final VFile tplDir;
+        private final Map<String, CompiledTemplate> cache = new HashMap<>();
+        private boolean loaded = false;
+
+        VfsIncludeCache(VFile tplDir) { this.tplDir = tplDir; }
+
+        Map<String, CompiledTemplate> asCompiledMap() throws IOException {
+            if (!loaded) {
+                for (VFile f : collectTemplates(tplDir)) {
+                    String key = relativize(tplDir, f);
+                    if (!cache.containsKey(key)) {
+                        String content = f.readString();
+                        cache.put(key, CodeGenUtil.precompile(content, key));
+                    }
+                }
+                loaded = true;
+            }
+            return cache;
+        }
     }
 
     /**

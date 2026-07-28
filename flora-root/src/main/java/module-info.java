@@ -21,6 +21,7 @@ module com.flora.root {
     exports com.flora.java;
     exports com.flora.runtime.log;
     exports com.flora.os.virtual.file;
+    exports com.flora.os.virtual.file.backend;
 
     uses Converter;
 }

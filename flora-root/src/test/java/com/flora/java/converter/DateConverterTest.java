@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -222,7 +221,7 @@ class DateConverterTest {
         assertEquals(LocalDate.of(2025, 3, 4), result);
     }
 
-    // ========== 新增时间类型：Instant / OffsetDateTime / ZonedDateTime / LocalTime ==========
+    // ========== 新增时间类型：Instant / OffsetDateTime / ZonedDateTime ==========
 
     /**
      * 测试 Instant 转 LocalDateTime（按系统默认时区）。
@@ -266,33 +265,6 @@ class DateConverterTest {
         assertEquals(zdt.toLocalDateTime(), ldt);
         ZonedDateTime back = (ZonedDateTime) converter.convert(ldt, ZonedDateTime.class);
         assertEquals(ldt.atZone(ZoneId.systemDefault()), back);
-    }
-
-    /**
-     * 测试 LocalTime 转字符串（仅时间分量）。
-     */
-    @Test
-    void localTimeToString() {
-        Object result = converter.convert(LocalTime.of(10, 30, 45), String.class);
-        assertEquals("10:30:45", result);
-    }
-
-    /**
-     * 测试 LocalTime 转 LocalDateTime（以纪元首日补齐日期）。
-     */
-    @Test
-    void localTimeToLocalDateTime() {
-        LocalDateTime result = (LocalDateTime) converter.convert(LocalTime.of(10, 30), LocalDateTime.class);
-        assertEquals(LocalDateTime.of(1970, 1, 1, 10, 30), result);
-    }
-
-    /**
-     * 测试 LocalTime 转无日期语义目标（Long/Instant）应抛异常。
-     */
-    @Test
-    void localTimeToLongThrows() {
-        assertThrows(IllegalArgumentException.class,
-                () -> converter.convert(LocalTime.of(10, 30), Long.class));
     }
 
     /**

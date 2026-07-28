@@ -3,7 +3,7 @@ package com.flora.codec.json;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.InaccessibleObjectException;
-import java.lang.reflect.Modifier;
+import java.lang.reflect.Method;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -15,7 +15,9 @@ import java.util.Map.Entry;
 /**
  * JSON 序列化器，将 Java 对象序列化为 JSON 字符串。
  * <p>支持序列化 Map、List、数组、字符串、数字、布尔值、枚举和普通 Java Bean。
- * 包含循环引用检测，可通过 {@link JsonIgnore} 注解排除字段。</p>
+ * 普通 Bean 通过 getter 方法（{@code getXxx()} / {@code isXxx()}）收集属性进行序列化，
+ * 可通过 {@link JsonIgnore} 注解在字段或 getter 方法上排除属性。
+ * 包含循环引用检测。</p>
  */
 public final class JsonBuilder {
 
@@ -25,8 +27,8 @@ public final class JsonBuilder {
 
     /**
      * 将 Java 对象序列化为紧凑格式的 JSON 字符串。
-     * <p>普通 Bean 通过反射收集非静态字段进行序列化，
-     * 使用 {@link JsonIgnore} 注解排除特定字段。</p>
+     * <p>普通 Bean 通过公共 getter 方法收集属性进行序列化，
+     * 使用 {@link JsonIgnore} 注解（字段或 getter 方法均可）排除特定属性。</p>
      *
      * @param obj 要序列化的对象
      * @return 紧凑格式的 JSON 字符串
@@ -251,31 +253,53 @@ public final class JsonBuilder {
 
     private static void serializeBean(Object obj, StringBuilder sb, String indent,
                                       IdentityHashMap<Object, Boolean> visiting) {
-        Map<String, Object> fieldMap = collectFields(obj);
+        Map<String, Object> fieldMap = collectProperties(obj);
         serializeMap(fieldMap, sb, indent, visiting);
     }
 
     
-    private static Map<String, Object> collectFields(Object obj) {
+    /** 通过 getter 方法收集 Bean 属性。优先 getXxx() / isXxx()，跳过有 @JsonIgnore 的。 */
+    private static Map<String, Object> collectProperties(Object obj) {
         Map<String, Object> map = new LinkedHashMap<>();
-        
-        for (Class<?> clazz = obj.getClass(); clazz != null && clazz != Object.class;
-             clazz = clazz.getSuperclass()) {
-            for (Field f : clazz.getDeclaredFields()) {
-                int mod = f.getModifiers();
-                if (Modifier.isStatic(mod)) continue;
-                if (f.isSynthetic()) continue;
-                if (f.isAnnotationPresent(JsonIgnore.class)) continue;
-                
-                if (map.containsKey(f.getName())) continue;
-                f.setAccessible(true);
-                try {
-                    map.put(f.getName(), f.get(obj));
-                } catch (IllegalAccessException | InaccessibleObjectException e) {
-                    map.put(f.getName(), "<无法访问: " + e.getMessage() + ">");
-                }
+        for (Method m : obj.getClass().getMethods()) {
+            if (m.getDeclaringClass() == Object.class) continue;
+            if (m.getParameterCount() != 0) continue;
+            if (m.getReturnType() == void.class) continue;
+
+            String name = m.getName();
+            String propName = null;
+            if (name.startsWith("get") && name.length() > 3 && Character.isUpperCase(name.charAt(3))) {
+                propName = Character.toLowerCase(name.charAt(3)) + name.substring(4);
+            } else if (name.startsWith("is") && name.length() > 2 && Character.isUpperCase(name.charAt(2))
+                    && (m.getReturnType() == boolean.class || m.getReturnType() == Boolean.class)) {
+                propName = Character.toLowerCase(name.charAt(2)) + name.substring(3);
+            }
+            if (propName == null) continue;
+
+            if (m.isAnnotationPresent(JsonIgnore.class)) continue;
+            if (fieldHasJsonIgnore(obj.getClass(), propName)) continue;
+            if (map.containsKey(propName)) continue;
+
+            try {
+                m.setAccessible(true);
+                map.put(propName, m.invoke(obj));
+            } catch (Exception e) {
+                map.put(propName, "<无法访问: " + e.getMessage() + ">");
             }
         }
         return map;
+    }
+
+    /** 检查指定类是否有带 @JsonIgnore 的同名字段（兼容 FIELD 级别的注解）。 */
+    private static boolean fieldHasJsonIgnore(Class<?> clazz, String propName) {
+        for (Class<?> c = clazz; c != null && c != Object.class; c = c.getSuperclass()) {
+            try {
+                Field f = c.getDeclaredField(propName);
+                return f.isAnnotationPresent(JsonIgnore.class);
+            } catch (NoSuchFieldException e) {
+                // continue
+            }
+        }
+        return false;
     }
 }

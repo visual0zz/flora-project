@@ -1,6 +1,7 @@
 package com.flora.codec;
 
 import com.flora.codec.json.JsonBuilder;
+import com.flora.codec.json.JsonIgnore;
 import com.flora.codec.json.JsonParser;
 import org.junit.jupiter.api.Test;
 
@@ -43,23 +44,98 @@ class CodecFixTest {
         assertThrows(IllegalArgumentException.class, () -> HexUtil.decodeHex("abc"));
     }
 
-    // ── P0: JsonBuilder 反射 setAccessible 不应崩溃 (JPMS) ──
+    // ── P0: JsonBuilder getter 序列化 ──
 
     static class SampleBean {
         private final String name;
         private final int value;
         SampleBean(String name, int value) {
-            this.name = name;
-            this.value = value;
+            this.name = name; this.value = value;
         }
+        public String getName() { return name; }
+        public int getValue() { return value; }
     }
 
     @Test
-    void beanWithPrivateFieldsSerializes() {
-        // 验证私有字段反射路径未被 catch 改动破坏
+    void beanWithGettersSerializes() {
         String json = JsonBuilder.toJsonString(new SampleBean("x", 7));
         assertTrue(json.contains("\"name\":\"x\""), json);
         assertTrue(json.contains("\"value\":7"), json);
+    }
+
+    // ── Getter 序列化：继承 ──
+
+    static class GetterBean {
+        private String base = "base";
+        public String getBase() { return base; }
+    }
+
+    static class InheritedBean extends GetterBean {
+        private int value = 42;
+        public int getValue() { return value; }
+    }
+
+    @Test
+    void beanWithInheritedGetters() {
+        String json = JsonBuilder.toJsonString(new InheritedBean());
+        assertTrue(json.contains("\"base\":\"base\""), json);
+        assertTrue(json.contains("\"value\":42"), json);
+    }
+
+    // ── Getter 序列化：boolean isXxx() ──
+
+    static class BooleanBean {
+        private boolean active = true;
+        private Boolean enabled = false;
+        public boolean isActive() { return active; }
+        public Boolean isEnabled() { return enabled; }
+    }
+
+    @Test
+    void beanWithBooleanIsGetter() {
+        String json = JsonBuilder.toJsonString(new BooleanBean());
+        assertTrue(json.contains("\"active\":true"), json);
+        assertTrue(json.contains("\"enabled\":false"), json);
+    }
+
+    // ── Getter 序列化：方法上的 @JsonIgnore ──
+
+    static class IgnoreMethodBean {
+        private String name = "x";
+        private String secret = "hidden";
+        public String getName() { return name; }
+        @JsonIgnore public String getSecret() { return secret; }
+    }
+
+    @Test
+    void beanWithMethodJsonIgnore() {
+        String json = JsonBuilder.toJsonString(new IgnoreMethodBean());
+        assertTrue(json.contains("\"name\":\"x\""), json);
+        assertFalse(json.contains("secret"), json);
+    }
+
+    // ── Getter 序列化：字段上的 @JsonIgnore ──
+
+    static class IgnoreFieldBean {
+        @JsonIgnore private String ignoreMe = "ignored";
+        private String visible = "ok";
+        public String getIgnoreMe() { return ignoreMe; }
+        public String getVisible() { return visible; }
+    }
+
+    @Test
+    void beanWithFieldJsonIgnore() {
+        String json = JsonBuilder.toJsonString(new IgnoreFieldBean());
+        assertTrue(json.contains("\"visible\":\"ok\""), json);
+        assertFalse(json.contains("ignoreMe"), json);
+    }
+
+    // ── Getter 序列化：getClass() 不出现 ──
+
+    @Test
+    void getClassIsSkipped() {
+        String json = JsonBuilder.toJsonString(new SampleBean("a", 1));
+        assertFalse(json.contains("class"), json);
     }
 
     // ── P1: JsonParser 递归深度限制 ──

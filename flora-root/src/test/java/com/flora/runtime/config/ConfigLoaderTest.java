@@ -3,6 +3,7 @@ package com.flora.runtime.config;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -206,30 +207,92 @@ class ConfigLoaderTest {
 
     @Test
     void systemSingleton() {
-        // system() 返回同一个实例
         assertSame(ConfigLoader.system(), ConfigLoader.system());
     }
 
     @Test
     void systemInstanceIsolation() {
-        // 独立实例不与 system() 共享来源
         ConfigLoader loader = new ConfigLoader();
         loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"k\":\"v\"}"));
         assertTrue(ConfigLoader.system().getSources().isEmpty());
         assertEquals(1, loader.getSources().size());
     }
 
-    // ====== 包含指令 ======
+    // ====== resolve：Java 编排分阶段加载 ======
 
     @Test
-    void classpathIncludeResolvesCorrectly() {
-        // 使用 classpath: 前缀在配置中包含类路径资源
-        String yaml = "flora:\n  config:\n    includes:\n      - classpath:config/database.yaml\napp:\n  name: main\n";
+    void resolveWithNoExtraSources() {
+        // 回调返回空 —— resolve 退化为普通 load
         ConfigLoader loader = new ConfigLoader();
-        loader.addSource(new StringConfigSource(ConfigFormat.YAML, yaml));
-        ConfigMap m = loader.load();
+        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"a\":1}"));
+        ConfigMap m = loader.resolve(cfg -> Collections.emptyList());
+        assertEquals(Long.valueOf(1), m.get("a"));
+    }
+
+    @Test
+    void resolveReadsRegularKeyToLoadMore() {
+        // 模拟：第一个配置中有一个普通 key "database.config" 指向第二个配置文件
+        String mainYaml = "app:\n  name: main\nserver:\n  port: 8080\n";
+
+        ConfigLoader loader = new ConfigLoader();
+        loader.addSource(new StringConfigSource(ConfigFormat.YAML, mainYaml, "main.yaml"));
+
+        ConfigMap m = loader.resolve(cfg -> {
+            // 读取一个普通 app key "app.name" —— 无任何特殊含义
+            String name = cfg.getString("app.name");
+            if ("main".equals(name)) {
+                return List.of(new ClasspathConfigSource("config/database.yaml"));
+            }
+            return Collections.emptyList();
+        });
+
         assertEquals("main", m.getString("app.name"));
+        // database.yaml 后加载，其中的 server.port:9090 覆盖了 main 中的 8080
         assertEquals(Long.valueOf(9090), m.get("server.port"));
         assertEquals("jdbc:postgresql://localhost/mydb", m.getString("database.url"));
+    }
+
+    @Test
+    void resolveChainMultipleRounds() {
+        // 三轮加载：每个阶段检查不同的普通 key
+        String first = "stage: 1\nimport:\n  next: true\n";
+        String second = "stage: 2\ncount: 42\n";
+        String third = "stage: 3\ndone: true\n";
+
+        ConfigLoader loader = new ConfigLoader();
+        loader.addSource(new StringConfigSource(ConfigFormat.YAML, first, "first.yaml"));
+
+        ConfigMap m = loader.resolve(cfg -> {
+            String done = cfg.getString("done");
+            if ("true".equals(done)) return Collections.emptyList();
+
+            String importNext = cfg.getString("import.next");
+            if ("true".equals(importNext)) {
+                switch (cfg.getString("stage", "")) {
+                    case "1": return List.of(new StringConfigSource(ConfigFormat.YAML, second, "second.yaml"));
+                    case "2": return List.of(new StringConfigSource(ConfigFormat.YAML, third, "third.yaml"));
+                }
+            }
+            return Collections.emptyList();
+        });
+
+        assertEquals("3", m.getString("stage"));
+        assertEquals(Long.valueOf(42), m.get("count"));
+        assertTrue(m.getBoolean("done"));
+    }
+
+    @Test
+    void resolveCycleDetection() {
+        // 同一位置重复解析 -> 自动跳过
+        ConfigLoader loader = new ConfigLoader();
+        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"x\":1}", "cyclic.yaml"));
+
+        ConfigMap m = loader.resolve(cfg -> {
+            // 每次回调都返回同一个来源 —— loadedLocations 会阻止重复加载
+            return List.of(new StringConfigSource(ConfigFormat.JSON, "{\"x\":2}", "cyclic.yaml"));
+        });
+
+        // 第二次加载被跳过，值应为 1（非 2）
+        assertEquals(Long.valueOf(1), m.get("x"));
     }
 }

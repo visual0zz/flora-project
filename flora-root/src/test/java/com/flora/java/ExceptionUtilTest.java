@@ -2,83 +2,118 @@ package com.flora.java;
 
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * ExceptionUtil 异常处理工具类的单元测试。
- * 覆盖 wrap、getRootCause、getMessage 及 isCausedBy。
- */
 class ExceptionUtilTest {
 
-    // ==================== 包装 ====================
+    // ====== wrap ======
 
     @Test
     void wrapWithMessage() {
-        IOException cause = new IOException("disk full");
-        RuntimeException wrapped = ExceptionUtil.wrap(cause, "operation failed");
-        assertEquals("operation failed", wrapped.getMessage());
-        assertSame(cause, wrapped.getCause());
+        var cause = new IllegalArgumentException("bad arg");
+        var ex = ExceptionUtil.wrap(cause, "wrapped");
+        assertInstanceOf(RuntimeException.class, ex);
+        assertEquals("wrapped", ex.getMessage());
+        assertSame(cause, ex.getCause());
     }
 
     @Test
-    void wrapWithoutMessageUsesCauseMessage() {
-        IOException cause = new IOException("disk full");
-        RuntimeException wrapped = ExceptionUtil.wrap(cause);
-        assertEquals("disk full", wrapped.getMessage());
-        assertSame(cause, wrapped.getCause());
+    void wrapWithoutMessage() {
+        var cause = new IllegalArgumentException("bad arg");
+        var ex = ExceptionUtil.wrap(cause);
+        assertEquals("bad arg", ex.getMessage());
+        assertSame(cause, ex.getCause());
     }
 
     @Test
-    void wrapRejectsNullCause() {
-        assertThrows(NullPointerException.class, () -> ExceptionUtil.wrap(null, "x"));
+    void wrapNullCauseThrows() {
+        assertThrows(NullPointerException.class,
+                () -> ExceptionUtil.wrap(null, "msg"));
+        assertThrows(NullPointerException.class,
+                () -> ExceptionUtil.wrap(null));
     }
 
-    // ==================== 根因 ====================
+    // ====== getRootCause ======
 
     @Test
-    void getRootCauseReturnsDeepest() {
-        Throwable root = new IllegalStateException("root");
-        Throwable mid = new RuntimeException("mid", root);
-        Throwable top = new RuntimeException("top", mid);
+    void getRootCauseOfNullReturnsNull() {
+        assertNull(ExceptionUtil.getRootCause(null));
+    }
+
+    @Test
+    void getRootCauseOfPlainException() {
+        var ex = new RuntimeException("plain");
+        assertSame(ex, ExceptionUtil.getRootCause(ex));
+    }
+
+    @Test
+    void getRootCauseOfChainedExceptions() {
+        var root = new IllegalArgumentException("root");
+        var mid = new RuntimeException("mid", root);
+        var top = new Exception("top", mid);
         assertSame(root, ExceptionUtil.getRootCause(top));
     }
 
     @Test
-    void getRootCauseReturnsSelfWhenNoCause() {
-        Throwable self = new RuntimeException("self");
-        assertSame(self, ExceptionUtil.getRootCause(self));
+    void getRootCauseDetectsCycle() {
+        var a = new RuntimeException("a");
+        var b = new RuntimeException("b", a);
+        // 触发循环：a 的 cause 指向 b（注意 initCause 可以设置）
+        a.initCause(b);
+        assertNotNull(ExceptionUtil.getRootCause(a));
+        // 不应无限循环
     }
 
-    @Test
-    void getRootCauseNullSafe() {
-        assertNull(ExceptionUtil.getRootCause(null));
-    }
-
-    // ==================== 安全取消息 ====================
+    // ====== getMessage ======
 
     @Test
     void getMessageNullSafe() {
-        assertEquals("boom", ExceptionUtil.getMessage(new RuntimeException("boom")));
         assertNull(ExceptionUtil.getMessage(null));
     }
 
-    // ==================== 因果链匹配 ====================
-
     @Test
-    void isCausedByMatchesInChain() {
-        IOException root = new IOException("io");
-        RuntimeException top = new RuntimeException("wrap", root);
-        assertTrue(ExceptionUtil.isCausedBy(top, IOException.class));
-        assertTrue(ExceptionUtil.isCausedBy(top, RuntimeException.class));
-        assertFalse(ExceptionUtil.isCausedBy(top, IllegalStateException.class));
+    void getMessageReturnsMessage() {
+        assertEquals("err", ExceptionUtil.getMessage(new Exception("err")));
     }
 
     @Test
-    void isCausedByNullSafe() {
-        assertFalse(ExceptionUtil.isCausedBy(null, IOException.class));
+    void getMessageOfExceptionWithoutMessage() {
+        assertNull(ExceptionUtil.getMessage(new Exception()));
+    }
+
+    // ====== isCausedBy ======
+
+    @Test
+    void isCausedByDirectMatch() {
+        var ex = new IllegalArgumentException("bad");
+        assertTrue(ExceptionUtil.isCausedBy(ex, IllegalArgumentException.class));
+        assertFalse(ExceptionUtil.isCausedBy(ex, IllegalStateException.class));
+    }
+
+    @Test
+    void isCausedByInChain() {
+        var root = new IllegalArgumentException("root");
+        var top = new RuntimeException("top", root);
+        assertTrue(ExceptionUtil.isCausedBy(top, IllegalArgumentException.class));
+    }
+
+    @Test
+    void isCausedByNullThrowableReturnsFalse() {
+        assertFalse(ExceptionUtil.isCausedBy(null, RuntimeException.class));
+    }
+
+    @Test
+    void isCausedByNullTypeThrows() {
         assertThrows(NullPointerException.class,
-                () -> ExceptionUtil.isCausedBy(new RuntimeException("x"), null));
+                () -> ExceptionUtil.isCausedBy(new Exception(), null));
+    }
+
+    @Test
+    void isCausedByDetectsCycle() {
+        var a = new RuntimeException("a");
+        var b = new RuntimeException("b", a);
+        a.initCause(b);
+        // 不应无限循环，且应找到匹配
+        assertTrue(ExceptionUtil.isCausedBy(a, RuntimeException.class));
     }
 }

@@ -190,4 +190,53 @@ class CodecFixTest {
     void charArraySerializedAsStringArray() {
         assertEquals("[\"A\",\"B\"]", JsonBuilder.toJsonString(new char[]{'A', 'B'}));
     }
+
+    // ====== HexUtil 补充测试 ======
+
+    @Test
+    void encodeHexStringOverload() {
+        assertEquals(HexUtil.encodeHex("hello"), HexUtil.encodeHex("hello".getBytes()));
+    }
+
+    @Test
+    void decodeHexToString() {
+        assertEquals("hello", HexUtil.decodeHexToString("68656c6c6f"));
+    }
+
+    @Test
+    void encodeHexEmptyArray() {
+        assertEquals("", HexUtil.encodeHex(new byte[0]));
+    }
+
+    @Test
+    void isValidHex() {
+        assertTrue(HexUtil.isValidHex("68656c6c6f"));
+        assertTrue(HexUtil.isValidHex("ABCDEF"));
+        assertTrue(HexUtil.isValidHex("abcdef"));
+        assertFalse(HexUtil.isValidHex(null));
+        assertFalse(HexUtil.isValidHex(""));
+        assertFalse(HexUtil.isValidHex("xyz"));
+        assertFalse(HexUtil.isValidHex("abc")); // 奇数长度
+        assertFalse(HexUtil.isValidHex("ABFG")); // G 非法
+    }
+
+    @Test
+    void decodeHexMixedCase() {
+        byte[] expected = {(byte) 0xAB, (byte) 0x00, (byte) 0xFF};
+        assertArrayEquals(expected, HexUtil.decodeHex("ab00ff"));
+        assertArrayEquals(expected, HexUtil.decodeHex("AB00FF"));
+        assertArrayEquals(expected, HexUtil.decodeHex("Ab00Ff"));
+    }
+
+    @Test
+    void decodeHexNullThrows() {
+        assertThrows(NullPointerException.class, () -> HexUtil.decodeHex(null));
+        assertThrows(NullPointerException.class, () -> HexUtil.decodeHexToString(null));
+    }
+
+    @Test
+    void encodeHexNullThrows() {
+        assertThrows(NullPointerException.class, () -> HexUtil.encodeHex((byte[]) null));
+        assertThrows(NullPointerException.class, () -> HexUtil.encodeHex((String) null));
+    }
 }

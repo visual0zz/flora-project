@@ -9,13 +9,13 @@ import java.util.stream.Collectors;
  * <p>包装来自解析器（{@code Map<String, Object>}）的嵌套结构，
  * 提供便捷的类型转换方法。所有取值方法均为 null-safe。</p>
  */
-public final class ConfigMap {
+public class ConfigMap {
 
     private static final ConfigMap EMPTY = new ConfigMap(Map.of());
 
     private final Map<String, Object> raw;
 
-    private ConfigMap(Map<String, Object> raw) {
+    protected ConfigMap(Map<String, Object> raw) {
         this.raw = Collections.unmodifiableMap(copyDeep(raw));
     }
 

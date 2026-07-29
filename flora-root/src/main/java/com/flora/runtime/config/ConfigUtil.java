@@ -1,32 +1,33 @@
 package com.flora.runtime.config;
 
 import java.nio.file.Paths;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * 配置加载的流式入口，提供便捷的链式 API。
+ * <p>{@link ConfigChain} 继承 {@link ConfigMap}，链式调用的结果直接可作为
+ * {@code ConfigMap} 使用，无需额外的 {@code .load()} 调用。</p>
  *
  * <h3>两种模式</h3>
  * <ul>
- *   <li>{@link #system()} — 加载到全局单例 {@link ConfigLoader#system()}，所有调用共享</li>
  *   <li>{@link #newConfig()} — 创建独立的配置加载器，互不干扰</li>
+ *   <li>{@link #system()} — 使用全局单例，所有调用共享同一来源列表</li>
  * </ul>
  *
  * <h3>用法</h3>
  * <pre>{@code
- * // 独立配置
+ * // 独立配置——结果直接是 ConfigMap，无需 .load()
  * ConfigMap config = ConfigUtil
  *     .newConfig()
  *     .loadFile("config/base.yaml")
  *     .loadFile("{app.home}/override.yaml")
- *     .loadString("com.flora.name=zz")
- *     .load();
+ *     .loadString("com.flora.name=zz");
  *
  * // 全局单例
- * ConfigUtil.system()
- *     .loadFile("config/defaults.yaml")
- *     .load();
+ * ConfigUtil.system().loadFile("config/defaults.yaml");
+ * ConfigMap global = ConfigUtil.system().loadFile("override.yaml");
  * }</pre>
  *
  * <p>占位符 {@code {key}} 依次从 {@link System#getProperty(String)} 和
@@ -51,28 +52,27 @@ public final class ConfigUtil {
         return new ConfigChain(ConfigLoader.system());
     }
 
-    /** 从文件加载独立配置，等价于 {@code newConfig().loadFile(path)}。 */
-    public static ConfigChain loadFile(String path) {
-        return newConfig().loadFile(path);
-    }
-
-    /** 从 Properties 格式字符串加载独立配置，等价于 {@code newConfig().loadString(content)}。 */
-    public static ConfigChain loadString(String content) {
-        return newConfig().loadString(content);
-    }
-
-    // ====== 链式构建器 ======
+    // ====== 链式构建器（继承 ConfigMap） ======
 
     /**
-     * 流式配置构建器。通过 {@link ConfigUtil#newConfig()} 或
-     * {@link ConfigUtil#system()} 获得实例。
+     * 流式配置构建器，同时也是 {@link ConfigMap}。
+     * <p>通过 {@link #newConfig()} 或 {@link #system()} 获得实例后，
+     * 调用 {@link #loadFile} / {@link #loadString} 添加来源，
+     * 每个调用返回加载了当前所有来源的新 {@code ConfigChain}
+     * （即 {@code ConfigMap}），可直接使用。</p>
      */
-    public static final class ConfigChain {
+    public static final class ConfigChain extends ConfigMap {
 
         private final ConfigLoader loader;
 
         ConfigChain(ConfigLoader loader) {
+            super(loader.load().toMap());
             this.loader = loader;
+        }
+
+        /** 加载并返回一个新的合并快照（供内部或非链式场景使用）。 */
+        public ConfigMap load() {
+            return loader.load();
         }
 
         /** 添加文件来源。路径中的 {@code {key}} 占位符会被解析。 */
@@ -83,7 +83,7 @@ public final class ConfigUtil {
             } else {
                 loader.addSource(new FileConfigSource(Paths.get(resolved)));
             }
-            return this;
+            return new ConfigChain(loader);
         }
 
         /** 添加 Properties 格式的字符串来源。内容中的 {@code {key}} 占位符会被解析。 */
@@ -91,37 +91,32 @@ public final class ConfigUtil {
             String resolved = resolve(content);
             String label = "<inline>:" + (content.length() > 40 ? content.substring(0, 37) + "..." : content);
             loader.addSource(new StringConfigSource(ConfigFormat.PROPERTIES, resolved, label));
-            return this;
+            return new ConfigChain(loader);
         }
+    }
 
-        /** 执行加载，返回合并后的配置。 */
-        public ConfigMap load() {
-            return loader.load();
-        }
+    // ====== 占位符解析 ======
 
-        // ====== 占位符解析 ======
-
-        /** 将字符串中的 {@code {key}} 替换为系统属性或环境变量值。 */
-        static String resolve(String input) {
-            if (input == null || input.isEmpty()) return input;
-            Matcher m = PLACEHOLDER.matcher(input);
-            if (!m.find()) return input;
-            StringBuilder sb = new StringBuilder();
-            m.reset();
-            while (m.find()) {
-                String key = m.group(1);
-                String value = System.getProperty(key);
-                if (value == null) {
-                    value = System.getenv(key);
-                }
-                if (value == null) {
-                    throw new ConfigException("无法解析占位符: " + m.group(0)
-                            + "（未找到系统属性或环境变量: " + key + "）");
-                }
-                m.appendReplacement(sb, Matcher.quoteReplacement(value));
+    /** 将字符串中的 {@code {key}} 替换为系统属性或环境变量值。 */
+    static String resolve(String input) {
+        if (input == null || input.isEmpty()) return input;
+        Matcher m = PLACEHOLDER.matcher(input);
+        if (!m.find()) return input;
+        StringBuilder sb = new StringBuilder();
+        m.reset();
+        while (m.find()) {
+            String key = m.group(1);
+            String value = System.getProperty(key);
+            if (value == null) {
+                value = System.getenv(key);
             }
-            m.appendTail(sb);
-            return sb.toString();
+            if (value == null) {
+                throw new ConfigException("无法解析占位符: " + m.group(0)
+                        + "（未找到系统属性或环境变量: " + key + "）");
+            }
+            m.appendReplacement(sb, Matcher.quoteReplacement(value));
         }
+        m.appendTail(sb);
+        return sb.toString();
     }
 }

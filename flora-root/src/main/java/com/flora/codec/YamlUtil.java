@@ -74,6 +74,7 @@ public final class YamlUtil {
      * @see YamlBuilder#toYamlString(Object)
      */
     public static String toYamlString(Object obj) {
+        if (obj == null) throw new IllegalArgumentException("obj 为 null");
         return YamlBuilder.toYamlString(obj);
     }
 }

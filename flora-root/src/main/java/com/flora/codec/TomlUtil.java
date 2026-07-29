@@ -26,16 +26,10 @@ public final class TomlUtil {
     }
 
     /**
-     * 解析 TOML 文本（{@link #parse(String)} 的别名）。
-     */
-    public static Map<String, Object> parseObject(String src) {
-        return parse(src);
-    }
-
-    /**
      * 将 {@code Map<String, Object>} 序列化为 TOML 文本。
      */
     public static String toTomlString(Map<String, Object> map) {
+        if (map == null) throw new IllegalArgumentException("map 为 null");
         return TomlBuilder.toTomlString(map);
     }
 }

@@ -28,16 +28,6 @@ public final class PropsUtil {
     }
 
     /**
-     * 解析 .properties 文本（顶层恒为映射，签名与 {@link #parse(String)} 一致，便于统一调用）。
-     *
-     * @param src properties 文本
-     * @return 嵌套 Map
-     */
-    public static Map<String, Object> parseObject(String src) {
-        return PropsParser.parse(src);
-    }
-
-    /**
      * 将嵌套 Map 序列化为 .properties 文本（反向扁平化为点号键）。
      *
      * @param map 嵌套 Map

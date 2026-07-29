@@ -60,6 +60,7 @@ public final class JsonUtil {
      * @see JsonBuilder#toJsonString(Object)
      */
     public static String toJsonString(Object obj) {
+        if (obj == null) throw new IllegalArgumentException("obj 为 null");
         return JsonBuilder.toJsonString(obj);
     }
 
@@ -71,6 +72,7 @@ public final class JsonUtil {
      * @see JsonBuilder#toPrettyJsonString(Object)
      */
     public static String toPrettyJsonString(Object obj) {
+        if (obj == null) throw new IllegalArgumentException("obj 为 null");
         return JsonBuilder.toPrettyJsonString(obj);
     }
 

@@ -8,6 +8,21 @@ build/
 **/dist/
 !**/src/main/**/dist/
 !**/src/test/**/dist/
+*.class
+
+### Package Files ###
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+### Mobile Tools for Java (J2ME) ###
+.mtj.tmp/
+
+### BlueJ ###
+*.ctxt
 
 ### Maven ###
 .flattened-pom.xml
@@ -80,6 +95,7 @@ Thumbs.db
 /temp
 /tmp
 /absent
+hs_err_pid*
 
 ### Test & Coverage ###
 coverage/

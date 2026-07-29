@@ -25,12 +25,6 @@ flora-project/            -- Root POM (pom packaging, Java 26)
         └── flora-ramet-plugin/     -- Ramet codegen Mojo
 ```
 
-### Self-Bootstrapping (Meta-Code Generation)
-
-Template files in `flora-root/src/main/templates/*.ramet` are rendered by
-the `regenerate` Maven profile (`flora-ramet-plugin` → `com.flora.codegen.Ramet`)
-to produce the 64 `*FastHashMap` classes. The profile is only active during
-the `generate-sources` phase.
 
 ## Build & Test Commands
 
@@ -40,11 +34,6 @@ the `generate-sources` phase.
 - `./action/produce.cmd` — Full build without tests.
 - `./action/regenerate.cmd` — Regenerate code from templates
 - 
-- `./mvnw test` — Run all tests
-- `./mvnw test -Dtest=TokenTest` — Run a single test class
-- `./mvnw test -Dtest=TokenTest#testVarToken` — Run a single test method
-- `./mvnw clean install -DskipTests` — Full build, skip tests
--
 - `./push.cmd "commit message"` — Push to all remotes listed in
   `addition/config/remoteRepoList.txt`. This is a cross-platform script: the
   `.cmd` extension is purely a convention — it runs on both Windows (cmd.exe)
@@ -79,3 +68,23 @@ the `generate-sources` phase.
   `tagPrefixes.txt`, etc. The same codepage trap applies: a Chinese
   comment in a config file consumed by `cmd` can disable the whole file
   read. Keep keys, values, and comments in English.
+
+## Code Style Requirements
+
+- **Two-level semantic package layout for base utility modules**: Modules like
+  `flora-root` (zero-dependency foundation libraries) must organize packages by
+  a two-tier semantic hierarchy under `com.flora`:
+  - The first level denotes a broad category (e.g. `com.flora.collect`,
+    `com.flora.text`).
+  - The second level denotes a more specific sub-category within that category.
+  - Only export (via `module-info.java` `exports`) the packages that are meant
+    to be consumed by external code. When a category package mixes exportable
+    and internal types, move the internal types into a dedicated `impl`
+    sub-package (e.g. `com.flora.collect.impl`) and keep the parent package
+    containing only the public API surface.
+- **Comments describe contracts and behavior, not history**: Code comments must
+  focus on the code's *conventions, actual runtime behavior, and externally
+  observable functionality*. Do not use comments to record evolution history,
+  changelogs, or comparisons describing how the implementation differs from
+  alternative approaches. Keep comments forward-looking and about what the code
+  *is and does*, not how it came to be.

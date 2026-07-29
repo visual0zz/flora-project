@@ -1,23 +1,21 @@
-package com.flora.runtime.config;
+package com.flora.runtime.config.source;
 
-import java.io.*;
+import com.flora.runtime.config.Config;
+import com.flora.runtime.config.ConfigException;
+import com.flora.runtime.config.ConfigFormat;
+
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 /**
  * 从类路径资源中加载配置的源。
- * <p>通过 {@link ClassLoader#getResourceAsStream(String)} 查找资源。
- * 格式从文件名扩展名自动识别。</p>
  */
 public class ClasspathConfigSource implements ConfigSource {
 
     private final String resourcePath;
     private final ConfigFormat format;
 
-    /**
-     * 创建类路径配置源，格式从文件名扩展名自动推断。
-     *
-     * @param resourcePath 类路径资源路径（如 {@code config/app.yaml}）
-     */
     public ClasspathConfigSource(String resourcePath) {
         this.resourcePath = resourcePath;
         this.format = ConfigFormat.fromFilename(resourcePath);

@@ -7,24 +7,15 @@
  *
  * <h3>流式 API</h3>
  * <pre>{@code
- * Config config = ConfigUtil
- *     .newConfig()
- *     .load(new FileConfigSource(Paths.get("base.yaml")))  // 通用入口
- *     .loadFile("override.yaml")                            // 语法糖
- *     .loadString("key=val");                               // 语法糖
- * }</pre>
- *
- * <p>占位符 {@code {key}} 从当前已加载的配置中取值：</p>
- * <pre>{@code
- * // 假设 1.yaml 包含 { com.config.file: "2.yaml" }
  * Config config = ConfigUtil.newConfig()
- *     .loadFile("1.yaml")                   // 加载 1.yaml
- *     .loadFile("{com.config.file}")        // 从 1.yaml 取 com.config.file → "2.yaml"
- *     .loadString("url={server.host}:{server.port}/api");
+ *     .load(new FileConfigSource(...))    // 通用入口
+ *     .loadFile("override.yaml")          // 语法糖
+ *     .loadString("key=val");             // 语法糖
  * }</pre>
  *
  * <h3>自定义来源</h3>
- * <p>实现 {@link ConfigSource} 接口并通过 {@code load(source)} 接入：</p>
+ * <p>实现 {@code com.flora.runtime.config.source.ConfigSource} 接口
+ * 并通过 {@code load(source)} 接入：</p>
  * <pre>{@code
  * Config config = ConfigUtil.newConfig()
  *     .load(new MyCustomSource(...))
@@ -39,9 +30,7 @@
  * <p>利用 {@code com.flora.codec} 包的解析工具（JSON/YAML/TOML/Properties）
  * 根据文件扩展名自动识别格式。</p>
  *
- * <p>核心：{@link com.flora.runtime.config.ConfigLoader}、
- * {@link com.flora.runtime.config.ConfigSource}、
- * {@link com.flora.runtime.config.Config}、
- * {@link com.flora.runtime.ConfigUtil}。</p>
+ * <p>核心：{@link ConfigLoader}、{@link Config}、{@link com.flora.runtime.ConfigUtil}、
+ * {@code com.flora.runtime.config.source.ConfigSource}。</p>
  */
 package com.flora.runtime.config;

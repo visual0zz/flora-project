@@ -1,6 +1,7 @@
 package com.flora.runtime.config;
 
 import com.flora.runtime.ConfigUtil;
+import com.flora.runtime.config.source.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -70,46 +71,6 @@ class ConfigUtilTest {
                 .load(new StringConfigSource(ConfigFormat.PROPERTIES, "name=default"))
                 .loadFile("src/test/resources/config/app.yaml");
         assertEquals("test-app", config.getString("app.name"));
-    }
-
-    // ====== {key} 占位符——从已加载配置取值 ======
-
-    @Test
-    void placeholderFromLoadedConfig() {
-        Config config = ConfigUtil.newConfig()
-                .loadString("path=src/test/resources/config/app.yaml")
-                .loadFile("{path}");
-        assertEquals("test-app", config.getString("app.name"));
-    }
-
-    @Test
-    void placeholderNestedKey() {
-        Config config = ConfigUtil.newConfig()
-                .loadString("config.path=src/test/resources/config/app.yaml")
-                .loadFile("{config.path}");
-        assertEquals("test-app", config.getString("app.name"));
-    }
-
-    @Test
-    void placeholderInMiddleOfPath() {
-        Config config = ConfigUtil.newConfig()
-                .loadString("dir=src/test/resources/config")
-                .loadFile("{dir}/app.yaml");
-        assertEquals("test-app", config.getString("app.name"));
-    }
-
-    @Test
-    void placeholderNotFoundThrows() {
-        assertThrows(ConfigException.class, () ->
-                ConfigUtil.newConfig().loadFile("{nonexistent.key}"));
-    }
-
-    @Test
-    void placeholderInLoadString() {
-        Config config = ConfigUtil.newConfig()
-                .loadString("host=localhost\nport=8080")
-                .loadString("url=http://{host}:{port}/api");
-        assertEquals("http://localhost:8080/api", config.getString("url"));
     }
 
     @Test

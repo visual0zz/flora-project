@@ -1,6 +1,11 @@
-package com.flora.runtime.config;
+package com.flora.runtime.config.source;
 
-import java.io.*;
+import com.flora.runtime.config.Config;
+import com.flora.runtime.config.ConfigException;
+import com.flora.runtime.config.ConfigFormat;
+
+import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Map;
@@ -8,34 +13,17 @@ import java.util.Map;
 /**
  * 从文件系统中加载配置的源。
  * <p>根据文件扩展名自动识别格式（{@link ConfigFormat#fromFilename(String)}）。</p>
- *
- * <p>路径可以是：
- * <ul>
- *   <li>绝对路径：{@code /etc/app/config.yaml}</li>
- *   <li>相对路径：相对于 {@code user.dir}</li>
- * </ul>
  */
 public class FileConfigSource implements ConfigSource {
 
     private final Path filePath;
     private final ConfigFormat format;
 
-    /**
-     * 创建文件配置源，格式从文件扩展名自动推断。
-     *
-     * @param filePath 文件路径
-     */
     public FileConfigSource(Path filePath) {
         this.filePath = filePath.toAbsolutePath().normalize();
         this.format = ConfigFormat.fromFilename(filePath.getFileName().toString());
     }
 
-    /**
-     * 创建文件配置源，显式指定格式。
-     *
-     * @param filePath 文件路径
-     * @param format   配置格式
-     */
     public FileConfigSource(Path filePath, ConfigFormat format) {
         this.filePath = filePath.toAbsolutePath().normalize();
         this.format = format;

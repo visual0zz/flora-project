@@ -8,9 +8,10 @@ import com.flora.runtime.config.ConfigLoader;
  *
  * <pre>{@code
  * Config config = ConfigUtil.newConfig()
- *     .load(new FileConfigSource(Paths.get("base.yaml")))
+ *     .load(new FileConfigSource(...))
  *     .loadFile("override.yaml")
- *     .loadString("key=val");
+ *     .loadString("key=val")
+ *     .getMap("database");
  * }</pre>
  */
 public final class ConfigUtil {

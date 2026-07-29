@@ -73,7 +73,7 @@ public final class ConfigLoader {
     public List<ConfigSource> getSources() {
         return entries.stream()
                 .map(SourceEntry::source)
-                .collect(Collectors.toUnmodifiableList());
+                .toList();
     }
 
     /** 移除所有来源。 */

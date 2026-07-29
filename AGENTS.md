@@ -41,10 +41,9 @@ flora-project/            -- 根 POM（pom 打包类型，Java 26）
 
 - **每完成一个任务后提交并推送**：完成一个实质性任务并验证测试通过后，提交变更并通过 `./push.cmd` 上传。不要将无关工作合并到一次提交中。
 - **Git 提交**：提交时在提交信息中包含你的 AI 代理名称（例如 `feat(ramet) by AgentName: add numberFormat function.`）。
-- **代码审查**：将 AI 生成的代码审查报告保存在 `addition/codereview/` 中。命名格式：`review{YYYYMMDD}-{NN}-{主题}.md`。
-- **方案设计**：将 AI 生成的方案或设计文档保存在 `addition/design/` 中。命名格式：`idea{YYYYMMDD}-{NN}-{主题}.md`。
-- **决策记录**：每当 AI 做出决策（如技术选型或实现方案）时，记录到 `addition/decision/` 中。
-  命名格式：`decision{YYYYMMDD}-{NN}-{模块}.md`。
+- **代码审查**：将 AI 生成的代码审查报告保存在 `addition/codereview/` 中。命名格式：`review{YYYYMMDD}-{编号}-{主题}.md`。
+- **方案设计**：将 AI 生成的方案或设计文档保存在 `addition/design/` 中。命名格式：`idea{YYYYMMDD}-{编号}-{主题}.md`。
+- **决策记录**：每当 AI 做出决策（如技术选型或实现方案）时，记录到 `addition/decision/` 中。命名格式：`decision{YYYYMMDD}-{编号}-{模块}.md`。
 - **更新日志**：如果子模块包含 `CHANGELOG.md` 文件，每次代码改动后更新它，反映修改、新增或删除的内容。
 - **所有控制台脚本必须使用纯英文。** 这包括所有跨平台脚本，如 `*.cmd`、`*.sh`、`*.ps1` 以及从终端调用的任何 Shell 辅助脚本。**不要**在代码、注释、`echo`/`printf` 字符串或标签中使用中文（或任何非 ASCII 字符）。
   原因：在 Windows 上，`cmd.exe` 以系统代码页（如 GBK）读取 `.cmd` 文件。UTF-8 中文会使 `for /f "eol=#"` 和其它解析逻辑静默跳过所有行，导致脚本失效。提交信息仍可包含中文——那里的乱码无害。
@@ -53,7 +52,7 @@ flora-project/            -- 根 POM（pom 打包类型，Java 26）
 
 ## 代码风格要求
 
-- **基础工具模块采用两层语义包结构**：像 `flora-root`（零依赖基础库）这样的模块必须在 `com.flora` 下按两层语义层次组织包：
+- **基础工具模块采用两层语义包结构**：像 `flora-root`（零依赖基础库）这样的模块必须按两层语义层次组织包：
   - 第一层表示宽泛的类别（如 `com.flora.collect`、`com.flora.text`）。
   - 第二层表示该类别的更具体的子类别。
   - 只通过 `module-info.java` 的 `exports` 导出供外部代码消费的包。当一个类别包同时包含可导出的和内部的类型时，将内部类型移到专门的 `impl` 子包中（如 `com.flora.collect.impl`），父包只保留公开 API。

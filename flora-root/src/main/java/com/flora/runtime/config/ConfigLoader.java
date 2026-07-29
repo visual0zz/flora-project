@@ -76,6 +76,11 @@ public final class ConfigLoader {
                 .collect(Collectors.toUnmodifiableList());
     }
 
+    /** 移除所有来源。 */
+    public void clearSources() {
+        entries.clear();
+    }
+
     // ====== 单次加载 ======
 
     /**

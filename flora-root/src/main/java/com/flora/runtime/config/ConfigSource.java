@@ -20,7 +20,7 @@ public interface ConfigSource {
     String describe();
 
     /**
-     * 返回该来源的位置标识（用于递归包含时参考路径）。
+     * 返回该来源的位置标识（用于去重和循环检测）。
      */
     String location();
 }

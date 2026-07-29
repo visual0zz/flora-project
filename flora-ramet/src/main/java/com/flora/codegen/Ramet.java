@@ -62,7 +62,6 @@ public final class Ramet {
      * 传入 {@code VfsFileSystem} 创建的 Path 即运行在虚拟文件系统上。</p>
      */
     public static void run(Path templatesDir, Path outputDir, boolean dryRun) throws IOException {
-        java.nio.file.FileSystem fs = templatesDir.getFileSystem();
         if (!Files.isDirectory(templatesDir)) {
             throw new IllegalArgumentException("模板目录不存在: " + templatesDir);
         }

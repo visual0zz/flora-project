@@ -18,12 +18,6 @@ build/
 *.tar.gz
 *.rar
 
-### Mobile Tools for Java (J2ME) ###
-.mtj.tmp/
-
-### BlueJ ###
-*.ctxt
-
 ### Maven ###
 .flattened-pom.xml
 dependency-reduced-pom.xml

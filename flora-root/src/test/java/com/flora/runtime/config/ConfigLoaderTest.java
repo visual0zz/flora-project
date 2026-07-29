@@ -295,4 +295,47 @@ class ConfigLoaderTest {
         // 第二次加载被跳过，值应为 1（非 2）
         assertEquals(Long.valueOf(1), m.get("x"));
     }
+
+    // ====== 优先级 ======
+
+    @Test
+    void samePriorityLaterOverridesEarlier() {
+        ConfigLoader loader = new ConfigLoader();
+        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"k\":1}"), ConfigPriority.NORMAL);
+        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"k\":2}"), ConfigPriority.NORMAL);
+        assertEquals(Long.valueOf(2), loader.load().get("k"));
+    }
+
+    @Test
+    void higherPriorityOverridesLower() {
+        ConfigLoader loader = new ConfigLoader();
+        // 先添加高优先级，后添加低优先级
+        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"k\":\"high\"}"), ConfigPriority.HIGH);
+        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"k\":\"low\"}"), ConfigPriority.LOW);
+        // HIGH > LOW，结果应为 "high"
+        assertEquals("high", loader.load().getString("k"));
+    }
+
+    @Test
+    void priorityMixedWithSameLevelOverride() {
+        ConfigLoader loader = new ConfigLoader();
+        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"a\":1, \"b\":1}"), ConfigPriority.LOW);
+        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"a\":2}"),           ConfigPriority.LOW);
+        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"b\":3, \"c\":3}"), ConfigPriority.HIGH);
+        ConfigMap m = loader.load();
+        // LOW 内部：第二个 source 覆盖第一个 -> a=2, b=1
+        // HIGH 覆盖 LOW -> b=3, c=3
+        assertEquals(Long.valueOf(2), m.get("a"));
+        assertEquals(Long.valueOf(3), m.get("b"));
+        assertEquals(Long.valueOf(3), m.get("c"));
+    }
+
+    @Test
+    void priorityDefaultIsNormal() {
+        ConfigLoader loader = new ConfigLoader();
+        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"k\":\"default\"}"));
+        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"k\":\"explicit\"}"), ConfigPriority.NORMAL);
+        // 同 NORMAL，后添加覆盖
+        assertEquals("explicit", loader.load().getString("k"));
+    }
 }

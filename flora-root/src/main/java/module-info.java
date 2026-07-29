@@ -24,6 +24,7 @@ module com.flora.root {
     exports com.flora.os.virtual.file;
     exports com.flora.os.virtual.file.backend;
     exports com.flora.os.virtual.file.nio;
+    exports com.flora.runtime;
 
     uses Converter;
 }

@@ -1,5 +1,6 @@
 package com.flora.runtime.log;
 
+import com.flora.runtime.LoggerFactory;
 import com.flora.runtime.log.impl.LoggerImpl;
 
 import java.util.function.Consumer;

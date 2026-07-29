@@ -42,6 +42,6 @@
  * <p>核心：{@link com.flora.runtime.config.ConfigLoader}、
  * {@link com.flora.runtime.config.ConfigSource}、
  * {@link com.flora.runtime.config.Config}、
- * {@link com.flora.runtime.config.ConfigUtil}。</p>
+ * {@link com.flora.runtime.ConfigUtil}。</p>
  */
 package com.flora.runtime.config;

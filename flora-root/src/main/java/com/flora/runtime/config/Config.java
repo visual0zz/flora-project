@@ -1,35 +1,33 @@
 package com.flora.runtime.config;
 
 import java.util.*;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * 不可变的层次化配置映射，支持点号路径访问和类型安全取值。
  * <p>包装来自解析器（{@code Map<String, Object>}）的嵌套结构，
  * 提供便捷的类型转换方法。所有取值方法均为 null-safe。</p>
  */
-public class ConfigMap {
+public class Config {
 
-    private static final ConfigMap EMPTY = new ConfigMap(Map.of());
+    private static final Config EMPTY = new Config(Map.of());
 
     private final Map<String, Object> raw;
 
-    protected ConfigMap(Map<String, Object> raw) {
+    protected Config(Map<String, Object> raw) {
         this.raw = Collections.unmodifiableMap(copyDeep(raw));
     }
 
     // ====== 工厂方法 ======
 
     /** 创建空配置。 */
-    public static ConfigMap empty() {
+    public static Config empty() {
         return EMPTY;
     }
 
     /** 包装原始 Map。 */
-    public static ConfigMap of(Map<String, Object> map) {
+    public static Config of(Map<String, Object> map) {
         if (map == null || map.isEmpty()) return EMPTY;
-        return new ConfigMap(map);
+        return new Config(map);
     }
 
     // ====== 路径访问 ======
@@ -103,10 +101,10 @@ public class ConfigMap {
      * 按点号路径获取子映射。
      */
     @SuppressWarnings("unchecked")
-    public ConfigMap getMap(String path) {
+    public Config getMap(String path) {
         Object v = resolve(path);
         if (v == null) return null;
-        if (v instanceof Map) return new ConfigMap((Map<String, Object>) v);
+        if (v instanceof Map) return new Config((Map<String, Object>) v);
         throw new ConfigException("路径 '" + path + "' 的值不是映射类型: " + v.getClass().getName());
     }
 
@@ -146,8 +144,8 @@ public class ConfigMap {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof ConfigMap cm)) return false;
-        return raw.equals(cm.raw);
+        if (!(o instanceof Config c)) return false;
+        return raw.equals(c.raw);
     }
 
     @Override
@@ -202,14 +200,14 @@ public class ConfigMap {
     }
 
     /**
-     * 合并多个 ConfigMap（后者的值覆盖前者）。
+     * 合并多个 Config（后者的值覆盖前者）。
      */
-    static ConfigMap merge(ConfigMap base, ConfigMap overlay) {
+    static Config merge(Config base, Config overlay) {
         if (base.isEmpty()) return overlay;
         if (overlay.isEmpty()) return base;
         Map<String, Object> merged = new LinkedHashMap<>(copyDeep(base.raw));
         mergeDeep(merged, copyDeep(overlay.raw));
-        return new ConfigMap(merged);
+        return new Config(merged);
     }
 
     @SuppressWarnings("unchecked")

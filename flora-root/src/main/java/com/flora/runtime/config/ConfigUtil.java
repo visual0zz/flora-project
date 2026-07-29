@@ -1,14 +1,13 @@
 package com.flora.runtime.config;
 
 import java.nio.file.Paths;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * 配置加载的流式入口，提供便捷的链式 API。
- * <p>{@link ConfigChain} 继承 {@link ConfigMap}，链式调用的结果直接可作为
- * {@code ConfigMap} 使用，无需额外的 {@code .load()} 调用。</p>
+ * <p>{@link ConfigChain} 继承 {@link Config}，链式调用的结果直接可作为
+ * {@code Config} 使用，无需额外的 {@code .load()} 调用。</p>
  *
  * <h3>两种模式</h3>
  * <ul>
@@ -18,21 +17,21 @@ import java.util.regex.Pattern;
  *
  * <h3>用法</h3>
  * <pre>{@code
- * // 独立配置——结果直接是 ConfigMap，无需 .load()
- * ConfigMap config = ConfigUtil
+ * // 独立配置——`loadFile` 是 `load(new FileConfigSource(...))` 的语法糖
+ * Config config = ConfigUtil
  *     .newConfig()
- *     .loadFile("config/base.yaml")
- *     .loadFile("{app.home}/override.yaml")
- *     .loadString("com.flora.name=zz");
+ *     .load(new FileConfigSource(Paths.get("base.yaml")))
+ *     .loadFile("override.yaml")
+ *     .loadString("key=val");
  *
- * // 全局单例
- * ConfigUtil.system().loadFile("config/defaults.yaml");
- * ConfigMap global = ConfigUtil.system().loadFile("override.yaml");
+ * // 自定义来源
+ * Config config = ConfigUtil.newConfig()
+ *     .load(new MyCustomSource(...))
+ *     .loadFile("extra.yaml");
  * }</pre>
  *
- * <p>占位符 {@code {key}} 依次从 {@link System#getProperty(String)} 和
- * {@link System#getenv(String)} 解析。路径以 {@code classpath:} 开头时
- * 从类路径加载。</p>
+ * <p>占位符 {@code {key}} 从当前已加载的配置中取值。
+ * 路径以 {@code classpath:} 开头时从类路径加载。</p>
  */
 public final class ConfigUtil {
 
@@ -47,21 +46,21 @@ public final class ConfigUtil {
         return new ConfigChain(new ConfigLoader());
     }
 
-    /** 使用全局单例 {@link ConfigLoader#system()}，多處调用共享同一来源列表。 */
+    /** 使用全局单例 {@link ConfigLoader#system()}，多处调用共享同一来源列表。 */
     public static ConfigChain system() {
         return new ConfigChain(ConfigLoader.system());
     }
 
-    // ====== 链式构建器（继承 ConfigMap） ======
+    // ====== 链式构建器 ======
 
     /**
-     * 流式配置构建器，同时也是 {@link ConfigMap}。
-     * <p>通过 {@link #newConfig()} 或 {@link #system()} 获得实例后，
-     * 调用 {@link #loadFile} / {@link #loadString} 添加来源，
-     * 每个调用返回加载了当前所有来源的新 {@code ConfigChain}
-     * （即 {@code ConfigMap}），可直接使用。</p>
+     * 流式配置构建器，同时也是 {@link Config}。
+     * <p>通过 {@link #newConfig()} 或 {@link #system()} 获得实例。</p>
+     *
+     * <p>通用方法 {@link #load(ConfigSource)} 接受任意来源，
+     * {@link #loadFile} / {@link #loadString} 是它的语法糖。</p>
      */
-    public static final class ConfigChain extends ConfigMap {
+    public static final class ConfigChain extends Config {
 
         private final ConfigLoader loader;
 
@@ -70,35 +69,64 @@ public final class ConfigUtil {
             this.loader = loader;
         }
 
-        /** 加载并返回一个新的合并快照（供内部或非链式场景使用）。 */
-        public ConfigMap load() {
+        // ====== 通用入口 ======
+
+        /**
+         * 添加任意配置来源并返回最新快照。
+         * <p>{@link #loadFile} 和 {@link #loadString} 均委托至此方法。</p>
+         *
+         * @param source 配置来源（可实现 {@link ConfigSource} 自定义）
+         * @return 加载了当前所有来源的新快照
+         */
+        public ConfigChain load(ConfigSource source) {
+            loader.addSource(source);
+            return new ConfigChain(loader);
+        }
+
+        /** 返回当前合并快照（供非链式场景使用）。 */
+        public Config load() {
             return loader.load();
         }
 
-        /** 添加文件来源。路径中的 {@code {key}} 占位符会被解析。 */
+        // ====== 语法糖 ======
+
+        /**
+         * 从文件加载配置，等价于 {@code load(new FileConfigSource(...))}。
+         * <p>路径中的 {@code {key}} 占位符从当前已加载配置中取值。
+         * 以 {@code classpath:} 开头时从类路径加载。</p>
+         */
         public ConfigChain loadFile(String path) {
-            String resolved = resolve(path);
+            String resolved = resolvePlaceholders(path, this);
             if (resolved.startsWith("classpath:")) {
-                loader.addSource(new ClasspathConfigSource(resolved.substring("classpath:".length())));
-            } else {
-                loader.addSource(new FileConfigSource(Paths.get(resolved)));
+                return load(new ClasspathConfigSource(
+                        resolved.substring("classpath:".length())));
             }
-            return new ConfigChain(loader);
+            return load(new FileConfigSource(Paths.get(resolved)));
         }
 
-        /** 添加 Properties 格式的字符串来源。内容中的 {@code {key}} 占位符会被解析。 */
+        /**
+         * 从 Properties 格式字符串加载配置，等价于
+         * {@code load(new StringConfigSource(PROPERTIES, content))}。
+         * <p>内容中的 {@code {key}} 占位符从当前已加载配置中取值。</p>
+         */
         public ConfigChain loadString(String content) {
-            String resolved = resolve(content);
-            String label = "<inline>:" + (content.length() > 40 ? content.substring(0, 37) + "..." : content);
-            loader.addSource(new StringConfigSource(ConfigFormat.PROPERTIES, resolved, label));
-            return new ConfigChain(loader);
+            String resolved = resolvePlaceholders(content, this);
+            String label = "<inline>:" + (content.length() > 40
+                    ? content.substring(0, 37) + "..." : content);
+            return load(new StringConfigSource(ConfigFormat.PROPERTIES, resolved, label));
         }
     }
 
     // ====== 占位符解析 ======
 
-    /** 将字符串中的 {@code {key}} 替换为系统属性或环境变量值。 */
-    static String resolve(String input) {
+    /**
+     * 将 {@code {key}} 从当前已加载的配置中取值替换。
+     *
+     * @param input  含占位符的字符串
+     * @param config 当前已加载的配置
+     * @return 替换后的字符串
+     */
+    static String resolvePlaceholders(String input, Config config) {
         if (input == null || input.isEmpty()) return input;
         Matcher m = PLACEHOLDER.matcher(input);
         if (!m.find()) return input;
@@ -106,13 +134,10 @@ public final class ConfigUtil {
         m.reset();
         while (m.find()) {
             String key = m.group(1);
-            String value = System.getProperty(key);
-            if (value == null) {
-                value = System.getenv(key);
-            }
+            String value = config.getString(key);
             if (value == null) {
                 throw new ConfigException("无法解析占位符: " + m.group(0)
-                        + "（未找到系统属性或环境变量: " + key + "）");
+                        + "（当前配置中不存在键: " + key + "）");
             }
             m.appendReplacement(sb, Matcher.quoteReplacement(value));
         }

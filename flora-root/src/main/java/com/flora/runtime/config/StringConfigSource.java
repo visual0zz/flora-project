@@ -31,8 +31,8 @@ public class StringConfigSource implements ConfigSource {
     }
 
     @Override
-    public ConfigMap load() {
-        return ConfigMap.of(format.parse(content));
+    public Config load() {
+        return Config.of(format.parse(content));
     }
 
     @Override

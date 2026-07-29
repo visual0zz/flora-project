@@ -19,14 +19,14 @@ import java.util.stream.Collectors;
  *                  ConfigPriority.LOW);      // 低优先级——先加载
  * loader.addSource(new FileConfigSource(Paths.get("override.yaml")),
  *                  ConfigPriority.HIGH);     // 高优先级——覆盖低优先级
- * ConfigMap config = loader.load();
+ * Config config = loader.load();
  * }</pre>
  *
  * <h3>分阶段加载（Java 编排——无预留命名空间）</h3>
  * <p>先加载初始配置，由 Java 代码读取已加载配置中的普通 key 的值，
  * 决定下一步加载哪些配置文件，重复此过程直至完成。</p>
  * <pre>{@code
- * ConfigMap config = loader.resolve(cfg -> {
+ * Config config = loader.resolve(cfg -> {
  *     String dbPath = cfg.getString("database.config");   // 普通 app key，非预留
  *     if (dbPath == null) return Collections.emptyList();
  *     return List.of(new FileConfigSource(Paths.get(dbPath)));
@@ -90,16 +90,16 @@ public final class ConfigLoader {
      * @return 合并后的配置
      * @throws ConfigException 加载失败时抛出
      */
-    public ConfigMap load() {
-        if (entries.isEmpty()) return ConfigMap.empty();
+    public Config load() {
+        if (entries.isEmpty()) return Config.empty();
 
         List<SourceEntry> sorted = new ArrayList<>(entries);
         sorted.sort(Comparator.comparingInt(e -> e.priority.ordinal()));
 
-        ConfigMap merged = ConfigMap.empty();
+        Config merged = Config.empty();
         for (SourceEntry e : sorted) {
-            ConfigMap cfg = e.source.load();
-            merged = ConfigMap.merge(merged, cfg);
+            Config cfg = e.source.load();
+            merged = Config.merge(merged, cfg);
         }
         return merged;
     }
@@ -118,8 +118,8 @@ public final class ConfigLoader {
      * @param resolver 回调函数，接收当前合并后的配置，返回下一步要加载的来源列表
      * @return 最终合并后的配置
      */
-    public ConfigMap resolve(ConfigResolver resolver) {
-        ConfigMap merged = load();
+    public Config resolve(ConfigResolver resolver) {
+        Config merged = load();
         Set<String> seen = new HashSet<>();
         for (SourceEntry e : entries) {
             String loc = e.source.location();
@@ -144,8 +144,8 @@ public final class ConfigLoader {
 
             // 加载新来源并合并
             for (ConfigSource src : newSources) {
-                ConfigMap cfg = src.load();
-                merged = ConfigMap.merge(merged, cfg);
+                Config cfg = src.load();
+                merged = Config.merge(merged, cfg);
             }
         }
         return merged;
@@ -163,7 +163,7 @@ public final class ConfigLoader {
          * @param currentConfig 当前已合并的配置
          * @return 待加载的额外来源列表；返回 null 或空列表表示结束
          */
-        List<ConfigSource> resolve(ConfigMap currentConfig);
+        List<ConfigSource> resolve(Config currentConfig);
     }
 
     // ====== 内部 ======

@@ -12,7 +12,7 @@ public interface ConfigSource {
      * @return 配置映射
      * @throws ConfigException 加载或解析失败时抛出
      */
-    ConfigMap load();
+    Config load();
 
     /**
      * 返回该来源的描述（用于日志/调试）。

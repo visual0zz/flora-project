@@ -42,10 +42,10 @@ public class FileConfigSource implements ConfigSource {
     }
 
     @Override
-    public ConfigMap load() {
+    public Config load() {
         String text = readFile();
         Map<String, Object> parsed = format.parse(text);
-        return ConfigMap.of(parsed);
+        return Config.of(parsed);
     }
 
     @Override

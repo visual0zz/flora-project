@@ -34,23 +34,23 @@ class ConfigLoaderTest {
 
     @Test
     void formatParse() {
-        ConfigMap m = ConfigMap.of(ConfigFormat.JSON.parse("{\"a\":1}"));
+        Config m = Config.of(ConfigFormat.JSON.parse("{\"a\":1}"));
         assertEquals(Long.valueOf(1), m.get("a"));
 
-        ConfigMap m2 = ConfigMap.of(ConfigFormat.YAML.parse("a: 1\n"));
+        Config m2 = Config.of(ConfigFormat.YAML.parse("a: 1\n"));
         assertEquals(Long.valueOf(1), m2.get("a"));
     }
 
-    // ====== ConfigMap ======
+    // ====== Config ======
 
     @Test
     void configMapEmpty() {
-        assertTrue(ConfigMap.empty().isEmpty());
+        assertTrue(Config.empty().isEmpty());
     }
 
     @Test
     void configMapGetString() {
-        ConfigMap m = ConfigMap.of(Map.of("name", "hello", "count", 42));
+        Config m = Config.of(Map.of("name", "hello", "count", 42));
         assertEquals("hello", m.getString("name"));
         assertEquals("42", m.getString("count"));
         assertNull(m.getString("missing"));
@@ -59,28 +59,28 @@ class ConfigLoaderTest {
 
     @Test
     void configMapGetInt() {
-        ConfigMap m = ConfigMap.of(Map.of("i", 42, "l", 100L));
+        Config m = Config.of(Map.of("i", 42, "l", 100L));
         assertEquals(Integer.valueOf(42), m.getInt("i"));
         assertEquals(Integer.valueOf(100), m.getInt("l"));
     }
 
     @Test
     void configMapGetLong() {
-        ConfigMap m = ConfigMap.of(Map.of("i", 42, "l", 100L));
+        Config m = Config.of(Map.of("i", 42, "l", 100L));
         assertEquals(Long.valueOf(42), m.getLong("i"));
         assertEquals(Long.valueOf(100), m.getLong("l"));
     }
 
     @Test
     void configMapGetBoolean() {
-        ConfigMap m = ConfigMap.of(Map.of("t", true, "f", false));
+        Config m = Config.of(Map.of("t", true, "f", false));
         assertTrue(m.getBoolean("t"));
         assertFalse(m.getBoolean("f"));
     }
 
     @Test
     void configMapNestedAccess() {
-        ConfigMap m = ConfigMap.of(Map.of("a", Map.of("b", Map.of("c", "deep"))));
+        Config m = Config.of(Map.of("a", Map.of("b", Map.of("c", "deep"))));
         assertEquals("deep", m.getString("a.b.c"));
         assertNotNull(m.getMap("a"));
         assertNotNull(m.getMap("a.b"));
@@ -89,15 +89,15 @@ class ConfigLoaderTest {
 
     @Test
     void configMapGetMap() {
-        ConfigMap m = ConfigMap.of(Map.of("sub", Map.of("k", "v")));
-        ConfigMap sub = m.getMap("sub");
+        Config m = Config.of(Map.of("sub", Map.of("k", "v")));
+        Config sub = m.getMap("sub");
         assertNotNull(sub);
         assertEquals("v", sub.getString("k"));
     }
 
     @Test
     void configMapGetList() {
-        ConfigMap m = ConfigMap.of(Map.of("items", List.of(1, 2, 3)));
+        Config m = Config.of(Map.of("items", List.of(1, 2, 3)));
         List<Object> list = m.getList("items");
         assertNotNull(list);
         assertEquals(3, list.size());
@@ -105,7 +105,7 @@ class ConfigLoaderTest {
 
     @Test
     void configMapContains() {
-        ConfigMap m = ConfigMap.of(Map.of("a", 1));
+        Config m = Config.of(Map.of("a", 1));
         assertTrue(m.contains("a"));
         assertFalse(m.contains("b"));
     }
@@ -114,7 +114,7 @@ class ConfigLoaderTest {
     void configMapDeepCopy() {
         Map<String, Object> raw = new java.util.LinkedHashMap<>();
         raw.put("key", "value");
-        ConfigMap m = ConfigMap.of(raw);
+        Config m = Config.of(raw);
         raw.put("key", "modified");
         assertEquals("value", m.getString("key"));
     }
@@ -124,7 +124,7 @@ class ConfigLoaderTest {
     @Test
     void stringConfigSource() {
         ConfigSource src = new StringConfigSource(ConfigFormat.JSON, "{\"a\":1}");
-        ConfigMap m = src.load();
+        Config m = src.load();
         assertEquals(Long.valueOf(1), m.get("a"));
     }
 
@@ -133,7 +133,7 @@ class ConfigLoaderTest {
     @Test
     void classpathConfigSource() {
         ConfigSource src = new ClasspathConfigSource("config/app.yaml");
-        ConfigMap m = src.load();
+        Config m = src.load();
         assertEquals("test-app", m.getString("app.name"));
         assertEquals(Long.valueOf(8080), m.get("server.port"));
     }
@@ -163,7 +163,7 @@ class ConfigLoaderTest {
     void configLoaderSingleSource() {
         ConfigLoader loader = new ConfigLoader();
         loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"a\":1, \"b\":\"x\"}"));
-        ConfigMap m = loader.load();
+        Config m = loader.load();
         assertEquals(Long.valueOf(1), m.get("a"));
         assertEquals("x", m.getString("b"));
     }
@@ -173,7 +173,7 @@ class ConfigLoaderTest {
         ConfigLoader loader = new ConfigLoader();
         loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"a\":1, \"b\":2}"));
         loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"b\":3, \"c\":4}"));
-        ConfigMap m = loader.load();
+        Config m = loader.load();
         assertEquals(Long.valueOf(1), m.get("a"));
         assertEquals(Long.valueOf(3), m.get("b"));  // 后添加的覆盖
         assertEquals(Long.valueOf(4), m.get("c"));
@@ -186,7 +186,7 @@ class ConfigLoaderTest {
                 "{\"db\":{\"host\":\"localhost\",\"port\":3306}}"));
         loader.addSource(new StringConfigSource(ConfigFormat.JSON,
                 "{\"db\":{\"port\":5432,\"user\":\"admin\"}}"));
-        ConfigMap m = loader.load();
+        Config m = loader.load();
         assertEquals("localhost", m.getString("db.host"));
         assertEquals(Long.valueOf(5432), m.get("db.port"));  // 覆盖
         assertEquals("admin", m.getString("db.user"));
@@ -198,7 +198,7 @@ class ConfigLoaderTest {
         loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"from\":\"json\"}"));
         loader.addSource(new StringConfigSource(ConfigFormat.YAML, "from: yaml\ncount: 3\n"));
         loader.addSource(new StringConfigSource(ConfigFormat.TOML, "from = \"toml\"\n"));
-        ConfigMap m = loader.load();
+        Config m = loader.load();
         assertEquals("toml", m.getString("from"));  // 最后添加的覆盖
         assertEquals(Long.valueOf(3), m.get("count"));
     }
@@ -225,7 +225,7 @@ class ConfigLoaderTest {
         // 回调返回空 —— resolve 退化为普通 load
         ConfigLoader loader = new ConfigLoader();
         loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"a\":1}"));
-        ConfigMap m = loader.resolve(cfg -> Collections.emptyList());
+        Config m = loader.resolve(cfg -> Collections.emptyList());
         assertEquals(Long.valueOf(1), m.get("a"));
     }
 
@@ -237,7 +237,7 @@ class ConfigLoaderTest {
         ConfigLoader loader = new ConfigLoader();
         loader.addSource(new StringConfigSource(ConfigFormat.YAML, mainYaml, "main.yaml"));
 
-        ConfigMap m = loader.resolve(cfg -> {
+        Config m = loader.resolve(cfg -> {
             // 读取一个普通 app key "app.name" —— 无任何特殊含义
             String name = cfg.getString("app.name");
             if ("main".equals(name)) {
@@ -262,7 +262,7 @@ class ConfigLoaderTest {
         ConfigLoader loader = new ConfigLoader();
         loader.addSource(new StringConfigSource(ConfigFormat.YAML, first, "first.yaml"));
 
-        ConfigMap m = loader.resolve(cfg -> {
+        Config m = loader.resolve(cfg -> {
             String done = cfg.getString("done");
             if ("true".equals(done)) return Collections.emptyList();
 
@@ -287,7 +287,7 @@ class ConfigLoaderTest {
         ConfigLoader loader = new ConfigLoader();
         loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"x\":1}", "cyclic.yaml"));
 
-        ConfigMap m = loader.resolve(cfg -> {
+        Config m = loader.resolve(cfg -> {
             // 每次回调都返回同一个来源 —— loadedLocations 会阻止重复加载
             return List.of(new StringConfigSource(ConfigFormat.JSON, "{\"x\":2}", "cyclic.yaml"));
         });
@@ -322,7 +322,7 @@ class ConfigLoaderTest {
         loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"a\":1, \"b\":1}"), ConfigPriority.LOW);
         loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"a\":2}"),           ConfigPriority.LOW);
         loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"b\":3, \"c\":3}"), ConfigPriority.HIGH);
-        ConfigMap m = loader.load();
+        Config m = loader.load();
         // LOW 内部：第二个 source 覆盖第一个 -> a=2, b=1
         // HIGH 覆盖 LOW -> b=3, c=3
         assertEquals(Long.valueOf(2), m.get("a"));

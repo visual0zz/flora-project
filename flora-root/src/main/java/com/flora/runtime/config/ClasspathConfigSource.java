@@ -24,7 +24,7 @@ public class ClasspathConfigSource implements ConfigSource {
     }
 
     @Override
-    public ConfigMap load() {
+    public Config load() {
         InputStream is = Thread.currentThread().getContextClassLoader()
                 .getResourceAsStream(resourcePath);
         if (is == null) {
@@ -35,7 +35,7 @@ public class ClasspathConfigSource implements ConfigSource {
         }
         try {
             String text = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-            return ConfigMap.of(format.parse(text));
+            return Config.of(format.parse(text));
         } catch (IOException e) {
             throw new ConfigException("读取类路径资源失败: " + resourcePath, e);
         } finally {

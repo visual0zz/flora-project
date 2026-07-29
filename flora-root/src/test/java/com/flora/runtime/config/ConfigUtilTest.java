@@ -3,6 +3,8 @@ package com.flora.runtime.config;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Paths;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -15,61 +17,84 @@ class ConfigUtilTest {
         ConfigLoader.system().clearSources();
     }
 
+    // ====== 通用 load(ConfigSource) ======
+
     @Test
-    void newConfigWithFile() {
-        ConfigMap m = ConfigUtil.newConfig()
-                .loadFile("src/test/resources/config/app.yaml");
-        assertEquals("test-app", m.getString("app.name"));
-        assertEquals(Long.valueOf(8080), m.get("server.port"));
+    void loadGenericSource() {
+        Config config = ConfigUtil.newConfig()
+                .load(new StringConfigSource(ConfigFormat.PROPERTIES, "k=hello"));
+        assertEquals("hello", config.getString("k"));
     }
 
     @Test
-    void newConfigWithString() {
-        ConfigMap m = ConfigUtil.newConfig()
-                .loadString("name=hello\ncount=42");
-        assertEquals("hello", m.getString("name"));
-        assertEquals("42", m.getString("count"));
+    void loadFileSourceViaGeneric() {
+        Config config = ConfigUtil.newConfig()
+                .load(new FileConfigSource(Paths.get("src/test/resources/config/app.yaml")));
+        assertEquals("test-app", config.getString("app.name"));
     }
+
+    // ====== loadFile 语法糖 ======
+
+    @Test
+    void loadFile() {
+        Config config = ConfigUtil.newConfig()
+                .loadFile("src/test/resources/config/app.yaml");
+        assertEquals("test-app", config.getString("app.name"));
+    }
+
+    // ====== loadString 语法糖 ======
+
+    @Test
+    void loadString() {
+        Config config = ConfigUtil.newConfig()
+                .loadString("name=hello\ncount=42");
+        assertEquals("hello", config.getString("name"));
+        assertEquals("42", config.getString("count"));
+    }
+
+    // ====== 链式混合 ======
 
     @Test
     void chainedMerge() {
-        ConfigMap m = ConfigUtil.newConfig()
+        Config config = ConfigUtil.newConfig()
                 .loadString("key=first\nshared=from_first")
                 .loadString("key=second\nshared=from_second");
-        assertEquals("second", m.getString("key"));
-        assertEquals("from_second", m.getString("shared"));
+        assertEquals("second", config.getString("key"));
+        assertEquals("from_second", config.getString("shared"));
     }
 
     @Test
-    void chainWithFileAndString() {
-        ConfigMap m = ConfigUtil.newConfig()
-                .loadString("app.name=override")
+    void chainGenericAndSugar() {
+        Config config = ConfigUtil.newConfig()
+                .load(new StringConfigSource(ConfigFormat.PROPERTIES, "name=default"))
                 .loadFile("src/test/resources/config/app.yaml");
-        assertEquals("test-app", m.getString("app.name"));
+        assertEquals("test-app", config.getString("app.name"));
+    }
+
+    // ====== {key} 占位符——从已加载配置取值 ======
+
+    @Test
+    void placeholderFromLoadedConfig() {
+        Config config = ConfigUtil.newConfig()
+                .loadString("path=src/test/resources/config/app.yaml")
+                .loadFile("{path}");
+        assertEquals("test-app", config.getString("app.name"));
     }
 
     @Test
-    void placeholderResolvedFromSystemProperty() {
-        String key = "test.config.path." + System.nanoTime();
-        System.setProperty(key, "src/test/resources/config/app.yaml");
-        try {
-            ConfigMap m = ConfigUtil.newConfig().loadFile("{" + key + "}");
-            assertEquals("test-app", m.getString("app.name"));
-        } finally {
-            System.clearProperty(key);
-        }
+    void placeholderNestedKey() {
+        Config config = ConfigUtil.newConfig()
+                .loadString("config.path=src/test/resources/config/app.yaml")
+                .loadFile("{config.path}");
+        assertEquals("test-app", config.getString("app.name"));
     }
 
     @Test
     void placeholderInMiddleOfPath() {
-        String key = "test.config.dir." + System.nanoTime();
-        System.setProperty(key, "src/test/resources/config");
-        try {
-            ConfigMap m = ConfigUtil.newConfig().loadFile("{" + key + "}/app.yaml");
-            assertEquals("test-app", m.getString("app.name"));
-        } finally {
-            System.clearProperty(key);
-        }
+        Config config = ConfigUtil.newConfig()
+                .loadString("dir=src/test/resources/config")
+                .loadFile("{dir}/app.yaml");
+        assertEquals("test-app", config.getString("app.name"));
     }
 
     @Test
@@ -79,35 +104,28 @@ class ConfigUtilTest {
     }
 
     @Test
-    void classpathPrefix() {
-        ConfigMap m = ConfigUtil.newConfig().loadFile("classpath:config/app.yaml");
-        assertEquals("test-app", m.getString("app.name"));
+    void placeholderInLoadString() {
+        Config config = ConfigUtil.newConfig()
+                .loadString("host=localhost\nport=8080")
+                .loadString("url=http://{host}:{port}/api");
+        assertEquals("http://localhost:8080/api", config.getString("url"));
     }
 
     @Test
-    void multiplePlaceholders() {
-        String key1 = "test.p1." + System.nanoTime();
-        String key2 = "test.p2." + System.nanoTime();
-        System.setProperty(key1, "src/test");
-        System.setProperty(key2, "config/app.yaml");
-        try {
-            ConfigMap m = ConfigUtil.newConfig()
-                    .loadFile("{" + key1 + "}/resources/{" + key2 + "}");
-            assertEquals("test-app", m.getString("app.name"));
-        } finally {
-            System.clearProperty(key1);
-            System.clearProperty(key2);
-        }
+    void classpathPrefix() {
+        Config config = ConfigUtil.newConfig()
+                .loadFile("classpath:config/app.yaml");
+        assertEquals("test-app", config.getString("app.name"));
     }
 
     // ====== 独立实例 ======
 
     @Test
     void newConfigIsIndependent() {
-        ConfigMap m1 = ConfigUtil.newConfig().loadString("k=from_first");
-        ConfigMap m2 = ConfigUtil.newConfig().loadString("k=from_second");
-        assertEquals("from_first", m1.getString("k"));
-        assertEquals("from_second", m2.getString("k"));
+        Config c1 = ConfigUtil.newConfig().loadString("k=from_first");
+        Config c2 = ConfigUtil.newConfig().loadString("k=from_second");
+        assertEquals("from_first", c1.getString("k"));
+        assertEquals("from_second", c2.getString("k"));
     }
 
     // ====== 全局单例 ======
@@ -116,23 +134,38 @@ class ConfigUtilTest {
     void systemSharedAcrossCalls() {
         ConfigUtil.system().loadString("shared_key=initial");
         ConfigUtil.system().loadString("another=val");
-        ConfigMap m = ConfigUtil.system().loadString("last=third");
-        assertEquals("initial", m.getString("shared_key"));
-        assertEquals("val", m.getString("another"));
-        assertEquals("third", m.getString("last"));
+        Config config = ConfigUtil.system().loadString("last=third");
+        assertEquals("initial", config.getString("shared_key"));
+        assertEquals("val", config.getString("another"));
+        assertEquals("third", config.getString("last"));
     }
 
     @Test
     void systemIsolationFromNewConfig() {
         ConfigUtil.system().loadString("sys=global");
-        ConfigMap independent = ConfigUtil.newConfig().loadString("indep=own");
+        Config independent = ConfigUtil.newConfig().loadString("indep=own");
         assertNull(independent.getString("sys"));
         assertEquals("own", independent.getString("indep"));
     }
 
     @Test
-    void systemReturnTypeIsConfigMap() {
-        ConfigMap m = ConfigUtil.system().loadString("k=v");
-        assertEquals("v", m.getString("k"));
+    void systemReturnTypeIsConfig() {
+        Config config = ConfigUtil.system().loadString("k=v");
+        assertEquals("v", config.getString("k"));
+    }
+
+    // ====== 自定义 ConfigSource ======
+
+    @Test
+    void customConfigSource() {
+        ConfigSource custom = new ConfigSource() {
+            @Override public Config load() {
+                return Config.of(java.util.Map.of("from", "custom"));
+            }
+            @Override public String describe() { return "custom"; }
+            @Override public String location() { return "custom"; }
+        };
+        Config config = ConfigUtil.newConfig().load(custom);
+        assertEquals("custom", config.getString("from"));
     }
 }

@@ -77,7 +77,7 @@ public final class ConfigLoader {
     }
 
     /** 移除所有来源。 */
-    public void clearSources() {
+    void clearSources() {
         entries.clear();
     }
 

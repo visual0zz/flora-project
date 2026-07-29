@@ -1,9 +1,11 @@
 /**
- * 日志与运行时配置加载系统。
- * <p>
- * 本包承载从外部配置文件（如 properties）加载并应用日志路由规则的通用加载器，
- * 计划提供与格式无关的中性配置模型，以及可插拔的解析源（Source）。当前为占位包，
- * 具体实现待补充；实现后请在 {@code module-info.java} 中导出本包
- * （{@code exports com.flora.runtime.config;}）。
+ * 配置加载系统。
+ * <p>支持从文件、类路径等多种来源加载配置，可多来源合并，并支持通过配置
+ * 自身指定额外路径加载更多配置文件。利用 {@code com.flora.codec} 包中的
+ * 解析工具（JSON/YAML/TOML/Properties）自动识别格式。</p>
+ *
+ * <p>核心接口：{@link com.flora.runtime.config.ConfigLoader}、
+ * {@link com.flora.runtime.config.ConfigSource}、
+ * {@link com.flora.runtime.config.ConfigMap}。</p>
  */
 package com.flora.runtime.config;

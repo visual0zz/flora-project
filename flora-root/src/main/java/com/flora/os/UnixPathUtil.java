@@ -1,23 +1,21 @@
-package com.flora.os.virtual.file;
+package com.flora.os;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
 
 /**
- * VFS 路径归一化工具。
- * <p>绝对路径、UNIX 风格：处理 {@code ..} / {@code .} / 重复 {@code /} / 尾部 {@code /}。</p>
+ * UNIX 风格绝对路径的归一化与操作工具。
+ * <p>处理 {@code ..} / {@code .} / 重复 {@code /} / 尾部 {@code /}。</p>
  */
-final class PathUtil {
+public final class UnixPathUtil {
 
-    private PathUtil() {}
+    private UnixPathUtil() {}
 
-    /** 归一化绝对路径。入口。 */
-    static String normalize(String path) {
+    /** 归一化绝对路径。 */
+    public static String normalize(String path) {
         if (path == null || path.isEmpty()) throw new IllegalArgumentException("路径不能为空");
-        // 确保以 / 开头
         if (!path.startsWith("/")) throw new IllegalArgumentException("路径必须是绝对路径: " + path);
 
-        // 按 / 分割
         String[] parts = path.split("/", -1);
         Deque<String> stack = new ArrayDeque<>();
 
@@ -34,8 +32,8 @@ final class PathUtil {
         return "/" + String.join("/", stack);
     }
 
-    /** 获取父目录路径。 */
-    static String parent(String path) {
+    /** 获取父目录路径。根目录返回 null。 */
+    public static String parent(String path) {
         String n = normalize(path);
         if (n.equals("/")) return null;
         int idx = n.lastIndexOf('/');
@@ -43,8 +41,8 @@ final class PathUtil {
         return n.substring(0, idx);
     }
 
-    /** 获取文件名（最后一段）。 */
-    static String name(String path) {
+    /** 获取文件名（最后一段）。根目录返回空串。 */
+    public static String name(String path) {
         String n = normalize(path);
         if (n.equals("/")) return "";
         int idx = n.lastIndexOf('/');
@@ -52,7 +50,7 @@ final class PathUtil {
     }
 
     /** 拼接子路径。 */
-    static String resolve(String base, String child) {
+    public static String resolve(String base, String child) {
         if (child.startsWith("/")) return normalize(child);
         String b = normalize(base);
         if (b.equals("/")) return normalize("/" + child);

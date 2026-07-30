@@ -1,7 +1,8 @@
-package com.flora.os.virtual.file.nio;
+package com.flora.runtime.virtual.filesys.nio;
+
+import com.flora.runtime.virtual.filesys.VfsFileSystem;
 
 import java.io.File;
-import java.io.IOException;
 import java.net.URI;
 import java.nio.file.*;
 import java.util.*;
@@ -10,12 +11,12 @@ import java.util.*;
  * 虚拟文件系统的 {@link Path} 实现。
  * <p>路径为绝对、归一化、UNIX 风格。所有字符串操作委托给底层路径字符串。</p>
  */
-final class VfsPath implements Path {
+public final class VfsPath implements Path {
 
     private final String path;     // 归一化绝对路径，如 "/foo/bar.txt"
     private final VfsFileSystem fs;
 
-    VfsPath(String path, VfsFileSystem fs) {
+    public VfsPath(String path, VfsFileSystem fs) {
         // 去掉尾部 /（根路径 "/" 保留）
         if (path == null || path.isEmpty()) throw new IllegalArgumentException("路径不能为空");
         if (path.length() > 1 && path.endsWith("/")) path = path.substring(0, path.length() - 1);

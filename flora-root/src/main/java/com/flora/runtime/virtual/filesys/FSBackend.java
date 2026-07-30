@@ -1,4 +1,4 @@
-package com.flora.os.virtual.file;
+package com.flora.runtime.virtual.filesys;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -8,7 +8,8 @@ import java.util.List;
 /**
  * 虚拟文件系统后端接口。
  * <p>实现者提供底层存储能力：内存、数据库、远程、真实文件系统等。
- * 路径已归一化（绝对路径、无 {@code ..}、无尾部 {@code /}）。</p>
+ * 路径已归一化（绝对路径、无 {@code ..}、无尾部 {@code /}）。
+ * 支持符号链接的后端应额外实现 {@link SymlinkFSBackend}。</p>
  */
 public interface FSBackend {
 
@@ -29,9 +30,6 @@ public interface FSBackend {
      */
     OutputStream write(String path, boolean append) throws IOException;
 
-    /** 创建空文件（含父目录）。返回 false 若已存在。 */
-    boolean createFile(String path) throws IOException;
-
     /** 创建单层目录。父目录必须存在。返回 false 若已存在。 */
     boolean createDirectory(String path) throws IOException;
 
@@ -43,10 +41,4 @@ public interface FSBackend {
 
     /** 列出目录下的子项名称（不含路径）。返回空列表若不存在或非目录。 */
     List<String> list(String path) throws IOException;
-
-    /** 创建符号链接。返回 false 若 path 已存在。 */
-    boolean createSymbolicLink(String path, String target) throws IOException;
-
-    /** 读取符号链接的目标路径。路径非符号链接时抛出 IOException。 */
-    String readSymbolicLink(String path) throws IOException;
 }

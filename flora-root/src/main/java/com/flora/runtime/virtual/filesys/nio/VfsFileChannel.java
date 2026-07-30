@@ -1,10 +1,9 @@
-package com.flora.os.virtual.file.nio;
+package com.flora.runtime.virtual.filesys.nio;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.*;
-import java.nio.channels.spi.AbstractInterruptibleChannel;
 
 /**
  * 简易 {@link FileChannel} 实现，委托给 {@link SeekableByteChannel}。

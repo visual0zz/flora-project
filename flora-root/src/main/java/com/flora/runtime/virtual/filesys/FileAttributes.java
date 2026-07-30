@@ -1,4 +1,4 @@
-package com.flora.os.virtual.file;
+package com.flora.runtime.virtual.filesys;
 
 /**
  * 虚拟文件元数据记录。

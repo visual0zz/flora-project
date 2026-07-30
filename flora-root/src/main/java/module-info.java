@@ -19,12 +19,13 @@ module com.flora.root {
     exports com.flora.container.tuple;
     exports com.flora.codec;
     exports com.flora.java;
+    exports com.flora.os;
     exports com.flora.runtime.log;
     exports com.flora.runtime.config;
     exports com.flora.runtime.config.source;
-    exports com.flora.os.virtual.file;
-    exports com.flora.os.virtual.file.backend;
-    exports com.flora.os.virtual.file.nio;
+    exports com.flora.runtime.virtual.filesys;
+    exports com.flora.runtime.virtual.filesys.backend;
+
     exports com.flora.runtime;
 
     uses Converter;

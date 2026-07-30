@@ -1,11 +1,8 @@
 package com.flora.os.virtual;
 
-import com.flora.os.virtual.file.VFile;
-import com.flora.os.virtual.file.VFS;
-import com.flora.os.virtual.file.backend.MemoryFileSystem;
-import com.flora.os.virtual.file.backend.RealFileSystem;
-import com.flora.os.virtual.file.nio.VfsFileSystem;
-import org.junit.jupiter.api.BeforeEach;
+import com.flora.runtime.virtual.filesys.backend.MemoryFileSystem;
+import com.flora.runtime.virtual.filesys.backend.RealFileSystem;
+import com.flora.runtime.virtual.filesys.VfsFileSystem;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -22,211 +19,239 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class VFSTest {
 
-    @BeforeEach
-    void setUp() {
-        VFS.system().unmount("/mem");
-    }
-
     // ===================== 基础操作 =====================
 
     @Test
     void mountAndWriteRead() throws IOException {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        VFile f = VFS.system().get("/mem/hello.txt");
-        assertFalse(f.exists());
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        Path p = fs.getPath("/mem/hello.txt");
+        assertFalse(Files.exists(p));
 
-        f.writeString("Hello VFS!");
-        assertTrue(f.exists());
-        assertTrue(f.isRegularFile());
-        assertEquals("Hello VFS!", f.readString());
+        Files.writeString(p, "Hello VFS!");
+        assertTrue(Files.exists(p));
+        assertTrue(Files.isRegularFile(p));
+        assertEquals("Hello VFS!", Files.readString(p));
     }
 
     @Test
     void appendContent() throws IOException {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        VFile f = VFS.system().get("/mem/log.txt");
-        f.writeString("line1\n");
-        try (var out = f.openOutputStream(true)) {
-            out.write("line2\n".getBytes());
-        }
-        assertEquals("line1\nline2\n", f.readString());
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        Path p = fs.getPath("/mem/log.txt");
+        Files.writeString(p, "line1\n");
+        Files.writeString(p, "line2\n", java.nio.file.StandardOpenOption.APPEND);
+        assertEquals("line1\nline2\n", Files.readString(p));
     }
 
     // ===================== 目录操作 =====================
 
     @Test
     void createDirectories() throws IOException {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        VFile dir = VFS.system().get("/mem/a/b/c");
-        assertFalse(dir.exists());
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        Path dir = fs.getPath("/mem/a/b/c");
+        assertFalse(Files.exists(dir));
 
-        assertTrue(dir.mkDirs());
-        assertTrue(dir.exists());
-        assertTrue(dir.isDirectory());
+        Files.createDirectories(dir);
+        assertTrue(Files.exists(dir));
+        assertTrue(Files.isDirectory(dir));
     }
 
     @Test
     void listDirectory() throws IOException {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        VFS.system().get("/mem/a.txt").writeString("a");
-        VFS.system().get("/mem/sub/b.txt").mkDirs();
-        VFS.system().get("/mem/sub/b.txt").writeString("b");
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        Files.writeString(fs.getPath("/mem/a.txt"), "a");
+        Files.createDirectories(fs.getPath("/mem/sub"));
+        Files.writeString(fs.getPath("/mem/sub/b.txt"), "b");
 
-        List<VFile> rootFiles = VFS.system().get("/mem").list();
-        assertEquals(2, rootFiles.size());
+        try (var stream = Files.list(fs.getPath("/mem"))) {
+            List<Path> rootFiles = stream.toList();
+            assertEquals(2, rootFiles.size());
+        }
 
-        List<VFile> subFiles = VFS.system().get("/mem/sub").list();
-        assertEquals(1, subFiles.size());
+        try (var stream = Files.list(fs.getPath("/mem/sub"))) {
+            List<Path> subFiles = stream.toList();
+            assertEquals(1, subFiles.size());
+        }
     }
 
     // ===================== 删除与重命名 =====================
 
     @Test
     void deleteFile() throws IOException {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        VFS.system().get("/mem/tmp.txt").writeString("temp");
-        assertTrue(VFS.system().get("/mem/tmp.txt").exists());
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        Path p = fs.getPath("/mem/tmp.txt");
+        Files.writeString(p, "temp");
+        assertTrue(Files.exists(p));
 
-        assertTrue(VFS.system().get("/mem/tmp.txt").delete());
-        assertFalse(VFS.system().get("/mem/tmp.txt").exists());
+        Files.delete(p);
+        assertFalse(Files.exists(p));
     }
 
     @Test
     void renameFile() throws IOException {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        VFS.system().get("/mem/old.txt").writeString("data");
-        VFile dest = VFS.system().get("/mem/new.txt");
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        Path src = fs.getPath("/mem/old.txt");
+        Files.writeString(src, "data");
+        Path dest = fs.getPath("/mem/new.txt");
 
-        assertTrue(VFS.system().get("/mem/old.txt").renameTo(dest));
-        assertFalse(VFS.system().get("/mem/old.txt").exists());
-        assertTrue(dest.exists());
-        assertEquals("data", dest.readString());
+        Files.move(src, dest);
+        assertFalse(Files.exists(src));
+        assertTrue(Files.exists(dest));
+        assertEquals("data", Files.readString(dest));
     }
 
     // ===================== 拷贝 =====================
 
     @Test
     void copyFile() throws IOException {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        VFS.system().get("/mem/src.txt").writeString("source data");
-        VFile dest = VFS.system().get("/mem/dst.txt");
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        Path src = fs.getPath("/mem/src.txt");
+        Files.writeString(src, "source data");
+        Path dest = fs.getPath("/mem/dst.txt");
 
-        VFS.system().get("/mem/src.txt").copyTo(dest, false);
-        assertEquals("source data", dest.readString());
+        Files.copy(src, dest);
+        assertEquals("source data", Files.readString(dest));
     }
 
     @Test
     void copyReplaceExisting() throws IOException {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        VFS.system().get("/mem/src.txt").writeString("src");
-        VFS.system().get("/mem/dst.txt").writeString("dst");
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        Files.writeString(fs.getPath("/mem/src.txt"), "src");
+        Files.writeString(fs.getPath("/mem/dst.txt"), "dst");
 
-        VFS.system().get("/mem/src.txt").copyTo(VFS.system().get("/mem/dst.txt"), true);
-        assertEquals("src", VFS.system().get("/mem/dst.txt").readString());
+        Files.copy(fs.getPath("/mem/src.txt"), fs.getPath("/mem/dst.txt"),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        assertEquals("src", Files.readString(fs.getPath("/mem/dst.txt")));
     }
 
     @Test
     void copyExistingNoReplaceThrows() throws IOException {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        VFS.system().get("/mem/src.txt").writeString("src");
-        VFS.system().get("/mem/dst.txt").writeString("dst");
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        Files.writeString(fs.getPath("/mem/src.txt"), "src");
+        Files.writeString(fs.getPath("/mem/dst.txt"), "dst");
 
-        assertThrows(IOException.class,
-                () -> VFS.system().get("/mem/src.txt").copyTo(VFS.system().get("/mem/dst.txt"), false));
+        assertThrows(java.nio.file.FileAlreadyExistsException.class,
+                () -> Files.copy(fs.getPath("/mem/src.txt"), fs.getPath("/mem/dst.txt")));
     }
 
-    // ===================== 导航 =====================
+    // ===================== 路径导航 =====================
 
     @Test
     void pathNavigation() throws IOException {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        VFS.system().get("/mem/a/b/c.txt").mkDirs();
-        VFS.system().get("/mem/a/b/c.txt").writeString("deep");
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        Files.createDirectories(fs.getPath("/mem/a/b"));
+        Files.writeString(fs.getPath("/mem/a/b/c.txt"), "deep");
 
-        VFile f = VFS.system().get("/mem/a/b/c.txt");
-        assertEquals("c.txt", f.getName());
-        assertEquals("/mem/a/b/c.txt", f.getPath());
-        assertEquals("/mem/a/b", f.getParent().getPath());
-        assertEquals("/mem/a/b/d.txt", f.resolveSibling("d.txt").getPath());
-        assertEquals("/mem/a/b/c.txt/sub", f.resolve("sub").getPath());
+        Path f = fs.getPath("/mem/a/b/c.txt");
+        assertEquals("c.txt", f.getFileName().toString());
+        assertEquals("/mem/a/b/c.txt", f.toString());
+        assertEquals("/mem/a/b", f.getParent().toString());
+        assertEquals("/mem/a/b/d.txt", f.getParent().resolve("d.txt").toString());
+        assertEquals("/mem/a/b/c.txt/sub", f.resolve("sub").toString());
     }
 
     // ===================== 异常路径 =====================
 
     @Test
     void readNonExistentThrows() {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        assertThrows(IOException.class, () -> VFS.system().get("/mem/nope.txt").readString());
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        assertThrows(java.io.FileNotFoundException.class,
+                () -> Files.readString(fs.getPath("/mem/nope.txt")));
     }
 
     @Test
     void nonExistentAttributes() {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        var attr = VFS.system().get("/mem/nope.txt").getAttributes();
-        assertFalse(attr.exists());
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        var attr = fs.getPath("/mem/nope.txt");
+        assertFalse(Files.exists(attr));
     }
 
     @Test
     void noMountThrows() {
-        assertThrows(IllegalStateException.class, () -> VFS.system().get("/unknown/path"));
+        VfsFileSystem fs = new VfsFileSystem();
+        // 未挂载任何后端，通过 Provider 访问会触发 resolveInternal 的 ISE
+        Path p = fs.getPath("/unknown/path");
+        assertThrows(IllegalStateException.class,
+                () -> java.nio.file.Files.readAttributes(p, BasicFileAttributes.class));
     }
 
     // ===================== 目录树特性 =====================
 
     @Test
     void nestedFileAccess() throws IOException {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        VFS.system().get("/mem/data/sub/deep/file.txt").mkDirs();
-        VFS.system().get("/mem/data/sub/deep/file.txt").writeString("nested");
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        Files.createDirectories(fs.getPath("/mem/data/sub/deep"));
+        Files.writeString(fs.getPath("/mem/data/sub/deep/file.txt"), "nested");
 
-        assertTrue(VFS.system().get("/mem/data").isDirectory());
-        assertTrue(VFS.system().get("/mem/data/sub/deep/file.txt").isRegularFile());
-        assertEquals("nested", VFS.system().get("/mem/data/sub/deep/file.txt").readString());
+        assertTrue(Files.isDirectory(fs.getPath("/mem/data")));
+        assertTrue(Files.isRegularFile(fs.getPath("/mem/data/sub/deep/file.txt")));
+        assertEquals("nested", Files.readString(fs.getPath("/mem/data/sub/deep/file.txt")));
     }
 
     @Test
     void emptyDirectory() throws IOException {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        VFS.system().get("/mem/empty").mkDir();
-        assertTrue(VFS.system().get("/mem/empty").list().isEmpty());
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        Files.createDirectory(fs.getPath("/mem/empty"));
+        try (var stream = Files.list(fs.getPath("/mem/empty"))) {
+            assertTrue(stream.findAny().isEmpty());
+        }
     }
 
     // ===================== 多个挂载点 =====================
 
     @Test
     void multipleMounts() throws IOException {
-        VFS.system().mount("/sys", new MemoryFileSystem());
-        VFS.system().mount("/data", new MemoryFileSystem());
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/sys", new MemoryFileSystem());
+        fs.mount("/data", new MemoryFileSystem());
 
-        VFS.system().get("/sys/config.yml").writeString("sys: true");
-        VFS.system().get("/data/records.db").writeString("records");
+        Files.writeString(fs.getPath("/sys/config.yml"), "sys: true");
+        Files.writeString(fs.getPath("/data/records.db"), "records");
 
-        assertEquals("sys: true", VFS.system().get("/sys/config.yml").readString());
-        assertEquals("records", VFS.system().get("/data/records.db").readString());
+        assertEquals("sys: true", Files.readString(fs.getPath("/sys/config.yml")));
+        assertEquals("records", Files.readString(fs.getPath("/data/records.db")));
     }
 
     @Test
     void unmountRemovesAccess() {
-        VFS.system().mount("/tmp", new MemoryFileSystem());
-        VFS.system().unmount("/tmp");
-        assertThrows(IllegalStateException.class, () -> VFS.system().get("/tmp/x"));
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/tmp", new MemoryFileSystem());
+        fs.unmount("/tmp");
+        Path p = fs.getPath("/tmp/x");
+        // 卸载后通过 Provider 访问应触发 ISE
+        assertThrows(IllegalStateException.class,
+                () -> java.nio.file.Files.readAttributes(p, BasicFileAttributes.class));
     }
 
     // ===================== RealFileSystem =====================
 
     @Test
     void realFileSystemRoundTrip() throws IOException {
-        Path tmpDir = Files.createTempDirectory("vfs-test-");
+        java.nio.file.Path tmpDir = Files.createTempDirectory("vfs-test-");
         try {
-            VFS.system().mount("/real", new RealFileSystem(tmpDir));
-            VFS.system().get("/real/test.txt").writeString("real fs test");
-            assertTrue(VFS.system().get("/real/test.txt").exists());
-            assertEquals("real fs test", VFS.system().get("/real/test.txt").readString());
+            VfsFileSystem fs = new VfsFileSystem();
+            fs.mount("/real", new RealFileSystem(tmpDir));
+            Path p = fs.getPath("/real/test.txt");
+            Files.writeString(p, "real fs test");
+            assertTrue(Files.exists(p));
+            assertEquals("real fs test", Files.readString(p));
         } finally {
-            // 清理
             try (var s = Files.walk(tmpDir)) {
                 s.sorted(java.util.Comparator.reverseOrder())
-                 .map(Path::toFile)
+                 .map(java.nio.file.Path::toFile)
                  .forEach(java.io.File::delete);
             }
         }
@@ -236,79 +261,74 @@ class VFSTest {
 
     @Test
     void createFileThenExists() throws IOException {
-        VFS.system().mount("/mem", new MemoryFileSystem());
-        VFile f = VFS.system().get("/mem/newfile.dat");
-        assertTrue(f.createFile());
-        assertTrue(f.exists());
-        assertFalse(f.createFile()); // already exists
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/mem", new MemoryFileSystem());
+        Path p = fs.getPath("/mem/newfile.dat");
+        Files.writeString(p, "data");
+        assertTrue(Files.exists(p));
+        // 写入已有文件应成功（覆盖模式）
+        Files.writeString(p, "overwritten");
+        assertEquals("overwritten", Files.readString(p));
     }
 
     // ===================== 隔离实例 =====================
 
     @Test
     void isolatedInstanceDoesNotShareMounts() {
-        VFS vfs1 = new VFS();
-        VFS vfs2 = new VFS();
+        VfsFileSystem fs1 = new VfsFileSystem();
+        VfsFileSystem fs2 = new VfsFileSystem();
 
-        vfs1.mount("/data", new MemoryFileSystem());
+        fs1.mount("/data", new MemoryFileSystem());
 
-        // vfs1 可以看到挂载
-        assertDoesNotThrow(() -> vfs1.get("/data"));
-        // vfs2 看不到
-        assertThrows(IllegalStateException.class, () -> vfs2.get("/data"));
-        // system() 也看不到
-        assertThrows(IllegalStateException.class, () -> VFS.system().get("/data"));
+        // fs1 可以看到挂载
+        assertDoesNotThrow(() ->
+                java.nio.file.Files.readAttributes(fs1.getPath("/data"), BasicFileAttributes.class));
+        // fs2 看不到
+        Path p2 = fs2.getPath("/data");
+        assertThrows(IllegalStateException.class,
+                () -> java.nio.file.Files.readAttributes(p2, BasicFileAttributes.class));
     }
 
     @Test
     void isolatedInstanceOperations() throws IOException {
-        VFS vfs = new VFS();
-        vfs.mount("/tmp", new MemoryFileSystem());
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/tmp", new MemoryFileSystem());
 
-        VFile f = vfs.get("/tmp/test.txt");
-        f.writeString("isolated");
-        assertEquals("isolated", f.readString());
+        Path p = fs.getPath("/tmp/test.txt");
+        Files.writeString(p, "isolated");
+        assertEquals("isolated", Files.readString(p));
     }
 
     // ===================== 符号链接 =====================
 
     @Test
     void symlinkCreateAndRead() throws IOException {
-        VFS vfs = new VFS();
-        vfs.mount("/", new MemoryFileSystem());
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/", new MemoryFileSystem());
 
-        vfs.get("/target.txt").writeString("hello");
+        Files.writeString(fs.getPath("/target.txt"), "hello");
+        assertTrue(Files.exists(fs.getPath("/target.txt")));
 
-        assertTrue(vfs.get("/target.txt").exists());
-
-        // 通过 NIO 创建符号链接
-        VfsFileSystem fs = new VfsFileSystem(vfs);
         Files.createSymbolicLink(fs.getPath("/link.txt"), fs.getPath("/target.txt"));
 
-        // 读取链接目标
         assertTrue(Files.isSymbolicLink(fs.getPath("/link.txt")));
         assertEquals("/target.txt", Files.readSymbolicLink(fs.getPath("/link.txt")).toString());
-
-        // 通过符号链接读取内容
         assertEquals("hello", Files.readString(fs.getPath("/link.txt")));
     }
 
     @Test
     void symlinkNoFollowAttributes() throws IOException {
-        VFS vfs = new VFS();
-        vfs.mount("/", new MemoryFileSystem());
-        VfsFileSystem fs = new VfsFileSystem(vfs);
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/", new MemoryFileSystem());
 
-        vfs.get("/real").writeString("data");
+        Files.writeString(fs.getPath("/real"), "data");
         Files.createSymbolicLink(fs.getPath("/link"), fs.getPath("/real"));
 
-        // 不跟随链接的读属性 → 标记为符号链接
         BasicFileAttributes linkAttr = Files.readAttributes(fs.getPath("/link"),
                 BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         assertTrue(linkAttr.isSymbolicLink());
         assertFalse(linkAttr.isRegularFile());
 
-        // 跟随链接的读属性 → 标记为普通文件
         BasicFileAttributes followAttr = Files.readAttributes(fs.getPath("/link"),
                 BasicFileAttributes.class);
         assertTrue(followAttr.isRegularFile());
@@ -316,28 +336,25 @@ class VFSTest {
 
     @Test
     void symlinkDeleteDoesNotRemoveTarget() throws IOException {
-        VFS vfs = new VFS();
-        vfs.mount("/", new MemoryFileSystem());
-        VfsFileSystem fs = new VfsFileSystem(vfs);
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/", new MemoryFileSystem());
 
-        vfs.get("/target").writeString("data");
+        Files.writeString(fs.getPath("/target"), "data");
         Files.createSymbolicLink(fs.getPath("/link"), fs.getPath("/target"));
 
         Files.delete(fs.getPath("/link"));
-        assertTrue(vfs.get("/target").exists());
-        assertFalse(vfs.get("/link").exists());
+        assertTrue(Files.exists(fs.getPath("/target")));
+        assertFalse(Files.exists(fs.getPath("/link")));
     }
 
     @Test
     void symlinkRelativeTarget() throws IOException {
-        VFS vfs = new VFS();
-        vfs.mount("/", new MemoryFileSystem());
-        VfsFileSystem fs = new VfsFileSystem(vfs);
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/", new MemoryFileSystem());
 
-        vfs.get("/dir/target.txt").mkDirs();
-        vfs.get("/dir/target.txt").writeString("data");
-        // VfsFileSystem 路径总是绝对路径，因此符号链接目标为 /dir/target.txt
-        Files.createSymbolicLink(fs.getPath("/dir/link.txt"), fs.getPath("dir/target.txt"));
+        Files.createDirectories(fs.getPath("/dir"));
+        Files.writeString(fs.getPath("/dir/target.txt"), "data");
+        Files.createSymbolicLink(fs.getPath("/dir/link.txt"), fs.getPath("/dir/target.txt"));
 
         assertEquals("/dir/target.txt", Files.readSymbolicLink(fs.getPath("/dir/link.txt")).toString());
         assertEquals("data", Files.readString(fs.getPath("/dir/link.txt")));

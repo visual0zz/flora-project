@@ -4,4 +4,4 @@
  * 将虚拟文件系统注册为 {@code vfs://} URI 可访问的文件系统，
  * 提供 {@link java.nio.file.Path}、{@link java.nio.channels.Channel} 等标准 NIO.2 接口。</p>
  */
-package com.flora.os.virtual.file.nio;
+package com.flora.runtime.virtual.filesys.nio;

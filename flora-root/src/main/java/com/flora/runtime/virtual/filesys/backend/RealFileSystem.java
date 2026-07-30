@@ -1,12 +1,11 @@
-package com.flora.os.virtual.file.backend;
+package com.flora.runtime.virtual.filesys.backend;
 
-import com.flora.os.virtual.file.FileAttributes;
-import com.flora.os.virtual.file.FSBackend;
+import com.flora.runtime.virtual.filesys.FileAttributes;
+import com.flora.runtime.virtual.filesys.SymlinkFSBackend;
 
 import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
@@ -15,7 +14,7 @@ import java.util.stream.Stream;
  * 封装 JDK NIO 真实文件系统的后端。
  * <p>将虚拟路径映射到真实文件系统路径。线程安全（JDK 文件操作本身是线程安全的）。</p>
  */
-public final class RealFileSystem implements FSBackend {
+public final class RealFileSystem implements SymlinkFSBackend {
 
     private final Path rootDir;
 
@@ -31,11 +30,6 @@ public final class RealFileSystem implements FSBackend {
         // 映射到 rootDir/foo/bar.txt
         String relative = vfsPath.startsWith("/") ? vfsPath.substring(1) : vfsPath;
         return rootDir.resolve(relative).normalize();
-    }
-
-    @Override
-    public FileAttributes getAttributes(String path) {
-        return getAttributes(path, true);
     }
 
     @Override
@@ -71,14 +65,6 @@ public final class RealFileSystem implements FSBackend {
         if (parent != null) Files.createDirectories(parent);
         if (append) return Files.newOutputStream(p, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         return Files.newOutputStream(p);
-    }
-
-    @Override
-    public boolean createFile(String path) throws IOException {
-        Path p = realPath(path);
-        Path parent = p.getParent();
-        if (parent != null) Files.createDirectories(parent);
-        return p.toFile().createNewFile();
     }
 
     @Override

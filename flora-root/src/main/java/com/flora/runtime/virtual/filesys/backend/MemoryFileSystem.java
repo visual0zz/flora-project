@@ -1,7 +1,7 @@
-package com.flora.os.virtual.file.backend;
+package com.flora.runtime.virtual.filesys.backend;
 
-import com.flora.os.virtual.file.FileAttributes;
-import com.flora.os.virtual.file.FSBackend;
+import com.flora.runtime.virtual.filesys.FileAttributes;
+import com.flora.runtime.virtual.filesys.SymlinkFSBackend;
 
 import java.io.*;
 import java.util.*;
@@ -11,17 +11,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * 纯内存虚拟文件系统（支持符号链接）。
  * <p>所有数据存储在内存树结构中。线程安全（{@link ReentrantReadWriteLock}）。</p>
  */
-public final class MemoryFileSystem implements FSBackend {
+public final class MemoryFileSystem implements SymlinkFSBackend {
 
     private final DirNode root = new DirNode();
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
     public MemoryFileSystem() {}
-
-    @Override
-    public FileAttributes getAttributes(String path) {
-        return getAttributes(path, true);
-    }
 
     @Override
     public FileAttributes getAttributes(String path, boolean followLinks) {
@@ -69,20 +64,6 @@ public final class MemoryFileSystem implements FSBackend {
     @Override
     public OutputStream write(String path, boolean append) throws IOException {
         return new MemoryOutputStream(path, append);
-    }
-
-    @Override
-    public boolean createFile(String path) throws IOException {
-        lock.writeLock().lock();
-        try {
-            if (findNode(path, false) != null) return false;
-            DirNode parent = ensureParentDir(path);
-            if (parent == null) return false;
-            parent.children.put(namePart(path), new FileNode());
-            return true;
-        } finally {
-            lock.writeLock().unlock();
-        }
     }
 
     @Override
@@ -224,12 +205,13 @@ public final class MemoryFileSystem implements FSBackend {
     private String resolveLinkTarget(String linkPath, String target) {
         if (target.startsWith("/")) return target;
         // 相对路径：相对于链接所在目录
-        String parent = PathUtil.parent(linkPath);
-        return parent != null ? parent + "/" + target : "/" + target;
+        int idx = linkPath.lastIndexOf('/');
+        String parent = idx <= 0 ? "/" : linkPath.substring(0, idx);
+        return parent + "/" + target;
     }
 
     private DirNode parentDir(String path) {
-        String p = PathUtil.parent(path);
+        String p = parentOf(path);
         if (p == null || p.equals("/")) return root;
         Node n = findNode(p, false);
         return n instanceof DirNode d ? d : null;
@@ -237,11 +219,11 @@ public final class MemoryFileSystem implements FSBackend {
 
     private DirNode ensureParentDir(String path) {
         if (path.equals("/")) return null;
-        String parent = PathUtil.parent(path);
+        String parent = parentOf(path);
         if (parent == null || parent.equals("/")) return root;
         Node n = findNode(parent, false);
         if (n instanceof DirNode) return (DirNode) n;
-        String pp = PathUtil.parent(parent);
+        String pp = parentOf(parent);
         if (pp != null) {
             DirNode gp = ensureParentDir(parent);
             if (gp != null) {
@@ -250,6 +232,13 @@ public final class MemoryFileSystem implements FSBackend {
             }
         }
         return null;
+    }
+
+    private static String parentOf(String path) {
+        if (path == null || path.equals("/")) return null;
+        int idx = path.lastIndexOf('/');
+        if (idx <= 0) return "/";
+        return path.substring(0, idx);
     }
 
     private static String namePart(String path) {
@@ -316,17 +305,6 @@ public final class MemoryFileSystem implements FSBackend {
             byte[] r = Arrays.copyOf(a, a.length + b.length);
             System.arraycopy(b, 0, r, a.length, b.length);
             return r;
-        }
-    }
-
-    // ===================== 工具 =====================
-
-    private static final class PathUtil {
-        static String parent(String path) {
-            if (path == null || path.equals("/")) return null;
-            int idx = path.lastIndexOf('/');
-            if (idx <= 0) return "/";
-            return path.substring(0, idx);
         }
     }
 

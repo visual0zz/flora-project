@@ -1,9 +1,8 @@
 package com.flora.codegen;
 
 import com.flora.codegen.engine.CodeGenException;
-import com.flora.os.virtual.file.VFS;
-import com.flora.os.virtual.file.backend.MemoryFileSystem;
-import com.flora.os.virtual.file.nio.VfsFileSystem;
+import com.flora.runtime.virtual.filesys.backend.MemoryFileSystem;
+import com.flora.runtime.virtual.filesys.VfsFileSystem;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -19,9 +18,9 @@ import static org.junit.jupiter.api.Assertions.*;
 class RametTest {
 
     private static VfsFileSystem newMemFs() {
-        VFS vfs = new VFS();
-        vfs.mount("/", new MemoryFileSystem());
-        return new VfsFileSystem(vfs);
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/", new MemoryFileSystem());
+        return fs;
     }
 
     @Test

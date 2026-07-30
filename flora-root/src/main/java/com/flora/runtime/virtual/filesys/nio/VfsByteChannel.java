@@ -1,6 +1,7 @@
-package com.flora.os.virtual.file.nio;
+package com.flora.runtime.virtual.filesys.nio;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
@@ -16,10 +17,10 @@ final class VfsByteChannel implements SeekableByteChannel {
     private int pos;
     private boolean open = true;
 
-    /** 读模式：包装字节数组。 */
-    VfsByteChannel(byte[] data, boolean writeOnly) {
-        this.data = data;
-        this.writeOnly = writeOnly;
+    /** 读模式：从 InputStream 读取全部字节。 */
+    VfsByteChannel(InputStream in) throws IOException {
+        this.data = in.readAllBytes();
+        this.writeOnly = false;
         this.out = null;
     }
 

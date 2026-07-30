@@ -1,12 +1,12 @@
-package com.flora.os.virtual.file.nio;
+package com.flora.runtime.virtual.filesys.nio;
 
-import com.flora.os.virtual.file.FileAttributes;
-import com.flora.os.virtual.file.FSBackend;
-import com.flora.os.virtual.file.VFS;
+import com.flora.runtime.virtual.filesys.FileAttributes;
+import com.flora.runtime.virtual.filesys.FSBackend;
+import com.flora.runtime.virtual.filesys.SymlinkFSBackend;
+import com.flora.runtime.virtual.filesys.VfsFileSystem;
 
 import java.io.*;
 import java.net.URI;
-import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.nio.file.*;
 import java.nio.file.attribute.*;
@@ -14,25 +14,25 @@ import java.nio.file.spi.FileSystemProvider;
 import java.util.*;
 
 /**
- * VFS 的 {@link FileSystemProvider} 实现。
+ * 虚拟文件系统的 {@link FileSystemProvider} 实现。
  * <p>支持 NIO 核心操作 + 符号链接。不支持的操作用 {@link UnsupportedOperationException} 占位。</p>
  */
 public final class VfsFileSystemProvider extends FileSystemProvider {
 
-    private final VFS vfs;
+    private final VfsFileSystem fs;
 
-    public VfsFileSystemProvider(VFS vfs) {
-        this.vfs = vfs;
+    public VfsFileSystemProvider(VfsFileSystem fs) {
+        this.fs = fs;
     }
 
     @Override public String getScheme() { return "vfs"; }
 
-    @Override public FileSystem newFileSystem(URI uri, Map<String, ?> env) { return new VfsFileSystem(vfs, this); }
-    @Override public FileSystem getFileSystem(URI uri) { return new VfsFileSystem(vfs, this); }
+    @Override public FileSystem newFileSystem(URI uri, Map<String, ?> env) { return fs; }
+    @Override public FileSystem getFileSystem(URI uri) { return fs; }
 
     @Override
     public Path getPath(URI uri) {
-        return new VfsPath(uri.getPath(), new VfsFileSystem(vfs, this));
+        return new VfsPath(uri.getPath(), fs);
     }
 
     @Override public FileSystem newFileSystem(Path path, Map<String, ?> env) { throw new UnsupportedOperationException(); }
@@ -46,8 +46,7 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
             throw new UnsupportedOperationException("仅支持 BasicFileAttributes");
         }
         boolean followLinks = !List.of(options).contains(LinkOption.NOFOLLOW_LINKS);
-        FileAttributes attr = vfs.resolveInternal(path.toString()).backend()
-                .getAttributes(vfs.resolveInternal(path.toString()).path(), followLinks);
+        FileAttributes attr = resolveBackend(path).getAttributes(resolveRelative(path), followLinks);
         return (A) new VfsFileAttributes(attr);
     }
 
@@ -68,11 +67,10 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
 
     @Override
     public void setAttribute(Path path, String attribute, Object value, LinkOption... options) throws IOException {
-        if ("lastModifiedTime".equals(attribute) && value instanceof FileTime ft) {
+        if ("lastModifiedTime".equals(attribute) && value instanceof FileTime) {
             // VFS 目前不支持修改时间戳，静默忽略
             return;
         }
-        // 其余属性不支持
     }
 
     // ===================== 读写 =====================
@@ -84,21 +82,17 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
 
     @Override
     public OutputStream newOutputStream(Path path, OpenOption... options) throws IOException {
-        if (path instanceof VfsPath vp && vp.getFileSystem() instanceof VfsFileSystem vfsFs) {
-            boolean append = false;
-            for (OpenOption o : options) {
-                if (o == StandardOpenOption.APPEND) { append = true; break; }
-            }
-            return vfsFs.vfs().get(vp.toString()).openOutputStream(append);
+        boolean append = false;
+        for (OpenOption o : options) {
+            if (o == StandardOpenOption.APPEND) { append = true; break; }
         }
-        throw new IOException("不支持的 Path 类型: " + path.getClass());
+        return resolveBackend(path).write(resolveRelative(path), append);
     }
 
     // ===================== 目录操作 =====================
 
     @Override
     public DirectoryStream<Path> newDirectoryStream(Path dir, DirectoryStream.Filter<? super Path> filter) throws IOException {
-        VfsFileSystem fs = (VfsFileSystem) dir.getFileSystem();
         List<String> names = resolveBackend(dir).list(resolveRelative(dir));
         List<Path> entries = new ArrayList<>();
         for (String name : names) {
@@ -121,16 +115,19 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
 
     @Override
     public SeekableByteChannel newByteChannel(Path path, Set<? extends OpenOption> options, FileAttribute<?>... attrs) throws IOException {
-        VfsFileSystem vfsFs = (VfsFileSystem) path.getFileSystem();
+        // CREATE_NEW：文件已存在则报错
+        if (options.contains(StandardOpenOption.CREATE_NEW) && resolveAttr(path, true).exists()) {
+            throw new FileAlreadyExistsException(path.toString());
+        }
         boolean append = options.contains(StandardOpenOption.APPEND);
         boolean write = options.contains(StandardOpenOption.WRITE)
                 || options.contains(StandardOpenOption.CREATE)
+                || options.contains(StandardOpenOption.CREATE_NEW)
                 || options.contains(StandardOpenOption.APPEND);
         if (!write) {
-            byte[] data = vfsFs.vfs().get(path.toString()).readAllBytes();
-            return new VfsByteChannel(data, false);
+            return new VfsByteChannel(resolveBackend(path).read(resolveRelative(path)));
         } else {
-            OutputStream out = vfsFs.vfs().get(path.toString()).openOutputStream(append);
+            OutputStream out = resolveBackend(path).write(resolveRelative(path), append);
             return new VfsByteChannel(out);
         }
     }
@@ -199,20 +196,27 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
 
     @Override
     public void createSymbolicLink(Path link, Path target, FileAttribute<?>... attrs) throws IOException {
-        if (!resolveBackend(link).createSymbolicLink(resolveRelative(link), target.toString())) {
+        FSBackend backend = resolveBackend(link);
+        if (!(backend instanceof SymlinkFSBackend s)) {
+            throw new UnsupportedOperationException("后端不支持符号链接: " + backend.getClass().getSimpleName());
+        }
+        if (!s.createSymbolicLink(resolveRelative(link), target.toString())) {
             throw new FileAlreadyExistsException(link.toString());
         }
     }
 
     @Override
     public Path readSymbolicLink(Path link) throws IOException {
-        String target = resolveBackend(link).readSymbolicLink(resolveRelative(link));
-        return new VfsPath(target, (VfsFileSystem) link.getFileSystem());
+        FSBackend backend = resolveBackend(link);
+        if (!(backend instanceof SymlinkFSBackend s)) {
+            throw new UnsupportedOperationException("后端不支持符号链接: " + backend.getClass().getSimpleName());
+        }
+        String target = s.readSymbolicLink(resolveRelative(link));
+        return new VfsPath(target, fs);
     }
 
     @Override
     public boolean isSameFile(Path path, Path path2) throws IOException {
-        // 跟随符号链接后比较
         return resolveAttr(path, true).exists() && resolveAttr(path2, true).exists()
                 && path.toRealPath().toString().equals(path2.toRealPath().toString());
     }
@@ -224,16 +228,16 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
     }
 
     private FileAttributes resolveAttr(Path path, boolean followLinks) {
-        return vfs.resolveInternal(path.toString()).backend()
-                .getAttributes(vfs.resolveInternal(path.toString()).path(), followLinks);
+        FSBackendMatch m = fs.resolveInternal(path.toString());
+        return m.backend().getAttributes(m.path(), followLinks);
     }
 
     private FSBackend resolveBackend(Path path) {
-        return vfs.resolveInternal(path.toString()).backend();
+        return fs.resolveInternal(path.toString()).backend();
     }
 
     private String resolveRelative(Path path) {
-        return vfs.resolveInternal(path.toString()).path();
+        return fs.resolveInternal(path.toString()).path();
     }
 
     // ===================== NIO BasicFileAttributes 桥接 =====================

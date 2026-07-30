@@ -1,6 +1,5 @@
-package com.flora.os.virtual.file.nio;
+package com.flora.runtime.virtual.filesys.nio;
 
-import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Path;
 import java.util.Iterator;

@@ -168,7 +168,7 @@ public class RollingFileAppender implements Appender {
      */
     @Override
     public synchronized void append(LogEvent event) {
-        if (!event.getLevel().isEnabled(threshold)) {
+        if (!threshold.isEnabled(event.getLevel())) {
             return;
         }
 

@@ -18,5 +18,5 @@ public enum FileOpResult {
     NOT_EMPTY,
 
     /** 其他失败。 */
-    FAILED
+    OTHER_FAILED
 }

@@ -77,23 +77,22 @@ public final class VfsPath implements Path {
 
     @Override
     public boolean startsWith(Path other) {
-        return path.startsWith(other.toString());
+        return startsWith(other.toString());
     }
 
     @Override
     public boolean startsWith(String other) {
-        return path.startsWith(other);
+        return path.equals(other) || path.startsWith(other + "/");
     }
 
     @Override
     public boolean endsWith(Path other) {
-        String o = other.toString();
-        return path.endsWith(o) || path.equals(o);
+        return endsWith(other.toString());
     }
 
     @Override
     public boolean endsWith(String other) {
-        return path.endsWith(other);
+        return path.equals(other) || path.endsWith("/" + other);
     }
 
     @Override

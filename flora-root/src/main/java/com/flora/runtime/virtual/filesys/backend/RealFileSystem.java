@@ -83,7 +83,7 @@ public final class RealFileSystem implements SymlinkFSBackend {
         Path p = realPath(path);
         if (!Files.exists(p)) return FileOpResult.NOT_FOUND;
         if (Files.isDirectory(p) && !isEmptyDir(p)) return FileOpResult.NOT_EMPTY;
-        return p.toFile().delete() ? FileOpResult.SUCCESS : FileOpResult.FAILED;
+        return p.toFile().delete() ? FileOpResult.SUCCESS : FileOpResult.OTHER_FAILED;
     }
 
     private boolean isEmptyDir(Path p) {
@@ -96,7 +96,7 @@ public final class RealFileSystem implements SymlinkFSBackend {
         Path src = realPath(source);
         if (!Files.exists(src)) return FileOpResult.NOT_FOUND;
         if (Files.exists(realPath(dest))) return FileOpResult.ALREADY_EXISTS;
-        return src.toFile().renameTo(realPath(dest).toFile()) ? FileOpResult.SUCCESS : FileOpResult.FAILED;
+        return src.toFile().renameTo(realPath(dest).toFile()) ? FileOpResult.SUCCESS : FileOpResult.OTHER_FAILED;
     }
 
     @Override

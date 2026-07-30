@@ -65,6 +65,7 @@ public final class PrimeIntegerCalculator {
      */
     public static int nextPrime(int n) {
         if (n < 2) return 2;
+        if (n >= Integer.MAX_VALUE) throw new ArithmeticException("overflow");
         int candidate = n + 1;
         if ((candidate & 1) == 0) candidate++;
         while (!isPrime(candidate)) {

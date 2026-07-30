@@ -1,4 +1,4 @@
-package com.flora.ffi;
+package com.flora.os.ffi;
 
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;

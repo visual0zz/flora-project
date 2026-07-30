@@ -4,7 +4,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.stream.Collectors;
 
-/** Linux DBus Secret Service 实现，通过 {@code secret-tool} CLI 交互。 */
+/** Linux DBus Secret Service 实现，通过 {@code secret-tool} CLI 交互（libsecret 依赖 GLib，不适合纯 FFM 调用）。 */
 class SecretServiceStore implements Keyring {
 
     @Override

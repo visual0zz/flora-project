@@ -1,4 +1,4 @@
-package com.flora.ffi;
+package com.flora.os.ffi;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;

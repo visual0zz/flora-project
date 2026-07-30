@@ -20,6 +20,7 @@ module com.flora.root {
     exports com.flora.codec;
     exports com.flora.java;
     exports com.flora.os;
+    exports com.flora.os.keyring;
     exports com.flora.runtime.log;
     exports com.flora.runtime.config;
     exports com.flora.runtime.config.source;

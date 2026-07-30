@@ -3,7 +3,7 @@ package com.flora.cache;
 /**
  * 缓存事件回调。
  * <p>
- * {@code oldValue} / {@code newValue} 以真实值直接传入（不再使用惰性提供者）。
+ * {@code oldValue} / {@code newValue} 以真实值直接传入。
  * 为避免为无人关注的事件触发多余的存储读写，引擎在派发前通过 {@code if (hasListeners(type))}
  * 判断：仅在确有监听器时才求值并派发，监听器中直接读取 {@code oldValue} / {@code newValue} 即可。
  *

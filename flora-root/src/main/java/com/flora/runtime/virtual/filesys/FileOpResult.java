@@ -2,7 +2,7 @@ package com.flora.runtime.virtual.filesys;
 
 /**
  * 文件操作结果，精确描述操作完成的状况。
- * <p>替代 {@code boolean} 返回值，区分不同的失败原因。</p>
+ * <p>区分不同的成功/失败原因。</p>
  */
 public enum FileOpResult {
     /** 操作成功完成。 */

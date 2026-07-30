@@ -28,12 +28,7 @@ module com.flora.root {
 
     exports com.flora.runtime;
 
-    exports com.flora.ai.chat;
-    exports com.flora.ai.tool;
-    exports com.flora.ai.agent;
-    exports com.flora.ai.memory;
-    exports com.flora.ai.mcp;
-    exports com.flora.ai.access;
+    exports com.flora.codec.jsonl;
 
     uses Converter;
 

@@ -6,7 +6,7 @@ package com.flora.crypto.core;
  * 代表算法：SHAKE128 / SHAKE256、SHA-3 XOF、cSHAKE、KangarooTwelve 等。</p>
  * <p>JDK 的 {@code MessageDigest.doFinal()} 是定长语义，<b>没有</b>「给我 N 字节」的概念槽位，
  * 因此本接口对应 JDK 缺失的能力：默认提供最简占位实现 {@code PlaceholderXof}，
- * 待接入 SHAKE 等真实引擎后以 {@code CryptoProvider.registerXof} 覆盖。</p>
+ * 真实引擎通过 {@code CryptoProvider.registerXof} 注册覆盖。</p>
  */
 public interface Xof extends Digest {
 

@@ -1,9 +1,10 @@
 package com.flora.runtime.virtual.filesys;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.file.OpenOption;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 虚拟文件系统后端接口。
@@ -21,23 +22,28 @@ public interface FSBackend {
     /** 获取文件/目录元数据。 */
     FileAttributes getAttributes(String path, boolean followLinks);
 
-    /** 打开输入流读取文件内容。路径必须为合法文件。 */
-    InputStream read(String path) throws IOException;
-
     /**
-     * 打开输出流写入文件内容。
-     * @param append true 追加到末尾，false 覆盖
+     * 打开 {@link SeekableByteChannel} 读写文件内容。
+     * <p>选项集 {@code options} 直接来自 NIO {@link java.nio.file.spi.FileSystemProvider}，
+     * 后端应解释 {@code READ}、{@code WRITE}、{@code APPEND}、{@code CREATE}、
+     * {@code CREATE_NEW}、{@code TRUNCATE_EXISTING} 等标准选项。
+     * {@link java.nio.channels.Channel#close()} 时，
+     * 实现应将所有待定更改持久化到存储层。</p>
+     *
+     * @param path    已归一化的虚拟路径
+     * @param options 标准 NIO 打开选项
+     * @return 可随机访问的字节通道
      */
-    OutputStream write(String path, boolean append) throws IOException;
+    SeekableByteChannel openChannel(String path, Set<? extends OpenOption> options) throws IOException;
 
-    /** 创建单层目录。父目录必须存在。返回 false 若已存在。 */
-    boolean createDirectory(String path) throws IOException;
+    /** 创建单层目录。父目录必须存在。 */
+    FileOpResult createDirectory(String path) throws IOException;
 
-    /** 删除文件或空目录。返回 false 若不存在。 */
-    boolean delete(String path) throws IOException;
+    /** 删除文件或空目录。 */
+    FileOpResult delete(String path) throws IOException;
 
-    /** 重命名/移动文件或目录。返回 false 若源不存在或目标已存在。 */
-    boolean rename(String source, String dest) throws IOException;
+    /** 重命名/移动文件或目录。 */
+    FileOpResult rename(String source, String dest) throws IOException;
 
     /** 列出目录下的子项名称（不含路径）。返回空列表若不存在或非目录。 */
     List<String> list(String path) throws IOException;

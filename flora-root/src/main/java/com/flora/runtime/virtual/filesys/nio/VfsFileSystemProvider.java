@@ -1,6 +1,7 @@
 package com.flora.runtime.virtual.filesys.nio;
 
 import com.flora.runtime.virtual.filesys.FileAttributes;
+import com.flora.runtime.virtual.filesys.FileOpResult;
 import com.flora.runtime.virtual.filesys.FSBackend;
 import com.flora.runtime.virtual.filesys.SymlinkFSBackend;
 import com.flora.runtime.virtual.filesys.VfsFileSystem;
@@ -15,7 +16,8 @@ import java.util.*;
 
 /**
  * 虚拟文件系统的 {@link FileSystemProvider} 实现。
- * <p>支持 NIO 核心操作 + 符号链接。不支持的操作用 {@link UnsupportedOperationException} 占位。</p>
+ * <p>核心通过 {@link FSBackend#openChannel} 与后端通信，
+ * {@code InputStream}/{@code OutputStream} 由 {@link Channels} 适配而来。</p>
  */
 public final class VfsFileSystemProvider extends FileSystemProvider {
 
@@ -69,24 +71,25 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
     public void setAttribute(Path path, String attribute, Object value, LinkOption... options) throws IOException {
         if ("lastModifiedTime".equals(attribute) && value instanceof FileTime) {
             // VFS 目前不支持修改时间戳，静默忽略
-            return;
         }
     }
 
-    // ===================== 读写 =====================
+    // ===================== 流（基于 Channel） =====================
 
     @Override
     public InputStream newInputStream(Path path, OpenOption... options) throws IOException {
-        return resolveBackend(path).read(resolveRelative(path));
+        Set<? extends OpenOption> opts = options.length > 0
+                ? Set.of(options)
+                : Set.of(StandardOpenOption.READ);
+        return Channels.newInputStream(resolveBackend(path).openChannel(resolveRelative(path), opts));
     }
 
     @Override
     public OutputStream newOutputStream(Path path, OpenOption... options) throws IOException {
-        boolean append = false;
-        for (OpenOption o : options) {
-            if (o == StandardOpenOption.APPEND) { append = true; break; }
-        }
-        return resolveBackend(path).write(resolveRelative(path), append);
+        Set<? extends OpenOption> opts = options.length > 0
+                ? Set.of(options)
+                : Set.of(StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        return Channels.newOutputStream(resolveBackend(path).openChannel(resolveRelative(path), opts));
     }
 
     // ===================== 目录操作 =====================
@@ -106,50 +109,45 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
 
     @Override
     public void createDirectory(Path dir, FileAttribute<?>... attrs) throws IOException {
-        if (!resolveBackend(dir).createDirectory(resolveRelative(dir))) {
-            throw new FileAlreadyExistsException(dir.toString());
+        switch (resolveBackend(dir).createDirectory(resolveRelative(dir))) {
+            case SUCCESS -> {}
+            case ALREADY_EXISTS -> throw new FileAlreadyExistsException(dir.toString());
+            default -> throw new IOException("创建目录失败: " + dir);
         }
     }
 
-    // ===================== 通道 =====================
+    // ===================== 通道（直接透传到后端） =====================
 
     @Override
     public SeekableByteChannel newByteChannel(Path path, Set<? extends OpenOption> options, FileAttribute<?>... attrs) throws IOException {
-        // CREATE_NEW：文件已存在则报错
-        if (options.contains(StandardOpenOption.CREATE_NEW) && resolveAttr(path, true).exists()) {
-            throw new FileAlreadyExistsException(path.toString());
-        }
-        boolean append = options.contains(StandardOpenOption.APPEND);
-        boolean write = options.contains(StandardOpenOption.WRITE)
-                || options.contains(StandardOpenOption.CREATE)
-                || options.contains(StandardOpenOption.CREATE_NEW)
-                || options.contains(StandardOpenOption.APPEND);
-        if (!write) {
-            return new VfsByteChannel(resolveBackend(path).read(resolveRelative(path)));
-        } else {
-            OutputStream out = resolveBackend(path).write(resolveRelative(path), append);
-            return new VfsByteChannel(out);
-        }
+        return resolveBackend(path).openChannel(resolveRelative(path), options);
     }
 
     @Override
     public FileChannel newFileChannel(Path path, Set<? extends OpenOption> options, FileAttribute<?>... attrs) throws IOException {
-        SeekableByteChannel sbc = newByteChannel(path, options, attrs);
-        return new VfsFileChannel(sbc);
+        SeekableByteChannel ch = resolveBackend(path).openChannel(resolveRelative(path), options);
+        return new VfsFileChannel(ch);
     }
 
     // ===================== 删除/拷贝/移动 =====================
 
     @Override
     public void delete(Path path) throws IOException {
-        if (!resolveBackend(path).delete(resolveRelative(path))) {
-            throw new NoSuchFileException(path.toString());
+        switch (resolveBackend(path).delete(resolveRelative(path))) {
+            case SUCCESS -> {}
+            case NOT_FOUND -> throw new NoSuchFileException(path.toString());
+            case NOT_EMPTY -> throw new DirectoryNotEmptyException(path.toString());
+            default -> throw new IOException("删除失败: " + path);
         }
     }
 
     @Override
     public boolean deleteIfExists(Path path) throws IOException {
-        try { delete(path); return true; } catch (NoSuchFileException e) { return false; }
+        return switch (resolveBackend(path).delete(resolveRelative(path))) {
+            case SUCCESS -> true;
+            case NOT_FOUND -> false;
+            default -> { delete(path); yield true; }
+        };
     }
 
     @Override
@@ -169,10 +167,14 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
         if (!replaceExisting && exists(target)) {
             throw new FileAlreadyExistsException(target.toString());
         }
-        if (!resolveBackend(source).rename(resolveRelative(source), resolveRelative(target))) {
-            // fallback: copy + delete
-            copy(source, target, options);
-            delete(source);
+        switch (resolveBackend(source).rename(resolveRelative(source), resolveRelative(target))) {
+            case SUCCESS -> {}
+            case ALREADY_EXISTS -> throw new FileAlreadyExistsException(target.toString());
+            default -> {
+                // fallback: copy + delete
+                copy(source, target, options);
+                delete(source);
+            }
         }
     }
 

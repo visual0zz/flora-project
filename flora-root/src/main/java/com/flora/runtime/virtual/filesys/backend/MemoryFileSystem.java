@@ -1,9 +1,17 @@
 package com.flora.runtime.virtual.filesys.backend;
 
 import com.flora.runtime.virtual.filesys.FileAttributes;
+import com.flora.runtime.virtual.filesys.FileOpResult;
 import com.flora.runtime.virtual.filesys.SymlinkFSBackend;
 
-import java.io.*;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.OpenOption;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -43,71 +51,98 @@ public final class MemoryFileSystem implements SymlinkFSBackend {
     }
 
     @Override
-    public InputStream read(String path) throws IOException {
-        lock.readLock().lock();
+    public SeekableByteChannel openChannel(String path, Set<? extends OpenOption> options) throws IOException {
+        boolean write = options.contains(StandardOpenOption.WRITE)
+                || options.contains(StandardOpenOption.APPEND)
+                || options.contains(StandardOpenOption.CREATE)
+                || options.contains(StandardOpenOption.CREATE_NEW);
+        boolean append = options.contains(StandardOpenOption.APPEND);
+        boolean createNew = options.contains(StandardOpenOption.CREATE_NEW);
+        boolean create  = options.contains(StandardOpenOption.CREATE) || createNew;
+        boolean truncate = options.contains(StandardOpenOption.TRUNCATE_EXISTING) || createNew;
+
+        lock.writeLock().lock();
         try {
-            Node node = findNode(path, true);
-            if (node instanceof FileNode f) {
-                return new ByteArrayInputStream(f.data.clone());
+            if (path.equals("/")) throw new IOException("根目录不是文件");
+
+            Node node = findNode(path, false);
+
+            if (createNew && node != null && !(node instanceof DirNode)) {
+                throw new FileAlreadyExistsException(path);
             }
+            if ((write || create) && node == null) {
+                DirNode parent = ensureParentDir(path);
+                if (parent == null) throw new IOException("无法创建父目录: " + path);
+                node = new FileNode();
+                parent.children.put(namePart(path), node);
+            }
+            if (node instanceof DirNode) throw new IOException("路径不是文件: " + path);
+            if (node == null) throw new NoSuchFileException(path);
+
+            // 符号链接 → 跟随到目标
             if (node instanceof SymlinkNode s) {
-                // 跟随符号链接
-                String resolved = resolveLinkTarget(path, s.target);
-                return read(resolved);
+                String target = resolveLinkTarget(path, s.target);
+                Node tn = findNode(target, false);
+                if (tn instanceof FileNode fn) {
+                    node = fn;
+                } else {
+                    throw new FileNotFoundException("符号链接指向的文件: " + target);
+                }
             }
-            throw new FileNotFoundException("文件不存在: " + path);
+
+            FileNode fn = (FileNode) node;
+            byte[] data = truncate ? new byte[0] : fn.data.clone();
+
+            return new MemoryChannel(data, write, fn, append);
         } finally {
-            lock.readLock().unlock();
+            lock.writeLock().unlock();
         }
     }
 
     @Override
-    public OutputStream write(String path, boolean append) throws IOException {
-        return new MemoryOutputStream(path, append);
-    }
-
-    @Override
-    public boolean createDirectory(String path) throws IOException {
+    public FileOpResult createDirectory(String path) throws IOException {
         lock.writeLock().lock();
         try {
-            if (findNode(path, false) != null) return false;
+            if (findNode(path, false) != null) return FileOpResult.ALREADY_EXISTS;
             DirNode parent = ensureParentDir(path);
-            if (parent == null) return false;
+            if (parent == null) return FileOpResult.FAILED;
             parent.children.put(namePart(path), new DirNode());
-            return true;
+            return FileOpResult.SUCCESS;
         } finally {
             lock.writeLock().unlock();
         }
     }
 
     @Override
-    public boolean delete(String path) throws IOException {
+    public FileOpResult delete(String path) throws IOException {
         lock.writeLock().lock();
         try {
-            if (path.equals("/")) return false;
+            if (path.equals("/")) return FileOpResult.NOT_FOUND;
             Node node = findNode(path, false); // 不跟随：删除链接本身
-            if (node == null) return false;
-            if (node instanceof DirNode d && !d.children.isEmpty()) return false;
+            if (node == null) return FileOpResult.NOT_FOUND;
+            if (node instanceof DirNode d && !d.children.isEmpty()) return FileOpResult.NOT_EMPTY;
             DirNode parent = parentDir(path);
-            if (parent == null) return false;
-            return parent.children.remove(namePart(path)) != null;
+            if (parent == null) return FileOpResult.NOT_FOUND;
+            return parent.children.remove(namePart(path)) != null
+                    ? FileOpResult.SUCCESS : FileOpResult.NOT_FOUND;
         } finally {
             lock.writeLock().unlock();
         }
     }
 
     @Override
-    public boolean rename(String source, String dest) throws IOException {
+    public FileOpResult rename(String source, String dest) throws IOException {
         lock.writeLock().lock();
         try {
+            if (findNode(source, false) == null) return FileOpResult.NOT_FOUND;
+            if (findNode(dest, false) != null) return FileOpResult.ALREADY_EXISTS;
             Node node = findNode(source, false);
-            if (node == null || findNode(dest, false) != null) return false;
             DirNode srcParent = parentDir(source);
             DirNode dstParent = ensureParentDir(dest);
-            if (srcParent == null || dstParent == null) return false;
+            if (srcParent == null || dstParent == null) return FileOpResult.FAILED;
             srcParent.children.remove(namePart(source));
             dstParent.children.put(namePart(dest), node);
-            return true;
+            return FileOpResult.SUCCESS;
         } finally {
             lock.writeLock().unlock();
         }
@@ -165,10 +200,93 @@ public final class MemoryFileSystem implements SymlinkFSBackend {
         SymlinkNode(String target) { this.target = target; }
     }
 
-    // ===================== 路径解析 =====================
+    // ===================== 内存字节通道 =====================
 
-    /** 查找节点（跟随符号链接）。 */
-    private Node findNode(String path) { return findNode(path, true); }
+    /**
+     * 可随机访问的内存字节通道。
+     * <p>所有读写在 {@code byte[]} 缓冲上进行，
+     * {@link #close()} 时将缓冲数据写回 {@link FileNode}。</p>
+     */
+    private final class MemoryChannel implements SeekableByteChannel {
+        private boolean open = true;
+        private byte[] buf;
+        private int pos;
+        private final boolean writable;
+        private final FileNode fileNode;
+
+        MemoryChannel(byte[] initialData, boolean writable, FileNode fileNode, boolean append) {
+            this.buf = initialData;
+            this.writable = writable;
+            this.fileNode = fileNode;
+            if (append) this.pos = buf.length;
+        }
+
+        @Override public boolean isOpen() { return open; }
+
+        @Override
+        public void close() {
+            if (!open) return;
+            open = false;
+            if (!writable) return;
+            lock.writeLock().lock();
+            try {
+                fileNode.data = buf;
+            } finally {
+                lock.writeLock().unlock();
+            }
+        }
+
+        @Override
+        public int read(ByteBuffer dst) {
+            int remaining = buf.length - pos;
+            if (remaining <= 0) return -1;
+            int toRead = Math.min(dst.remaining(), remaining);
+            dst.put(buf, pos, toRead);
+            pos += toRead;
+            return toRead;
+        }
+
+        @Override
+        public int write(ByteBuffer src) {
+            if (!writable) throw new UnsupportedOperationException("通道未打开写");
+            int len = src.remaining();
+            ensureCapacity(pos + len);
+            src.get(buf, pos, len);
+            pos += len;
+            return len;
+        }
+
+        @Override public long position() { return pos; }
+
+        @Override
+        public SeekableByteChannel position(long newPos) {
+            if (newPos < 0) throw new IllegalArgumentException();
+            pos = (int) newPos;
+            return this;
+        }
+
+        @Override public long size() { return buf.length; }
+
+        @Override
+        public SeekableByteChannel truncate(long size) {
+            if (size < buf.length) {
+                byte[] trimmed = new byte[(int) size];
+                System.arraycopy(buf, 0, trimmed, 0, (int) size);
+                buf = trimmed;
+            }
+            return this;
+        }
+
+        private void ensureCapacity(int minCap) {
+            if (minCap <= buf.length) return;
+            int newLen = Math.max(buf.length * 2, minCap);
+            byte[] newBuf = new byte[newLen];
+            System.arraycopy(buf, 0, newBuf, 0, buf.length);
+            buf = newBuf;
+        }
+    }
+
+    // ===================== 路径解析 =====================
 
     /** 查找节点，可选是否跟随符号链接。 */
     private Node findNode(String path, boolean followLinks) {
@@ -182,7 +300,7 @@ public final class MemoryFileSystem implements SymlinkFSBackend {
             if (child == null) return null;
             // 路径中间遇到符号链接则跟随
             if (followLinks && child instanceof SymlinkNode s) {
-                String resolved = resolveIntermediate(path, s.target, parts, i);
+                String resolved = resolveIntermediate(s.target, parts, i);
                 return findNode(resolved, followLinks);
             }
             if (i == parts.length - 1) return child;
@@ -193,7 +311,7 @@ public final class MemoryFileSystem implements SymlinkFSBackend {
     }
 
     /** 解析中间符号链接：用 target 替换当前段之后的路径。 */
-    private static String resolveIntermediate(String origPath, String target, String[] parts, int at) {
+    private static String resolveIntermediate(String target, String[] parts, int at) {
         StringBuilder sb = new StringBuilder(target);
         for (int j = at + 1; j < parts.length; j++) {
             sb.append('/').append(parts[j]);
@@ -244,68 +362,6 @@ public final class MemoryFileSystem implements SymlinkFSBackend {
     private static String namePart(String path) {
         int idx = path.lastIndexOf('/');
         return idx >= 0 ? path.substring(idx + 1) : path;
-    }
-
-    // ===================== 输出流 =====================
-
-    private class MemoryOutputStream extends OutputStream {
-        private final String path;
-        private final boolean append;
-        private final ByteArrayOutputStream buf = new ByteArrayOutputStream();
-
-        MemoryOutputStream(String path, boolean append) {
-            this.path = path;
-            this.append = append;
-        }
-
-        @Override
-        public void write(int b) { buf.write(b); }
-        @Override
-        public void write(byte[] b, int off, int len) { buf.write(b, off, len); }
-
-        @Override
-        public void close() throws IOException {
-            super.close();
-            byte[] newData = buf.toByteArray();
-            lock.writeLock().lock();
-            try {
-                Node node = findNode(path, false);
-                if (node instanceof FileNode f) {
-                    if (append) {
-                        byte[] combined = Arrays.copyOf(f.data, f.data.length + newData.length);
-                        System.arraycopy(newData, 0, combined, f.data.length, newData.length);
-                        f.data = combined;
-                    } else {
-                        f.data = newData;
-                    }
-                    return;
-                }
-                // 跟随符号链接写入目标
-                if (node instanceof SymlinkNode s) {
-                    String resolved = resolveLinkTarget(path, s.target);
-                    Node target = findNode(resolved, false);
-                    if (target instanceof FileNode ft) {
-                        ft.data = append ? concat(ft.data, newData) : newData;
-                        return;
-                    }
-                }
-                // 创建新文件
-                DirNode p = ensureParentDir(path);
-                if (p != null) {
-                    FileNode f = new FileNode();
-                    f.data = newData;
-                    p.children.put(namePart(path), f);
-                }
-            } finally {
-                lock.writeLock().unlock();
-            }
-        }
-
-        private byte[] concat(byte[] a, byte[] b) {
-            byte[] r = Arrays.copyOf(a, a.length + b.length);
-            System.arraycopy(b, 0, r, a.length, b.length);
-            return r;
-        }
     }
 
     /** 路径非符号链接时抛出的异常。 */

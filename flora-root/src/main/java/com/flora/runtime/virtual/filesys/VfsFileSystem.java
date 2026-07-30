@@ -133,11 +133,12 @@ public final class VfsFileSystem extends FileSystem {
             if (path.equals("/")) return new FileAttributes(true, false, true, false, 0, 0, 0, true, false);
             return FileAttributes.NOT_FOUND;
         }
-        @Override public java.io.InputStream read(String path) { throw new UnsupportedOperationException("根目录不支持读"); }
-        @Override public java.io.OutputStream write(String path, boolean append) { throw new UnsupportedOperationException("根目录不支持写"); }
-        @Override public boolean createDirectory(String path) { return false; }
-        @Override public boolean delete(String path) { return false; }
-        @Override public boolean rename(String src, String dest) { return false; }
+        @Override public java.nio.channels.SeekableByteChannel openChannel(String path, java.util.Set<? extends java.nio.file.OpenOption> options) throws java.io.IOException {
+            throw new java.nio.file.FileSystemException("根目录不支持文件读写");
+        }
+        @Override public FileOpResult createDirectory(String path) { return FileOpResult.ALREADY_EXISTS; }
+        @Override public FileOpResult delete(String path) { return FileOpResult.NOT_FOUND; }
+        @Override public FileOpResult rename(String src, String dest) { return FileOpResult.NOT_FOUND; }
         @Override public java.util.List<String> list(String path) {
             return mounts.stream().map(Mount::prefix).sorted().toList();
         }

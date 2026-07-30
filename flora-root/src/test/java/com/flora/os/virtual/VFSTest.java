@@ -165,7 +165,7 @@ class VFSTest {
     void readNonExistentThrows() {
         VfsFileSystem fs = new VfsFileSystem();
         fs.mount("/mem", new MemoryFileSystem());
-        assertThrows(java.io.FileNotFoundException.class,
+        assertThrows(java.nio.file.NoSuchFileException.class,
                 () -> Files.readString(fs.getPath("/mem/nope.txt")));
     }
 

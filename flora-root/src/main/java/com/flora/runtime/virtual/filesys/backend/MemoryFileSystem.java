@@ -3,6 +3,7 @@ package com.flora.runtime.virtual.filesys.backend;
 import com.flora.runtime.virtual.filesys.FileAttributes;
 import com.flora.runtime.virtual.filesys.FileOpResult;
 import com.flora.runtime.virtual.filesys.SymlinkFSBackend;
+import com.flora.tag.ThreadFragile;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -51,6 +52,7 @@ public final class MemoryFileSystem implements SymlinkFSBackend {
     }
 
     @Override
+    @ThreadFragile("返回的 MemoryChannel 非线程安全，调用方应确保单线程访问")
     public SeekableByteChannel openChannel(String path, Set<? extends OpenOption> options) throws IOException {
         boolean write = options.contains(StandardOpenOption.WRITE)
                 || options.contains(StandardOpenOption.APPEND)
@@ -205,10 +207,13 @@ public final class MemoryFileSystem implements SymlinkFSBackend {
     /**
      * 可随机访问的内存字节通道。
      * <p>所有读写在 {@code byte[]} 缓冲上进行，
-     * {@link #close()} 时将缓冲数据写回 {@link FileNode}。</p>
+     * {@link #close()} 时将缓冲数据写回 {@link FileNode}。
+     * 注意：{@link SeekableByteChannel} 本身不要求线程安全，
+     * 调用方不应从多个线程并发访问同一通道实例。</p>
      */
+    @ThreadFragile("buf/pos 无锁保护，不支持并发读写同一实例")
     private final class MemoryChannel implements SeekableByteChannel {
-        private boolean open = true;
+        private volatile boolean open = true;
         private byte[] buf;
         private int pos;
         private final boolean writable;

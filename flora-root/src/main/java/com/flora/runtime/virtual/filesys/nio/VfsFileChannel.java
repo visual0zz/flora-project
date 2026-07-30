@@ -1,5 +1,7 @@
 package com.flora.runtime.virtual.filesys.nio;
 
+import com.flora.tag.ThreadFragile;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
@@ -7,8 +9,11 @@ import java.nio.channels.*;
 
 /**
  * 简易 {@link FileChannel} 实现，委托给 {@link SeekableByteChannel}。
- * <p>支持基本读写和位置查询，不支持映射/锁定/传输直接到流。</p>
+ * <p>支持基本读写和位置查询，不支持映射/锁定/传输直接到流。
+ * 注意：{@code position()} 与 {@code read()}/{@code write()} 是两次独立委托调用，
+ * 非原子操作。</p>
  */
+@ThreadFragile("transferTo/transferFrom 的 position+read/write 非原子")
 final class VfsFileChannel extends FileChannel {
 
     private final SeekableByteChannel delegate;

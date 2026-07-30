@@ -16,8 +16,8 @@ import java.util.*;
 
 /**
  * 虚拟文件系统的 {@link FileSystemProvider} 实现。
- * <p>核心通过 {@link FSBackend#openChannel} 与后端通信，
- * {@code InputStream}/{@code OutputStream} 由 {@link Channels} 适配而来。</p>
+ * <p>NIO 操作通过 {@link FSBackend#openChannel} 委托给后端，
+ * {@code InputStream}/{@code OutputStream} 由 {@link Channels} 适配。</p>
  */
 public final class VfsFileSystemProvider extends FileSystemProvider {
 
@@ -48,7 +48,8 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
             throw new UnsupportedOperationException("仅支持 BasicFileAttributes");
         }
         boolean followLinks = !List.of(options).contains(LinkOption.NOFOLLOW_LINKS);
-        FileAttributes attr = resolveBackend(path).getAttributes(resolveRelative(path), followLinks);
+        BackendRef ref = resolveOne(path);
+        FileAttributes attr = ref.backend.getAttributes(ref.relative, followLinks);
         return (A) new VfsFileAttributes(attr);
     }
 
@@ -81,7 +82,8 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
         Set<? extends OpenOption> opts = options.length > 0
                 ? Set.of(options)
                 : Set.of(StandardOpenOption.READ);
-        return Channels.newInputStream(resolveBackend(path).openChannel(resolveRelative(path), opts));
+        BackendRef ref = resolveOne(path);
+        return Channels.newInputStream(ref.backend.openChannel(ref.relative, opts));
     }
 
     @Override
@@ -89,14 +91,16 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
         Set<? extends OpenOption> opts = options.length > 0
                 ? Set.of(options)
                 : Set.of(StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        return Channels.newOutputStream(resolveBackend(path).openChannel(resolveRelative(path), opts));
+        BackendRef ref = resolveOne(path);
+        return Channels.newOutputStream(ref.backend.openChannel(ref.relative, opts));
     }
 
     // ===================== 目录操作 =====================
 
     @Override
     public DirectoryStream<Path> newDirectoryStream(Path dir, DirectoryStream.Filter<? super Path> filter) throws IOException {
-        List<String> names = resolveBackend(dir).list(resolveRelative(dir));
+        BackendRef ref = resolveOne(dir);
+        List<String> names = ref.backend.list(ref.relative);
         List<Path> entries = new ArrayList<>();
         for (String name : names) {
             Path child = dir.resolve(name);
@@ -109,31 +113,34 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
 
     @Override
     public void createDirectory(Path dir, FileAttribute<?>... attrs) throws IOException {
-        switch (resolveBackend(dir).createDirectory(resolveRelative(dir))) {
+        BackendRef ref = resolveOne(dir);
+        switch (ref.backend.createDirectory(ref.relative)) {
             case SUCCESS -> {}
             case ALREADY_EXISTS -> throw new FileAlreadyExistsException(dir.toString());
             default -> throw new IOException("创建目录失败: " + dir);
         }
     }
 
-    // ===================== 通道（直接透传到后端） =====================
+    // ===================== 通道 =====================
 
     @Override
     public SeekableByteChannel newByteChannel(Path path, Set<? extends OpenOption> options, FileAttribute<?>... attrs) throws IOException {
-        return resolveBackend(path).openChannel(resolveRelative(path), options);
+        BackendRef ref = resolveOne(path);
+        return ref.backend.openChannel(ref.relative, options);
     }
 
     @Override
     public FileChannel newFileChannel(Path path, Set<? extends OpenOption> options, FileAttribute<?>... attrs) throws IOException {
-        SeekableByteChannel ch = resolveBackend(path).openChannel(resolveRelative(path), options);
-        return new VfsFileChannel(ch);
+        BackendRef ref = resolveOne(path);
+        return new VfsFileChannel(ref.backend.openChannel(ref.relative, options));
     }
 
     // ===================== 删除/拷贝/移动 =====================
 
     @Override
     public void delete(Path path) throws IOException {
-        switch (resolveBackend(path).delete(resolveRelative(path))) {
+        BackendRef ref = resolveOne(path);
+        switch (ref.backend.delete(ref.relative)) {
             case SUCCESS -> {}
             case NOT_FOUND -> throw new NoSuchFileException(path.toString());
             case NOT_EMPTY -> throw new DirectoryNotEmptyException(path.toString());
@@ -143,7 +150,8 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
 
     @Override
     public boolean deleteIfExists(Path path) throws IOException {
-        return switch (resolveBackend(path).delete(resolveRelative(path))) {
+        BackendRef ref = resolveOne(path);
+        return switch (ref.backend.delete(ref.relative)) {
             case SUCCESS -> true;
             case NOT_FOUND -> false;
             default -> { delete(path); yield true; }
@@ -153,7 +161,8 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
     @Override
     public void copy(Path source, Path target, CopyOption... options) throws IOException {
         boolean replaceExisting = List.of(options).contains(StandardCopyOption.REPLACE_EXISTING);
-        if (!replaceExisting && exists(target)) {
+        BackendRef targetRef = resolveOne(target);
+        if (!replaceExisting && targetRef.backend.getAttributes(targetRef.relative).exists()) {
             throw new FileAlreadyExistsException(target.toString());
         }
         try (InputStream in = newInputStream(source); OutputStream out = newOutputStream(target)) {
@@ -164,10 +173,12 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
     @Override
     public void move(Path source, Path target, CopyOption... options) throws IOException {
         boolean replaceExisting = List.of(options).contains(StandardCopyOption.REPLACE_EXISTING);
-        if (!replaceExisting && exists(target)) {
+        BackendRef targetRef = resolveOne(target);
+        if (!replaceExisting && targetRef.backend.getAttributes(targetRef.relative).exists()) {
             throw new FileAlreadyExistsException(target.toString());
         }
-        switch (resolveBackend(source).rename(resolveRelative(source), resolveRelative(target))) {
+        BackendRef sourceRef = resolveOne(source);
+        switch (sourceRef.backend.rename(sourceRef.relative, targetRef.relative)) {
             case SUCCESS -> {}
             case ALREADY_EXISTS -> throw new FileAlreadyExistsException(target.toString());
             default -> {
@@ -198,23 +209,24 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
 
     @Override
     public void createSymbolicLink(Path link, Path target, FileAttribute<?>... attrs) throws IOException {
-        FSBackend backend = resolveBackend(link);
+        BackendRef ref = resolveOne(link);
+        FSBackend backend = ref.backend;
         if (!(backend instanceof SymlinkFSBackend s)) {
             throw new UnsupportedOperationException("后端不支持符号链接: " + backend.getClass().getSimpleName());
         }
-        if (!s.createSymbolicLink(resolveRelative(link), target.toString())) {
+        if (!s.createSymbolicLink(ref.relative, target.toString())) {
             throw new FileAlreadyExistsException(link.toString());
         }
     }
 
     @Override
     public Path readSymbolicLink(Path link) throws IOException {
-        FSBackend backend = resolveBackend(link);
+        BackendRef ref = resolveOne(link);
+        FSBackend backend = ref.backend;
         if (!(backend instanceof SymlinkFSBackend s)) {
             throw new UnsupportedOperationException("后端不支持符号链接: " + backend.getClass().getSimpleName());
         }
-        String target = s.readSymbolicLink(resolveRelative(link));
-        return new VfsPath(target, fs);
+        return new VfsPath(s.readSymbolicLink(ref.relative), fs);
     }
 
     @Override
@@ -225,21 +237,17 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
 
     // ===================== 内部辅助 =====================
 
-    private boolean exists(Path path) {
-        try { return resolveAttr(path, true).exists(); } catch (Exception e) { return false; }
+    /** 单次解析的结果缓存，消除同一个方法内多次 {@link VfsFileSystem#resolveInternal} 的 TOCTOU。 */
+    private record BackendRef(FSBackend backend, String relative) {}
+
+    private BackendRef resolveOne(Path path) {
+        FSBackendMatch m = fs.resolveInternal(path.toString());
+        return new BackendRef(m.backend(), m.path());
     }
 
     private FileAttributes resolveAttr(Path path, boolean followLinks) {
         FSBackendMatch m = fs.resolveInternal(path.toString());
         return m.backend().getAttributes(m.path(), followLinks);
-    }
-
-    private FSBackend resolveBackend(Path path) {
-        return fs.resolveInternal(path.toString()).backend();
-    }
-
-    private String resolveRelative(Path path) {
-        return fs.resolveInternal(path.toString()).path();
     }
 
     // ===================== NIO BasicFileAttributes 桥接 =====================

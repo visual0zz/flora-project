@@ -4,7 +4,6 @@ import com.flora.os.UnixPathUtil;
 import com.flora.runtime.virtual.filesys.nio.FSBackendMatch;
 import com.flora.runtime.virtual.filesys.nio.VfsFileSystemProvider;
 import com.flora.runtime.virtual.filesys.nio.VfsPath;
-
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -12,7 +11,7 @@ import java.nio.file.*;
 import java.nio.file.attribute.UserPrincipalLookupService;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 /**
  * 虚拟文件系统的 {@link FileSystem} 实现。
@@ -22,17 +21,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *
  * <h3>用法</h3>
  * <pre>{@code
- * try (VfsFileSystem fs = new VfsFileSystem()) {
- *     fs.mount("/data", new MemoryFileSystem());
- *     Path p = fs.getPath("/data/hello.txt");
- *     Files.writeString(p, "Hello!");
- *     String text = Files.readString(p);
- * } // close() 自动释放所有后端资源
+ * VfsFileSystem fs = new VfsFileSystem();
+ * fs.mount("/data", new MemoryFileSystem());
+ * Path p = fs.getPath("/data/hello.txt");
+ * Files.writeString(p, "Hello!");
+ * String text = Files.readString(p);
  * }</pre>
  */
 public final class VfsFileSystem extends FileSystem {
 
-    private final List<Mount> mounts = new CopyOnWriteArrayList<>();
+    /** 挂载表快照，通过 {@link #mount} / {@link #unmount} 原子替换。 */
+    private volatile List<Mount> mounts = List.of();
     private final VfsFileSystemProvider provider;
     private volatile boolean closed;
 
@@ -72,7 +71,7 @@ public final class VfsFileSystem extends FileSystem {
                 else ex.addSuppressed(e);
             }
         }
-        mounts.clear();
+        mounts = List.of();
         if (ex != null) throw ex;
     }
 
@@ -121,27 +120,37 @@ public final class VfsFileSystem extends FileSystem {
 
     // ===================== 挂载管理 =====================
 
-    /** 挂载一个后端到指定路径。路径自动归一化。 */
+    /** 挂载一个后端到指定路径。路径自动归一化。挂载表以最长前缀优先匹配。 */
     public void mount(String path, FSBackend backend) {
         ensureOpen();
         String normalized = UnixPathUtil.normalize(path);
-        mounts.add(new Mount(normalized, backend));
-        mounts.sort(Comparator.comparingInt((Mount m) -> m.prefix.length()).reversed());
+        List<Mount> updated = new ArrayList<>(mounts);
+        updated.add(new Mount(normalized, backend));
+        updated.sort(Comparator.comparingInt((Mount m) -> m.prefix.length()).reversed());
+        mounts = List.copyOf(updated); // 原子发布：读者永远看到一致的全量快照
     }
 
     /** 卸载指定路径的后端。 */
     public void unmount(String path) {
         ensureOpen();
         String normalized = UnixPathUtil.normalize(path);
-        mounts.removeIf(m -> m.prefix.equals(normalized));
+        List<Mount> updated = new ArrayList<>(mounts);
+        updated.removeIf(m -> m.prefix.equals(normalized));
+        mounts = List.copyOf(updated); // 原子发布
     }
 
     // ===================== 路径解析 =====================
 
+    /**
+     * 解析虚拟路径到后端。
+     * <p>返回当前挂载表快照中匹配最长前缀的 {@link FSBackendMatch}。
+     * 该操作是线程安全的：挂载表变更产生新的不可变快照，当前快照不受影响。</p>
+     */
     public FSBackendMatch resolveInternal(String path) {
         ensureOpen();
+        List<Mount> snapshot = mounts; // volatile 读，获取当前快照
         if (path.equals("/")) return new FSBackendMatch("/", new RootBackend());
-        for (Mount m : mounts) {
+        for (Mount m : snapshot) {
             if (m.prefix.equals("/") || path.equals(m.prefix) || path.startsWith(m.prefix + "/")) {
                 String relative;
                 if (m.prefix.equals("/")) relative = path;
@@ -153,9 +162,12 @@ public final class VfsFileSystem extends FileSystem {
         throw new IllegalStateException("未找到匹配的挂载点: " + path);
     }
 
+    /** 获取当前挂载表快照（供 RootBackend.list 使用）。 */
+    List<Mount> mountSnapshot() { return mounts; }
+
     // ===================== 内部 =====================
 
-    private record Mount(String prefix, FSBackend backend) {}
+    record Mount(String prefix, FSBackend backend) {}
 
     // ===================== 虚拟根目录后端 =====================
 
@@ -172,7 +184,7 @@ public final class VfsFileSystem extends FileSystem {
         @Override public FileOpResult delete(String path) { return FileOpResult.NOT_FOUND; }
         @Override public FileOpResult rename(String src, String dest) { return FileOpResult.NOT_FOUND; }
         @Override public java.util.List<String> list(String path) {
-            return mounts.stream().map(Mount::prefix).sorted().toList();
+            return mountSnapshot().stream().map(Mount::prefix).sorted().toList();
         }
     }
 }

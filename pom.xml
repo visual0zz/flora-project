@@ -55,6 +55,12 @@
                 <artifactId>plexus-utils</artifactId>
                 <version>3.6.1</version>
             </dependency>
+            <!-- 编译期 Nullability 注解 -->
+            <dependency>
+                <groupId>org.jetbrains</groupId>
+                <artifactId>annotations</artifactId>
+                <version>26.0.2</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -70,6 +76,12 @@
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-launcher</artifactId>
             <scope>test</scope>
+        </dependency>
+        <!-- Nullability 注解：适用于所有 Java 源码 -->
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 

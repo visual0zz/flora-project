@@ -29,4 +29,6 @@ module com.flora.root {
     exports com.flora.runtime;
 
     uses Converter;
+
+    requires static org.jetbrains.annotations;
 }

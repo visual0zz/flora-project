@@ -5,6 +5,8 @@ import com.flora.runtime.virtual.filesys.nio.FSBackendMatch;
 import com.flora.runtime.virtual.filesys.nio.VfsFileSystemProvider;
 import com.flora.runtime.virtual.filesys.nio.VfsPath;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.UserPrincipalLookupService;
@@ -39,10 +41,10 @@ public final class VfsFileSystem extends FileSystem {
         this.provider = new VfsFileSystemProvider(this);
     }
 
-    @Override
+    @Override @NotNull
     public FileSystemProvider provider() { return provider; }
 
-    @Override
+    @Override @NotNull
     public String getSeparator() { return "/"; }
 
     @Override
@@ -78,12 +80,12 @@ public final class VfsFileSystem extends FileSystem {
         if (closed) throw new ClosedFileSystemException();
     }
 
-    @Override
+    @Override @NotNull
     public Set<String> supportedFileAttributeViews() {
         return Set.of("basic");
     }
 
-    @Override
+    @Override @NotNull
     public Path getPath(String first, String... more) {
         StringBuilder sb = new StringBuilder(first);
         for (String m : more) sb.append('/').append(m);
@@ -97,7 +99,7 @@ public final class VfsFileSystem extends FileSystem {
         throw new UnsupportedOperationException();
     }
 
-    @Override
+    @Override @NotNull
     public Iterable<Path> getRootDirectories() {
         return List.of(getPath("/"));
     }

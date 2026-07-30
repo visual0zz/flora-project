@@ -47,4 +47,7 @@ public interface FSBackend {
 
     /** 列出目录下的子项名称（不含路径）。返回空列表若不存在或非目录。 */
     List<String> list(String path) throws IOException;
+
+    /** 释放后端持有的资源（如文件句柄、连接池）。默认空实现。 */
+    default void close() throws IOException {}
 }

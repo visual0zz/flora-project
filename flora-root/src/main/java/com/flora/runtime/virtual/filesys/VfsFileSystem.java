@@ -5,6 +5,7 @@ import com.flora.runtime.virtual.filesys.nio.FSBackendMatch;
 import com.flora.runtime.virtual.filesys.nio.VfsFileSystemProvider;
 import com.flora.runtime.virtual.filesys.nio.VfsPath;
 
+import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.UserPrincipalLookupService;
 import java.nio.file.spi.FileSystemProvider;
@@ -19,17 +20,19 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *
  * <h3>用法</h3>
  * <pre>{@code
- * VfsFileSystem fs = new VfsFileSystem();
- * fs.mount("/data", new MemoryFileSystem());
- * Path p = fs.getPath("/data/hello.txt");
- * Files.writeString(p, "Hello!");
- * String text = Files.readString(p);
+ * try (VfsFileSystem fs = new VfsFileSystem()) {
+ *     fs.mount("/data", new MemoryFileSystem());
+ *     Path p = fs.getPath("/data/hello.txt");
+ *     Files.writeString(p, "Hello!");
+ *     String text = Files.readString(p);
+ * } // close() 自动释放所有后端资源
  * }</pre>
  */
 public final class VfsFileSystem extends FileSystem {
 
     private final List<Mount> mounts = new CopyOnWriteArrayList<>();
     private final VfsFileSystemProvider provider;
+    private volatile boolean closed;
 
     /** 创建空的 VFS 实例，后续通过 {@link #mount} 添加后端。 */
     public VfsFileSystem() {
@@ -46,10 +49,34 @@ public final class VfsFileSystem extends FileSystem {
     public boolean isReadOnly() { return false; }
 
     @Override
-    public boolean isOpen() { return true; }
+    public boolean isOpen() { return !closed; }
 
+    /**
+     * 关闭虚拟文件系统。
+     * <p>关闭所有已挂载后端的资源，清空挂载表。
+     * 关闭后再调用 {@link #mount} / {@link #unmount} / 文件操作将抛出
+     * {@link ClosedFileSystemException}。</p>
+     */
     @Override
-    public void close() { /* VFS 实例由外部管理 */ }
+    public void close() throws IOException {
+        if (closed) return;
+        closed = true;
+        IOException ex = null;
+        for (Mount m : mounts) {
+            try {
+                m.backend().close();
+            } catch (IOException e) {
+                if (ex == null) ex = e;
+                else ex.addSuppressed(e);
+            }
+        }
+        mounts.clear();
+        if (ex != null) throw ex;
+    }
+
+    private void ensureOpen() {
+        if (closed) throw new ClosedFileSystemException();
+    }
 
     @Override
     public Set<String> supportedFileAttributeViews() {
@@ -94,6 +121,7 @@ public final class VfsFileSystem extends FileSystem {
 
     /** 挂载一个后端到指定路径。路径自动归一化。 */
     public void mount(String path, FSBackend backend) {
+        ensureOpen();
         String normalized = UnixPathUtil.normalize(path);
         mounts.add(new Mount(normalized, backend));
         mounts.sort(Comparator.comparingInt((Mount m) -> m.prefix.length()).reversed());
@@ -101,6 +129,7 @@ public final class VfsFileSystem extends FileSystem {
 
     /** 卸载指定路径的后端。 */
     public void unmount(String path) {
+        ensureOpen();
         String normalized = UnixPathUtil.normalize(path);
         mounts.removeIf(m -> m.prefix.equals(normalized));
     }
@@ -108,6 +137,7 @@ public final class VfsFileSystem extends FileSystem {
     // ===================== 路径解析 =====================
 
     public FSBackendMatch resolveInternal(String path) {
+        ensureOpen();
         if (path.equals("/")) return new FSBackendMatch("/", new RootBackend());
         for (Mount m : mounts) {
             if (m.prefix.equals("/") || path.equals(m.prefix) || path.startsWith(m.prefix + "/")) {

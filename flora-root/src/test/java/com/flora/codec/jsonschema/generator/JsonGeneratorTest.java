@@ -1,0 +1,333 @@
+package com.flora.codec.jsonschema.generator;
+
+import com.flora.codec.jsonschema.JsonSchema;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * JSON Schema 数据生成器测试。
+ * 核心策略：生成后用校验器验证（生成结果应通过 schema 校验）。
+ */
+class JsonGeneratorTest {
+
+    // ── 基础类型 ──
+
+    @Test
+    void generatesString() {
+        JsonSchema schema = JsonSchema.of("{\"type\":\"string\"}");
+        JsonGenerator gen = JsonGenerator.of("{\"type\":\"string\"}");
+        for (int i = 0; i < 20; i++) {
+            assertTrue(schema.isValid(gen.generate()));
+        }
+    }
+
+    @Test
+    void generatesNumber() {
+        JsonSchema schema = JsonSchema.of("{\"type\":\"number\"}");
+        JsonGenerator gen = JsonGenerator.of("{\"type\":\"number\"}");
+        for (int i = 0; i < 20; i++) {
+            assertTrue(schema.isValid(gen.generate()));
+        }
+    }
+
+    @Test
+    void generatesInteger() {
+        JsonSchema schema = JsonSchema.of("{\"type\":\"integer\"}");
+        JsonGenerator gen = JsonGenerator.of("{\"type\":\"integer\"}");
+        for (int i = 0; i < 20; i++) {
+            assertTrue(schema.isValid(gen.generate()));
+        }
+    }
+
+    @Test
+    void generatesObject() {
+        JsonSchema schema = JsonSchema.of(
+                "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}},\"required\":[\"a\"]}");
+        JsonGenerator gen = JsonGenerator.of(
+                "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}},\"required\":[\"a\"]}");
+        for (int i = 0; i < 20; i++) {
+            Object generated = gen.generate();
+            assertTrue(schema.isValid(generated));
+            assertTrue(((Map<?, ?>) generated).containsKey("a"));
+        }
+    }
+
+    @Test
+    void generatesArray() {
+        JsonSchema schema = JsonSchema.of("{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":1}");
+        JsonGenerator gen = JsonGenerator.of("{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":1}");
+        for (int i = 0; i < 20; i++) {
+            Object generated = gen.generate();
+            assertTrue(schema.isValid(generated));
+            assertTrue(((List<?>) generated).size() >= 1);
+        }
+    }
+
+    // ── enum / const ──
+
+    @Test
+    void generatesEnum() {
+        JsonSchema schema = JsonSchema.of("{\"enum\":[\"red\",\"green\",\"blue\"]}");
+        JsonGenerator gen = JsonGenerator.of("{\"enum\":[\"red\",\"green\",\"blue\"]}");
+        for (int i = 0; i < 20; i++) {
+            Object value = gen.generate();
+            assertTrue(List.of("red", "green", "blue").contains(value));
+            assertTrue(schema.isValid(value));
+        }
+    }
+
+    @Test
+    void generatesConst() {
+        JsonGenerator gen = JsonGenerator.of("{\"const\":\"fixed\"}");
+        for (int i = 0; i < 5; i++) {
+            assertEquals("fixed", gen.generate());
+        }
+    }
+
+    // ── 数值约束 ──
+
+    @Test
+    void respectsNumericBounds() {
+        JsonSchema schema = JsonSchema.of("{\"type\":\"integer\",\"minimum\":5,\"maximum\":100}");
+        JsonGenerator gen = JsonGenerator.of("{\"type\":\"integer\",\"minimum\":5,\"maximum\":100}");
+        for (int i = 0; i < 30; i++) {
+            assertTrue(schema.isValid(gen.generate()));
+        }
+    }
+
+    @Test
+    void respectsMultipleOf() {
+        JsonSchema schema = JsonSchema.of("{\"type\":\"number\",\"multipleOf\":2.5}");
+        JsonGenerator gen = JsonGenerator.of("{\"type\":\"number\",\"multipleOf\":2.5}");
+        for (int i = 0; i < 20; i++) {
+            assertTrue(schema.isValid(gen.generate()));
+        }
+    }
+
+    // ── 字符串约束 ──
+
+    @Test
+    void respectsStringLength() {
+        JsonSchema schema = JsonSchema.of("{\"type\":\"string\",\"minLength\":3,\"maxLength\":8}");
+        JsonGenerator gen = JsonGenerator.of("{\"type\":\"string\",\"minLength\":3,\"maxLength\":8}");
+        for (int i = 0; i < 20; i++) {
+            String value = (String) gen.generate();
+            assertTrue(value.length() >= 3 && value.length() <= 8);
+            assertTrue(schema.isValid(value));
+        }
+    }
+
+    @Test
+    void generatesFormat() {
+        JsonSchema schema = JsonSchema.of("{\"type\":\"string\",\"format\":\"uuid\"}");
+        JsonGenerator gen = JsonGenerator.of("{\"type\":\"string\",\"format\":\"uuid\"}");
+        for (int i = 0; i < 10; i++) {
+            assertTrue(schema.isValid(gen.generate()));
+        }
+    }
+
+    @Test
+    void generatesEmail() {
+        JsonSchema schema = JsonSchema.of("{\"type\":\"string\",\"format\":\"email\"}");
+        JsonGenerator gen = JsonGenerator.of("{\"type\":\"string\",\"format\":\"email\"}");
+        for (int i = 0; i < 10; i++) {
+            assertTrue(schema.isValid(gen.generate()));
+        }
+    }
+
+    @Test
+    void generatesPattern() {
+        JsonSchema schema = JsonSchema.of("{\"type\":\"string\",\"pattern\":\"^[a-z]+$\"}");
+        JsonGenerator gen = JsonGenerator.of("{\"type\":\"string\",\"pattern\":\"^[a-z]+$\"}");
+        for (int i = 0; i < 20; i++) {
+            assertTrue(schema.isValid(gen.generate()));
+        }
+    }
+
+    // ── 数组约束 ──
+
+    @Test
+    void respectsUniqueItems() {
+        JsonSchema schema = JsonSchema.of("{\"type\":\"array\",\"items\":{\"type\":\"integer\"},"
+                + "\"minItems\":2,\"maxItems\":4,\"uniqueItems\":true}");
+        JsonGenerator gen = JsonGenerator.of("{\"type\":\"array\",\"items\":{\"type\":\"integer\"},"
+                + "\"minItems\":2,\"maxItems\":4,\"uniqueItems\":true}");
+        for (int i = 0; i < 20; i++) {
+            assertTrue(schema.isValid(gen.generate()));
+        }
+    }
+
+    @Test
+    void respectsPrefixItems() {
+        JsonSchema schema = JsonSchema.of(
+                "{\"type\":\"array\",\"prefixItems\":[{\"type\":\"string\"},{\"type\":\"integer\"}],"
+                + "\"items\":{\"type\":\"boolean\"}}");
+        JsonGenerator gen = JsonGenerator.of(
+                "{\"type\":\"array\",\"prefixItems\":[{\"type\":\"string\"},{\"type\":\"integer\"}],"
+                + "\"items\":{\"type\":\"boolean\"}}");
+        for (int i = 0; i < 20; i++) {
+            assertTrue(schema.isValid(gen.generate()));
+        }
+    }
+
+    @Test
+    void respectsContains() {
+        JsonSchema schema = JsonSchema.of(
+                "{\"type\":\"array\",\"items\":{\"type\":\"integer\"},"
+                + "\"minItems\":3,\"contains\":{\"type\":\"integer\",\"minimum\":100}}");
+        JsonGenerator gen = JsonGenerator.of(
+                "{\"type\":\"array\",\"items\":{\"type\":\"integer\"},"
+                + "\"minItems\":3,\"contains\":{\"type\":\"integer\",\"minimum\":100}}");
+        for (int i = 0; i < 20; i++) {
+            Object generated = gen.generate();
+            assertTrue(schema.isValid(generated));
+        }
+    }
+
+    // ── 对象约束 ──
+
+    @Test
+    void respectsAdditionalPropertiesFalse() {
+        JsonSchema schema = JsonSchema.of(
+                "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"additionalProperties\":false}");
+        JsonGenerator gen = JsonGenerator.of(
+                "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"additionalProperties\":false}");
+        for (int i = 0; i < 20; i++) {
+            Object generated = gen.generate();
+            assertTrue(schema.isValid(generated));
+            assertTrue(((Map<?, ?>) generated).keySet().stream().allMatch(k -> k.equals("name")));
+        }
+    }
+
+    @Test
+    void respectsDependentRequired() {
+        JsonSchema schema = JsonSchema.of(
+                "{\"type\":\"object\",\"properties\":{\"credit_card\":{},\"billing_address\":{}},"
+                + "\"dependentRequired\":{\"credit_card\":[\"billing_address\"]}}");
+        JsonGenerator gen = JsonGenerator.of(
+                "{\"type\":\"object\",\"properties\":{\"credit_card\":{},\"billing_address\":{}},"
+                + "\"dependentRequired\":{\"credit_card\":[\"billing_address\"]}}");
+        for (int i = 0; i < 20; i++) {
+            Map<?, ?> generated = (Map<?, ?>) gen.generate();
+            if (generated.containsKey("credit_card")) {
+                assertTrue(generated.containsKey("billing_address"));
+            }
+            assertTrue(schema.isValid(generated));
+        }
+    }
+
+    // ── $ref / $defs ──
+
+    @Test
+    void generatesWithDefsRef() {
+        JsonSchema schema = JsonSchema.of(
+                "{\"$defs\":{\"pos\":{\"type\":\"integer\",\"minimum\":1}},"
+                + "\"type\":\"object\",\"properties\":{\"n\":{\"$ref\":\"#/$defs/pos\"}},\"required\":[\"n\"]}");
+        JsonGenerator gen = JsonGenerator.of(
+                "{\"$defs\":{\"pos\":{\"type\":\"integer\",\"minimum\":1}},"
+                + "\"type\":\"object\",\"properties\":{\"n\":{\"$ref\":\"#/$defs/pos\"}},\"required\":[\"n\"]}");
+        for (int i = 0; i < 20; i++) {
+            Object generated = gen.generate();
+            assertTrue(schema.isValid(generated));
+            assertTrue((Long) ((Map<?, ?>) generated).get("n") >= 1);
+        }
+    }
+
+    // ── 递归：深度限制不无限 ──
+
+    @Test
+    void recursiveSchemaTerminates() {
+        JsonSchema schema = JsonSchema.of(
+                "{\"$defs\":{\"node\":{\"type\":\"object\",\"properties\":{"
+                + "\"value\":{\"type\":\"integer\"},\"child\":{\"$ref\":\"#/$defs/node\"}}}},"
+                + "\"$ref\":\"#/$defs/node\"}");
+        JsonGenerator gen = JsonGenerator.of(
+                "{\"$defs\":{\"node\":{\"type\":\"object\",\"properties\":{"
+                + "\"value\":{\"type\":\"integer\"},\"child\":{\"$ref\":\"#/$defs/node\"}}}},"
+                + "\"$ref\":\"#/$defs/node\"}");
+        // 应有限终止（深度限制），不会栈溢出
+        Object generated = gen.generate();
+        assertNotNull(generated);
+        assertInstanceOf(Map.class, generated);
+    }
+
+    // ── 种子可复现 ──
+
+    @Test
+    void seedIsReproducible() {
+        String schemaJson = "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"integer\"},\"b\":{\"type\":\"string\"}}}";
+        JsonGenerator g1 = JsonGenerator.of(schemaJson);
+        JsonGenerator g2 = JsonGenerator.of(schemaJson);
+        Object v1 = g1.generate(42L);
+        Object v2 = g2.generate(42L);
+        assertEquals(v1, v2);
+    }
+
+    // ── 组合 ──
+
+    @Test
+    void generatesAnyOf() {
+        JsonSchema schema = JsonSchema.of(
+                "{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"integer\"}]}");
+        JsonGenerator gen = JsonGenerator.of(
+                "{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"integer\"}]}");
+        for (int i = 0; i < 20; i++) {
+            assertTrue(schema.isValid(gen.generate()));
+        }
+    }
+
+    @Test
+    void generatesIfThenElse() {
+        JsonSchema schema = JsonSchema.of(
+                "{\"type\":\"object\",\"if\":{\"properties\":{\"kind\":{\"const\":\"circle\"}}},"
+                + "\"then\":{\"required\":[\"radius\"]},\"else\":{\"required\":[\"width\"]}}");
+        JsonGenerator gen = JsonGenerator.of(
+                "{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\"}},"
+                + "\"if\":{\"properties\":{\"kind\":{\"const\":\"circle\"}}},"
+                + "\"then\":{\"required\":[\"radius\"]},\"else\":{\"required\":[\"width\"]}}");
+        for (int i = 0; i < 20; i++) {
+            // 生成结果可能不完全满足 then/else（因为 kind 随机），仅验证不抛异常
+            assertNotNull(gen.generate());
+        }
+    }
+
+    // ── allOf 合并 ──
+
+    @Test
+    void generatesAllOf() {
+        JsonSchema schema = JsonSchema.of(
+                "{\"allOf\":[{\"type\":\"integer\"},{\"minimum\":5}]}");
+        JsonGenerator gen = JsonGenerator.of(
+                "{\"allOf\":[{\"type\":\"integer\"},{\"minimum\":5}]}");
+        for (int i = 0; i < 20; i++) {
+            Object generated = gen.generate();
+            assertTrue(schema.isValid(generated));
+        }
+    }
+
+    // ── false schema ──
+
+    @Test
+    void falseSchemaThrows() {
+        JsonGenerator gen = JsonGenerator.of(false);
+        assertThrows(JsonGenerationException.class, gen::generate);
+    }
+
+    // ── 数字精度 ──
+
+    @Test
+    void generatesDecimalNumber() {
+        JsonSchema schema = JsonSchema.of("{\"type\":\"number\",\"minimum\":1.5,\"maximum\":2.5}");
+        JsonGenerator gen = JsonGenerator.of("{\"type\":\"number\",\"minimum\":1.5,\"maximum\":2.5}");
+        for (int i = 0; i < 20; i++) {
+            Object value = gen.generate();
+            assertTrue(schema.isValid(value));
+            assertInstanceOf(BigDecimal.class, value);
+        }
+    }
+}

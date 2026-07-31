@@ -83,35 +83,47 @@ public final class SchemaRegistry {
 
     /** 解析 {@code $ref}/{@code $dynamicRef}，返回目标节点编译结果。 */
     public CompiledSchema resolve(String ref, String currentBase) {
+        ResolvedTarget target = locate(ref, currentBase);
+        if (target.node() == null) {
+            throw new IllegalArgumentException("无法解析引用: " + ref);
+        }
+        return compileNode(target.node(), target.base());
+    }
+
+    /** 解析引用，返回目标原始 schema 节点（供生成器等复用）。 */
+    public Object resolveNode(String ref, String currentBase) {
+        ResolvedTarget target = locate(ref, currentBase);
+        if (target.node() == null) {
+            throw new IllegalArgumentException("无法解析引用: " + ref);
+        }
+        return target.node();
+    }
+
+    private record ResolvedTarget(Object node, String base) {
+    }
+
+    private ResolvedTarget locate(String ref, String currentBase) {
         int hash = ref.indexOf('#');
         String basePart = hash >= 0 ? ref.substring(0, hash) : ref;
         String fragment = hash >= 0 ? ref.substring(hash + 1) : "";
 
-        Object target;
-        String targetBase;
         if (basePart.isEmpty()) {
             // 同文档引用：JSON Pointer 或 anchor
             if (fragment.startsWith("/")) {
-                target = navigatePointer(rootNode, fragment);
-            } else if (fragment.isEmpty()) {
-                target = rootNode;
-            } else {
-                target = anchorToNode.get(normalizeUri(currentBase) + "#" + fragment);
+                return new ResolvedTarget(navigatePointer(rootNode, fragment), currentBase);
             }
-            targetBase = currentBase;
-        } else {
-            String normBase = normalizeUri(resolveUri(currentBase, basePart));
-            target = idToNode.get(normBase);
-            if (target == null) {
-                throw new IllegalArgumentException("未注册的 $id: " + basePart);
+            if (fragment.isEmpty()) {
+                return new ResolvedTarget(rootNode, currentBase);
             }
-            target = resolveFragment(target, fragment, normBase);
-            targetBase = normBase;
+            return new ResolvedTarget(anchorToNode.get(normalizeUri(currentBase) + "#" + fragment), currentBase);
         }
+        String normBase = normalizeUri(resolveUri(currentBase, basePart));
+        Object target = idToNode.get(normBase);
         if (target == null) {
-            throw new IllegalArgumentException("无法解析引用: " + ref);
+            return new ResolvedTarget(null, normBase);
         }
-        return compileNode(target, targetBase);
+        target = resolveFragment(target, fragment, normBase);
+        return new ResolvedTarget(target, normBase);
     }
 
     // ── 编译期：关键字 → 校验器 ──

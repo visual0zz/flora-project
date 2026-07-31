@@ -70,7 +70,7 @@ public final class PrimeLongCalculator {
      */
     public static long nextPrime(long n) {
         if (n < 2) return 2;
-        
+        if (n >= Long.MAX_VALUE) throw new ArithmeticException("overflow");
         long candidate = n + 1;
         if ((candidate & 1) == 0) candidate++;
 

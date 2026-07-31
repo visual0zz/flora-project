@@ -175,7 +175,7 @@ public final class CuckooFilter {
             buckets[curBucket][victimSlot] = curFp;
 
             // 被踢出者去往它的备用桶
-            curBucket = alternateIndex(curBucket, curFp);
+            curBucket = alternateIndex(curBucket, victimFp);
             curFp = victimFp;
 
             if (insertIntoBucket(curBucket, curFp)) {

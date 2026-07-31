@@ -107,7 +107,7 @@ public final class MemoryFileSystem implements SymlinkFSBackend {
         try {
             if (findNode(path, false) != null) return FileOpResult.ALREADY_EXISTS;
             DirNode parent = ensureParentDir(path);
-            if (parent == null) return FileOpResult.FAILED;
+            if (parent == null) return FileOpResult.OTHER_FAILED;
             parent.children.put(namePart(path), new DirNode());
             return FileOpResult.SUCCESS;
         } finally {
@@ -141,7 +141,7 @@ public final class MemoryFileSystem implements SymlinkFSBackend {
             Node node = findNode(source, false);
             DirNode srcParent = parentDir(source);
             DirNode dstParent = ensureParentDir(dest);
-            if (srcParent == null || dstParent == null) return FileOpResult.FAILED;
+            if (srcParent == null || dstParent == null) return FileOpResult.OTHER_FAILED;
             srcParent.children.remove(namePart(source));
             dstParent.children.put(namePart(dest), node);
             return FileOpResult.SUCCESS;

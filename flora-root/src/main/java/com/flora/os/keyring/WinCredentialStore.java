@@ -1,6 +1,6 @@
 package com.flora.os.keyring;
 
-import com.flora.os.ffi.NativeLib;
+import com.flora.os.natives.ffm.NativeLib;
 import java.lang.foreign.*;
 import java.nio.charset.StandardCharsets;
 

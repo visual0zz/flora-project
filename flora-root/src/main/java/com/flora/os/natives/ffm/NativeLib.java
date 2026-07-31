@@ -1,8 +1,7 @@
-package com.flora.os.ffi;
+package com.flora.os.natives.ffm;
 
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**

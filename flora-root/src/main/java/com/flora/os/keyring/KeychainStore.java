@@ -1,6 +1,6 @@
 package com.flora.os.keyring;
 
-import com.flora.os.ffi.NativeLib;
+import com.flora.os.natives.ffm.NativeLib;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

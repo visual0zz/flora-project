@@ -1,4 +1,4 @@
-package com.flora.os.ffi;
+package com.flora.os.natives.ffm;
 
 import org.junit.jupiter.api.Test;
 

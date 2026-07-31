@@ -1,4 +1,4 @@
-package com.flora.os.ffi;
+package com.flora.os.natives.ffm;
 
 import java.lang.foreign.*;
 import java.nio.charset.StandardCharsets;

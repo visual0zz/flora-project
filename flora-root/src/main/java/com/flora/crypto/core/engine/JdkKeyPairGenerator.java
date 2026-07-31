@@ -9,7 +9,7 @@ import java.security.NoSuchAlgorithmException;
 
 /**
  * 把 JDK 自带的 {@link KeyPairGenerator} 接入统一的工厂式便捷封装。
- * <p>用于生成 RSA / EC 等非对称密钥对，配合 {@link JdkAsymmetricBlockCipher}、{@link JdkSigner} 使用。</p>
+ * <p>用于生成 RSA / EC 等非对称密钥对，配合 {@link JdkAsymmetricBlockCipher} 使用。</p>
  */
 @ThreadFragile
 public final class JdkKeyPairGenerator {

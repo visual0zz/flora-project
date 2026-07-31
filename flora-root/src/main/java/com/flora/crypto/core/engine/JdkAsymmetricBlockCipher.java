@@ -14,8 +14,10 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 
 /**
- * 把 JDK 自带的 {@link Cipher}（非对称，如 RSA）接入 {@link AsymmetricBlockCipher} 接口。
- * <p>示例：{@code CryptoProvider.asymmetricCipher("RSA/ECB/PKCS1Padding")} 或 {@code JdkAsymmetricBlockCipher.rsa()}。</p>
+ * JDK 裸 RSA 原语接入 {@link AsymmetricBlockCipher} 接口。
+ * <p>只接受裸算法名 {@code "RSA"}，内部固定使用 {@code "RSA/ECB/NoPadding"}
+ * 变换——不做任何填充，等价于裸 {@code m^e mod n} / {@code m^d mod n}。
+ * 填充（PKCS1v1.5/OAEP）由自研组合层 {@code PaddedAsymmetricBlockCipher} 编排。</p>
  */
 @ThreadFragile
 public final class JdkAsymmetricBlockCipher implements AsymmetricBlockCipher {
@@ -24,22 +26,21 @@ public final class JdkAsymmetricBlockCipher implements AsymmetricBlockCipher {
     private final Cipher cipher;
     private int keyBitLength;
 
-    private JdkAsymmetricBlockCipher(String transformation) {
-        this.transformation = transformation;
+    private JdkAsymmetricBlockCipher(String algorithm) {
+        this.transformation = algorithm + "/ECB/NoPadding";
         try {
             this.cipher = Cipher.getInstance(transformation);
         } catch (NoSuchAlgorithmException | javax.crypto.NoSuchPaddingException e) {
-            throw new IllegalArgumentException("不支持的非对称变换: " + transformation, e);
+            throw new IllegalArgumentException("不支持的非对称算法: " + algorithm, e);
         }
     }
 
-    public static JdkAsymmetricBlockCipher of(String transformation) {
-        CheckUtil.notEmpty(transformation, "变换字符串不能为空");
-        return new JdkAsymmetricBlockCipher(transformation);
-    }
-
-    public static JdkAsymmetricBlockCipher rsa() {
-        return of("RSA/ECB/PKCS1Padding");
+    public static JdkAsymmetricBlockCipher of(String algorithm) {
+        CheckUtil.notEmpty(algorithm, "算法名不能为空");
+        if (algorithm.indexOf('/') >= 0) {
+            throw new IllegalArgumentException("只接受裸算法名（如 \"RSA\"），填充由自研组合层编排: " + algorithm);
+        }
+        return new JdkAsymmetricBlockCipher(algorithm);
     }
 
     @Override
@@ -61,14 +62,7 @@ public final class JdkAsymmetricBlockCipher implements AsymmetricBlockCipher {
 
     @Override
     public int getInputBlockSize() {
-        int keyBytes = keyBitLength / 8;
-        if (transformation.contains("OAEP")) {
-            return keyBytes - 2 - 2 * 20; // 默认 SHA-1 OAEP 开销
-        }
-        if (transformation.contains("PKCS1")) {
-            return keyBytes - 11;
-        }
-        return keyBytes;
+        return keyBitLength / 8;
     }
 
     @Override
@@ -86,12 +80,6 @@ public final class JdkAsymmetricBlockCipher implements AsymmetricBlockCipher {
     }
 
     private static int rsaBitLength(Key key) {
-        if (key instanceof RSAPublicKey) {
-            return ((RSAPublicKey) key).getModulus().bitLength();
-        }
-        if (key instanceof RSAPrivateKey) {
-            return ((RSAPrivateKey) key).getModulus().bitLength();
-        }
         if (key instanceof RSAKey) {
             return ((RSAKey) key).getModulus().bitLength();
         }

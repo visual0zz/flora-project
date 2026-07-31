@@ -7,7 +7,7 @@ import com.flora.crypto.core.ParametersWithIV;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * JDK 适配器共用的内部支撑方法（包级私有，不导出）。
+ * JDK 原语适配器共用的内部支撑方法（包级私有，不导出）。
  */
 final class CipherSupport {
 
@@ -36,20 +36,7 @@ final class CipherSupport {
         return params instanceof ParametersWithIV ? ((ParametersWithIV) params).getIV() : null;
     }
 
-    static String baseCipher(String transformation) {
-        int i = transformation.indexOf('/');
-        return i < 0 ? transformation : transformation.substring(0, i);
-    }
-
-    static boolean needsIv(String transformation) {
-        return transformation.contains("CBC")
-                || transformation.contains("CTR")
-                || transformation.contains("CFB")
-                || transformation.contains("OFB")
-                || transformation.contains("OCB");
-    }
-
-    static SecretKeySpec secretKey(CipherParameters params, String transformation) {
-        return new SecretKeySpec(keyParameter(params).getKey(), baseCipher(transformation));
+    static SecretKeySpec secretKey(CipherParameters params, String algorithm) {
+        return new SecretKeySpec(keyParameter(params).getKey(), algorithm);
     }
 }

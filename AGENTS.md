@@ -46,7 +46,7 @@ flora-project/            -- 根 POM（pom 打包类型，Java 26）
 - **决策记录**：每当 AI 做出决策（如技术选型或实现方案）时，记录到 `addition/decision/` 中。命名格式：`decision{YYYYMMDD}-{编号}-{模块}.md`。
 - **更新日志**：如果子模块包含 `CHANGELOG.md` 文件，每次代码改动后更新它，反映修改、新增或删除的内容。
 - **技术探索**：将 AI 撰写的算法/协议/技术详细剖析笔记保存在 `addition/exploration/` 中。命名格式：`explore{YYYYMMDD}-{主题}.md`。
-- **所有控制台脚本必须使用纯英文。** 这包括所有跨平台脚本，脚本中的注释和打印的提示信息等都必须使用纯英文。
+- **所有脚本文件（扩展名为 `.sh`、`.cmd`、`.bat`、`.ps1`，以及 Makefile / CI 配置中内嵌的命令行）必须使用纯英文（ASCII）**，包括注释和打印输出（echo / printf / Write-Output 等）。Windows `cmd` 读取含中文注释的 `.cmd` 文件可能因代码页不匹配导致整个文件解析失败。
 - **`addition/config/` 下的所有文件必须使用纯英文**（仅 ASCII），包括 `remoteRepoList.txt`、`pushConfig.txt`、
   `tagPrefixes.txt` 等文件中的注释。同样的代码页陷阱：被 `cmd` 读取的配置文件中的中文注释可能导致整个文件读取失败。键、值和注释全部使用英文。
 

@@ -92,6 +92,25 @@ public final class ConverterRegistry {
         return newInstance(true,true);
     }
 
+    private static volatile ConverterRegistry defaultRegistry;
+
+    /**
+     * 全局默认注册中心（懒加载，内置 + SPI 转换器）。
+     * <p>供无转换上下文时（如集合/数组转换器元素级 fallback）复用的共享实例。</p>
+     */
+    public static ConverterRegistry defaultRegistry() {
+        ConverterRegistry current = defaultRegistry;
+        if (current == null) {
+            synchronized (ConverterRegistry.class) {
+                if (defaultRegistry == null) {
+                    defaultRegistry = newInstance();
+                }
+                current = defaultRegistry;
+            }
+        }
+        return current;
+    }
+
     /**
      * 创建一个新的转换器注册中心实例，可控制是否加载内置和 SPI 转换器。
      *

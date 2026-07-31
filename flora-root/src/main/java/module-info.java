@@ -35,6 +35,7 @@ module com.flora.root {
     exports com.flora.runtime;
 
     exports com.flora.codec.jsonl;
+    exports com.flora.codec.jsonschema;
 
     uses Converter;
 

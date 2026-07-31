@@ -13,8 +13,9 @@ else
 fi
 
 printf '%b\n' "${CYAN}[2/2] Generating sources from templates ...${NC}"
-# 仅 flora-root 含 ramet 模板；用明确 -pl 而非全模块排除，避免
-# flora 聚合模块在 generate-sources 阶段解析未打包的 flora-garden jar 依赖。
+# Only flora-root contains ramet templates; use explicit -pl instead of
+# excluding all modules, so the flora aggregator won't try to resolve the
+# not-yet-packaged flora-garden jar during generate-sources.
 if ./mvnw -s addition/config/settings.xml generate-sources -Pregenerate -pl flora-root -q; then
   printf '%b\n' "${GREEN}    \xe2\x9c\x93 All files generated successfully!${NC}"
 else

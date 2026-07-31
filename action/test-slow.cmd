@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 @goto :windows || true
-# 运行慢测试（Maven 主项目 + IntelliJ 插件在沙箱 IDEA 中的 fixture 测试）
+# Run slow tests (Maven main project + IntelliJ plugin fixture tests in sandbox IDEA)
 cd "$(dirname "$0")/.." || exit 1
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
 ANY_FAILED=0

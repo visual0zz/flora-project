@@ -1,38 +1,43 @@
 #!/usr/bin/env bash
 @goto :windows || true
 # ===========================================================================
-# deploy: 发布 ramet-language-support（IDEA 插件）到 JetBrains Marketplace
+# deploy: publish ramet-language-support (IDEA plugin) to JetBrains Marketplace
 # ===========================================================================
-# 前置条件：
-#   1) 发布 token：配置“其中之一”，否则 publishPlugin 会报
-#      'token' property must be specified for plugin publishing'
-#      （详见下方“安全提醒 / 方式一·方式二”）。
-#   2) 版本号由 git tag 决定，格式 ramet-idea-plugin-vX.Y.Z：
-#      - 发布前先在 CHANGELOG.md 增加对应 [X.Y.Z] 段落；
-#      - 再执行 `git tag ramet-idea-plugin-vX.Y.Z`；
-#      - 本脚本会用该 tag 推导版本并注入插件包，未打对应 tag 时版本不会更新。
+# Prerequisites:
+#   1) Publish token: configure ONE of the following, otherwise publishPlugin
+#      reports 'token' property must be specified for plugin publishing'
+#      (see "Security note / Method 1 / Method 2" below).
+#   2) Version comes from a git tag of the form ramet-idea-plugin-vX.Y.Z:
+#      - add the matching [X.Y.Z] section to CHANGELOG.md first;
+#      - then run `git tag ramet-idea-plugin-vX.Y.Z`;
+#      - the script derives the version from that tag and injects it into the
+#        plugin bundle; without a matching tag the version stays unchanged.
 #
-#   方式一（推荐）：配置“系统/用户级”环境变量
-#       JETBRAINS_MARKETPLACE_TOKEN=<你的 Marketplace 发布 token>
-#       注意：仅在当前终端用 $env:VAR=...（PowerShell）或 set VAR=...（cmd）
-#       设置的是“会话级”变量，不会被其他进程（如本脚本/CI）继承；
-#       请通过系统属性把该变量设为“用户变量”或“系统变量”，
-#       或在 ~/.gradle/gradle.properties 里配置（见方式二）。
+#   Method 1 (recommended): set a "user/system level" environment variable
+#       JETBRAINS_MARKETPLACE_TOKEN=<your Marketplace publish token>
+#       Note: $env:VAR=... (PowerShell) or set VAR=... (cmd) only sets a
+#       session-level variable that other processes (e.g. this script / CI)
+#       do not inherit; set it as a user or system variable via the system
+#       properties UI, or configure it in ~/.gradle/gradle.properties
+#       (see Method 2).
 #
-#   方式二：写入本机全局 Gradle 配置（与仓库无关，不会进版本控制）
-#       在 ~/.gradle/gradle.properties 中加入一行：
-#       jetbrainsMarketplaceToken=<你的 Marketplace 发布 token>
-#       （~ 即当前用户主目录，如 C:\Users\shutie.zhao\.gradle\gradle.properties）
+#   Method 2: write it into the local global Gradle config (not tied to the
+#       repo, never enters version control)
+#       add a line to ~/.gradle/gradle.properties:
+#       jetbrainsMarketplaceToken=<your Marketplace publish token>
+#       (~ is the current user's home, e.g. C:\Users\you\.gradle\gradle.properties)
 #
-# 安全提醒：
-#   * token 属于敏感凭据，绝不能写进仓库或提交到 git。
-#   * 本脚本不读取、不写入任何密钥文件，只调用 Gradle 的 publishPlugin 任务，
-#     实际 token 由 build.gradle.kts 中的 intellijPlatform.publishing.token 读取
-#     （环境变量优先，其次 ~/.gradle/gradle.properties）。
+# Security note:
+#   * The token is sensitive; never write it into the repo or commit it to git.
+#   * This script reads or writes no key file; it only invokes the Gradle
+#     publishPlugin task. The actual token is read by
+#     intellijPlatform.publishing.token in build.gradle.kts
+#     (environment variable first, then ~/.gradle/gradle.properties).
 #
-# 版本说明：
-#   * 插件版本号来自 build.gradle.kts 的 `version`，与 Marketplace 上一次
-#     上传的版本比较，必须更高；若已存在同名版本，请先 bump 版本再发布。
+# Version note:
+#   * The plugin version comes from build.gradle.kts `version`; it must be
+#     higher than the last uploaded version on the Marketplace. If the same
+#     version already exists, bump the version first.
 # ===========================================================================
 cd "$(dirname "$0")/.." || exit 1
 PLUGIN_DIR="plugins/idea-plugins/ramet-language-support"
@@ -41,15 +46,15 @@ cd "$PLUGIN_DIR" || exit 1
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
 
 if [ -z "$JETBRAINS_MARKETPLACE_TOKEN" ]; then
-  printf '%b\n' "${RED}WARN: 未检测到环境变量 JETBRAINS_MARKETPLACE_TOKEN。${NC}"
-  printf '%b\n' "${RED}       若已在 ~/.gradle/gradle.properties 配置 jetbrainsMarketplaceToken 仍可发布；否则将失败。${NC}"
+  printf '%b\n' "${RED}WARN: environment variable JETBRAINS_MARKETPLACE_TOKEN is not set.${NC}"
+  printf '%b\n' "${RED}      Publishing may still work if jetbrainsMarketplaceToken is configured in ~/.gradle/gradle.properties; otherwise it will fail.${NC}"
 fi
 
 printf '%b\n' "${CYAN}\$ ./gradlew publishPlugin (${PLUGIN_DIR})${NC}"
 if ./gradlew publishPlugin; then
-  printf '%b\n' "${GREEN}    \xE2\x9C\x93 插件发布成功！${NC}"
+  printf '%b\n' "${GREEN}    \xE2\x9C\x93 Plugin published successfully!${NC}"
 else
-  printf '%b\n' "${RED}    \xE2\x9C\x97 插件发布失败（请检查上方 token / 版本号报错）${NC}"
+  printf '%b\n' "${RED}    \xE2\x9C\x97 Plugin publish failed (check the token / version errors above)${NC}"
   exit 1
 fi
 exit 0
@@ -62,9 +67,9 @@ cd /d "%~dp0.." || exit /b 1
 cd /d "plugins\idea-plugins\ramet-language-support" || exit /b 1
 
 if "%JETBRAINS_MARKETPLACE_TOKEN%"=="" (
-  echo %ESC%[31mWARN: 未检测到环境变量 JETBRAINS_MARKETPLACE_TOKEN。%ESC%[0m
-  echo %ESC%[31m        若已在 %%USERPROFILE%%\.gradle\gradle.properties 配置 jetbrainsMarketplaceToken 仍可发布；否则将失败。%ESC%[0m
+  echo %ESC%[31mWARN: environment variable JETBRAINS_MARKETPLACE_TOKEN is not set.%ESC%[0m
+  echo %ESC%[31m      Publishing may still work if jetbrainsMarketplaceToken is configured in %%USERPROFILE%%\.gradle\gradle.properties; otherwise it will fail.%ESC%[0m
 )
 
 echo %ESC%[36m$ gradlew.bat publishPlugin%ESC%[0m
-call gradlew.bat publishPlugin && (echo %ESC%[32m    OK: 插件发布成功！%ESC%[0m) || (echo %ESC%[31m    FAILED: 插件发布失败（请检查上方 token / 版本号报错）%ESC%[0m & exit /b 1)
+call gradlew.bat publishPlugin && (echo %ESC%[32m    OK: Plugin published successfully!%ESC%[0m) || (echo %ESC%[31m    FAILED: Plugin publish failed (check the token / version errors above)%ESC%[0m & exit /b 1)

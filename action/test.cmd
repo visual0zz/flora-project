@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 @goto :windows || true
-# 运行 Maven 主项目的快测试（IntelliJ 插件测试由 test-slow.cmd 单独跑）
+# Run fast tests of the Maven main project (IntelliJ plugin tests run separately by test-slow.cmd)
 cd "$(dirname "$0")/.." || exit 1
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
 ANY_FAILED=0

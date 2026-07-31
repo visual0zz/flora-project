@@ -1,4 +1,5 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.interfaces.provider;
+import com.flora.crypto.core.interfaces.DerivationParameters;
 
 /**
  * 密钥派生函数（KDF / 口令哈希）接口（Bouncy Castle 风格）。
@@ -7,7 +8,7 @@ package com.flora.crypto.core;
  * 因此本接口对应 JDK 概念缺口：默认提供最简占位实现 {@code PlaceholderDerivationFunction}，
  * 并随附两个不依赖 JDK/BC 的纯 Java 实现（KDF2、HKDF），以 {@code registerDerivationFunction} 接入。</p>
  */
-public interface DerivationFunction {
+public interface DerivationFunction extends AlgorithmFamily {
 
     void init(DerivationParameters params);
 

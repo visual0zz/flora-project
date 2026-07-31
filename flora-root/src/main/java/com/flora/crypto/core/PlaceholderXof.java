@@ -1,4 +1,5 @@
 package com.flora.crypto.core;
+import com.flora.crypto.core.interfaces.provider.Xof;
 
 /**
  * XOF（可变长输出）的最简占位实现。

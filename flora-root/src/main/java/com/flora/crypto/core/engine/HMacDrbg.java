@@ -1,10 +1,10 @@
 package com.flora.crypto.core.engine;
 import com.flora.tag.ThreadFragile;
 
-import com.flora.crypto.core.EntropySource;
+import com.flora.crypto.core.interfaces.provider.EntropySource;
 import com.flora.crypto.core.KeyParameter;
-import com.flora.crypto.core.Mac;
-import com.flora.crypto.core.SP80090DRBG;
+import com.flora.crypto.core.interfaces.provider.Mac;
+import com.flora.crypto.core.interfaces.provider.SP80090DRBG;
 
 import com.flora.java.CheckUtil;
 
@@ -28,6 +28,11 @@ public final class HMacDrbg implements SP80090DRBG {
     private final EntropySource entropySource;
     private final int securityStrengthBits;
     private final byte[] personalizationString;
+
+    @Override
+    public String getAlgorithmName() {
+        return "HMAC_DRBG-" + hmac.getAlgorithmName();
+    }
 
     private byte[] k;
     private byte[] v;

@@ -1,7 +1,7 @@
 package com.flora.crypto.core.engine;
 import com.flora.tag.ThreadFragile;
-import com.flora.crypto.core.Mac;
-import com.flora.crypto.core.CipherParameters;
+import com.flora.crypto.core.interfaces.provider.Mac;
+import com.flora.crypto.core.interfaces.CipherParameters;
 
 import com.flora.java.CheckUtil;
 
@@ -31,6 +31,14 @@ public final class JdkMac implements Mac {
     public static JdkMac of(String algorithm) {
         CheckUtil.notEmpty(algorithm, "算法名不能为空");
         return new JdkMac(algorithm);
+    }
+
+    private static final java.util.Set<String> SUPPORTED = java.util.Set.of(
+            "HmacMD5", "HmacSHA1", "HmacSHA224", "HmacSHA256", "HmacSHA384", "HmacSHA512");
+
+    @Override
+    public java.util.Set<String> supportedAlgorithms() {
+        return SUPPORTED;
     }
 
     @Override

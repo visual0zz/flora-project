@@ -1,4 +1,4 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.interfaces;
 
 /**
  * 派生函数（KDF / 口令哈希）的参数标记接口（Bouncy Castle 风格）。

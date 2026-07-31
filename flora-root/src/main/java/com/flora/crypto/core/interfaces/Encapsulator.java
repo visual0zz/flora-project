@@ -1,4 +1,4 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.interfaces;
 
 /**
  * KEM 封装器（发送方侧）：生成共享对称密钥与封装密文。

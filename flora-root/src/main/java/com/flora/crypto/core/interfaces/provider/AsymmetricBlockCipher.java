@@ -1,10 +1,11 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.interfaces.provider;
+import com.flora.crypto.core.interfaces.CipherParameters;
 
 /**
  * 非对称分组密码引擎接口（如 RSA）。
  * <p>加密/解密输入块大小受限（受密钥长度与填充开销影响），输出块大小固定为密钥字节长度。</p>
  */
-public interface AsymmetricBlockCipher {
+public interface AsymmetricBlockCipher extends AlgorithmFamily {
 
     void init(boolean forEncryption, CipherParameters params);
 

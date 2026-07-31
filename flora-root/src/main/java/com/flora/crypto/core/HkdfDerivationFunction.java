@@ -1,4 +1,7 @@
 package com.flora.crypto.core;
+import com.flora.crypto.core.interfaces.DerivationParameters;
+import com.flora.crypto.core.interfaces.provider.Mac;
+import com.flora.crypto.core.interfaces.provider.MacDerivationFunction;
 
 import com.flora.java.CheckUtil;
 
@@ -18,6 +21,11 @@ public final class HkdfDerivationFunction implements MacDerivationFunction {
         CheckUtil.notNull(mac, "MAC 引擎不能为空");
         this.mac = mac;
         this.macSize = mac.getMacSize();
+    }
+
+    @Override
+    public String getAlgorithmName() {
+        return "HKDF";
     }
 
     @Override

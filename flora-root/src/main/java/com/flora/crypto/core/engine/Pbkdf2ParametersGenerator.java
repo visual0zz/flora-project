@@ -1,8 +1,8 @@
 package com.flora.crypto.core.engine;
 
-import com.flora.crypto.core.CipherParameters;
+import com.flora.crypto.core.interfaces.CipherParameters;
 import com.flora.crypto.core.KeyParameter;
-import com.flora.crypto.core.Mac;
+import com.flora.crypto.core.interfaces.provider.Mac;
 import com.flora.crypto.core.PBEParametersGenerator;
 import com.flora.java.CheckUtil;
 

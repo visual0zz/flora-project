@@ -1,4 +1,4 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.interfaces.provider;
 
 /**
  * 扩展摘要接口（Bouncy Castle 风格）。

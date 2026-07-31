@@ -1,7 +1,7 @@
 package com.flora.crypto.core.engine;
 import com.flora.tag.ThreadFragile;
-import com.flora.crypto.core.AsymmetricBlockCipher;
-import com.flora.crypto.core.CipherParameters;
+import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;
+import com.flora.crypto.core.interfaces.CipherParameters;
 
 import com.flora.java.CheckUtil;
 
@@ -41,6 +41,13 @@ public final class JdkAsymmetricBlockCipher implements AsymmetricBlockCipher {
             throw new IllegalArgumentException("只接受裸算法名（如 \"RSA\"），填充由自研组合层编排: " + algorithm);
         }
         return new JdkAsymmetricBlockCipher(algorithm);
+    }
+
+    private static final java.util.Set<String> SUPPORTED = java.util.Set.of("RSA");
+
+    @Override
+    public java.util.Set<String> supportedAlgorithms() {
+        return SUPPORTED;
     }
 
     @Override

@@ -204,7 +204,7 @@ class ConvertUtilTest {
     @Test
     void customOnlyUsesNoBuiltIns() {
         assertThrows(IllegalArgumentException.class,
-                () -> CustvertUtil.INSTANCE.convertElements("123", Integer.class, null));
+                () -> CustvertUtil.convertElements(Integer.class, "123", null));
     }
 
     /**
@@ -213,7 +213,7 @@ class ConvertUtilTest {
     @Test
     void customOnlyIdentityWorks() {
         Object v = "hello";
-        assertSame(v, CustvertUtil.INSTANCE.convertQuietly("hello", String.class, (String) null));
+        assertSame(v, CustvertUtil.convertQuietly(String.class, "hello", (String) null));
     }
 
     /**
@@ -222,7 +222,7 @@ class ConvertUtilTest {
     @Test
     void customOnlyReturnsDefaultWhenFails() {
         assertEquals("fallback",
-                CustvertUtil.INSTANCE.convertQuietly(42, String.class, "fallback"));
+                CustvertUtil.convertQuietly(String.class, 42, "fallback"));
     }
 
     // ==================== targetType 边界 ====================

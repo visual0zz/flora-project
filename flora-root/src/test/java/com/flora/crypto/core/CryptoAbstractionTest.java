@@ -1,7 +1,13 @@
 package com.flora.crypto.core;
+import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;
+import com.flora.crypto.core.interfaces.provider.Digest;
+import com.flora.crypto.core.interfaces.provider.Mac;
 
 import com.flora.codec.HexUtil;
 import com.flora.crypto.core.engine.JdkDigest;
+import com.flora.crypto.core.mode.CBCBlockCipher;
+import com.flora.crypto.core.mode.GCMBlockCipher;
+import com.flora.crypto.core.padding.PKCS1v15Padding;
 import org.junit.jupiter.api.Test;
 
 import java.security.KeyPair;
@@ -33,7 +39,7 @@ class CryptoAbstractionTest {
                 HexUtil.encodeHex(out));
     }
 
-    // ── BlockCipher：AES/CBC/PKCS5Padding 往返 ──
+    // ── BlockCipher：自研 CBC + PKCS7 组合往返 ──
 
     @Test
     void aesCbcRoundTrip() {
@@ -41,18 +47,22 @@ class CryptoAbstractionTest {
         byte[] iv = randomBytes(16);
         byte[] plain = "the quick brown fox".getBytes();
 
-        BlockCipher enc = CryptoProvider.blockCipher("AES/CBC/PKCS5Padding");
+        PaddedBufferedBlockCipher enc = new PaddedBufferedBlockCipher(
+                new CBCBlockCipher(CryptoProvider.blockCipher("AES")),
+                CryptoProvider.blockCipherPadding("PKCS7"));
         enc.init(true, new ParametersWithIV(new KeyParameter(key), iv));
         byte[] cipherText = enc.process(plain);
 
-        BlockCipher dec = CryptoProvider.blockCipher("AES/CBC/PKCS5Padding");
+        PaddedBufferedBlockCipher dec = new PaddedBufferedBlockCipher(
+                new CBCBlockCipher(CryptoProvider.blockCipher("AES")),
+                CryptoProvider.blockCipherPadding("PKCS7"));
         dec.init(false, new ParametersWithIV(new KeyParameter(key), iv));
         byte[] recovered = dec.process(cipherText);
 
         assertArrayEquals(plain, recovered);
     }
 
-    // ── BlockCipher：AES/GCM 往返（认证标签校验）──
+    // ── BlockCipher：自研 GCM 往返（认证标签校验）──
 
     @Test
     void aesGcmRoundTrip() {
@@ -60,29 +70,34 @@ class CryptoAbstractionTest {
         byte[] iv = randomBytes(12);
         byte[] plain = "authenticated encryption".getBytes();
 
-        BlockCipher enc = CryptoProvider.blockCipher("AES/GCM/NoPadding");
+        GCMBlockCipher enc = new GCMBlockCipher(CryptoProvider.blockCipher("AES"));
         enc.init(true, new ParametersWithIV(new KeyParameter(key), iv));
-        byte[] cipherText = enc.process(plain);
+        byte[] cipherText = new byte[enc.getOutputSize(plain.length)];
+        int len = enc.processBytes(plain, 0, plain.length, cipherText, 0);
+        len += enc.doFinal(cipherText, len);
+        byte[] fullCipher = Arrays.copyOf(cipherText, len);
 
-        BlockCipher dec = CryptoProvider.blockCipher("AES/GCM/NoPadding");
+        GCMBlockCipher dec = new GCMBlockCipher(CryptoProvider.blockCipher("AES"));
         dec.init(false, new ParametersWithIV(new KeyParameter(key), iv));
-        byte[] recovered = dec.process(cipherText);
+        byte[] recovered = new byte[dec.getOutputSize(fullCipher.length)];
+        int rlen = dec.processBytes(fullCipher, 0, fullCipher.length, recovered, 0);
+        rlen += dec.doFinal(recovered, rlen);
 
-        assertArrayEquals(plain, recovered);
+        assertArrayEquals(plain, Arrays.copyOf(recovered, rlen));
     }
 
-    // ── BufferedBlockCipher 装饰器：AES/ECB/NoPadding 块对齐数据 ──
+    // ── BufferedBlockCipher 装饰器：裸 AES 块对齐数据 ──
 
     @Test
     void bufferedBlockCipherDecorator() {
         byte[] key = randomBytes(16);
         byte[] plain = randomBytes(32); // 两块，块对齐
 
-        BufferedBlockCipher enc = new BufferedBlockCipher(CryptoProvider.blockCipher("AES/ECB/NoPadding"));
+        BufferedBlockCipher enc = new BufferedBlockCipher(CryptoProvider.blockCipher("AES"));
         enc.init(true, new KeyParameter(key));
         byte[] cipherText = enc.process(plain);
 
-        BufferedBlockCipher dec = new BufferedBlockCipher(CryptoProvider.blockCipher("AES/ECB/NoPadding"));
+        BufferedBlockCipher dec = new BufferedBlockCipher(CryptoProvider.blockCipher("AES"));
         dec.init(false, new KeyParameter(key));
         byte[] recovered = dec.process(cipherText);
 
@@ -113,18 +128,20 @@ class CryptoAbstractionTest {
         assertEquals(32, m1.getMacSize());
     }
 
-    // ── AsymmetricBlockCipher：RSA 往返 ──
+    // ── AsymmetricBlockCipher：裸 RSA + 自研 PKCS1v1.5 填充往返 ──
 
     @Test
     void rsaRoundTrip() {
         KeyPair kp = CryptoProvider.keyPairGenerator("RSA").generate(2048);
         byte[] plain = "hello rsa world".getBytes();
 
-        AsymmetricBlockCipher enc = CryptoProvider.asymmetricCipher("RSA/ECB/PKCS1Padding");
+        AsymmetricBlockCipher enc = new PaddedAsymmetricBlockCipher(
+                CryptoProvider.asymmetricCipher("RSA"), new PKCS1v15Padding());
         enc.init(true, new AsymmetricKeyParameter(kp.getPublic()));
         byte[] cipherText = enc.processBlock(plain, 0, plain.length);
 
-        AsymmetricBlockCipher dec = CryptoProvider.asymmetricCipher("RSA/ECB/PKCS1Padding");
+        AsymmetricBlockCipher dec = new PaddedAsymmetricBlockCipher(
+                CryptoProvider.asymmetricCipher("RSA"), new PKCS1v15Padding());
         dec.init(false, new AsymmetricKeyParameter(kp.getPrivate()));
         byte[] recovered = dec.processBlock(cipherText, 0, cipherText.length);
 
@@ -133,75 +150,43 @@ class CryptoAbstractionTest {
         assertEquals(256, enc.getOutputBlockSize());
     }
 
-    // ── Signer：SHA256withRSA 签名 / 验签 ──
-
-    @Test
-    void rsaSignAndVerify() {
-        KeyPair kp = CryptoProvider.keyPairGenerator("RSA").generate(2048);
-        byte[] data = "sign me".getBytes();
-
-        Signer signer = CryptoProvider.signer("SHA256withRSA");
-        signer.init(true, new AsymmetricKeyParameter(kp.getPrivate()));
-        signer.update(data, 0, data.length);
-        byte[] signature = signer.generateSignature();
-
-        Signer verifier = CryptoProvider.signer("SHA256withRSA");
-        verifier.init(false, new AsymmetricKeyParameter(kp.getPublic()));
-        verifier.update(data, 0, data.length);
-        assertTrue(verifier.verifySignature(signature));
-
-        // 篡改后验签应失败
-        byte[] tampered = Arrays.copyOf(data, data.length);
-        tampered[0] ^= 0xFF;
-        Signer verifier2 = CryptoProvider.signer("SHA256withRSA");
-        verifier2.init(false, new AsymmetricKeyParameter(kp.getPublic()));
-        verifier2.update(tampered, 0, tampered.length);
-        assertFalse(verifier2.verifySignature(signature));
-    }
-
-    // ── StreamCipher：RC4 往返 ──
-
-    @Test
-    void rc4RoundTrip() {
-        byte[] key = randomBytes(16);
-        byte[] plain = "stream cipher".getBytes();
-
-        StreamCipher enc = CryptoProvider.streamCipher("RC4");
-        enc.init(true, new KeyParameter(key));
-        byte[] cipherText = new byte[plain.length];
-        enc.processBytes(plain, 0, plain.length, cipherText, 0);
-
-        StreamCipher dec = CryptoProvider.streamCipher("RC4");
-        dec.init(false, new KeyParameter(key));
-        byte[] recovered = new byte[cipherText.length];
-        dec.processBytes(cipherText, 0, cipherText.length, recovered, 0);
-
-        assertArrayEquals(plain, recovered);
-    }
-
-    // ── CryptoProvider 按名取得各组件 ──
+    // ── CryptoProvider 按名取得各组件（仅原语）──
 
     @Test
     void providerResolvesAllFamilies() {
         assertNotNull(CryptoProvider.digest("SHA-256"));
-        assertNotNull(CryptoProvider.blockCipher("AES/CBC/PKCS5Padding"));
-        assertNotNull(CryptoProvider.streamCipher("RC4"));
-        assertNotNull(CryptoProvider.asymmetricCipher("RSA/ECB/PKCS1Padding"));
+        assertNotNull(CryptoProvider.blockCipher("AES"));
+        assertNotNull(CryptoProvider.asymmetricCipher("RSA"));
         assertNotNull(CryptoProvider.mac("HmacSHA256"));
-        assertNotNull(CryptoProvider.signer("SHA256withRSA"));
         assertNotNull(CryptoProvider.keyPairGenerator("RSA"));
     }
 
-    // ── 自定义注册表：按名优先返回自定义实现，未命中回退 JDK ──
+    // ── 原语入口拒绝 JDK 组合变换字符串 ──
 
-    /** 一个最小的自定义 Digest 实现，仅用于验证注册表优先逻辑。 */
-    private static final class NoopDigest implements Digest {
+    @Test
+    void rejectsTransformationStrings() {
+        assertThrows(IllegalArgumentException.class,
+                () -> CryptoProvider.blockCipher("AES/CBC/PKCS5Padding"));
+        assertThrows(IllegalArgumentException.class,
+                () -> CryptoProvider.asymmetricCipher("RSA/ECB/PKCS1Padding"));
+    }
+
+    // ── 注册表裁决：按「能实现 → 优先级 → 具体度」取实现 ──
+
+    /** 一个最小的自定义 Digest 实现，仅用于验证注册表裁决逻辑。 */
+    private static class NoopDigest implements Digest {
         private final String name;
         private final int size;
+        private final int prio;
 
         NoopDigest(String name, int size) {
+            this(name, size, 0);
+        }
+
+        NoopDigest(String name, int size, int prio) {
             this.name = name;
             this.size = size;
+            this.prio = prio;
         }
 
         @Override
@@ -212,6 +197,11 @@ class CryptoAbstractionTest {
         @Override
         public int getDigestSize() {
             return size;
+        }
+
+        @Override
+        public int priority() {
+            return prio;
         }
 
         @Override
@@ -237,18 +227,53 @@ class CryptoAbstractionTest {
         // 未注册时回退到 JDK 适配器
         assertInstanceOf(JdkDigest.class, CryptoProvider.digest("SHA-256"));
 
-        // 注册自定义实现后，同名优先返回自定义实例
-        CryptoProvider.registerDigest("MyHash", () -> new NoopDigest("MyHash", 7));
+        // 按实现类注册自定义实现
+        CryptoProvider.registerDigest(new NoopDigest("MyHash", 7), n -> new NoopDigest(n, 7));
         Digest custom = CryptoProvider.digest("MyHash");
         assertEquals("MyHash", custom.getAlgorithmName());
         assertEquals(7, custom.getDigestSize());
         assertInstanceOf(NoopDigest.class, custom);
 
-        // 覆盖同名 JDK 算法：注册 "SHA-1" 后优先返回自定义（prefer 自己的算法）。
+        // 覆盖同名 JDK 算法：注册 "SHA-1"（priority 100 > JdkDigest 的 0）后优先返回自定义。
         // 注意：注册表是 JVM 全局的，此处故意避开其它测试依赖的 "SHA-256" 以免污染。
-        CryptoProvider.registerDigest("SHA-1", () -> new NoopDigest("SHA-1", 9));
+        CryptoProvider.registerDigest(new NoopDigest("SHA-1", 9, 100), n -> new NoopDigest(n, 9, 100));
         Digest overridden = CryptoProvider.digest("SHA-1");
         assertInstanceOf(NoopDigest.class, overridden);
         assertEquals(9, overridden.getDigestSize());
+    }
+
+    @Test
+    void resolvesBySpecificity() {
+        String algo = "RESOLVE-SPEC-" + System.nanoTime();
+        // 同 priority(0)：通用（3 算法）vs 专用（1 算法）→ 专用胜出
+        CryptoProvider.registerDigest(new NoopDigest(algo, 1) {
+            @Override
+            public java.util.Set<String> supportedAlgorithms() {
+                return java.util.Set.of(algo, "RESOLVE-OTHER-1", "RESOLVE-OTHER-2");
+            }
+        }, n -> new NoopDigest(n, 1));
+        CryptoProvider.registerDigest(new NoopDigest(algo, 2), n -> new NoopDigest(n, 2));
+
+        assertEquals(2, CryptoProvider.digest(algo).getDigestSize());
+    }
+
+    @Test
+    void resolvesByPriority() {
+        String algo = "RESOLVE-PRI-" + System.nanoTime();
+        // 同具体度（1 算法）：priority 0 vs 100 → 高者胜出
+        CryptoProvider.registerDigest(new NoopDigest(algo, 1), n -> new NoopDigest(n, 1));
+        CryptoProvider.registerDigest(new NoopDigest(algo, 2, 100), n -> new NoopDigest(n, 2, 100));
+
+        assertEquals(2, CryptoProvider.digest(algo).getDigestSize());
+    }
+
+    @Test
+    void duplicateRegistrationThrows() {
+        String algo = "RESOLVE-DUP-" + System.nanoTime();
+        // 同 priority 同具体度 → 平局报错
+        CryptoProvider.registerDigest(new NoopDigest(algo, 1), n -> new NoopDigest(n, 1));
+        CryptoProvider.registerDigest(new NoopDigest(algo, 1), n -> new NoopDigest(n, 1));
+
+        assertThrows(IllegalArgumentException.class, () -> CryptoProvider.digest(algo));
     }
 }

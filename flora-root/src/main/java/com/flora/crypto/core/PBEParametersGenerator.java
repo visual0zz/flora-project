@@ -1,12 +1,12 @@
 package com.flora.crypto.core;
+import com.flora.crypto.core.interfaces.CipherParameters;
 
 import com.flora.java.CheckUtil;
 
 /**
  * 基于口令的参数生成器基类（Bouncy Castle 风格）。
  * <p>把「口令 + salt + 迭代次数」派生为算法所需的 {@link CipherParameters}（密钥，或密钥 + MAC 密钥）。
- * JDK 仅原生支持 PBKDF2（经 {@code SecretKeyFactory}），由 {@code JdkPBEParametersGenerator} 适配；
- * scrypt / bcrypt / Argon2 等需自定义实现后接入。</p>
+ * PBKDF2 由 {@code Pbkdf2ParametersGenerator} 自研实现；scrypt / bcrypt / Argon2 等可自定义实现后接入。</p>
  */
 public abstract class PBEParametersGenerator {
 

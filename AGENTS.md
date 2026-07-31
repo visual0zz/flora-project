@@ -9,13 +9,9 @@ flora-project/            -- 根 POM（pom 打包类型，Java 26）
 ├── action/               -- 开发工作流脚本（测试、构建、重新生成）
 ├── addition/             -- 工具脚本、配置、报告
 │   ├── codereview/       -- 代码审查报告
-│   │   └── review{YYYYMMDD}-{编号}-{主题}.md
 │   ├── decision/         -- 决策记录
-│   │   └── decision{YYYYMMDD}-{编号}-{模块}.md
 │   ├── design/           -- 方案/设计文档
-│   │   └── idea{YYYYMMDD}-{编号}-{主题}.md
 │   └── exploration/      -- 算法/协议/技术的详细剖析笔记
-│       └── explore{YYYYMMDD}-{主题}.md
 ├── flora/                -- 聚合模块（root + garden）
 ├── flora-benchmark/      -- JMH 微基准测试
 ├── flora-garden/         -- 占位模块
@@ -38,21 +34,19 @@ flora-project/            -- 根 POM（pom 打包类型，Java 26）
 - `./action/produce.cmd` — 完整构建（跳过测试）
 - `./action/regenerate.cmd` — 从模板重新生成代码
 - 
-- `./push.cmd "提交信息"` — 推送到 `addition/config/remoteRepoList.txt` 中列出的所有远程仓库。
-  这是一个跨平台脚本：`.cmd` 后缀仅为约定——它同时适用于 Windows（cmd.exe）
-  和 Unix 类 Shell（bash/zsh，通过 shebang + goto 回退机制）。
+- `./push.cmd "提交信息"` — 将所有修改提交并推送到 `addition/config/remoteRepoList.txt` 中列出的所有远程仓库。
+- 以上脚本都是跨平台脚本：同时适用于Windows Linux MacOS。
 
 ## AI 行为规范
 
-- **每完成一个任务后提交并推送**：完成一个实质性任务并验证测试通过后，提交变更并通过 `./push.cmd` 上传。不要将无关工作合并到一次提交中。
-- **Git 提交**：提交时在提交信息中包含你的 AI 代理名称（例如 `feat(ramet) by AgentName: add numberFormat function.`）。
+- **Git提交范围注意**：不要将无关工作合并到一次提交中，如果本地修改内容涉及多个不同主题，将它们作为独立的提交。
+- **Git提交信息格式**：`修改类型(模块)@智能体名字:本次修改内容.`，其中修改类型是类似debug/fix/new 之类的东西，本次修改内容使用中文描述。
 - **代码审查**：将 AI 生成的代码审查报告保存在 `addition/codereview/` 中。命名格式：`review{YYYYMMDD}-{编号}-{主题}.md`。
-- **方案设计**：将 AI 生成的方案或设计文档保存在 `addition/design/` 中。命名格式：`idea{YYYYMMDD}-{编号}-{主题}.md`。
+- **方案设计**：将 AI 生成的方案或设计文档保存在 `addition/design/` 中。命名格式：`idea{YYYYMMDD}-{主题}.md`。
 - **决策记录**：每当 AI 做出决策（如技术选型或实现方案）时，记录到 `addition/decision/` 中。命名格式：`decision{YYYYMMDD}-{编号}-{模块}.md`。
 - **更新日志**：如果子模块包含 `CHANGELOG.md` 文件，每次代码改动后更新它，反映修改、新增或删除的内容。
 - **技术探索**：将 AI 撰写的算法/协议/技术详细剖析笔记保存在 `addition/exploration/` 中。命名格式：`explore{YYYYMMDD}-{主题}.md`。
-- **所有控制台脚本必须使用纯英文。** 这包括所有跨平台脚本，如 `*.cmd`、`*.sh`、`*.ps1` 以及从终端调用的任何 Shell 辅助脚本。**不要**在代码、注释、`echo`/`printf` 字符串或标签中使用中文（或任何非 ASCII 字符）。
-  原因：在 Windows 上，`cmd.exe` 以系统代码页（如 GBK）读取 `.cmd` 文件。UTF-8 中文会使 `for /f "eol=#"` 和其它解析逻辑静默跳过所有行，导致脚本失效。提交信息仍可包含中文——那里的乱码无害。
+- **所有脚本文件（扩展名为 `.sh`、`.cmd`、`.bat`、`.ps1`，以及 Makefile / CI 配置中内嵌的命令行）必须使用纯英文（ASCII）**，包括注释和打印输出（echo / printf / Write-Output 等）。Windows `cmd` 读取含中文注释的 `.cmd` 文件可能因代码页不匹配导致整个文件解析失败。
 - **`addition/config/` 下的所有文件必须使用纯英文**（仅 ASCII），包括 `remoteRepoList.txt`、`pushConfig.txt`、
   `tagPrefixes.txt` 等文件中的注释。同样的代码页陷阱：被 `cmd` 读取的配置文件中的中文注释可能导致整个文件读取失败。键、值和注释全部使用英文。
 

@@ -287,4 +287,47 @@ class FastTupleTest {
     void toStringTwoElements() {
         assertEquals("<1, 2>", new FastTupleIL(1, 2L).toString());
     }
+
+    // ── Comparable ──
+
+    @Test
+    void comparableOrdering() {
+        var small = new FastTupleII(1, 2);
+        var equal = new FastTupleII(1, 2);
+        var largerFirst = new FastTupleII(2, 0);
+        var largerSecond = new FastTupleII(1, 3);
+
+        assertTrue(small.compareTo(equal) == 0);
+        assertTrue(small.compareTo(largerFirst) < 0);
+        assertTrue(largerFirst.compareTo(small) > 0);
+        assertTrue(small.compareTo(largerSecond) < 0, "第一个元素相同时比较第二个");
+        assertEquals(0, Integer.compare(0, 0));
+    }
+
+    @Test
+    void comparableSorts() {
+        var list = java.util.Arrays.asList(
+                new FastTupleII(3, 1), new FastTupleII(1, 2), new FastTupleII(2, 5));
+        list.sort(java.util.Comparator.naturalOrder());
+        assertEquals(1, list.get(0).getI1());
+        assertEquals(2, list.get(1).getI1());
+        assertEquals(3, list.get(2).getI1());
+    }
+
+    @Test
+    void comparableFloatNaNSemantics() {
+        // Float.compare 定义 NaN 大于一切（除 NaN 外）
+        var nan = new FastTupleFF(Float.NaN, 0f);
+        var normal = new FastTupleFF(1f, 0f);
+        assertTrue(nan.compareTo(normal) > 0);
+    }
+
+    // ── Cloneable：不可变返回自身 ──
+
+    @Test
+    void cloneReturnsSelf() {
+        var t = new FastTupleIL(1, 2L);
+        assertSame(t, t.clone());
+        assertTrue(Cloneable.class.isAssignableFrom(FastTupleIL.class));
+    }
 }

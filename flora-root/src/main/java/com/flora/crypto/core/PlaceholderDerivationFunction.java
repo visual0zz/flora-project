@@ -1,4 +1,6 @@
 package com.flora.crypto.core;
+import com.flora.crypto.core.interfaces.provider.DerivationFunction;
+import com.flora.crypto.core.interfaces.DerivationParameters;
 
 /**
  * 派生函数（KDF）的最简占位实现。
@@ -7,6 +9,11 @@ package com.flora.crypto.core;
  * （{@code Kdf2DerivationFunction} / {@code HkdfDerivationFunction}），可按名注册后使用。</p>
  */
 public final class PlaceholderDerivationFunction implements DerivationFunction {
+
+    @Override
+    public String getAlgorithmName() {
+        return "placeholder";
+    }
 
     @Override
     public void init(DerivationParameters params) {

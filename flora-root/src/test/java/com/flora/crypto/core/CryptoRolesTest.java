@@ -1,8 +1,27 @@
 package com.flora.crypto.core;
+import com.flora.crypto.core.interfaces.provider.AEADBlockCipher;
+import com.flora.crypto.core.interfaces.provider.Agreement;
+import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;
+import com.flora.crypto.core.interfaces.provider.AsymmetricCipher;
+import com.flora.crypto.core.interfaces.provider.AsymmetricCipherKeyPairGenerator;
+import com.flora.crypto.core.interfaces.provider.BlockCipher;
+import com.flora.crypto.core.interfaces.Decapsulator;
+import com.flora.crypto.core.interfaces.provider.DerivationFunction;
+import com.flora.crypto.core.interfaces.Encapsulator;
+import com.flora.crypto.core.interfaces.provider.EntropySource;
+import com.flora.crypto.core.interfaces.provider.KEM;
+import com.flora.crypto.core.interfaces.provider.Mac;
+import com.flora.crypto.core.interfaces.provider.SP80090DRBG;
+import com.flora.crypto.core.interfaces.SecretWithEncapsulation;
+import com.flora.crypto.core.interfaces.provider.Xof;
 
 import org.junit.jupiter.api.Test;
 
 import com.flora.crypto.core.engine.HMacDrbg;
+import com.flora.crypto.core.engine.Pbkdf2ParametersGenerator;
+import com.flora.crypto.core.mode.CBCBlockCipher;
+import com.flora.crypto.core.mode.GCMBlockCipher;
+import com.flora.crypto.core.padding.PKCS1v15Padding;
 
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
@@ -39,24 +58,6 @@ class CryptoRolesTest {
         assertThrows(UnsupportedOperationException.class, () -> xof.doOutput(new byte[8], 0, 8));
     }
 
-    // ── Wrapper：AES 密钥包装往返 ──
-
-    @Test
-    void aesKeyWrapRoundTrip() {
-        Wrapper w = CryptoProvider.wrapper("AESWrap");
-        byte[] wrapKey = randomBytes(16);
-        byte[] toWrap = randomBytes(16);
-
-        w.init(true, new KeyParameter(wrapKey));
-        byte[] wrapped = w.wrap(toWrap, 0, toWrap.length);
-
-        w.init(false, new KeyParameter(wrapKey));
-        byte[] unwrapped = w.unwrap(wrapped, 0, wrapped.length);
-
-        assertArrayEquals(toWrap, unwrapped);
-        assertNotEquals(0, wrapped.length);
-    }
-
     // ── Agreement：ECDH 协商一致性 ──
 
     @Test
@@ -78,7 +79,7 @@ class CryptoRolesTest {
         assertArrayEquals(sa, sb);
     }
 
-    // ── PBE / PBKDF2：与 JDK 直接计算结果一致 ──
+    // ── PBE / PBKDF2：自研实现与 JDK 直接计算结果一致 ──
 
     @Test
     void pbkdf2MatchesJdk() throws Exception {
@@ -86,7 +87,7 @@ class CryptoRolesTest {
         byte[] salt = randomBytes(16);
         int iter = 1000;
 
-        PBEParametersGenerator pbe = CryptoProvider.pbeParametersGenerator("PBKDF2WithHmacSHA256");
+        PBEParametersGenerator pbe = new Pbkdf2ParametersGenerator(CryptoProvider.mac("HmacSHA256"));
         pbe.init(pw, salt, iter);
         byte[] derived = ((KeyParameter) pbe.generateDerivedParameters(256)).getKey();
 
@@ -139,7 +140,7 @@ class CryptoRolesTest {
         assertThrows(UnsupportedOperationException.class, () -> f.generateBytes(new byte[8], 0, 8));
     }
 
-    // ── AEADBlockCipher：AES-GCM 往返（含 AAD 与标签）──
+    // ── AEADBlockCipher：自研 AES-GCM 往返（含 AAD 与标签）──
 
     @Test
     void aeadGcmRoundTrip() {
@@ -148,7 +149,7 @@ class CryptoRolesTest {
         byte[] aad = "header".getBytes();
         byte[] plain = "authenticated encryption".getBytes();
 
-        AEADBlockCipher enc = CryptoProvider.aeadBlockCipher("AES/GCM/NoPadding");
+        AEADBlockCipher enc = new GCMBlockCipher(CryptoProvider.blockCipher("AES"));
         enc.init(true, new ParametersWithIV(new KeyParameter(key), iv));
         enc.processAADBytes(aad, 0, aad.length);
         byte[] ctBuf = new byte[enc.getOutputSize(plain.length)];
@@ -158,7 +159,7 @@ class CryptoRolesTest {
         System.arraycopy(ctBuf, 0, cipherWithTag, 0, n + m);
         assertNotNull(enc.getMac());
 
-        AEADBlockCipher dec = CryptoProvider.aeadBlockCipher("AES/GCM/NoPadding");
+        AEADBlockCipher dec = new GCMBlockCipher(CryptoProvider.blockCipher("AES"));
         dec.init(false, new ParametersWithIV(new KeyParameter(key), iv));
         dec.processAADBytes(aad, 0, aad.length);
         byte[] ptBuf = new byte[dec.getOutputSize(cipherWithTag.length)];
@@ -170,12 +171,35 @@ class CryptoRolesTest {
         assertArrayEquals(plain, recovered);
     }
 
+    // ── GCM：篡改标签应校验失败 ──
+
+    @Test
+    void gcmTamperedTagRejected() {
+        byte[] key = randomBytes(16);
+        byte[] iv = randomBytes(12);
+        byte[] plain = "tamper test".getBytes();
+
+        GCMBlockCipher enc = new GCMBlockCipher(CryptoProvider.blockCipher("AES"));
+        enc.init(true, new ParametersWithIV(new KeyParameter(key), iv));
+        byte[] ct = new byte[enc.getOutputSize(plain.length)];
+        int len = enc.processBytes(plain, 0, plain.length, ct, 0);
+        len += enc.doFinal(ct, len);
+
+        ct[0] ^= 0xFF; // 篡改密文
+
+        GCMBlockCipher dec = new GCMBlockCipher(CryptoProvider.blockCipher("AES"));
+        dec.init(false, new ParametersWithIV(new KeyParameter(key), iv));
+        byte[] out = new byte[dec.getOutputSize(ct.length)];
+        dec.processBytes(ct, 0, ct.length, out, 0);
+        assertThrows(IllegalStateException.class, () -> dec.doFinal(out, 0));
+    }
+
     // ── 模式对象：CBC 链式（纯 Java）往返 ──
 
     @Test
     void cbcModeRoundTrip() {
-        BlockCipher raw = CryptoProvider.blockCipher("AES/ECB/NoPadding");
-        BlockCipher cbc = new com.flora.crypto.core.mode.CBCBlockCipher(raw);
+        BlockCipher raw = CryptoProvider.blockCipher("AES");
+        BlockCipher cbc = new CBCBlockCipher(raw);
 
         byte[] key = randomBytes(16);
         byte[] iv = randomBytes(16);
@@ -194,7 +218,7 @@ class CryptoRolesTest {
 
     @Test
     void paddedBufferedPkc7RoundTrip() {
-        BlockCipher raw = CryptoProvider.blockCipher("AES/ECB/NoPadding");
+        BlockCipher raw = CryptoProvider.blockCipher("AES");
         PaddedBufferedBlockCipher p = new PaddedBufferedBlockCipher(raw, new com.flora.crypto.core.padding.PKCS7Padding());
 
         byte[] key = randomBytes(16);
@@ -210,22 +234,25 @@ class CryptoRolesTest {
         assertArrayEquals(plain, pt);
     }
 
-    // ── 非对称流式：BufferedAsymmetricBlockCipher 包裹 RSA 往返 ──
+    // ── 非对称流式：BufferedAsymmetricBlockCipher 包裹「裸 RSA + PKCS1v1.5」往返 ──
 
     @Test
     void asymmetricStreamCipherRoundTrip() {
         KeyPair kp = CryptoProvider.keyPairGenerator("RSA").generate(2048);
-        AsymmetricBlockCipher base = CryptoProvider.asymmetricCipher("RSA/ECB/PKCS1Padding");
-        base.init(true, new AsymmetricKeyParameter(kp.getPublic()));
-        int inSize = base.getInputBlockSize();
+        AsymmetricBlockCipher encBase = new PaddedAsymmetricBlockCipher(
+                CryptoProvider.asymmetricCipher("RSA"), new PKCS1v15Padding());
+        encBase.init(true, new AsymmetricKeyParameter(kp.getPublic()));
+        int inSize = encBase.getInputBlockSize();
         byte[] data = randomBytes(inSize);
 
-        AsymmetricCipher enc = CryptoProvider.asymmetricStreamCipher("RSA/ECB/PKCS1Padding");
+        AsymmetricCipher enc = new BufferedAsymmetricBlockCipher(encBase);
         enc.init(true, new AsymmetricKeyParameter(kp.getPublic()));
         byte[] buf = new byte[1024];
         int n = enc.processBytes(data, 0, data.length, buf, 0);
 
-        AsymmetricCipher dec = CryptoProvider.asymmetricStreamCipher("RSA/ECB/PKCS1Padding");
+        AsymmetricBlockCipher decBase = new PaddedAsymmetricBlockCipher(
+                CryptoProvider.asymmetricCipher("RSA"), new PKCS1v15Padding());
+        AsymmetricCipher dec = new BufferedAsymmetricBlockCipher(decBase);
         dec.init(false, new AsymmetricKeyParameter(kp.getPrivate()));
         byte[] out = new byte[1024];
         int m = dec.processBytes(buf, 0, n, out, 0);

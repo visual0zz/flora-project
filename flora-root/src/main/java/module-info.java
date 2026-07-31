@@ -9,6 +9,10 @@ module com.flora.root {
     exports com.flora.algebra;
     exports com.flora.crypto.core;
     exports com.flora.crypto.core.engine;
+    exports com.flora.crypto.core.mode;
+    exports com.flora.crypto.core.padding;
+    exports com.flora.crypto.core.interfaces;
+    exports com.flora.crypto.core.interfaces.provider;
     exports com.flora.crypto.schemes;
     exports com.flora.entropy;
     exports com.flora.tag;
@@ -20,7 +24,7 @@ module com.flora.root {
     exports com.flora.codec;
     exports com.flora.java;
     exports com.flora.os;
-    exports com.flora.os.keyring;
+    exports com.flora.os.secret;
     exports com.flora.os.natives.ffm;
     exports com.flora.runtime.log;
     exports com.flora.runtime.config;
@@ -31,6 +35,8 @@ module com.flora.root {
     exports com.flora.runtime;
 
     exports com.flora.codec.jsonl;
+    exports com.flora.codec.jsonschema;
+    exports com.flora.codec.jsonschema.generator;
 
     uses Converter;
 

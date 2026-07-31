@@ -1,7 +1,7 @@
 package com.flora.crypto.core.engine;
 import com.flora.tag.ThreadFragile;
-import com.flora.crypto.core.Digest;
-import com.flora.crypto.core.ExtendedDigest;
+import com.flora.crypto.core.interfaces.provider.Digest;
+import com.flora.crypto.core.interfaces.provider.ExtendedDigest;
 
 import com.flora.java.CheckUtil;
 
@@ -30,6 +30,15 @@ public final class JdkDigest implements ExtendedDigest {
     public static JdkDigest of(String algorithm) {
         CheckUtil.notEmpty(algorithm, "算法名不能为空");
         return new JdkDigest(algorithm);
+    }
+
+    private static final java.util.Set<String> SUPPORTED = java.util.Set.of(
+            "MD5", "SHA-1", "SHA-224", "SHA-256", "SHA-384", "SHA-512",
+            "SHA-512/224", "SHA-512/256", "SHA3-224", "SHA3-256", "SHA3-384", "SHA3-512");
+
+    @Override
+    public java.util.Set<String> supportedAlgorithms() {
+        return SUPPORTED;
     }
 
     @Override

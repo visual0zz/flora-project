@@ -14,7 +14,7 @@ import java.io.Serializable;
  * <p>避免装箱开销，提供对原始类型元素的高效存储和访问。</p>
  */
 @ReadOnly
-public final class FastTupleDC implements Serializable {
+public final class FastTupleDC implements Serializable, Cloneable, Comparable<FastTupleDC> {
     @Serial
     private static final long serialVersionUID = 1L;
 
@@ -45,6 +45,33 @@ public final class FastTupleDC implements Serializable {
      * @return 第2个元素
      */
     public char getC1() { return v2; }
+    /**
+     * 返回此快速元组的浅拷贝。
+     * <p>元组不可变，直接返回自身（等价实例可安全共享）。</p>
+     *
+     * @return 此元组实例
+     */
+    @Override
+    public FastTupleDC clone() {
+        return this;
+    }
+
+    /**
+     * 按字典顺序比较此快速元组与指定元组。
+     * <p>逐元素比较，首个不同元素决定结果；全部相同则返回 0。</p>
+     *
+     * @param that 要比较的元组
+     * @return 如果此元组小于、等于或大于指定元组，则返回负整数、零或正整数
+     */
+    @Override
+    public int compareTo(FastTupleDC that) {
+        int c1 = Double.compare(this.v1, that.v1);
+        if (c1 != 0) return c1;
+        int c2 = Character.compare(this.v2, that.v2);
+        if (c2 != 0) return c2;
+        return 0;
+    }
+
     /**
      * 比较此快速元组与指定对象是否相等。
      *

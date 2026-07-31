@@ -1,14 +1,14 @@
 <#meta>
 @Param{
   pkg: "com.flora.fast.container.tuple",
-  Integer: { type: "int", letter: "I", hashFn: "Integer.hashCode", cmp: false },
-  Long: { type: "long", letter: "L", hashFn: "Long.hashCode", cmp: false },
-  Float: { type: "float", letter: "F", hashFn: "Float.hashCode", cmp: "Float.compare" },
-  Double: { type: "double", letter: "D", hashFn: "Double.hashCode", cmp: "Double.compare" },
-  Byte: { type: "byte", letter: "B", hashFn: "Byte.hashCode", cmp: false },
-  Short: { type: "short", letter: "S", hashFn: "Short.hashCode", cmp: false },
-  Char: { type: "char", letter: "C", hashFn: "Character.hashCode", cmp: false },
-  Boolean: { type: "boolean", letter: "Z", hashFn: "Boolean.hashCode", cmp: false }
+  Integer: { type: "int", letter: "I", hashFn: "Integer.hashCode", cmpFn: "Integer.compare", cmp: false },
+  Long: { type: "long", letter: "L", hashFn: "Long.hashCode", cmpFn: "Long.compare", cmp: false },
+  Float: { type: "float", letter: "F", hashFn: "Float.hashCode", cmpFn: "Float.compare", cmp: "Float.compare" },
+  Double: { type: "double", letter: "D", hashFn: "Double.hashCode", cmpFn: "Double.compare", cmp: "Double.compare" },
+  Byte: { type: "byte", letter: "B", hashFn: "Byte.hashCode", cmpFn: "Byte.compare", cmp: false },
+  Short: { type: "short", letter: "S", hashFn: "Short.hashCode", cmpFn: "Short.compare", cmp: false },
+  Char: { type: "char", letter: "C", hashFn: "Character.hashCode", cmpFn: "Character.compare", cmp: false },
+  Boolean: { type: "boolean", letter: "Z", hashFn: "Boolean.hashCode", cmpFn: "Boolean.compare", cmp: false }
 }
 @Cartesian{
   T: concatList(
@@ -29,7 +29,7 @@ import java.io.Serializable;
  * <p>避免装箱开销，提供对原始类型元素的高效存储和访问。</p>
  */
 @ReadOnly
-public final class FastTuple${concatField(T, "letter")} implements Serializable {
+public final class FastTuple${concatField(T, "letter")} implements Serializable, Cloneable, Comparable<FastTuple${concatField(T, "letter")}> {
     @Serial
     private static final long serialVersionUID = 1L;
 
@@ -67,6 +67,33 @@ public final class FastTuple${concatField(T, "letter")} implements Serializable 
      */
     public ${T[0].type} getValue() { return v1; }
 </#if>
+
+    /**
+     * 返回此快速元组的浅拷贝。
+     * <p>元组不可变，直接返回自身（等价实例可安全共享）。</p>
+     *
+     * @return 此元组实例
+     */
+    @Override
+    public FastTuple${concatField(T, "letter")} clone() {
+        return this;
+    }
+
+    /**
+     * 按字典顺序比较此快速元组与指定元组。
+     * <p>逐元素比较，首个不同元素决定结果；全部相同则返回 0。</p>
+     *
+     * @param that 要比较的元组
+     * @return 如果此元组小于、等于或大于指定元组，则返回负整数、零或正整数
+     */
+    @Override
+    public int compareTo(FastTuple${concatField(T, "letter")} that) {
+<#for i:range(1, length(T))>
+        int c${i} = ${T[minus(i, 1)].cmpFn}(this.v${i}, that.v${i});
+        if (c${i} != 0) return c${i};
+</#for>
+        return 0;
+    }
 
     /**
      * 比较此快速元组与指定对象是否相等。

@@ -1,6 +1,5 @@
 package com.flora.java.converter;
 
-import com.flora.java.ConvertUtil;
 import com.flora.java.ConversionContext;
 import com.flora.java.Converter;
 import com.flora.java.converter.ConverterRegistry;
@@ -13,7 +12,7 @@ import java.util.List;
  * 数组转换器，将任意对象转换为数组类型。
  * <p>
  * 支持从数组、{@link java.util.Collection} 或单个对象转换为指定元素类型的数组。
- * 转换时使用 {@link com.flora.java.ConvertUtil} 对每个元素进行类型转换。
+ * 转换时使用当前注册中心（{@link ConverterRegistry}）对每个元素进行类型转换。
  * </p>
  */
 public final class ArrayConverter implements Converter {
@@ -75,12 +74,12 @@ public final class ArrayConverter implements Converter {
     private Object convertElement(Object element, Class<?> targetComponentType) {
         if (targetComponentType != Object.class) {
             // 优先使用当前转换上下文中的注册中心，以保证与外层转换一致的转换器集合；
-            // 上下文缺失时回退到全局 ConvertUtil（向后兼容直接调用 converter 的场景）
+            // 上下文缺失时回退到全局默认注册中心
             ConverterRegistry registry = ConversionContext.currentRegistry();
-            if (registry != null) {
-                return registry.convertElement(element, targetComponentType, null);
+            if (registry == null) {
+                registry = ConverterRegistry.defaultRegistry();
             }
-            return ConvertUtil.convert(targetComponentType, element);
+            return registry.convertElement(element, targetComponentType, null);
         }
         return element;
     }

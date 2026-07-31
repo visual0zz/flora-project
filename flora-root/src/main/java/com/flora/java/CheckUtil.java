@@ -27,7 +27,7 @@ public final class CheckUtil {
         return notEmpty(str, "参数不能为空");
     }
     public static String notEmpty(String str, String errorMsg) {
-        if (StrUtil.isEmpty(str)) {
+        if (str == null || str.isEmpty()) {
             throw new IllegalArgumentException(errorMsg);
         }
         return str;
@@ -36,7 +36,7 @@ public final class CheckUtil {
         return notBlank(str, "参数不能为空");
     }
     public static String notBlank(String str, String errorMsg) {
-        if (StrUtil.isBlank(str)) {
+        if (str == null || str.isBlank()) {
             throw new IllegalArgumentException(errorMsg);
         }
         return str;

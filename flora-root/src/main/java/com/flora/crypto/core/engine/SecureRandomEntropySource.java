@@ -1,6 +1,6 @@
 package com.flora.crypto.core.engine;
 
-import com.flora.crypto.core.EntropySource;
+import com.flora.crypto.core.interfaces.provider.EntropySource;
 
 import com.flora.java.CheckUtil;
 
@@ -26,6 +26,11 @@ public final class SecureRandomEntropySource implements EntropySource {
         this.random = random;
         this.predictionResistant = predictionResistant;
         this.entropyBits = entropyBits;
+    }
+
+    @Override
+    public String getAlgorithmName() {
+        return "SecureRandom";
     }
 
     @Override

@@ -1,7 +1,7 @@
 package com.flora.crypto.core.engine;
 import com.flora.tag.ThreadFragile;
-import com.flora.crypto.core.BlockCipher;
-import com.flora.crypto.core.CipherParameters;
+import com.flora.crypto.core.interfaces.provider.BlockCipher;
+import com.flora.crypto.core.interfaces.CipherParameters;
 import com.flora.crypto.core.KeyParameter;
 
 import com.flora.java.CheckUtil;
@@ -40,6 +40,14 @@ public final class JdkBlockCipher implements BlockCipher {
             throw new IllegalArgumentException("只接受裸算法名（如 \"AES\"），组合变换由自研组合层编排: " + algorithm);
         }
         return new JdkBlockCipher(algorithm);
+    }
+
+    private static final java.util.Set<String> SUPPORTED = java.util.Set.of(
+            "AES", "DES", "DESede", "Blowfish", "RC2");
+
+    @Override
+    public java.util.Set<String> supportedAlgorithms() {
+        return SUPPORTED;
     }
 
     @Override

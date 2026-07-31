@@ -1,4 +1,8 @@
 package com.flora.crypto.core;
+import com.flora.crypto.core.interfaces.CipherParameters;
+import com.flora.crypto.core.interfaces.Decapsulator;
+import com.flora.crypto.core.interfaces.Encapsulator;
+import com.flora.crypto.core.interfaces.provider.KEM;
 
 /**
  * KEM 占位实现（对应 JDK/本项目尚不支持的算法，如后量子 ML-KEM）。
@@ -6,6 +10,11 @@ package com.flora.crypto.core;
  * 实现后通过 {@code CryptoProvider.registerKem} 覆盖即可。</p>
  */
 public final class PlaceholderKem implements KEM {
+
+    @Override
+    public String getAlgorithmName() {
+        return "placeholder";
+    }
 
     @Override
     public Encapsulator newEncapsulator(CipherParameters publicKey) {

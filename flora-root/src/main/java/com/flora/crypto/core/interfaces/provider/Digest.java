@@ -1,10 +1,10 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.interfaces.provider;
 
 /**
  * 摘要（散列）引擎接口。
  * <p>对应常见算法：SHA-256 / SHA-512 / MD5 等。仅暴露每族真正共有的操作：update / doFinal / reset。</p>
  */
-public interface Digest {
+public interface Digest extends AlgorithmFamily {
 
     /** @return 算法名，如 {@code "SHA-256"} */
     String getAlgorithmName();

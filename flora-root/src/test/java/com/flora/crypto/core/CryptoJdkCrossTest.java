@@ -1,4 +1,5 @@
 package com.flora.crypto.core;
+import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;
 
 import com.flora.crypto.core.mode.GCMBlockCipher;
 import com.flora.crypto.core.padding.OAEPPadding;

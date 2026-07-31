@@ -1,15 +1,15 @@
 package com.flora.crypto.core.engine;
 
-import com.flora.crypto.core.Agreement;
+import com.flora.crypto.core.interfaces.provider.Agreement;
 import com.flora.crypto.core.AsymmetricKeyParameter;
-import com.flora.crypto.core.CipherParameters;
+import com.flora.crypto.core.interfaces.CipherParameters;
 import com.flora.crypto.core.CryptoProvider;
-import com.flora.crypto.core.Decapsulator;
-import com.flora.crypto.core.DerivationFunction;
-import com.flora.crypto.core.Encapsulator;
+import com.flora.crypto.core.interfaces.Decapsulator;
+import com.flora.crypto.core.interfaces.provider.DerivationFunction;
+import com.flora.crypto.core.interfaces.Encapsulator;
 import com.flora.crypto.core.HkdfParameters;
-import com.flora.crypto.core.KEM;
-import com.flora.crypto.core.SecretWithEncapsulation;
+import com.flora.crypto.core.interfaces.provider.KEM;
+import com.flora.crypto.core.interfaces.SecretWithEncapsulation;
 import com.flora.crypto.core.SecretWithEncapsulationImpl;
 
 import com.flora.java.CheckUtil;
@@ -45,6 +45,18 @@ public final class AgreementBasedKem implements KEM {
         return new AgreementBasedKem(agreementAlgorithm);
     }
 
+    private static final java.util.Set<String> SUPPORTED = java.util.Set.of("ECDH", "X25519", "X448", "DH");
+
+    @Override
+    public java.util.Set<String> supportedAlgorithms() {
+        return SUPPORTED;
+    }
+
+    @Override
+    public String getAlgorithmName() {
+        return agreementAlgorithm;
+    }
+
     @Override
     public Encapsulator newEncapsulator(CipherParameters publicKey) {
         return new EncapsulatorImpl(asAsym(publicKey));
@@ -65,28 +77,21 @@ public final class AgreementBasedKem implements KEM {
 
     private KeyPair generateEphemeral(Key recipientKey) {
         try {
-            String alg = recipientKey.getAlgorithm();
-            KeyPairGenerator kpg = KeyPairGenerator.getInstance(alg);
-            if (recipientKey instanceof ECKey) {
-                kpg.initialize(((ECKey) recipientKey).getParams(), random);
-            } else if (recipientKey instanceof java.security.interfaces.XECKey) {
-                kpg.initialize(((java.security.interfaces.XECKey) recipientKey).getParams(), random);
-            } else if (!alg.equals("X25519") && !alg.equals("X448")) {
-                kpg.initialize(defaultBits(alg), random);
+            // XEC 密钥（X25519/X448）的 getAlgorithm() 返回 "XDH"，但 params 带具体曲线名
+            if (recipientKey instanceof java.security.interfaces.XECKey xec) {
+                String curve = ((java.security.spec.NamedParameterSpec) xec.getParams()).getName();
+                return CryptoProvider.keyPairGenerator(curve).generate(xec.getParams());
             }
-            return kpg.generateKeyPair();
+            if (recipientKey instanceof ECKey ec) {
+                return CryptoProvider.keyPairGenerator("EC").generate(ec.getParams());
+            }
+            if (recipientKey instanceof javax.crypto.interfaces.DHKey dh) {
+                return CryptoProvider.keyPairGenerator("DH").generate(dh.getParams());
+            }
+            return CryptoProvider.keyPairGenerator(recipientKey.getAlgorithm()).generate(2048);
         } catch (Exception e) {
             throw new IllegalStateException("生成临时密钥失败: " + agreementAlgorithm, e);
         }
-    }
-
-    private static int defaultBits(String algorithm) {
-        return switch (algorithm) {
-            case "X25519" -> 255;
-            case "X448" -> 448;
-            case "DH" -> 2048;
-            default -> 2048;
-        };
     }
 
     private static AsymmetricKeyParameter asAsym(CipherParameters params) {

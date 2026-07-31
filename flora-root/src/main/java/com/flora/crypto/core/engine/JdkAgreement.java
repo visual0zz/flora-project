@@ -1,9 +1,9 @@
 package com.flora.crypto.core.engine;
 import com.flora.tag.ThreadFragile;
 
-import com.flora.crypto.core.Agreement;
+import com.flora.crypto.core.interfaces.provider.Agreement;
 import com.flora.crypto.core.AsymmetricKeyParameter;
-import com.flora.crypto.core.CipherParameters;
+import com.flora.crypto.core.interfaces.CipherParameters;
 
 import com.flora.java.CheckUtil;
 
@@ -32,6 +32,18 @@ public final class JdkAgreement implements Agreement {
     public static JdkAgreement of(String algorithm) {
         CheckUtil.notEmpty(algorithm, "算法名不能为空");
         return new JdkAgreement(algorithm);
+    }
+
+    private static final java.util.Set<String> SUPPORTED = java.util.Set.of("ECDH", "X25519", "X448", "DH");
+
+    @Override
+    public java.util.Set<String> supportedAlgorithms() {
+        return SUPPORTED;
+    }
+
+    @Override
+    public String getAlgorithmName() {
+        return algorithm;
     }
 
     @Override

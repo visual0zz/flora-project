@@ -1,4 +1,4 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.interfaces.provider;
 
 import java.security.SecureRandom;
 
@@ -8,7 +8,7 @@ import java.security.SecureRandom;
  * 代表实现：{@code PKCS7Padding}、{@code ISO7816d4Padding}、{@code ZeroBytePadding}。
  * 这是 BC「对象组合」风格的典型——模式、填充都作为可叠加的包装器，而非写死在算法字符串里。</p>
  */
-public interface BlockCipherPadding {
+public interface BlockCipherPadding extends AlgorithmFamily {
 
     /**
      * 初始化（部分填充需要随机数）。

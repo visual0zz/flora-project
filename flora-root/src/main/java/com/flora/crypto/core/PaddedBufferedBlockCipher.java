@@ -1,4 +1,7 @@
 package com.flora.crypto.core;
+import com.flora.crypto.core.interfaces.provider.BlockCipher;
+import com.flora.crypto.core.interfaces.provider.BlockCipherPadding;
+import com.flora.crypto.core.interfaces.CipherParameters;
 import com.flora.tag.ThreadFragile;
 
 import com.flora.crypto.core.padding.PKCS7Padding;

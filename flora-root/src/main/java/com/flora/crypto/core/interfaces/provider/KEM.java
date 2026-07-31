@@ -1,4 +1,7 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.interfaces.provider;
+import com.flora.crypto.core.interfaces.CipherParameters;
+import com.flora.crypto.core.interfaces.Decapsulator;
+import com.flora.crypto.core.interfaces.Encapsulator;
 
 /**
  * 密钥封装机制（Key Encapsulation Mechanism）接口（Bouncy Castle 风格）。
@@ -7,7 +10,7 @@ package com.flora.crypto.core;
  * <p>本项目的默认实现 {@code AgreementBasedKem} 用「密钥协商 + KDF」构造（ECDH / X25519 等经典曲线）；
  * 后量子算法（ML-KEM）需真实格密码引擎，未实现时走 {@code PlaceholderKem} 占位。</p>
  */
-public interface KEM {
+public interface KEM extends AlgorithmFamily {
 
     /**
      * 创建封装器（发送方用）。

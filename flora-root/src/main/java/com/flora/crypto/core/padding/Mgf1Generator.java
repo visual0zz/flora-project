@@ -1,6 +1,6 @@
 package com.flora.crypto.core.padding;
 
-import com.flora.crypto.core.Digest;
+import com.flora.crypto.core.interfaces.provider.Digest;
 import com.flora.java.CheckUtil;
 
 /**

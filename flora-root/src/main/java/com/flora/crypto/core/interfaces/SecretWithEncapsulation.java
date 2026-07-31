@@ -1,4 +1,4 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.interfaces;
 
 import java.util.Arrays;
 

@@ -1,4 +1,4 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.interfaces;
 
 /**
  * KEM 解封装器（接收方侧）：从封装密文还原共享对称密钥。

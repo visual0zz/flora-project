@@ -1,6 +1,6 @@
 package com.flora.crypto.core.padding;
 
-import com.flora.crypto.core.BlockCipherPadding;
+import com.flora.crypto.core.interfaces.provider.BlockCipherPadding;
 
 import java.security.SecureRandom;
 
@@ -18,6 +18,11 @@ public final class ZeroBytePadding implements BlockCipherPadding {
 
     @Override
     public String getPaddingName() {
+        return "ZeroByte";
+    }
+
+    @Override
+    public String getAlgorithmName() {
         return "ZeroByte";
     }
 

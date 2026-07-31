@@ -2,7 +2,7 @@ package com.flora.crypto.core.engine;
 import com.flora.tag.ThreadFragile;
 
 import com.flora.crypto.core.AsymmetricCipherKeyPair;
-import com.flora.crypto.core.AsymmetricCipherKeyPairGenerator;
+import com.flora.crypto.core.interfaces.provider.AsymmetricCipherKeyPairGenerator;
 import com.flora.crypto.core.AsymmetricKeyParameter;
 import com.flora.crypto.core.KeyGenerationParameters;
 
@@ -36,6 +36,19 @@ public final class JdkAsymmetricKeyPairGenerator implements AsymmetricCipherKeyP
     public static JdkAsymmetricKeyPairGenerator of(String algorithm) {
         CheckUtil.notEmpty(algorithm, "算法名不能为空");
         return new JdkAsymmetricKeyPairGenerator(algorithm);
+    }
+
+    private static final java.util.Set<String> SUPPORTED = java.util.Set.of(
+            "RSA", "DSA", "DH", "EC", "X25519", "X448", "Ed25519", "Ed448");
+
+    @Override
+    public java.util.Set<String> supportedAlgorithms() {
+        return SUPPORTED;
+    }
+
+    @Override
+    public String getAlgorithmName() {
+        return algorithm;
     }
 
     @Override

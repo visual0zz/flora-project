@@ -1,4 +1,4 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.interfaces.provider;
 
 /**
  * 可变长输出函数（Extendable-Output Function，XOF）接口（Bouncy Castle 风格）。

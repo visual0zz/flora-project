@@ -1,6 +1,6 @@
 package com.flora.crypto.core.padding;
 
-import com.flora.crypto.core.BlockCipherPadding;
+import com.flora.crypto.core.interfaces.provider.BlockCipherPadding;
 
 import java.security.SecureRandom;
 
@@ -17,6 +17,11 @@ public final class PKCS7Padding implements BlockCipherPadding {
 
     @Override
     public String getPaddingName() {
+        return "PKCS7";
+    }
+
+    @Override
+    public String getAlgorithmName() {
         return "PKCS7";
     }
 

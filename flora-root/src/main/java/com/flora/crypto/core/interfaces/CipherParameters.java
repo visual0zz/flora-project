@@ -1,4 +1,4 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.interfaces;
 
 /**
  * 加密参数的标记接口（Bouncy Castle 风格）。

@@ -1,4 +1,5 @@
 package com.flora.crypto.core;
+import com.flora.crypto.core.interfaces.CipherParameters;
 
 import com.flora.java.CheckUtil;
 

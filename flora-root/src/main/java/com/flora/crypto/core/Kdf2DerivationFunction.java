@@ -1,4 +1,7 @@
 package com.flora.crypto.core;
+import com.flora.crypto.core.interfaces.DerivationParameters;
+import com.flora.crypto.core.interfaces.provider.Digest;
+import com.flora.crypto.core.interfaces.provider.DigestDerivationFunction;
 
 import com.flora.java.CheckUtil;
 
@@ -18,6 +21,11 @@ public final class Kdf2DerivationFunction implements DigestDerivationFunction {
         CheckUtil.notNull(digest, "摘要引擎不能为空");
         this.digest = digest;
         this.hLen = digest.getDigestSize();
+    }
+
+    @Override
+    public String getAlgorithmName() {
+        return "KDF2";
     }
 
     @Override

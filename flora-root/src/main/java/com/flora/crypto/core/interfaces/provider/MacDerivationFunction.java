@@ -1,4 +1,4 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.interfaces.provider;
 
 /**
  * 基于 {@link Mac} 的派生函数子接口（Bouncy Castle 风格）。

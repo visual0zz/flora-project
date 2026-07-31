@@ -1,4 +1,5 @@
-package com.flora.crypto.core;
+package com.flora.crypto.core.interfaces.provider;
+import com.flora.crypto.core.interfaces.CipherParameters;
 
 /**
  * 流式非对称密码接口（Bouncy Castle 风格）。
@@ -6,7 +7,7 @@ package com.flora.crypto.core;
  * 用于 ECIES 等把非对称原语当流用、需缓冲分块的场景。底层由
  * {@link BufferedAsymmetricBlockCipher} 包裹一个 {@link AsymmetricBlockCipher} 实现。</p>
  */
-public interface AsymmetricCipher {
+public interface AsymmetricCipher extends AlgorithmFamily {
 
     void init(boolean forEncryption, CipherParameters params);
 

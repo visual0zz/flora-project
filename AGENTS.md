@@ -38,14 +38,13 @@ flora-project/            -- 根 POM（pom 打包类型，Java 26）
 - `./action/produce.cmd` — 完整构建（跳过测试）
 - `./action/regenerate.cmd` — 从模板重新生成代码
 - 
-- `./push.cmd "提交信息"` — 推送到 `addition/config/remoteRepoList.txt` 中列出的所有远程仓库。
-  这是一个跨平台脚本：`.cmd` 后缀仅为约定——它同时适用于 Windows（cmd.exe）
-  和 Unix 类 Shell（bash/zsh，通过 shebang + goto 回退机制）。
+- `./push.cmd "提交信息"` — 将所有修改提交并推送到 `addition/config/remoteRepoList.txt` 中列出的所有远程仓库。
+- 以上脚本都是跨平台脚本：同时适用于Windows Linux MacOS。
 
 ## AI 行为规范
 
-- **每完成一个任务后提交并推送**：完成一个实质性任务并验证测试通过后，提交变更并通过 `./push.cmd` 上传。不要将无关工作合并到一次提交中。
-- **Git 提交**：提交时在提交信息中包含你的 AI 代理名称（例如 `feat(ramet) by AgentName: add numberFormat function.`）。
+- **Git提交范围注意**：不要将无关工作合并到一次提交中，如果本地修改内容涉及多个不同主题，将它们作为独立的提交。
+- **Git提交信息格式**：提交时在提交信息中包含你的 AI 代理名称（例如 `feat(ramet) by AgentName: doing something.`）。
 - **代码审查**：将 AI 生成的代码审查报告保存在 `addition/codereview/` 中。命名格式：`review{YYYYMMDD}-{编号}-{主题}.md`。
 - **方案设计**：将 AI 生成的方案或设计文档保存在 `addition/design/` 中。命名格式：`idea{YYYYMMDD}-{编号}-{主题}.md`。
 - **决策记录**：每当 AI 做出决策（如技术选型或实现方案）时，记录到 `addition/decision/` 中。命名格式：`decision{YYYYMMDD}-{编号}-{模块}.md`。

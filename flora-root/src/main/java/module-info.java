@@ -23,6 +23,7 @@ module com.flora.root {
     exports com.flora.container.tuple;
     exports com.flora.codec;
     exports com.flora.java;
+    exports com.flora.java.converter;
     exports com.flora.os;
     exports com.flora.os.secret;
     exports com.flora.os.ffi;

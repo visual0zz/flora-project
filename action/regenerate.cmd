@@ -13,7 +13,9 @@ else
 fi
 
 printf '%b\n' "${CYAN}[2/2] Generating sources from templates ...${NC}"
-if ./mvnw -s addition/config/settings.xml generate-sources -Pregenerate -pl '!flora-ramet,!plugins/maven-plugins/flora-ramet-plugin' -q; then
+# 仅 flora-root 含 ramet 模板；用明确 -pl 而非全模块排除，避免
+# flora 聚合模块在 generate-sources 阶段解析未打包的 flora-garden jar 依赖。
+if ./mvnw -s addition/config/settings.xml generate-sources -Pregenerate -pl flora-root -q; then
   printf '%b\n' "${GREEN}    \xe2\x9c\x93 All files generated successfully!${NC}"
 else
   printf '%b\n' "${RED}    \xe2\x9c\x97 Some code generation tasks failed${NC}"
@@ -30,5 +32,8 @@ echo %ESC%[36m[1/2] Building code generator, plugin, and osmetes lib ...%ESC%[0m
 call mvnw -s addition/config/settings.xml install -DskipTests -pl flora-ramet,plugins/maven-plugins/flora-ramet-plugin,flora-osmetes -am -q || (echo %ESC%[31m    FAILED: failed%ESC%[0m & exit /b 1)
 echo %ESC%[32m    OK: done%ESC%[0m
 echo %ESC%[36m[2/2] Generating sources from templates ...%ESC%[0m
-call mvnw -s addition/config/settings.xml generate-sources -Pregenerate -pl "!flora-ramet,!plugins/maven-plugins/flora-ramet-plugin" -q || (echo %ESC%[31m    FAILED: Some code generation tasks failed%ESC%[0m & exit /b 1)
+rem Only flora-root has ramet templates; use explicit -pl instead of excluding
+rem all modules, so the flora aggregator doesn't try to resolve the not-yet-
+rem packaged flora-garden jar during generate-sources.
+call mvnw -s addition/config/settings.xml generate-sources -Pregenerate -pl flora-root -q || (echo %ESC%[31m    FAILED: Some code generation tasks failed%ESC%[0m & exit /b 1)
 echo %ESC%[32m    OK: All files generated successfully!%ESC%[0m

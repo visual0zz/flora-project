@@ -14,7 +14,7 @@ import java.io.Serializable;
  * <p>避免装箱开销，提供对原始类型元素的高效存储和访问。</p>
  */
 @ReadOnly
-public final class FastTupleLFFD implements Serializable {
+public final class FastTupleLFFD implements Serializable, Cloneable, Comparable<FastTupleLFFD> {
     @Serial
     private static final long serialVersionUID = 1L;
 
@@ -65,6 +65,37 @@ public final class FastTupleLFFD implements Serializable {
      * @return 第4个元素
      */
     public double getD1() { return v4; }
+    /**
+     * 返回此快速元组的浅拷贝。
+     * <p>元组不可变，直接返回自身（等价实例可安全共享）。</p>
+     *
+     * @return 此元组实例
+     */
+    @Override
+    public FastTupleLFFD clone() {
+        return this;
+    }
+
+    /**
+     * 按字典顺序比较此快速元组与指定元组。
+     * <p>逐元素比较，首个不同元素决定结果；全部相同则返回 0。</p>
+     *
+     * @param that 要比较的元组
+     * @return 如果此元组小于、等于或大于指定元组，则返回负整数、零或正整数
+     */
+    @Override
+    public int compareTo(FastTupleLFFD that) {
+        int c1 = Long.compare(this.v1, that.v1);
+        if (c1 != 0) return c1;
+        int c2 = Float.compare(this.v2, that.v2);
+        if (c2 != 0) return c2;
+        int c3 = Float.compare(this.v3, that.v3);
+        if (c3 != 0) return c3;
+        int c4 = Double.compare(this.v4, that.v4);
+        if (c4 != 0) return c4;
+        return 0;
+    }
+
     /**
      * 比较此快速元组与指定对象是否相等。
      *

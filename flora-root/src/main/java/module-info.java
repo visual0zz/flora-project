@@ -45,7 +45,14 @@ module com.flora.root {
     exports com.flora.syntax.bracket;
     exports com.flora.syntax.expr;
 
-    uses Converter;
+    exports com.flora.ai;
+    exports com.flora.ai.api;
+    exports com.flora.ai.spi;
+    exports com.flora.ai.http;
 
+    uses Converter;
+    uses com.flora.ai.spi.AiProvider;
+
+    requires java.net.http;
     requires static org.jetbrains.annotations;
 }

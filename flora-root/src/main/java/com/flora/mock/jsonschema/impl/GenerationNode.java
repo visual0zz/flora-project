@@ -1,6 +1,8 @@
 package com.flora.mock.jsonschema.impl;
 
 import com.flora.codec.jsonschema.JsonTypes;
+import com.flora.mock.automaton.Automaton;
+import com.flora.mock.automaton.AutomatonException;
 import com.flora.mock.jsonschema.JsonGenerationException;
 import com.flora.mock.regex.RegexStringGenerator;
 
@@ -66,7 +68,7 @@ public final class GenerationNode {
                 if (ctx.random().nextDouble() < p) {
                     return expandRecursive(target, ctx);
                 }
-                return minimalOfType(typeOf(target));
+                return minimalSatisfying(target, ctx);
             }
             return expandRecursive(target, ctx);
         }
@@ -119,7 +121,7 @@ public final class GenerationNode {
     private Object generateByType(String type, GenerationContext ctx) {
         // 纯防溢出保险：正常预算驱动机制下几乎不可能触发
         if (ctx.depth() >= HARD_DEPTH_LIMIT) {
-            return minimalOfType(type);
+            return minimalSatisfying(this, ctx);
         }
         return switch (type) {
             case "object" -> generateObject(ctx);
@@ -216,6 +218,15 @@ public final class GenerationNode {
                 }
             }
         }
+        // minProperties：属性数不足时补足（超出部分用空值占位）
+        int minProps = intOf(schema.get("minProperties"), 0);
+        int i = 0;
+        while (result.size() < minProps) {
+            String name = "__p" + i++;
+            if (!result.containsKey(name)) {
+                result.put(name, "");
+            }
+        }
         return result;
     }
 
@@ -283,6 +294,26 @@ public final class GenerationNode {
             max = min;
         }
         int target = clamp(ctx.budget(), min, max);
+        // 多个 pattern 交集（allOf 合并产物）：用自动机链式 intersect，从结果采样
+        if (schema.get("_patterns") instanceof List<?> patterns && patterns.size() > 1) {
+            Automaton combined = null;
+            for (Object p : patterns) {
+                if (p instanceof String ps) {
+                    try {
+                        Automaton a = Automaton.compile(ps);
+                        combined = combined == null ? a : combined.intersect(a);
+                    } catch (AutomatonException e) {
+                        throw new JsonGenerationException("allOf pattern 不支持: " + ps, e);
+                    }
+                }
+            }
+            if (combined != null) {
+                if (!combined.isSatisfiable()) {
+                    throw new JsonGenerationException("allOf pattern 交集为空: " + patterns);
+                }
+                return combined.sample(target, ctx.random().random());
+            }
+        }
         // pattern 逆向：目标长度传入 regex，可变长量词朝其靠拢（硬约束由量词自身保证）
         if (schema.get("pattern") instanceof String pattern) {
             return RegexStringGenerator.of(pattern, ctx.random().random()).generate(target);
@@ -375,6 +406,7 @@ public final class GenerationNode {
             return "array";
         }
         if (schema.containsKey("format") || schema.containsKey("pattern")
+                || schema.containsKey("_patterns")
                 || schema.containsKey("minLength") || schema.containsKey("maxLength")) {
             return "string";
         }
@@ -385,17 +417,118 @@ public final class GenerationNode {
         return "object";
     }
 
-    private Object minimalOfType(String type) {
-        return switch (type) {
-            case "object" -> new LinkedHashMap<String, Object>();
-            case "array" -> new ArrayList<Object>();
-            case "string" -> "";
-            case "integer" -> 0L;
-            case "number" -> BigDecimal.ZERO;
-            case "boolean" -> Boolean.FALSE;
-            case "null" -> null;
-            default -> null;
-        };
+    /**
+     * 生成满足节点硬约束的最小实例（递归截断/硬深度兜底用）。
+     * 只保证 required/minProperties/minItems/minLength/minimum 等硬约束，
+     * 不展开可选部分，也不递归展开 {@code $ref}（最深层以类型最小实例终止）。
+     */
+    private static Object minimalSatisfying(GenerationNode node, GenerationContext ctx) {
+        if (node.alwaysInvalid) {
+            throw new JsonGenerationException("false schema 无法生成实例");
+        }
+        if (node.alwaysValid) {
+            return null; // true schema 接受一切，最小实例取 null
+        }
+        String type = typeOf(node);
+        switch (type) {
+            case "object" -> {
+                return minimalObject(node, ctx);
+            }
+            case "array" -> {
+                return minimalArray(node, ctx);
+            }
+            case "string" -> {
+                int min = intOf(node.schema.get("minLength"), 0);
+                return "a".repeat(Math.min(min, 4096));
+            }
+            case "integer" -> {
+                return minimalNumber(node).longValue();
+            }
+            case "number" -> {
+                return minimalNumber(node);
+            }
+            case "boolean" -> {
+                return Boolean.FALSE;
+            }
+            case "null" -> {
+                return null;
+            }
+            default -> {
+                return null;
+            }
+        }
+    }
+
+    /** object 最小实例：只生成 required 字段；minProperties 超出时补空字符串字段。 */
+    private static Object minimalObject(GenerationNode node, GenerationContext ctx) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (node.schema.get("required") instanceof List<?> required) {
+            for (Object r : required) {
+                if (r instanceof String name) {
+                    result.put(name, minimalProperty(node, name, ctx));
+                }
+            }
+        }
+        int minProps = intOf(node.schema.get("minProperties"), 0);
+        int i = 0;
+        while (result.size() < minProps) {
+            String name = "__p" + i++;
+            if (!result.containsKey(name)) {
+                result.put(name, "");
+            }
+        }
+        return result;
+    }
+
+    /** array 最小实例：满足 minItems。 */
+    private static Object minimalArray(GenerationNode node, GenerationContext ctx) {
+        int minItems = intOf(node.schema.get("minItems"), 0);
+        int minContains = node.schema.get("contains") instanceof Map
+                ? intOf(node.schema.get("minContains"), 1) : 0;
+        int count = Math.max(minItems, minContains);
+        List<Object> result = new ArrayList<>();
+        Object itemNode = node.schema.get("items") instanceof Map
+                ? node.compiler.compile(node.schema.get("items"), node.baseUri) : null;
+        for (int i = 0; i < count; i++) {
+            if (itemNode instanceof GenerationNode gn) {
+                result.add(minimalSatisfying(gn, ctx));
+            } else {
+                result.add(ctx.random().randomAlnum(2));
+            }
+        }
+        return result;
+    }
+
+    /** 生成 required 字段的最小值：子节点可编译则递归 minimal，否则 null。 */
+    private static Object minimalProperty(GenerationNode node, String name, GenerationContext ctx) {
+        Object propNode = null;
+        if (node.schema.get("properties") instanceof Map<?, ?> props) {
+            Object sub = props.get(name);
+            if (sub != null) {
+                propNode = sub;
+            }
+        }
+        if (propNode == null && node.schema.get("additionalProperties") instanceof Map) {
+            propNode = node.schema.get("additionalProperties");
+        }
+        if (propNode != null) {
+            GenerationNode gn = node.compiler.compile(propNode, node.baseUri);
+            return minimalSatisfying(gn, ctx);
+        }
+        return null;
+    }
+
+    /** number 最小实例：取下界（exclusive 取+1），multipleOf 对齐。 */
+    private static BigDecimal minimalNumber(GenerationNode node) {
+        BigDecimal min = bound(node.schema.get("minimum"), node.schema.get("exclusiveMinimum"), true);
+        if (min == null) {
+            min = BigDecimal.ZERO;
+        }
+        if (node.schema.get("multipleOf") instanceof Number m && m.doubleValue() > 0) {
+            BigDecimal mult = BigDecimal.valueOf(m.doubleValue());
+            min = min.divideToIntegralValue(mult).multiply(mult);
+        }
+        return min;
     }
 
     private Object randomScalar(GenerationContext ctx) {

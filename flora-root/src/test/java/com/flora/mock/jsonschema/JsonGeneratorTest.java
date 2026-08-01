@@ -431,4 +431,76 @@ class JsonGeneratorTest {
         }
         return 0;
     }
+
+    // ── allOf pattern 交集（局部域代数接入）──
+
+    @Test
+    void allOfPatternsIntersect() {
+        // 同时满足 ^[a-z]+$ 与 [bc]+：生成结果必须两个 pattern 都匹配
+        JsonGenerator gen = JsonGenerator.of(
+                "{\"allOf\":[{\"pattern\":\"^[a-z]+$\"},{\"pattern\":\"[bc]+\"}]}");
+        for (int i = 0; i < 30; i++) {
+            Object value = gen.generate();
+            assertInstanceOf(String.class, value);
+            String s = (String) value;
+            assertTrue(java.util.regex.Pattern.matches("^[a-z]+$", s),
+                    "应满足 pattern1: " + s);
+            assertTrue(java.util.regex.Pattern.matches("[bc]+", s),
+                    "应满足 pattern2: " + s);
+        }
+    }
+
+    @Test
+    void allOfPatternEmptyIntersectionThrows() {
+        // ^a+$ 与 ^b+$ 交集为空 → 生成抛 JsonGenerationException
+        JsonGenerator gen = JsonGenerator.of(
+                "{\"allOf\":[{\"pattern\":\"^a+$\"},{\"pattern\":\"^b+$\"}]}");
+        assertThrows(JsonGenerationException.class, gen::generate);
+    }
+
+    // ── 递归截断满足硬约束 ──
+
+    @Test
+    void recursiveTruncationSatisfiesRequired() {
+        // 递归 node 有 required:["value"]，小预算强制截断时每层仍须有 value
+        String schemaJson = "{\"$defs\":{\"node\":{\"type\":\"object\",\"properties\":{"
+                + "\"value\":{\"type\":\"integer\"},\"child\":{\"$ref\":\"#/$defs/node\"}},"
+                + "\"required\":[\"value\"]}},\"$ref\":\"#/$defs/node\"}";
+        JsonGenerator gen = JsonGenerator.of(schemaJson, 4); // 小预算，容易触发截断
+        for (int i = 0; i < 50; i++) {
+            Object generated = gen.generate();
+            assertNotNull(generated);
+            assertEveryNodeHasValue(generated);
+        }
+    }
+
+    @Test
+    void truncatedObjectHasMinProperties() {
+        // minProperties:2 在截断场景下也须满足
+        JsonGenerator gen = JsonGenerator.of(
+                "{\"type\":\"object\",\"minProperties\":2,\"properties\":{\"a\":{\"type\":\"integer\"},"
+                        + "\"b\":{\"type\":\"integer\"}}}");
+        for (int i = 0; i < 30; i++) {
+            Object generated = gen.generate();
+            assertInstanceOf(Map.class, generated);
+            assertTrue(((Map<?, ?>) generated).size() >= 2,
+                    "应满足 minProperties:2");
+        }
+    }
+
+    private static void assertEveryNodeHasValue(Object value) {
+        if (value instanceof Map<?, ?> m) {
+            assertTrue(m.containsKey("value"),
+                    "递归 node 必须含 value: " + m);
+            for (Object v : m.values()) {
+                if (v instanceof Map || v instanceof List) {
+                    assertEveryNodeHasValue(v);
+                }
+            }
+        } else if (value instanceof List<?> l) {
+            for (Object v : l) {
+                assertEveryNodeHasValue(v);
+            }
+        }
+    }
 }

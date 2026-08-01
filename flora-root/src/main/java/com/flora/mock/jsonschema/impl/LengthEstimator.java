@@ -140,6 +140,18 @@ public final class LengthEstimator {
         if (schema.get("format") instanceof String format) {
             return formatEstimate(format);
         }
+        // 多个 pattern 交集：交集语言长度 ≤ 任一分支，取各分支估算最小值
+        if (schema.get("_patterns") instanceof List<?> patterns && !patterns.isEmpty()) {
+            int min = Integer.MAX_VALUE;
+            for (Object p : patterns) {
+                if (p instanceof String ps) {
+                    min = Math.min(min, RegexStringGenerator.estimateLength(ps));
+                }
+            }
+            if (min != Integer.MAX_VALUE) {
+                return Math.max(1, min);
+            }
+        }
         if (schema.get("pattern") instanceof String pattern) {
             return RegexStringGenerator.estimateLength(pattern);
         }
@@ -216,6 +228,7 @@ public final class LengthEstimator {
             return "array";
         }
         if (schema.containsKey("format") || schema.containsKey("pattern")
+                || schema.containsKey("_patterns")
                 || schema.containsKey("minLength") || schema.containsKey("maxLength")) {
             return "string";
         }

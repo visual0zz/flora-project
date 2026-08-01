@@ -57,6 +57,9 @@ public final class GeneratorCompiler {
 
     // ── allOf 合并：常用约束取交集 ──
 
+    /** 内部标记 key：allOf 合并后待满足的全部 pattern（List<String>）。 */
+    private static final String PATTERNS_KEY = "_patterns";
+
     private Map<String, Object> mergeAllOf(Map<String, Object> schema, String baseUri) {
         if (!(schema.get("allOf") instanceof List<?> allOf) || allOf.isEmpty()) {
             return schema;
@@ -68,7 +71,20 @@ public final class GeneratorCompiler {
                 mergeInto(merged, bm);
             }
         }
+        // 主 schema 自身的 pattern 也纳入交集
+        if (merged.get("pattern") instanceof String selfPattern) {
+            addPattern(merged, selfPattern);
+        }
         return merged;
+    }
+
+    private static void addPattern(Map<String, Object> merged, String pattern) {
+        @SuppressWarnings("unchecked")
+        List<String> patterns = (List<String>) merged.computeIfAbsent(PATTERNS_KEY,
+                k -> new java.util.ArrayList<String>());
+        if (!patterns.contains(pattern)) {
+            patterns.add(pattern);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -98,6 +114,9 @@ public final class GeneratorCompiler {
         mergeNumericMin(merged, branch, "maxItems");
         if (!merged.containsKey("required") && branch.containsKey("required")) {
             merged.put("required", branch.get("required"));
+        }
+        if (branch.get("pattern") instanceof String bp) {
+            addPattern(merged, bp);
         }
         if (branch.get("properties") instanceof Map<?, ?> bp) {
             Map<String, Object> props = (Map<String, Object>) merged.computeIfAbsent("properties",

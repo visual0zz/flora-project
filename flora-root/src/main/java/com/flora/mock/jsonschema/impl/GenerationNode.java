@@ -18,6 +18,9 @@ import java.util.Set;
  */
 public final class GenerationNode {
 
+    /** 纯防溢出保险：递归深度绝对上限（正常预算机制下几乎不可能触发）。 */
+    private static final int HARD_DEPTH_LIMIT = 1000;
+
     final boolean alwaysInvalid;
     final boolean alwaysValid;
     final Map<String, Object> schema;
@@ -56,7 +59,16 @@ public final class GenerationNode {
         if (schema.containsKey("$ref") || schema.containsKey("$dynamicRef")) {
             GenerationNode target = compiler.resolveRef(
                     str(schema.containsKey("$ref") ? schema.get("$ref") : schema.get("$dynamicRef")), baseUri);
-            return target.generate(ctx.deeper());
+            if (ctx.onPath(target.schema)) {
+                // 循环引用：预算驱动的 sigmoid 概率决定是否继续展开
+                double childEst = Math.max(1, LengthEstimator.estimate(target));
+                double p = clampProb(ctx.budget() / (ctx.budget() + childEst));
+                if (ctx.random().nextDouble() < p) {
+                    return expandRecursive(target, ctx);
+                }
+                return minimalOfType(typeOf(target));
+            }
+            return expandRecursive(target, ctx);
         }
         if (schema.get("anyOf") instanceof List<?> anyOf) {
             return pickBranch(anyOf, ctx).generate(ctx.deeper());
@@ -78,10 +90,35 @@ public final class GenerationNode {
         return generateByType(type, ctx);
     }
 
+    // ── 递归展开 ──
+
+    /** 展开 $ref 目标节点：加入路径防循环检测，生成后移除（异常时也保证退出）。 */
+    private Object expandRecursive(GenerationNode target, GenerationContext ctx) {
+        ctx.enterPath(target.schema);
+        try {
+            return target.generate(ctx.deeper());
+        } finally {
+            ctx.exitPath(target.schema);
+        }
+    }
+
+    /** 从节点 schema 推断类型（供递归截断时返回最小实例）。 */
+    private static String typeOf(GenerationNode node) {
+        return LengthEstimator.inferType(node.schema);
+    }
+
+    private static double clampProb(double p) {
+        if (p < 0.1) {
+            return 0.1;
+        }
+        return Math.min(p, 0.95);
+    }
+
     // ── 类型生成 ──
 
     private Object generateByType(String type, GenerationContext ctx) {
-        if (ctx.depth() >= ctx.config().maxDepth()) {
+        // 纯防溢出保险：正常预算驱动机制下几乎不可能触发
+        if (ctx.depth() >= HARD_DEPTH_LIMIT) {
             return minimalOfType(type);
         }
         return switch (type) {

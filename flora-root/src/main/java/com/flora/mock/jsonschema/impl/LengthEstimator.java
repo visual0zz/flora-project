@@ -200,7 +200,7 @@ public final class LengthEstimator {
     }
 
     /** 无随机地推断类型（供估算使用；type 为列表时取首个）。 */
-    private static String inferType(Map<String, Object> schema) {
+    static String inferType(Map<String, Object> schema) {
         if (schema.get("type") instanceof String s) {
             return s;
         }

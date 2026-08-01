@@ -39,6 +39,18 @@ public final class UnicodePropertyRanges {
         };
     }
 
+    /**
+     * 按属性名返回正向码点区间数组（扁平 {start,end,...}，含端点）；未知属性返回 null。
+     * 供自动机引擎构建字符集。
+     */
+    public static int[] rangesOf(String name) {
+        int property = propertyOf(name);
+        if (property < 0) {
+            return null;
+        }
+        return PROPERTY_RANGES[property];
+    }
+
     /** 每个属性的正向码点区间池（偶数下标=start，奇数下标=end，含端点）。 */
     private static final int[][] PROPERTY_RANGES = buildPropertyRanges();
     /** 每个属性的取反码点区间池（BMP 内不匹配该属性的码点）。 */

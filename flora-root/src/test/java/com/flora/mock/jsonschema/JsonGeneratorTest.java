@@ -364,10 +364,8 @@ class JsonGeneratorTest {
     void targetLengthScalesOutput() {
         String schemaJson = "{\"type\":\"string\"}";
         Object schema = JsonParser.parse(schemaJson);
-        JsonGenerator small = JsonGenerator.of(schema,
-                new com.flora.mock.jsonschema.GenerationConfig(3, 8));
-        JsonGenerator big = JsonGenerator.of(schema,
-                new com.flora.mock.jsonschema.GenerationConfig(3, 64));
+        JsonGenerator small = JsonGenerator.of(schema, 8);
+        JsonGenerator big = JsonGenerator.of(schema, 64);
         for (int i = 0; i < 30; i++) {
             int smallLen = ((String) small.generate()).length();
             int bigLen = ((String) big.generate()).length();
@@ -383,11 +381,54 @@ class JsonGeneratorTest {
                 "{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":3}");
         JsonGenerator gen = JsonGenerator.of(
                 JsonParser.parse("{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":3}"),
-                new com.flora.mock.jsonschema.GenerationConfig(3, 2));
+                2);
         for (int i = 0; i < 20; i++) {
             Object value = gen.generate();
             assertTrue(schema.isValid(value));
             assertTrue(((List<?>) value).size() >= 3);
         }
+    }
+
+    // ── 递归深度由预算驱动 ──
+
+    @Test
+    void recursiveDepthScalesWithBudget() {
+        String schemaJson = "{\"$defs\":{\"node\":{\"type\":\"object\",\"properties\":{"
+                + "\"value\":{\"type\":\"integer\"},\"child\":{\"$ref\":\"#/$defs/node\"}}}},"
+                + "\"$ref\":\"#/$defs/node\"}";
+        JsonGenerator shallow = JsonGenerator.of(schemaJson, 8);
+        JsonGenerator deep = JsonGenerator.of(schemaJson, 200);
+        long shallowSum = 0;
+        long deepSum = 0;
+        for (int i = 0; i < 30; i++) {
+            Object s = shallow.generate();
+            Object d = deep.generate();
+            assertNotNull(s);
+            assertNotNull(d);
+            shallowSum += depthOf(s);
+            deepSum += depthOf(d);
+        }
+        double shallowAvg = shallowSum / 30.0;
+        double deepAvg = deepSum / 30.0;
+        assertTrue(deepAvg > shallowAvg,
+                "大预算应生成更深的递归树: shallowAvg=" + shallowAvg + ", deepAvg=" + deepAvg);
+    }
+
+    private static int depthOf(Object value) {
+        if (value instanceof Map<?, ?> m) {
+            int max = 1;
+            for (Object v : m.values()) {
+                max = Math.max(max, 1 + depthOf(v));
+            }
+            return max;
+        }
+        if (value instanceof List<?> l) {
+            int max = 1;
+            for (Object v : l) {
+                max = Math.max(max, 1 + depthOf(v));
+            }
+            return max;
+        }
+        return 0;
     }
 }

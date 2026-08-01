@@ -39,6 +39,7 @@ module com.flora.root {
 
     exports com.flora.mock.jsonschema;
     exports com.flora.mock.regex;
+    exports com.flora.mock.automaton;
 
     uses Converter;
 

@@ -44,6 +44,11 @@ public final class ExprProgram {
         return print(ast);
     }
 
+    /** 打印中缀形式（按优先级去冗余括号，供人类阅读）。 */
+    public String prettyPrint() {
+        return pretty(ast, 0);
+    }
+
     /** 打印中缀形式（括号完整，供调试）。 */
     private static String print(Expr node) {
         return switch (node) {
@@ -57,6 +62,56 @@ public final class ExprProgram {
                     + " : " + print(t.whenFalse()) + ")";
             case Expr.Call c -> c.name() + "(" + joinArgs(c.args()) + ")";
         };
+    }
+
+    /** 去冗余括号打印：子节点优先级低于父节点或结构复杂时加括号。 */
+    private static String pretty(Expr node, int parentLevel) {
+        return switch (node) {
+            case Expr.Number n -> n.value();
+            case Expr.Ident id -> id.name();
+            case Expr.Str str -> "\"" + str.value() + "\"";
+            case Expr.Bool b -> String.valueOf(b.value());
+            case Expr.Unary u -> {
+                // 传 MAX_VALUE：操作数若是二元/三元则必然加括号（如 -(1+2)），一元/叶子不加
+                yield u.op() + pretty(u.operand(), Integer.MAX_VALUE);
+            }
+            case Expr.Binary b -> {
+                int level = OpPrecedence.level(b.op());
+                String left = pretty(b.left(), level);
+                String right = pretty(b.right(), level);
+                // 右子节点同级时也加括号（保持左结合语义，如 a-(b-c)）
+                String rightPart = rightChildNeedsParens(b) ? "(" + right + ")" : right;
+                String expr = left + " " + b.op() + " " + rightPart;
+                yield level < parentLevel ? "(" + expr + ")" : expr;
+            }
+            case Expr.Ternary t -> {
+                String expr = pretty(t.cond(), 0) + " ? " + pretty(t.whenTrue(), 0)
+                        + " : " + pretty(t.whenFalse(), 0);
+                yield parentLevel > 0 ? "(" + expr + ")" : expr;
+            }
+            case Expr.Call c -> c.name() + "(" + joinArgsPretty(c.args()) + ")";
+        };
+    }
+
+    /** 右子节点是否需括号：右子是同优先级的二元（左结合下需保序）。 */
+    private static boolean rightChildNeedsParens(Expr.Binary b) {
+        if (b.right() instanceof Expr.Binary rb) {
+            int leftLevel = OpPrecedence.level(b.op());
+            int rightLevel = OpPrecedence.level(rb.op());
+            return rightLevel <= leftLevel;
+        }
+        return false;
+    }
+
+    private static String joinArgsPretty(List<Expr> args) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < args.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(pretty(args.get(i), 0));
+        }
+        return sb.toString();
     }
 
     private static String joinArgs(List<Expr> args) {

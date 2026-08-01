@@ -61,7 +61,7 @@ public final class ExprParser {
             Expr whenTrue = parseExpression();
             Token colon = peek();
             if (colon.type() != TokenType.SYMBOL || !colon.value().equals(":")) {
-                throw SyntaxException.at(colon.pos(), "三元表达式期望 ':'");
+                throw SyntaxException.at(pos, "三元表达式期望 ':'");
             }
             advance();
             Expr whenFalse = parseExpression();
@@ -128,7 +128,7 @@ public final class ExprParser {
                     }
                     Token close = peek();
                     if (close.type() != TokenType.CLOSE) {
-                        throw SyntaxException.at(close.pos(), "函数调用期望 ')'");
+                        throw SyntaxException.at(callPos, "函数调用期望 ')'");
                     }
                     advance();
                     yield new Expr.Call(t.value(), args, callPos);
@@ -150,7 +150,7 @@ public final class ExprParser {
                 Expr inner = parseExpression();
                 Token close = peek();
                 if (close.type() != TokenType.CLOSE) {
-                    throw SyntaxException.at(close.pos(), "期望 ')'");
+                    throw SyntaxException.at(openPos, "期望 ')'");
                 }
                 advance();
                 yield inner;

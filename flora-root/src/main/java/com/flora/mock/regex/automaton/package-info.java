@@ -5,4 +5,4 @@
  * 不兼容语法（环视、反向引用、命名组）在编译期抛 {@code AutomatonException}，
  * 不做静默特殊处理。支持扩展语法（POSIX 类、字符类并集差集、十六进制转义）。</p>
  */
-package com.flora.mock.automaton;
+package com.flora.mock.regex.automaton;

@@ -1,8 +1,8 @@
 package com.flora.mock.jsonschema.impl;
 
 import com.flora.codec.jsonschema.JsonTypes;
-import com.flora.mock.automaton.Automaton;
-import com.flora.mock.automaton.AutomatonException;
+import com.flora.mock.regex.automaton.Automaton;
+import com.flora.mock.regex.automaton.AutomatonException;
 import com.flora.mock.jsonschema.JsonGenerationException;
 import com.flora.mock.regex.RegexStringGenerator;
 

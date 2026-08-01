@@ -1,4 +1,4 @@
-package com.flora.mock.automaton;
+package com.flora.mock.regex.automaton;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;

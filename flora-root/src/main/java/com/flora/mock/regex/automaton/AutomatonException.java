@@ -1,4 +1,4 @@
-package com.flora.mock.automaton;
+package com.flora.mock.regex.automaton;
 
 /**
  * 正则编译异常：遇到不支持的语法结构（环视、反向引用、命名组、未知属性、

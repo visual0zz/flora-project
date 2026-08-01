@@ -1,7 +1,7 @@
 package com.flora.mock.regex;
 
-import com.flora.mock.automaton.Automaton;
-import com.flora.mock.automaton.AutomatonException;
+import com.flora.mock.regex.automaton.Automaton;
+import com.flora.mock.regex.automaton.AutomatonException;
 import com.flora.tag.ThreadFragile;
 
 import java.util.Random;

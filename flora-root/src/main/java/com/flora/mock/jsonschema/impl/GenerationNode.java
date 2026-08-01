@@ -1,7 +1,7 @@
-package com.flora.mock.jsonschema;
+package com.flora.mock.jsonschema.impl;
 
 import com.flora.codec.jsonschema.JsonTypes;
-import com.flora.codec.jsonschema.SchemaRegistry;
+import com.flora.mock.jsonschema.JsonGenerationException;
 import com.flora.mock.regex.RegexStringGenerator;
 
 import java.math.BigDecimal;
@@ -16,14 +16,13 @@ import java.util.Set;
  * 单节点生成规则。持有原始 schema（已合并 allOf）与编译引用，
  * 运行时按关键字优先级递归生成实例。
  */
-final class GenerationNode {
+public final class GenerationNode {
 
-    private final boolean alwaysInvalid;
-    private final boolean alwaysValid;
-    private final Map<String, Object> schema;
-    private final String baseUri;
-    private final GeneratorCompiler compiler;
-    private final SchemaRegistry registry;
+    final boolean alwaysInvalid;
+    final boolean alwaysValid;
+    final Map<String, Object> schema;
+    final String baseUri;
+    final GeneratorCompiler compiler;
 
     GenerationNode(boolean value, GeneratorCompiler compiler) {
         this.alwaysValid = value;
@@ -31,7 +30,6 @@ final class GenerationNode {
         this.schema = null;
         this.baseUri = "";
         this.compiler = compiler;
-        this.registry = compiler.registry();
     }
 
     GenerationNode(Map<String, Object> schema, String baseUri, GeneratorCompiler compiler) {
@@ -40,10 +38,9 @@ final class GenerationNode {
         this.schema = schema;
         this.baseUri = baseUri;
         this.compiler = compiler;
-        this.registry = compiler.registry();
     }
 
-    Object generate(GenerationContext ctx) {
+    public Object generate(GenerationContext ctx) {
         if (alwaysInvalid) {
             throw new JsonGenerationException("false schema 无法生成实例");
         }
@@ -118,11 +115,20 @@ final class GenerationNode {
                 }
             }
         }
+        // 按估算权重瓜分预算：est_i = valueEst + 属性名长度 + 开销
+        Map<String, Integer> weight = new LinkedHashMap<>();
+        long total = 0;
         for (String name : toGenerate) {
             GenerationNode node = propertyNode(name);
-            if (node != null) {
-                result.put(name, node.generate(ctx.deeper()));
-            }
+            int valueEst = node != null ? LengthEstimator.estimate(node) : 6;
+            int est = valueEst + name.length() + 3;
+            weight.put(name, est);
+            total += est;
+        }
+        for (String name : toGenerate) {
+            GenerationNode node = propertyNode(name);
+            int childBudget = total == 0 ? 8 : (int) (ctx.budget() * weight.get(name) / total);
+            result.put(name, node != null ? node.generate(ctx.deeper(childBudget)) : null);
         }
         // dependentRequired 补依赖
         if (schema.get("dependentRequired") instanceof Map<?, ?> deps) {
@@ -132,7 +138,8 @@ final class GenerationNode {
                     for (Object need : needList) {
                         if (need instanceof String n && !result.containsKey(n)) {
                             GenerationNode node = propertyNode(n);
-                            result.put(n, node != null ? node.generate(ctx.deeper()) : null);
+                            int childBudget = Math.max(8, ctx.budget() / Math.max(1, needList.size()));
+                            result.put(n, node != null ? node.generate(ctx.deeper(childBudget)) : null);
                         }
                     }
                 }
@@ -145,20 +152,30 @@ final class GenerationNode {
                 if (ctx.random().nextBoolean()) {
                     String name = ctx.random().randomAlpha(4);
                     GenerationNode node = compiler.compile(e.getValue(), baseUri);
-                    result.put(name, node.generate(ctx.deeper()));
+                    int childBudget = Math.max(8, ctx.budget() / Math.max(1, patterns.size()));
+                    result.put(name, node.generate(ctx.deeper(childBudget)));
                 }
             }
         }
-        // additionalProperties：随机补属性
+        // additionalProperties：额外属性作为可变部分参与预算分配
+        // 数量上限 ≈ 剩余预算 / 单个额外属性的估算长度，元素短则多补、长则少补
         Object additional = schema.get("additionalProperties");
         if (!(additional instanceof Boolean b && !b) && additional != null) {
-            int extra = ctx.random().intBetween(0, ctx.config().extraProps());
+            int extraEst = 6;
+            if (additional instanceof Map) {
+                extraEst = Math.max(1, LengthEstimator.estimate(compiler.compile(additional, baseUri)));
+            }
+            int overhead = "extra".length() + 3 + 2; // 属性名前缀 + 随机后缀 + 冒号/逗号开销
+            int cap = Math.max(0, ctx.budget() / Math.max(1, extraEst + overhead));
+            int extra = ctx.random().intBetween(0, cap);
             for (int i = 0; i < extra; i++) {
                 String name = "extra" + ctx.random().randomAlpha(3);
                 if (!result.containsKey(name)) {
                     GenerationNode node = additional instanceof Map
                             ? compiler.compile(additional, baseUri) : null;
-                    result.put(name, node != null ? node.generate(ctx.deeper()) : ctx.random().randomAlpha(4));
+                    int childBudget = Math.max(8, ctx.budget() / Math.max(1, extra));
+                    result.put(name, node != null ? node.generate(ctx.deeper(childBudget))
+                            : ctx.random().randomAlpha(4));
                 }
             }
         }
@@ -168,29 +185,39 @@ final class GenerationNode {
     private Object generateArray(GenerationContext ctx) {
         List<Object> result = new ArrayList<>();
         Set<Object> used = new LinkedHashSet<>();
-        int min = intOf(schema.get("minItems"), ctx.config().minArrayLen());
-        int max = intOf(schema.get("maxItems"), ctx.config().maxArrayLen());
+        int min = intOf(schema.get("minItems"), 0);
+        // 元素长→重复少，元素短→重复多：count ≈ budget / itemEst
+        int itemEst = 6;
+        if (schema.get("items") instanceof Map itemsMap) {
+            itemEst = Math.max(1, LengthEstimator.estimate(compiler.compile(itemsMap, baseUri)));
+        } else if (schema.get("prefixItems") instanceof List<?> prefix && !prefix.isEmpty()) {
+            itemEst = Math.max(1, LengthEstimator.estimate(compiler.compile(prefix.get(0), baseUri)));
+        }
+        int computedMax = Math.max(min, (ctx.budget() - 2) / (itemEst + 1));
+        int max = intOf(schema.get("maxItems"), computedMax);
+        max = Math.min(max, 64); // 防溢出
         if (max < min) {
             max = min;
         }
         int length = ctx.random().intBetween(min, max);
+        int perItem = length > 0 ? Math.max(1, ctx.budget() / length) : ctx.budget();
         // prefixItems 元组
         if (schema.get("prefixItems") instanceof List<?> prefix) {
             for (int i = 0; i < prefix.size() && result.size() < length; i++) {
-                result.add(compiler.compile(prefix.get(i), baseUri).generate(ctx.deeper()));
+                result.add(compiler.compile(prefix.get(i), baseUri).generate(ctx.deeper(perItem)));
             }
         }
         // contains 至少一个
         if (schema.get("contains") instanceof Map && result.size() < length) {
             GenerationNode contains = compiler.compile(schema.get("contains"), baseUri);
-            result.add(contains.generate(ctx.deeper()));
+            result.add(contains.generate(ctx.deeper(perItem)));
         }
         // items 填充剩余
         boolean unique = Boolean.TRUE.equals(schema.get("uniqueItems"));
         if (schema.get("items") instanceof Map itemsMap) {
             GenerationNode itemsNode = compiler.compile(itemsMap, baseUri);
             while (result.size() < length) {
-                Object item = itemsNode.generate(ctx.deeper());
+                Object item = itemsNode.generate(ctx.deeper(perItem));
                 if (unique && !uniqueAdd(used, item)) {
                     continue;
                 }
@@ -213,17 +240,27 @@ final class GenerationNode {
         if (schema.get("format") instanceof String format) {
             return new FormatGenerator(ctx.random()).generate(format);
         }
-        // pattern 逆向（不支持的结构抛 RegexGenerationException 打断生成）
-        if (schema.get("pattern") instanceof String pattern) {
-            return RegexStringGenerator.of(pattern, ctx.random().random()).generate();
-        }
-        int min = intOf(schema.get("minLength"), ctx.config().minStringLen());
-        int max = intOf(schema.get("maxLength"), ctx.config().maxStringLen());
+        int min = intOf(schema.get("minLength"), 0);
+        int max = intOf(schema.get("maxLength"), ctx.budget());
         if (max < min) {
             max = min;
         }
-        int len = ctx.random().intBetween(min, max);
+        int target = clamp(ctx.budget(), min, max);
+        // pattern 逆向：目标长度传入 regex，可变长量词朝其靠拢（硬约束由量词自身保证）
+        if (schema.get("pattern") instanceof String pattern) {
+            return RegexStringGenerator.of(pattern, ctx.random().random()).generate(target);
+        }
+        // 自由字符串：target ± 20% 扰动后 clamp 到长度区间
+        int len = target;
+        if (max > min) {
+            int delta = Math.max(1, target / 5);
+            len = clamp(target - delta + ctx.random().intBetween(0, 2 * delta), min, max);
+        }
         return ctx.random().randomAlnum(len);
+    }
+
+    private static int clamp(int v, int lo, int hi) {
+        return v < lo ? lo : Math.min(v, hi);
     }
 
     private Object generateNumber(GenerationContext ctx, boolean integer) {
@@ -251,7 +288,7 @@ final class GenerationNode {
 
     // ── 工具 ──
 
-    private GenerationNode propertyNode(String name) {
+    GenerationNode propertyNode(String name) {
         if (schema.get("properties") instanceof Map<?, ?> props) {
             Object node = props.get(name);
             if (node != null) {

@@ -115,6 +115,29 @@ class RegexStringGeneratorTest {
     }
 
     @Test
+    void lazyQuantifierFollowedByLiteralMatches() {
+        // a*? 后跟字面量 b：生成结果必须整体匹配 ^a*?b$
+        for (int i = 0; i < 100; i++) {
+            String value = gen("a*?b");
+            assertNotNull(value, "应能生成 a*?b");
+            assertTrue(Pattern.matches("a*?b", value),
+                    "a*?b 生成结果不匹配: " + value);
+            assertTrue(value.endsWith("b"), "应以 b 结尾: " + value);
+        }
+    }
+
+    @Test
+    void lazyGroupFollowedByLiteralMatches() {
+        // (ab|cd)*? 后跟字面量 x
+        for (int i = 0; i < 100; i++) {
+            String value = gen("(ab|cd)*?x");
+            assertNotNull(value, "应能生成 (ab|cd)*?x");
+            assertTrue(Pattern.matches("(ab|cd)*?x", value),
+                    "(ab|cd)*?x 生成结果不匹配: " + value);
+        }
+    }
+
+    @Test
     void quantifierUpperBound() {
         assertEquals(3, gen("a{3}").length());
         // 超阈值 → 抛异常打断
@@ -196,5 +219,54 @@ class RegexStringGeneratorTest {
         String value = gen("a{200,}");
         assertNotNull(value);
         assertTrue(value.length() >= 200 && value.length() <= 256);
+    }
+
+    // ── 推荐长度 ──
+
+    @Test
+    void unboundedQuantifierApproachesTarget() {
+        for (int i = 0; i < 50; i++) {
+            String value = genWithTarget("[a-z]*", 20);
+            assertTrue(value.length() >= 15 && value.length() <= 30,
+                    "应朝目标 20 靠拢: " + value.length());
+            assertTrue(Pattern.matches("[a-z]*", value));
+        }
+    }
+
+    @Test
+    void fixedQuantifierIgnoresTarget() {
+        // 固定量词是硬约束，target 不影响
+        for (int i = 0; i < 20; i++) {
+            assertEquals(3, genWithTarget("a{3}", 20).length());
+        }
+    }
+
+    @Test
+    void minBoundBeatsSmallTarget() {
+        // target 小于量词下界时，按量词下界生成
+        String value = genWithTarget("a{5,}", 2);
+        assertNotNull(value);
+        assertTrue(value.length() >= 5, "target=2 但量词至少 5: " + value.length());
+    }
+
+    @Test
+    void groupWithTarget() {
+        for (int i = 0; i < 50; i++) {
+            String value = genWithTarget("(ab|cd)+", 20);
+            assertTrue(value.length() >= 10 && value.length() <= 30,
+                    "分组应朝目标 20 靠拢: " + value.length());
+            assertTrue(Pattern.matches("(ab|cd)+", value));
+        }
+    }
+
+    @Test
+    void estimateLengthReturnsReasonable() {
+        assertTrue(RegexStringGenerator.estimateLength("a{3}") >= 3);
+        assertTrue(RegexStringGenerator.estimateLength("[a-z]*") >= 1);
+        assertTrue(RegexStringGenerator.estimateLength("(ab|cd){2,4}") >= 4);
+    }
+
+    private String genWithTarget(String regex, int target) {
+        return RegexStringGenerator.of(regex, random).generate(target);
     }
 }

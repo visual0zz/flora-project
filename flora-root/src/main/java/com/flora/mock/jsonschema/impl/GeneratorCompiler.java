@@ -1,6 +1,7 @@
-package com.flora.mock.jsonschema;
+package com.flora.mock.jsonschema.impl;
 
 import com.flora.codec.jsonschema.SchemaRegistry;
+import com.flora.mock.jsonschema.JsonGenerationException;
 
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -11,7 +12,7 @@ import java.util.Map;
  * schema → 生成规则编译器。记忆化缓存节点，处理 {@code $ref}/{@code $defs}，
  * 编译期合并 {@code allOf} 分支约束（取交集）。
  */
-final class GeneratorCompiler {
+public final class GeneratorCompiler {
 
     private final SchemaRegistry registry;
     private final Map<Object, GenerationNode> cache = new IdentityHashMap<>();
@@ -22,15 +23,11 @@ final class GeneratorCompiler {
         this.rootNode = rootNode;
     }
 
-    static GeneratorCompiler of(Object rootNode) {
+    public static GeneratorCompiler of(Object rootNode) {
         return new GeneratorCompiler(SchemaRegistry.of(rootNode), rootNode);
     }
 
-    SchemaRegistry registry() {
-        return registry;
-    }
-
-    GenerationNode root() {
+    public GenerationNode root() {
         return compile(rootNode, "");
     }
 

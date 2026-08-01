@@ -1,4 +1,4 @@
-package com.flora.mock.jsonschema;
+package com.flora.mock.jsonschema.impl;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -6,7 +6,7 @@ import java.util.UUID;
 /**
  * {@code format} 关键字逆向生成：产出能通过 {@code FormatValidators} 校验的字符串。
  */
-final class FormatGenerator {
+public final class FormatGenerator {
 
     private final RandomSupport random;
 

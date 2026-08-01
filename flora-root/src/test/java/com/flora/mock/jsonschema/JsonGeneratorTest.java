@@ -357,4 +357,37 @@ class JsonGeneratorTest {
             assertInstanceOf(BigDecimal.class, value);
         }
     }
+
+    // ── 推荐长度 ──
+
+    @Test
+    void targetLengthScalesOutput() {
+        String schemaJson = "{\"type\":\"string\"}";
+        Object schema = JsonParser.parse(schemaJson);
+        JsonGenerator small = JsonGenerator.of(schema,
+                new com.flora.mock.jsonschema.GenerationConfig(3, 8));
+        JsonGenerator big = JsonGenerator.of(schema,
+                new com.flora.mock.jsonschema.GenerationConfig(3, 64));
+        for (int i = 0; i < 30; i++) {
+            int smallLen = ((String) small.generate()).length();
+            int bigLen = ((String) big.generate()).length();
+            assertTrue(bigLen > smallLen,
+                    "大推荐长度应生成更长的串: small=" + smallLen + ", big=" + bigLen);
+        }
+    }
+
+    @Test
+    void minItemsBeatsBudget() {
+        // 数组 minItems 硬约束优先于预算推算
+        JsonSchema schema = JsonSchema.of(
+                "{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":3}");
+        JsonGenerator gen = JsonGenerator.of(
+                JsonParser.parse("{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":3}"),
+                new com.flora.mock.jsonschema.GenerationConfig(3, 2));
+        for (int i = 0; i < 20; i++) {
+            Object value = gen.generate();
+            assertTrue(schema.isValid(value));
+            assertTrue(((List<?>) value).size() >= 3);
+        }
+    }
 }

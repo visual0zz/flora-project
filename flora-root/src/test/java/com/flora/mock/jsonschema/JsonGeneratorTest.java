@@ -286,7 +286,7 @@ class JsonGeneratorTest {
                 + "\"name\":{\"type\":\"string\"},\"count\":{\"type\":\"integer\"},\"ok\":{\"type\":\"boolean\"}},"
                 + "\"required\":[\"name\",\"count\",\"ok\"]}");
         for (int i = 0; i < 20; i++) {
-            String json = gen.generateJson();
+            String json = gen.generateStr();
             Object parsed = JsonParser.parse(json);
             assertTrue(schema.isValid(parsed));
             // round-trip：同一实例经 JsonBuilder 序列化后再解析应深度相等

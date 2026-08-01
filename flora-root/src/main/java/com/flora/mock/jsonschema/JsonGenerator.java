@@ -13,7 +13,7 @@ import java.util.random.RandomGenerator;
  * 数组（prefixItems/items/contains/uniqueItems）、对象（properties/required/依赖）、
  * 组合（anyOf/oneOf/if-then-else/allOf 合并）、{@code $ref}/{@code $defs} 递归（深度限制）。</p>
  * <p>输入可为 JSON 字符串或已解析的 JSON Object（Map/List 嵌套）；
- * {@link #generate()} 返回 Map/List 嵌套对象，{@link #generateJson()} 返回 JSON 字符串。
+ * {@link #generate()} 返回 Map/List 嵌套对象，{@link #generateStr()} 返回 JSON 字符串。
  * 熵源通过 {@link #of(Object, RandomGenerator)} 注入，同一种子生成结果可复现。</p>
  *
  * <pre>{@code
@@ -73,7 +73,7 @@ public final class JsonGenerator {
     }
 
     /** 生成随机实例并序列化为紧凑 JSON 字符串。 */
-    public String generateJson() {
+    public String generateStr() {
         return JsonBuilder.toJsonString(generate());
     }
 }

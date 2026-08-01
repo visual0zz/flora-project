@@ -213,12 +213,9 @@ final class GenerationNode {
         if (schema.get("format") instanceof String format) {
             return new FormatGenerator(ctx.random()).generate(format);
         }
-        // pattern 逆向
+        // pattern 逆向（不支持的结构抛 RegexGenerationException 打断生成）
         if (schema.get("pattern") instanceof String pattern) {
-            String generated = RegexStringGenerator.of(pattern, ctx.random().random()).generate();
-            if (generated != null) {
-                return generated;
-            }
+            return RegexStringGenerator.of(pattern, ctx.random().random()).generate();
         }
         int min = intOf(schema.get("minLength"), ctx.config().minStringLen());
         int max = intOf(schema.get("maxLength"), ctx.config().maxStringLen());

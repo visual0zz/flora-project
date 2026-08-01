@@ -117,8 +117,8 @@ class RegexStringGeneratorTest {
     @Test
     void quantifierUpperBound() {
         assertEquals(3, gen("a{3}").length());
-        // 超阈值 → 不支持
-        assertNull(gen("a{10000}"));
+        // 超阈值 → 抛异常打断
+        assertThrows(RegexGenerationException.class, () -> gen("a{10000}"));
     }
 
     // ── 分组与交替 ──
@@ -152,28 +152,29 @@ class RegexStringGeneratorTest {
     }
 
     @Test
-    void unknownUnicodePropertyIsNull() {
-        assertNull(gen("\\p{Foo}"));
-        assertNull(gen("\\p{"));
+    void unknownUnicodePropertyThrows() {
+        assertThrows(RegexGenerationException.class, () -> gen("\\p{Foo}"));
+        assertThrows(RegexGenerationException.class, () -> gen("\\p{"));
     }
 
-    // ── 不支持结构 → null ──
+    // ── 不支持结构 → 抛异常打断 ──
 
     @Test
-    void unsupportedStructuresReturnNull() {
-        assertNull(gen("(a)\\1"));      // 反向引用
-        assertNull(gen("(?=a)"));       // 前瞻
-        assertNull(gen("(?!a)"));       // 负前瞻
-        assertNull(gen("(?<=a)"));      // 后顾
-        assertNull(gen("(?<name>a)"));  // 命名组
-        assertNull(gen("\\p{NotAClass}")); // 未知属性
+    void unsupportedStructuresThrow() {
+        assertThrows(RegexGenerationException.class, () -> gen("(a)\\1"));      // 反向引用
+        assertThrows(RegexGenerationException.class, () -> gen("(?=a)"));       // 前瞻
+        assertThrows(RegexGenerationException.class, () -> gen("(?!a)"));       // 负前瞻
+        assertThrows(RegexGenerationException.class, () -> gen("(?<=a)"));      // 后顾
+        assertThrows(RegexGenerationException.class, () -> gen("(?<name>a)"));  // 命名组
+        assertThrows(RegexGenerationException.class, () -> gen("\\p{NotAClass}")); // 未知属性
     }
 
     @Test
     void emptyOrMalformedPattern() {
         assertEquals("", gen(""));  // 空正则匹配空串
-        assertNull(gen("[a-z"));    // 字符类未闭合
-        assertNull(gen("(abc"));    // 分组未闭合
+        assertThrows(RegexGenerationException.class, () -> gen("[a-z"));    // 字符类未闭合
+        assertThrows(RegexGenerationException.class, () -> gen("(abc"));    // 分组未闭合
+        assertThrows(RegexGenerationException.class, () -> gen("a{2,3"));  // 量词未闭合
     }
 
     // ── 种子可复现 ──

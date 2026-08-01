@@ -1,5 +1,7 @@
 package com.flora.mock.regex;
 
+import com.flora.tag.ThreadFragile;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -14,13 +16,14 @@ import java.util.random.RandomGenerator;
  * 量词 {@code *} {@code +} {@code ?} {@code {n}} {@code {n,m}} {@code {n,}}（含懒惰后缀）、
  * 分组与交替 {@code (a|b)}、非捕获组 {@code (?:...)}；锚 {@code ^}/{@code $} 忽略。</p>
  * <p>不支持的结构（反向引用、环视、命名组、未知 Unicode 属性、非法量词、重复上限超阈值）
- * 使 {@link #generate()} 返回 {@code null}。通过 {@link #of(String, RandomGenerator)} 注入熵源，
+ * 抛出 {@link RegexGenerationException} 打断生成。通过 {@link #of(String, RandomGenerator)} 注入熵源，
  * 同一种子生成结果可复现。</p>
  *
  * <pre>{@code
  * String value = RegexStringGenerator.of("[a-z]{2,4}").generate();
  * }</pre>
  */
+@ThreadFragile("持有注入的共享 RandomGenerator，其线程安全性取决于实现，多线程并发 generate() 需自行同步")
 public final class RegexStringGenerator {
 
     /** 单次重复数量的上限，超出视为不支持。 */
@@ -44,21 +47,23 @@ public final class RegexStringGenerator {
         return new RegexStringGenerator(pattern, entropy);
     }
 
-    /** @return 匹配 pattern 的随机字符串；不支持的结构返回 null */
+    /** @return 匹配 pattern 的随机字符串；遇到不支持的结构抛 {@link RegexGenerationException} */
     public String generate() {
         try {
             Parser p = new Parser(pattern);
             List<Atom> atoms = p.parseSequence();
             if (!p.isAtEnd()) {
-                return null; // 未消费完 → 不支持
+                throw new RegexGenerationException("未消费完的正则: " + pattern);
             }
             StringBuilder sb = new StringBuilder();
             for (Atom atom : atoms) {
                 atom.append(sb);
             }
             return sb.toString();
+        } catch (RegexGenerationException e) {
+            throw e;
         } catch (RuntimeException e) {
-            return null;
+            throw new RegexGenerationException("不支持的正则语法: " + pattern, e);
         }
     }
 
@@ -388,9 +393,11 @@ public final class RegexStringGenerator {
                                 atom.quantifier(min, max);
                             }
                         } catch (NumberFormatException e) {
-                            return; // 非法量词，忽略
+                            throw new IllegalArgumentException("非法量词: " + body);
                         }
                         pos = close + 1;
+                    } else {
+                        throw new IllegalArgumentException("量词未闭合");
                     }
                 }
                 default -> {

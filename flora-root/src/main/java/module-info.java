@@ -41,6 +41,10 @@ module com.flora.root {
     exports com.flora.mock.regex;
     exports com.flora.mock.regex.automaton;
 
+    exports com.flora.syntax;
+    exports com.flora.syntax.bracket;
+    exports com.flora.syntax.expr;
+
     uses Converter;
 
     requires static org.jetbrains.annotations;

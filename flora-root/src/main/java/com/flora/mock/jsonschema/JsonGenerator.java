@@ -14,13 +14,29 @@ import java.util.random.RandomGenerator;
 /**
  * JSON Schema 数据生成器门面。
  * <p>根据 2020-12 schema 生成随机且（尽力）符合约束的 JSON 实例。
- * 支持：type/enum/const、数值范围/multipleOf、字符串长度/format/pattern、
- * 数组（prefixItems/items/contains/uniqueItems）、对象（properties/required/依赖）、
- * 组合（anyOf/oneOf/if-then-else/allOf 合并）、{@code $ref}/{@code $defs} 递归
- * （递归深度由推荐长度预算驱动，非硬性上限）。</p>
- * <p>输入可为 JSON 字符串或已解析的 JSON Object（Map/List 嵌套）；
+ * 输入可为 JSON 字符串或已解析的 JSON Object（Map/List 嵌套）；
  * {@link #generate()} 返回 Map/List 嵌套对象，{@link #generateStr()} 返回 JSON 字符串。
  * 熵源通过 {@link #of(Object, RandomGenerator)} 注入，同一种子生成结果可复现。</p>
+ *
+ * <p><b>支持的语法</b>：
+ * 类型 {@code type}（object/array/string/integer/number/boolean/null）、
+ * {@code enum}/{@code const}、数值范围 {@code minimum/maximum/exclusiveMinimum/exclusiveMaximum}
+ * 与 {@code multipleOf}、字符串长度 {@code minLength/maxLength}、{@code pattern}
+ * （委托 {@code RegexStringGenerator}，支持 {@code format} 逆向生成）、
+ * 数组 {@code prefixItems/items/contains/uniqueItems/minItems/maxItems}、
+ * 对象 {@code properties/required/dependentRequired/patternProperties/additionalProperties/
+ * minProperties/maxProperties}、组合 {@code anyOf/oneOf/if-then-else}、
+ * {@code allOf}（编译期合并常用约束交集，多个 {@code pattern} 用自动机交集）、
+ * {@code $ref}/{@code $defs} 递归（深度由推荐长度预算驱动，截断时生成满足
+ * required/minItems/minLength 等硬约束的最小实例）。</p>
+ *
+ * <p><b>不支持的语法</b>（忽略或尽力，不保证严格满足）：{@code not}、
+ * {@code dependentSchemas}、{@code propertyNames}、{@code unevaluatedProperties/
+ * unevaluatedItems}、{@code minContains/maxContains}（仅生成单个 contains 元素）；
+ * 复杂 {@code if/then/else} 条件（随机走分支，不保证 if 前提成立）、
+ * {@code pattern} 与 {@code minLength/maxLength} 冲突（以 pattern 结构为准，长度可能越界）、
+ * {@code oneOf} 非互斥分支（可能同时满足多个）、{@code allOf} 中未覆盖的约束组合
+ * （取交集近似）、递归截断层（不保证最深层非 required 的可选约束）。</p>
  *
  * <pre>{@code
  * JsonGenerator generator = JsonGenerator.of("{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}");

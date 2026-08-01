@@ -10,6 +10,17 @@ import java.util.regex.Pattern;
 /**
  * 常用格式校验器注册表（JSON Schema {@code format} 关键字）。
  * <p>只作用于字符串实例。未知格式在 schema 编译期抛错（严格模式）。</p>
+ *
+ * <p><b>支持的 format</b>：date/date-time/time/email/idn-email/hostname/idn-hostname/
+ * ipv4/ipv6/uri/uri-reference/iri/iri-reference/uuid/regex/json-pointer/
+ * relative-json-pointer/duration。</p>
+ *
+ * <p><b>正则校验（{@code format: "regex"} 与 {@code pattern} 关键字）</b>：
+ * 使用 JDK {@code java.util.regex} 全特性（含环视/反向引用/命名组），
+ * {@code pattern} 为 ECMA-262 搜索语义（{@code find()}），字符串任意位置命中即通过；
+ * {@code format: "regex"} 则要求整个字符串匹配。</p>
+ *
+ * <p><b>不支持的语法</b>：未列出的 format 视为未知，编译期抛错。</p>
  */
 public final class FormatValidators {
 

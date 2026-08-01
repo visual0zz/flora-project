@@ -9,14 +9,27 @@ import java.util.random.RandomGenerator;
 
 /**
  * 正则表达式字符串生成器：构造匹配给定正则的随机字符串。
- * <p>基于自研正则自动机（NFA/DFA），支持扩展语法：字面量、{@code .}、字符类
- * （范围/取反/内嵌简写/POSIX/并集差集）、简写 {@code \d \w \s \D \W \S}、
- * 转义 {@code \t \n \r \f \0}、十六进制/Unicode 转义、Unicode 属性
- * {@code \p{...}}/{@code \P{...}}、量词 {@code * + ? {n} {n,m} {n,}}（含懒惰后缀）、
- * 分组与交替 {@code (a|b)}、非捕获组 {@code (?:...)}；锚 {@code ^}/{@code $} 忽略。</p>
- * <p>不支持的结构（反向引用、环视、命名组、未知属性、非法量词、未闭合结构）
- * 在编译期抛 {@link RegexGenerationException} 打断，不做静默处理。
- * {@link #generate(int)} 指定目标长度时，从自动机按长度采样（无拒绝采样）。</p>
+ * <p>基于自研正则自动机（NFA/DFA），生成结果必然整体匹配 pattern（结构保证），
+ * 指定目标长度时从自动机按长度采样（无拒绝采样、无回溯）。</p>
+ *
+ * <p><b>支持的语法</b>：
+ * 字面量、{@code .}（除行终止符外任意字符）、
+ * 字符类 {@code [a-z]}/{@code [^...]}/范围/内嵌简写/嵌套字符类 {@code [a-z[0-9]]}/
+ * 交集 {@code [a-z&&[^aeiou]]}、简写 {@code \d \w \s \D \W \S}、
+ * 转义 {@code \t \n \r \f \0}、十六进制 {@code \x{1F}}/{@code \xNN}、
+ * Unicode 转义 {@code \u0041}、Unicode 属性 {@code \p{L}}/{@code \P{L}}、
+ * 量词 {@code * + ? {n} {n,m} {n,}}（懒惰后缀 {@code ?} 忽略）、
+ * 分组与交替 {@code (a|b)}、非捕获组 {@code (?:...)}；
+ * 锚 {@code ^}/{@code $} 忽略。</p>
+ *
+ * <p><b>不支持的语法</b>（编译期抛 {@link RegexGenerationException} 打断，不做静默处理）：
+ * 反向引用 {@code \1}、环视 {@code (?=...)}/{@code (?!...)}/{@code (?<=...)}、
+ * 命名组 {@code (?<name>...)}、未知 Unicode 属性、非法/超阈值量词
+ * （单次重复上限 256）、未闭合的字符类/分组/量词。</p>
+ *
+ * <p>注意：本生成器与校验侧（{@code JsonSchema} 的 {@code pattern} 校验，使用
+ * JDK {@code java.util.regex} 全特性）语法范围不同——生成器是校验器的子集；
+ * 生成结果整体匹配，必然通过校验侧的 {@code find()} 搜索判定。</p>
  *
  * <pre>{@code
  * String value = RegexStringGenerator.of("[a-z]{2,4}").generate();

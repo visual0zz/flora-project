@@ -36,7 +36,9 @@ module com.flora.root {
 
     exports com.flora.codec.jsonl;
     exports com.flora.codec.jsonschema;
-    exports com.flora.codec.jsonschema.generator;
+
+    exports com.flora.mock.jsonschema;
+    exports com.flora.mock.regex;
 
     uses Converter;
 

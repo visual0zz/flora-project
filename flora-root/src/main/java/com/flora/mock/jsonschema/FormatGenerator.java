@@ -1,4 +1,4 @@
-package com.flora.codec.jsonschema.generator;
+package com.flora.mock.jsonschema;
 
 import java.util.Locale;
 import java.util.UUID;

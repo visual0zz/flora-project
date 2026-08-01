@@ -1,4 +1,4 @@
-package com.flora.codec.jsonschema.generator;
+package com.flora.mock.jsonschema;
 
 /**
  * 生成上下文：随机源、配置、当前深度。

@@ -1,4 +1,4 @@
-package com.flora.codec.jsonschema.generator;
+package com.flora.mock.jsonschema;
 
 /**
  * 生成器配置。

@@ -1,4 +1,4 @@
-package com.flora.codec.jsonschema.generator;
+package com.flora.mock.jsonschema;
 
 /**
  * 生成失败异常（如遇到 {@code false} schema、不可满足的约束）。

@@ -1,7 +1,8 @@
-package com.flora.codec.jsonschema.generator;
+package com.flora.mock.jsonschema;
 
 import com.flora.codec.jsonschema.JsonTypes;
 import com.flora.codec.jsonschema.SchemaRegistry;
+import com.flora.mock.regex.RegexStringGenerator;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -214,7 +215,7 @@ final class GenerationNode {
         }
         // pattern 逆向
         if (schema.get("pattern") instanceof String pattern) {
-            String generated = new RegexGenerator(ctx.random()).generate(pattern);
+            String generated = RegexStringGenerator.of(pattern, ctx.random().random()).generate();
             if (generated != null) {
                 return generated;
             }

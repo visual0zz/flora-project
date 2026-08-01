@@ -1,11 +1,15 @@
-package com.flora.codec.jsonschema.generator;
+package com.flora.mock.jsonschema;
 
+import com.flora.codec.json.JsonBuilder;
+import com.flora.codec.json.JsonParser;
 import com.flora.codec.jsonschema.JsonSchema;
+import com.flora.codec.jsonschema.JsonTypes;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -261,11 +265,34 @@ class JsonGeneratorTest {
     @Test
     void seedIsReproducible() {
         String schemaJson = "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"integer\"},\"b\":{\"type\":\"string\"}}}";
-        JsonGenerator g1 = JsonGenerator.of(schemaJson);
-        JsonGenerator g2 = JsonGenerator.of(schemaJson);
-        Object v1 = g1.generate(42L);
-        Object v2 = g2.generate(42L);
+        JsonGenerator g1 = JsonGenerator.of(schemaJson, new Random(42L));
+        JsonGenerator g2 = JsonGenerator.of(schemaJson, new Random(42L));
+        Object v1 = g1.generate();
+        Object v2 = g2.generate();
         assertEquals(v1, v2);
+    }
+
+    // ── generateJson 输出 ──
+
+    @Test
+    void generatesJsonString() {
+        // 用 string/integer/boolean 字段避免 number 序列化的类型漂移
+        JsonSchema schema = JsonSchema.of(
+                "{\"type\":\"object\",\"properties\":{"
+                + "\"name\":{\"type\":\"string\"},\"count\":{\"type\":\"integer\"},\"ok\":{\"type\":\"boolean\"}},"
+                + "\"required\":[\"name\",\"count\",\"ok\"]}");
+        JsonGenerator gen = JsonGenerator.of(
+                "{\"type\":\"object\",\"properties\":{"
+                + "\"name\":{\"type\":\"string\"},\"count\":{\"type\":\"integer\"},\"ok\":{\"type\":\"boolean\"}},"
+                + "\"required\":[\"name\",\"count\",\"ok\"]}");
+        for (int i = 0; i < 20; i++) {
+            String json = gen.generateJson();
+            Object parsed = JsonParser.parse(json);
+            assertTrue(schema.isValid(parsed));
+            // round-trip：同一实例经 JsonBuilder 序列化后再解析应深度相等
+            Object generated = gen.generate();
+            assertTrue(JsonTypes.deepEquals(JsonParser.parse(JsonBuilder.toJsonString(generated)), generated));
+        }
     }
 
     // ── 组合 ──

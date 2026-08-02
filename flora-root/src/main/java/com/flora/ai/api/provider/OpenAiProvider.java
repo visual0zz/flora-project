@@ -23,7 +23,7 @@ public final class OpenAiProvider implements AiProvider {
     }
 
     @Override
-    public ChatClient createClient(Endpoint model) {
-        return new OpenAiClient(model, HttpTransport.create());
+    public ChatClient createClient(Endpoint endpoint) {
+        return new OpenAiClient(endpoint, HttpTransport.create());
     }
 }

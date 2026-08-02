@@ -21,21 +21,21 @@ import java.util.concurrent.BlockingQueue;
  */
 public final class AnthropicClient implements ChatClient, StreamingClient {
 
-    private final Endpoint model;
+    private final Endpoint endpoint;
     private final HttpTransport http;
 
-    public AnthropicClient(Endpoint model, HttpTransport http) {
-        this.model = model;
+    public AnthropicClient(Endpoint endpoint, HttpTransport http) {
+        this.endpoint = endpoint;
         this.http = http;
     }
 
     private String url() {
-        return model.baseUrl() + "/v1/messages";
+        return endpoint.baseUrl() + "/v1/messages";
     }
 
     private Map<String, String> headers() {
         Map<String, String> h = new java.util.LinkedHashMap<>();
-        h.put("x-api-key", model.apiKey() == null ? "" : model.apiKey());
+        h.put("x-api-key", endpoint.apiKey() == null ? "" : endpoint.apiKey());
         h.put("anthropic-version", AnthropicProtocol.API_VERSION);
         return h;
     }
@@ -43,13 +43,13 @@ public final class AnthropicClient implements ChatClient, StreamingClient {
     @Override
     public ChatResponse chat(ChatRequest request) {
         String json = http.postJson(url(), headers(),
-                AnthropicProtocol.buildRequest(request, model.modelId(), false));
+                AnthropicProtocol.buildRequest(request, endpoint.modelId(), false));
         return AnthropicProtocol.parseResponse(json);
     }
 
     @Override
     public StreamIterator stream(ChatRequest request) {
-        String body = AnthropicProtocol.buildRequest(request, model.modelId(), true);
+        String body = AnthropicProtocol.buildRequest(request, endpoint.modelId(), true);
         BlockingQueue<StreamEvent> queue = new ArrayBlockingQueue<>(64);
         http.streamSse(url(), headers(), body, data -> {
             if (SseParser.DONE.equals(data)) {

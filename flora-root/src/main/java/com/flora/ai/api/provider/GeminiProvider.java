@@ -23,7 +23,7 @@ public final class GeminiProvider implements AiProvider {
     }
 
     @Override
-    public ChatClient createClient(Endpoint model) {
-        return new GeminiClient(model, HttpTransport.create());
+    public ChatClient createClient(Endpoint endpoint) {
+        return new GeminiClient(endpoint, HttpTransport.create());
     }
 }

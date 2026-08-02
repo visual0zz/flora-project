@@ -23,7 +23,7 @@ public final class AnthropicProvider implements AiProvider {
     }
 
     @Override
-    public ChatClient createClient(Endpoint model) {
-        return new AnthropicClient(model, HttpTransport.create());
+    public ChatClient createClient(Endpoint endpoint) {
+        return new AnthropicClient(endpoint, HttpTransport.create());
     }
 }

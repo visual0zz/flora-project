@@ -8,13 +8,13 @@ import java.util.Iterator;
  */
 public interface StreamIterator extends Iterator<StreamEvent>, AutoCloseable {
 
-    /** 便捷：消费全部文本增量并拼接（跳过思考/完成事件）。 */
+    /** 便捷：消费全部文本增量并拼接（跳过思考/工具/错误/完成事件）。 */
     default String collectText() {
         StringBuilder sb = new StringBuilder();
         while (hasNext()) {
             StreamEvent e = next();
-            if (e.type() == StreamEvent.Type.TEXT && e.text() != null) {
-                sb.append(e.text());
+            if (e instanceof StreamEvent.Text text) {
+                sb.append(text.delta());
             }
         }
         return sb.toString();

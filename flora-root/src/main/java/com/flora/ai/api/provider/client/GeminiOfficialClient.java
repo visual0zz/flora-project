@@ -53,12 +53,12 @@ public final class GeminiOfficialClient implements ChatClient, StreamingClient, 
         BlockingQueue<StreamEvent> queue = new ArrayBlockingQueue<>(64);
         http.streamSse(url(true), headers(), body, data -> {
             if (SseParser.DONE.equals(data)) {
-                queue.offer(StreamEvent.done("stop"));
+                queue.offer(new StreamEvent.Done("stop", null));
                 return;
             }
             String delta = GeminiProtocol.extractStreamDelta(data);
             if (delta != null && !delta.isEmpty()) {
-                queue.offer(StreamEvent.text(delta));
+                queue.offer(new StreamEvent.Text(delta));
             }
         });
         return new QueueStreamIterator(queue);

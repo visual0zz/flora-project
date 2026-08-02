@@ -8,6 +8,7 @@ import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.StreamIterator;
 import com.flora.ai.api.StreamingClient;
 import com.flora.ai.api.impl.HttpTransport;
+import com.flora.ai.api.impl.JsonHelper;
 import com.flora.ai.api.impl.SseParser;
 import com.flora.ai.api.provider.QueueStreamIterator;
 import com.flora.ai.api.provider.protocol.AnthropicProtocol;
@@ -55,7 +56,13 @@ public final class AnthropicOfficialClient implements ChatClient, StreamingClien
         BlockingQueue<StreamEvent> queue = new ArrayBlockingQueue<>(64);
         http.streamSse(url(), headers(), body, data -> {
             if (SseParser.DONE.equals(data)) {
-                queue.offer(StreamEvent.done("stop"));
+                queue.offer(new StreamEvent.Done("stop", null));
+                return;
+            }
+            // 错误事件
+            Map<String, Object> event = com.flora.codec.json.JsonParser.parseObject(data);
+            if ("error".equals(JsonHelper.str(event.get("type")))) {
+                queue.offer(new StreamEvent.Error(String.valueOf(event.get("error"))));
                 return;
             }
             AnthropicProtocol.Delta delta = AnthropicProtocol.extractStreamDelta(data);
@@ -63,7 +70,8 @@ public final class AnthropicOfficialClient implements ChatClient, StreamingClien
                 return;
             }
             queue.offer(delta.thinking()
-                    ? StreamEvent.thinking(delta.text()) : StreamEvent.text(delta.text()));
+                    ? new StreamEvent.Thinking(delta.text())
+                    : new StreamEvent.Text(delta.text()));
         });
         return new QueueStreamIterator(queue);
     }

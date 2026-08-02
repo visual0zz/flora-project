@@ -55,7 +55,7 @@ public final class DeepSeekOfficialClient implements ChatClient, StreamingClient
         BlockingQueue<StreamEvent> queue = new ArrayBlockingQueue<>(64);
         http.streamSse(url(), headers(), body, data -> {
             if (SseParser.DONE.equals(data)) {
-                queue.offer(StreamEvent.done("stop"));
+                queue.offer(new StreamEvent.Done("stop", null));
                 return;
             }
             DeepSeekProtocol.Delta delta = DeepSeekProtocol.extractStreamDelta(data);
@@ -63,7 +63,8 @@ public final class DeepSeekOfficialClient implements ChatClient, StreamingClient
                 return;
             }
             queue.offer(delta.thinking()
-                    ? StreamEvent.thinking(delta.text()) : StreamEvent.text(delta.text()));
+                    ? new StreamEvent.Thinking(delta.text())
+                    : new StreamEvent.Text(delta.text()));
         });
         return new QueueStreamIterator(queue);
     }

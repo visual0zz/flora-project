@@ -8,6 +8,7 @@ import com.flora.ai.api.JsonClient;
 import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.StreamIterator;
 import com.flora.ai.api.StreamingClient;
+import com.flora.ai.api.ToolCall;
 import com.flora.ai.api.impl.HttpTransport;
 import com.flora.ai.api.impl.JsonHelper;
 import com.flora.ai.api.impl.SseParser;
@@ -56,7 +57,7 @@ public final class OpenAiOfficialClient implements ChatClient, StreamingClient, 
         BlockingQueue<StreamEvent> queue = new ArrayBlockingQueue<>(64);
         http.streamSse(url(), headers(), body, data -> {
             if (SseParser.DONE.equals(data)) {
-                queue.offer(StreamEvent.done("stop"));
+                queue.offer(new StreamEvent.Done("stop", null));
                 return;
             }
             Map<String, Object> chunk = com.flora.codec.json.JsonParser.parseObject(data);
@@ -67,11 +68,22 @@ public final class OpenAiOfficialClient implements ChatClient, StreamingClient, 
                 if (delta != null) {
                     String text = JsonHelper.str(delta.get("content"));
                     if (text != null && !text.isEmpty()) {
-                        queue.offer(StreamEvent.text(text));
+                        queue.offer(new StreamEvent.Text(text));
                     }
                     String thinking = JsonHelper.str(delta.get("reasoning_content"));
                     if (thinking != null && !thinking.isEmpty()) {
-                        queue.offer(StreamEvent.thinking(thinking));
+                        queue.offer(new StreamEvent.Thinking(thinking));
+                    }
+                    // 工具调用增量（分片推送：id/name/arguments 各为独立 delta）
+                    for (Object tc : JsonHelper.asList(delta.get("tool_calls"))) {
+                        Map<String, Object> call = JsonHelper.asMap(tc);
+                        Map<String, Object> fn = JsonHelper.asMap(call.get("function"));
+                        String rawArgs = JsonHelper.str(fn.get("arguments"));
+                        queue.offer(new StreamEvent.ToolCallDelta(new ToolCall(
+                                JsonHelper.str(call.get("id")),
+                                JsonHelper.str(fn.get("name")),
+                                rawArgs == null ? Map.of() : Map.of("_json", rawArgs)),
+                                rawArgs));
                     }
                 }
             }

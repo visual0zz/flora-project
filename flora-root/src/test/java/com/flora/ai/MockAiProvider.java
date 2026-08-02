@@ -63,10 +63,10 @@ public final class MockAiProvider implements AiProvider {
         @Override
         public StreamIterator stream(ChatRequest request) {
             Deque<StreamEvent> events = new ArrayDeque<>();
-            events.add(StreamEvent.text("mock-"));
-            events.add(StreamEvent.thinking("thinking..."));
-            events.add(StreamEvent.text("answer"));
-            events.add(StreamEvent.done("stop"));
+            events.add(new StreamEvent.Text("mock-"));
+            events.add(new StreamEvent.Thinking("thinking..."));
+            events.add(new StreamEvent.Text("answer"));
+            events.add(new StreamEvent.Done("stop", null));
             return new StreamIterator() {
                 @Override
                 public boolean hasNext() {

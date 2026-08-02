@@ -34,7 +34,7 @@ public final class QueueStreamIterator implements StreamIterator {
             if (e == null) {
                 return false; // 超时视为结束
             }
-            if (e.type() == StreamEvent.Type.DONE) {
+            if (e instanceof StreamEvent.Done) {
                 return false;
             }
             next = e;

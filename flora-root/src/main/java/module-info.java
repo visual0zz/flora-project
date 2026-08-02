@@ -3,6 +3,7 @@
  * <p>
  * 该模块导出核心 API 包，并声明对 {@code Converter} SPI 的使用。
  */
+import com.flora.ai.api.spi.AiProvider;
 import com.flora.java.Converter;
 
 module com.flora.root {
@@ -47,17 +48,19 @@ module com.flora.root {
 
     exports com.flora.ai;
     exports com.flora.ai.api;
-    exports com.flora.ai.spi;
-    exports com.flora.ai.http;
+    exports com.flora.ai.api.spi;
+    exports com.flora.ai.api.impl;
     exports com.flora.ai.route;
-    exports com.flora.ai.provider;
+    exports com.flora.ai.api.provider;
     exports com.flora.ai.provider.openai;
     exports com.flora.ai.provider.anthropic;
     exports com.flora.ai.provider.gemini;
     exports com.flora.ai.provider.deepseek;
+    exports com.flora.ai.api.provider.client;
+    exports com.flora.ai.provider.impl;
 
     uses Converter;
-    uses com.flora.ai.spi.AiProvider;
+    uses AiProvider;
 
     requires java.net.http;
     requires static org.jetbrains.annotations;

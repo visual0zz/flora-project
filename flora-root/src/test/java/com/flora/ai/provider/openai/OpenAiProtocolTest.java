@@ -1,11 +1,11 @@
 package com.flora.ai.provider.openai;
 
-import com.flora.ai.api.ChatRequest;
-import com.flora.ai.api.ContentBlock;
-import com.flora.ai.api.Message;
-import com.flora.ai.api.SamplingConfig;
-import com.flora.ai.api.ThinkingConfig;
-import com.flora.ai.api.TokenUsage;
+import com.flora.ai.api.impl.ChatRequest;
+import com.flora.ai.api.impl.ContentBlock;
+import com.flora.ai.api.impl.Message;
+import com.flora.ai.api.impl.SamplingConfig;
+import com.flora.ai.api.impl.ThinkingConfig;
+import com.flora.ai.api.provider.protocal.OpenAiProtocol;
 import com.flora.codec.json.JsonParser;
 import org.junit.jupiter.api.Test;
 

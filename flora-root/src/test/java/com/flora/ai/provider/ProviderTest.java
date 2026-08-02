@@ -1,11 +1,7 @@
 package com.flora.ai.provider;
 
-import com.flora.ai.api.ApiKind;
-import com.flora.ai.provider.anthropic.AnthropicProvider;
-import com.flora.ai.provider.deepseek.DeepSeekProvider;
-import com.flora.ai.provider.gemini.GeminiProvider;
-import com.flora.ai.provider.openai.OpenAiCompatibleProvider;
-import com.flora.ai.provider.openai.OpenAiProvider;
+import com.flora.ai.api.impl.ApiKind;
+import com.flora.ai.api.provider.*;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

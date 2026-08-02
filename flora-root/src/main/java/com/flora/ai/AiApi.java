@@ -1,16 +1,16 @@
 package com.flora.ai;
 
-import com.flora.ai.api.ApiKind;
-import com.flora.ai.api.ChatClient;
-import com.flora.ai.api.RegisteredModel;
-import com.flora.ai.provider.anthropic.AnthropicProvider;
-import com.flora.ai.provider.deepseek.DeepSeekProvider;
-import com.flora.ai.provider.gemini.GeminiProvider;
-import com.flora.ai.provider.openai.OpenAiCompatibleProvider;
-import com.flora.ai.provider.openai.OpenAiProvider;
-import com.flora.ai.route.Router;
-import com.flora.ai.route.TaskContext;
-import com.flora.ai.spi.AiProvider;
+import com.flora.ai.api.impl.ApiKind;
+import com.flora.ai.api.impl.ChatClient;
+import com.flora.ai.api.impl.RegisteredModel;
+import com.flora.ai.api.provider.AnthropicProvider;
+import com.flora.ai.api.provider.DeepSeekProvider;
+import com.flora.ai.api.provider.GeminiProvider;
+import com.flora.ai.api.provider.OpenAiCompatibleProvider;
+import com.flora.ai.api.provider.OpenAiProvider;
+import com.flora.ai.api.spi.Router;
+import com.flora.ai.api.spi.TaskContext;
+import com.flora.ai.api.spi.AiProvider;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

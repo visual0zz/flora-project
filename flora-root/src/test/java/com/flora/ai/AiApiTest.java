@@ -1,14 +1,13 @@
 package com.flora.ai;
 
-import com.flora.ai.api.ApiKind;
-import com.flora.ai.api.ChatClient;
-import com.flora.ai.api.ChatRequest;
-import com.flora.ai.api.ChatResponse;
-import com.flora.ai.api.Message;
-import com.flora.ai.api.RegisteredModel;
-import com.flora.ai.api.StreamingClient;
-import com.flora.ai.api.Tag;
-import com.flora.ai.route.TaskContext;
+import com.flora.ai.api.impl.ApiKind;
+import com.flora.ai.api.impl.ChatClient;
+import com.flora.ai.api.impl.ChatRequest;
+import com.flora.ai.api.impl.Message;
+import com.flora.ai.api.impl.RegisteredModel;
+import com.flora.ai.api.impl.StreamingClient;
+import com.flora.ai.api.impl.Tag;
+import com.flora.ai.api.spi.TaskContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 

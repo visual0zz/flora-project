@@ -4,9 +4,7 @@ import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.Capability;
 import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.impl.HttpTransport;
-import com.flora.ai.api.provider.client.GeminiOfficialChatClient;
-import com.flora.ai.api.provider.client.GeminiOfficialJsonClient;
-import com.flora.ai.api.provider.client.GeminiOfficialStreamClient;
+import com.flora.ai.api.provider.client.GeminiOfficialClient;
 import com.flora.ai.api.spi.AiProvider;
 
 import java.util.EnumSet;
@@ -35,12 +33,7 @@ public final class GeminiOfficialProvider implements AiProvider {
     @Override
     @SuppressWarnings("unchecked")
     public <T> T createClient(Endpoint endpoint, Capability capability) {
-        HttpTransport http = HttpTransport.create();
-        return (T) switch (capability) {
-            case CHAT -> new GeminiOfficialChatClient(endpoint, http);
-            case STREAM -> new GeminiOfficialStreamClient(endpoint, http);
-            case JSON -> new GeminiOfficialJsonClient(endpoint, http);
-            default -> throw new IllegalArgumentException("Gemini 官方不支持能力: " + capability);
-        };
+        // 实现类为多能力单类；按能力各 new 一个实例
+        return (T) new GeminiOfficialClient(endpoint, HttpTransport.create());
     }
 }

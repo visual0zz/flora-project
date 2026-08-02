@@ -1,7 +1,10 @@
 package com.flora.ai.api.provider.client;
 
+import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
+import com.flora.ai.api.ChatResponse;
 import com.flora.ai.api.Endpoint;
+import com.flora.ai.api.JsonClient;
 import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.StreamIterator;
 import com.flora.ai.api.StreamingClient;
@@ -17,12 +20,33 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 /**
- * OpenAI 官方流式对话客户端（增量文本输出）。
+ * OpenAI 官方客户端（多能力）：对话 + 流式 + JSON 模式。
+ * <p>实现类为多能力单类，注册时按 endpoint 声明的 capabilities 创建多个实例
+ * （每能力一个对象）。JSON 模式支持 {@code json_object} 与 {@code json_schema}。</p>
  */
-public final class OpenAiOfficialStreamClient extends OpenAiClientSupport implements StreamingClient {
+public final class OpenAiOfficialClient implements ChatClient, StreamingClient, JsonClient {
 
-    public OpenAiOfficialStreamClient(Endpoint endpoint, HttpTransport http) {
-        super(endpoint, http);
+    private final Endpoint endpoint;
+    private final HttpTransport http;
+
+    public OpenAiOfficialClient(Endpoint endpoint, HttpTransport http) {
+        this.endpoint = endpoint;
+        this.http = http;
+    }
+
+    private String url() {
+        return endpoint.baseUrl() + "/v1/chat/completions";
+    }
+
+    private Map<String, String> headers() {
+        return Map.of("Authorization", "Bearer " + (endpoint.apiKey() == null ? "" : endpoint.apiKey()));
+    }
+
+    @Override
+    public ChatResponse chat(ChatRequest request) {
+        String json = http.postJson(url(), headers(),
+                OpenAiProtocol.buildRequest(request, endpoint.modelId()));
+        return OpenAiProtocol.parseResponse(json);
     }
 
     @Override
@@ -30,7 +54,7 @@ public final class OpenAiOfficialStreamClient extends OpenAiClientSupport implem
         String body = JsonBuilder.toJsonString(
                 OpenAiProtocol.buildRequestMap(request, endpoint.modelId(), true));
         BlockingQueue<StreamEvent> queue = new ArrayBlockingQueue<>(64);
-        http.streamSse(chatUrl(), headers(), body, data -> {
+        http.streamSse(url(), headers(), body, data -> {
             if (SseParser.DONE.equals(data)) {
                 queue.offer(StreamEvent.done("stop"));
                 return;
@@ -53,5 +77,13 @@ public final class OpenAiOfficialStreamClient extends OpenAiClientSupport implem
             }
         });
         return new QueueStreamIterator(queue);
+    }
+
+    @Override
+    public Map<String, Object> chatJson(ChatRequest request) {
+        String body = JsonBuilder.toJsonString(OpenAiProtocol.buildRequestMap(request,
+                endpoint.modelId(), false, Map.of("type", "json_object")));
+        String json = http.postJson(url(), headers(), body);
+        return com.flora.codec.json.JsonParser.parseObject(OpenAiProtocol.parseResponse(json).text());
     }
 }

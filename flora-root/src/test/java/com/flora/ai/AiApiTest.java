@@ -123,6 +123,17 @@ class AiApiTest {
     }
 
     @Test
+    void eachCapabilityIsSeparateInstance() {
+        AiApi.register(endpointJson("mock-1", "mock-model", false));
+        ChatClient chat1 = AiApi.getByName("mock-1", ChatClient.class);
+        ChatClient chat2 = AiApi.getByName("mock-1", ChatClient.class);
+        StreamingClient stream = AiApi.getByName("mock-1", StreamingClient.class);
+        // 每能力一实例：同能力两次取是同一预建实例；不同能力是不同实例
+        assertSame(chat1, chat2);
+        assertNotSame(chat1, stream);
+    }
+
+    @Test
     void getByNameUnknownThrows() {
         assertThrows(IllegalArgumentException.class,
                 () -> AiApi.getByName("nope", ChatClient.class));
@@ -132,7 +143,7 @@ class AiApiTest {
     void getByNameMissingCapabilityThrows() {
         AiApi.register(endpointJson("mock-1", "mock-model", false));
         // 该端点未声明 JSON 能力
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(IllegalStateException.class,
                 () -> AiApi.getByName("mock-1", JsonClient.class));
     }
 
@@ -214,18 +225,5 @@ class AiApiTest {
     void getByContextNoEndpointsThrows() {
         assertThrows(IllegalStateException.class,
                 () -> AiApi.getByContext(TaskContext.empty()));
-    }
-
-    @Test
-    void getByContextTypeMismatchThrows() {
-        AiApi.register(endpointJson("d", "default-model", true));
-        // Router 返回 CHAT 的 ClientSpec，但调用方声明 StreamingClient
-        AiApi.setRouter((endpoints, ctx) ->
-                ClientSpec.of(endpoints.get(0), Capability.CHAT));
-        // 泛型 T 在赋值给 StreamingClient 时 JVM checkcast → ClassCastException
-        assertThrows(ClassCastException.class, () -> {
-            StreamingClient s = AiApi.getByContext(TaskContext.empty());
-            s.toString();
-        });
     }
 }

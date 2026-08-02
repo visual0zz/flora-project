@@ -4,9 +4,7 @@ import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.Capability;
 import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.impl.HttpTransport;
-import com.flora.ai.api.provider.client.OpenAiOfficialChatClient;
-import com.flora.ai.api.provider.client.OpenAiOfficialJsonClient;
-import com.flora.ai.api.provider.client.OpenAiOfficialStreamClient;
+import com.flora.ai.api.provider.client.OpenAiOfficialClient;
 import com.flora.ai.api.spi.AiProvider;
 
 import java.util.EnumSet;
@@ -14,6 +12,7 @@ import java.util.Set;
 
 /**
  * OpenAI 官方提供者：绑定 {@link ApiKind#OPENAI_OFFICIAL}。
+ * <p>每能力创建一个 {@link OpenAiOfficialClient} 实例（多能力实现类）。</p>
  */
 public final class OpenAiOfficialProvider implements AiProvider {
 
@@ -35,12 +34,7 @@ public final class OpenAiOfficialProvider implements AiProvider {
     @Override
     @SuppressWarnings("unchecked")
     public <T> T createClient(Endpoint endpoint, Capability capability) {
-        HttpTransport http = HttpTransport.create();
-        return (T) switch (capability) {
-            case CHAT -> new OpenAiOfficialChatClient(endpoint, http);
-            case STREAM -> new OpenAiOfficialStreamClient(endpoint, http);
-            case JSON -> new OpenAiOfficialJsonClient(endpoint, http);
-            default -> throw new IllegalArgumentException("OpenAI 官方不支持能力: " + capability);
-        };
+        // 实现类为多能力单类；按能力各 new 一个实例
+        return (T) new OpenAiOfficialClient(endpoint, HttpTransport.create());
     }
 }

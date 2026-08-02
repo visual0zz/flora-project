@@ -19,6 +19,7 @@ import com.flora.ai.api.spi.TaskContext;
 import com.flora.codec.json.JsonBuilder;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,10 +29,10 @@ import java.util.ServiceLoader;
  * AI 统一接入门面：注册与使用分离。
  * <p><b>注册阶段</b>（加载时）：从配置读出所有端点注册（{@link #register}/{@link #registerAll}），
  * 并注册路由解析器（{@link #setRouter}）。注册时校验端点声明的 {@code capabilities}
- * 必须被对应 provider 支持，否则报错。</p>
+ * 必须被对应 provider 支持，否则报错；并为每个能力预建一个 client 实例（每能力一对象）。</p>
  * <p><b>使用阶段</b>：获取单个能力 client——采用 chat/stream/json 的能力信息由
  * {@link TaskContext} 携带，{@link Router} 据此返回 {@link ClientSpec}（端点+能力），
- * {@link #getByContext} 构造并返回对应 client；或通过 {@link #getByName}/{@link #getDefault}
+ * {@link #getByContext} 返回预建的对应 client；或通过 {@link #getByName}/{@link #getDefault}
  * 带 {@code Class} 参数明确指定能力。</p>
  *
  * <pre>{@code
@@ -50,7 +51,10 @@ import java.util.ServiceLoader;
 public final class AiApi {
 
     private static final List<AiProvider> PROVIDERS = new ArrayList<>();
-    private static final Map<String, Endpoint> CLIENTS = new LinkedHashMap<>();
+    /** 端点目录（id → Endpoint）。 */
+    private static final Map<String, Endpoint> ENDPOINTS = new LinkedHashMap<>();
+    /** 注册时按能力预建的 client 实例（id → 能力 → client 对象）。 */
+    private static final Map<String, Map<Capability, Object>> CLIENTS = new LinkedHashMap<>();
     private static Router router;
 
     static {
@@ -92,7 +96,7 @@ public final class AiApi {
     // ── 注册阶段 ──
 
     /**
-     * 注册单端点：解析 JSON 并加入目录。
+     * 注册单端点：解析 JSON 并加入目录，为每个能力预建一个 client 实例。
      * <p>核心字段：{@code id}/{@code apiKind}/{@code modelId}/{@code baseUrl}/
      * {@code apiKey}/{@code default}/{@code tags}/{@code capabilities}/{@code spec}。
      * 注册时校验声明的 {@code capabilities} 必须 ⊆ provider 支持能力，否则报错。
@@ -124,7 +128,14 @@ public final class AiApi {
             }
         }
         validateCapabilities(endpoint);
-        CLIENTS.put(endpoint.id(), endpoint);
+        ENDPOINTS.put(endpoint.id(), endpoint);
+        // 为每个能力预建一个 client 实例（每能力一对象）
+        Map<Capability, Object> perCap = new EnumMap<>(Capability.class);
+        AiProvider provider = providerFor(endpoint.apiKind());
+        for (Capability c : endpoint.capabilities()) {
+            perCap.put(c, provider.createClient(endpoint, c));
+        }
+        CLIENTS.put(endpoint.id(), perCap);
         return endpoint;
     }
 
@@ -141,6 +152,7 @@ public final class AiApi {
 
     /** 注销端点。 */
     public static void unregister(String id) {
+        ENDPOINTS.remove(id);
         CLIENTS.remove(id);
     }
 
@@ -181,17 +193,17 @@ public final class AiApi {
             }
             spec = ClientSpec.of(def, Capability.CHAT);
         }
-        return (T) createClient(spec);
+        return (T) clientOf(spec);
     }
 
     /** 按注册名 + 能力类型获取单能力 client。 */
     public static <T> T getByName(String id, Class<T> capabilityType) {
-        Endpoint endpoint = CLIENTS.get(id);
-        if (endpoint == null) {
+        Map<Capability, Object> perCap = CLIENTS.get(id);
+        if (perCap == null) {
             throw new IllegalArgumentException("未注册端点: " + id);
         }
         Capability capability = capabilityOf(capabilityType);
-        return capabilityType.cast(createClient(ClientSpec.of(endpoint, capability)));
+        return capabilityType.cast(clientOf(ClientSpec.of(ENDPOINTS.get(id), capability)));
     }
 
     /** 默认端点 + 指定能力的 client；无默认端点抛 {@link IllegalStateException}。 */
@@ -201,19 +213,19 @@ public final class AiApi {
             throw new IllegalStateException("未注册默认端点");
         }
         Capability capability = capabilityOf(capabilityType);
-        return capabilityType.cast(createClient(ClientSpec.of(endpoint, capability)));
+        return capabilityType.cast(clientOf(ClientSpec.of(endpoint, capability)));
     }
 
     // ── 管理 ──
 
     /** 列出所有注册端点。 */
     public static List<Endpoint> endpoints() {
-        return List.copyOf(CLIENTS.values());
+        return List.copyOf(ENDPOINTS.values());
     }
 
     /** 默认端点（isDefault=true）；无则 null。 */
     private static Endpoint getDefaultEndpoint() {
-        for (Endpoint e : CLIENTS.values()) {
+        for (Endpoint e : ENDPOINTS.values()) {
             if (e.isDefault()) {
                 return e;
             }
@@ -221,8 +233,18 @@ public final class AiApi {
         return null;
     }
 
-    private static Object createClient(ClientSpec spec) {
-        return providerFor(spec.endpoint().apiKind()).createClient(spec.endpoint(), spec.capability());
+    /** 查预建 client；缺失（能力未声明）抛异常。 */
+    private static Object clientOf(ClientSpec spec) {
+        Map<Capability, Object> perCap = CLIENTS.get(spec.endpoint().id());
+        if (perCap == null) {
+            throw new IllegalArgumentException("未注册端点: " + spec.endpoint().id());
+        }
+        Object client = perCap.get(spec.capability());
+        if (client == null) {
+            throw new IllegalStateException("端点 " + spec.endpoint().id()
+                    + " 未声明能力 " + spec.capability());
+        }
+        return client;
     }
 
     /** Class → Capability 映射。 */

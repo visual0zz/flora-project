@@ -21,6 +21,7 @@ import java.util.Set;
 /**
  * 测试用 mock AI 提供者：绑定 {@code OPENAI_LIKE} 协议标识，实现对话与流式能力。
  * 通过 {@code META-INF/services/com.flora.ai.api.spi.AiProvider} 注册，验证外部 SPI 附加加载。
+ * <p>实现类为多能力单类，注册时每能力 new 一个实例。</p>
  */
 public final class MockAiProvider implements AiProvider {
 
@@ -42,18 +43,15 @@ public final class MockAiProvider implements AiProvider {
     @Override
     @SuppressWarnings("unchecked")
     public <T> T createClient(Endpoint endpoint, Capability capability) {
-        return (T) switch (capability) {
-            case CHAT -> new MockChatClient(endpoint);
-            case STREAM -> new MockStreamClient(endpoint);
-            default -> throw new IllegalArgumentException("mock 不支持能力: " + capability);
-        };
+        // 实现类为多能力单类；每能力 new 一个实例
+        return (T) new MockClient(endpoint);
     }
 
-    /** mock 对话客户端：返回固定文本。 */
-    static final class MockChatClient implements ChatClient {
+    /** mock 客户端（多能力）：对话返回固定文本，流式返回固定事件序列。 */
+    static final class MockClient implements ChatClient, StreamingClient {
         private final Endpoint endpoint;
 
-        MockChatClient(Endpoint endpoint) {
+        MockClient(Endpoint endpoint) {
             this.endpoint = endpoint;
         }
 
@@ -61,15 +59,6 @@ public final class MockAiProvider implements AiProvider {
         public ChatResponse chat(ChatRequest request) {
             return new ChatResponse("mock-answer:" + endpoint.modelId(),
                     null, List.of(), new TokenUsage(1, 1, 0, 0), "stop", null);
-        }
-    }
-
-    /** mock 流式客户端：返回固定事件序列。 */
-    static final class MockStreamClient implements StreamingClient {
-        private final Endpoint endpoint;
-
-        MockStreamClient(Endpoint endpoint) {
-            this.endpoint = endpoint;
         }
 
         @Override

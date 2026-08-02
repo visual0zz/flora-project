@@ -1,50 +1,25 @@
 package com.flora.ai.api.provider.client;
 
-import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
-import com.flora.ai.api.ChatResponse;
 import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.StreamIterator;
 import com.flora.ai.api.StreamingClient;
-import com.flora.ai.api.provider.QueueStreamIterator;
 import com.flora.ai.api.impl.HttpTransport;
 import com.flora.ai.api.impl.SseParser;
+import com.flora.ai.api.provider.QueueStreamIterator;
 import com.flora.ai.api.provider.protocol.AnthropicProtocol;
 
-import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 /**
- * Anthropic Messages 客户端：对话 + 流式（Extended Thinking 支持）。
+ * Anthropic 流式对话客户端（增量文本/思考输出）。
  */
-public final class AnthropicOfficialClient implements ChatClient, StreamingClient {
+public final class AnthropicOfficialStreamClient extends AnthropicClientSupport implements StreamingClient {
 
-    private final Endpoint endpoint;
-    private final HttpTransport http;
-
-    public AnthropicOfficialClient(Endpoint endpoint, HttpTransport http) {
-        this.endpoint = endpoint;
-        this.http = http;
-    }
-
-    private String url() {
-        return endpoint.baseUrl() + "/v1/messages";
-    }
-
-    private Map<String, String> headers() {
-        Map<String, String> h = new java.util.LinkedHashMap<>();
-        h.put("x-api-key", endpoint.apiKey() == null ? "" : endpoint.apiKey());
-        h.put("anthropic-version", AnthropicProtocol.API_VERSION);
-        return h;
-    }
-
-    @Override
-    public ChatResponse chat(ChatRequest request) {
-        String json = http.postJson(url(), headers(),
-                AnthropicProtocol.buildRequest(request, endpoint.modelId(), false));
-        return AnthropicProtocol.parseResponse(json);
+    public AnthropicOfficialStreamClient(Endpoint endpoint, HttpTransport http) {
+        super(endpoint, http);
     }
 
     @Override

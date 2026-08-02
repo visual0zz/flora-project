@@ -1,10 +1,12 @@
 package com.flora.ai;
 
 import com.flora.ai.api.ApiKind;
+import com.flora.ai.api.Capability;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
-import com.flora.ai.api.Message;
 import com.flora.ai.api.Endpoint;
+import com.flora.ai.api.EndpointClients;
+import com.flora.ai.api.Message;
 import com.flora.ai.api.StreamingClient;
 import com.flora.ai.api.Tag;
 import com.flora.ai.api.spi.TaskContext;
@@ -14,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * {@link AiApi} 门面：注册/使用分离 + 三个获取接口测试。
+ * {@link AiApi} 门面：注册/使用分离 + 端点 client 容器测试。
  */
 class AiApiTest {
 
@@ -34,7 +36,9 @@ class AiApiTest {
 
     private String endpointJson(String id, String modelId, boolean isDefault) {
         return "{\"id\":\"" + id + "\",\"apiKind\":\"OPENAI_LIKE\",\"modelId\":\"" + modelId + "\"," +
-                "\"baseUrl\":\"http://" + id + "\"" + (isDefault ? ",\"default\":true" : "") + "}";
+                "\"baseUrl\":\"http://" + id + "\"" +
+                ",\"capabilities\":[\"CHAT\",\"STREAM\"]" +
+                (isDefault ? ",\"default\":true" : "") + "}";
     }
 
     // ── provider ──
@@ -45,7 +49,6 @@ class AiApiTest {
         assertTrue(AiApi.providers().stream().anyMatch(p -> p.name().equals("anthropic")));
         assertTrue(AiApi.providers().stream().anyMatch(p -> p.name().equals("gemini")));
         assertTrue(AiApi.providers().stream().anyMatch(p -> p.name().equals("deepseek")));
-        // mock 绑定 OPENAI_LIKE 且经 SPI 附加，会顶替内置 openai-compatible（同 ApiKind）
         assertTrue(AiApi.providers().stream().anyMatch(p -> p.name().equals("mock")));
     }
 
@@ -56,6 +59,7 @@ class AiApiTest {
         String json = """
                 {"id":"mock-1","apiKind":"OPENAI_LIKE","modelId":"mock-model",
                  "baseUrl":"http://mock","apiKey":"k","default":true,
+                 "capabilities":["CHAT","STREAM"],
                  "tags":["THINKING","JSON_MODE"],"spec":{"contextWindow":128000},
                  "priority":5}
                 """;
@@ -63,9 +67,19 @@ class AiApiTest {
         assertEquals("mock-1", e.id());
         assertEquals("mock-model", e.modelId());
         assertTrue(e.isDefault());
+        assertTrue(e.capabilities().contains(Capability.CHAT));
         assertTrue(e.tags().contains(Tag.THINKING));
         assertEquals(128000L, e.spec().get("contextWindow"));
         assertEquals(5L, e.extra().get("priority"), "附加字段应保留到 extra");
+    }
+
+    @Test
+    void registerUnsupportedCapabilityThrows() {
+        // Anthropic 官方不支持 JSON，声明了 JSON 能力应报错
+        assertThrows(IllegalArgumentException.class,
+                () -> AiApi.register("{\"id\":\"x\",\"apiKind\":\"ANTHROPIC_OFFICIAL\"," +
+                        "\"modelId\":\"claude\",\"baseUrl\":\"http://x\"," +
+                        "\"capabilities\":[\"CHAT\",\"JSON\"]}"));
     }
 
     @Test
@@ -74,8 +88,7 @@ class AiApiTest {
         var registered = AiApi.registerAll(jsonArray);
         assertEquals(2, registered.size());
         assertEquals(2, AiApi.endpoints().size());
-        // b 为 default，getDefault 返回其 client
-        assertEquals("mock-answer:mb", AiApi.getDefault().ask(simpleReq()));
+        assertEquals("mock-answer:mb", AiApi.getDefault().chat().ask(simpleReq()));
     }
 
     @Test
@@ -93,13 +106,20 @@ class AiApiTest {
         assertEquals(0, AiApi.endpoints().size());
     }
 
-    // ── 三个获取接口 ──
+    // ── 获取 ──
 
     @Test
-    void getByNameReturnsRegistered() {
+    void getByNameReturnsClients() {
         AiApi.register(endpointJson("mock-1", "mock-model", false));
-        ChatClient client = AiApi.getByName("mock-1");
-        assertEquals("mock-answer:mock-model", client.chat(simpleReq()).text());
+        EndpointClients clients = AiApi.getByName("mock-1");
+        assertEquals("mock-answer:mock-model", clients.chat().chat(simpleReq()).text());
+    }
+
+    @Test
+    void getByNameWithClass() {
+        AiApi.register(endpointJson("mock-1", "mock-model", false));
+        ChatClient c = AiApi.getByName("mock-1", ChatClient.class);
+        assertEquals("mock-answer:mock-model", c.ask(simpleReq()));
     }
 
     @Test
@@ -108,10 +128,18 @@ class AiApiTest {
     }
 
     @Test
-    void getDefaultReturnsDefault() {
+    void getByNameMissingCapabilityThrows() {
+        AiApi.register(endpointJson("mock-1", "mock-model", false));
+        // 该端点未声明 JSON 能力 → 取 json 抛异常
+        assertThrows(IllegalStateException.class,
+                () -> AiApi.getByName("mock-1").json());
+    }
+
+    @Test
+    void getDefaultReturnsClients() {
         AiApi.register(endpointJson("d", "default-model", true));
         assertEquals("mock-answer:default-model",
-                AiApi.getDefault().chat(simpleReq()).text());
+                AiApi.getDefault().chat().chat(simpleReq()).text());
     }
 
     @Test
@@ -123,14 +151,15 @@ class AiApiTest {
     void getByContextWithoutRouterFallsBackToDefault() {
         AiApi.register(endpointJson("d", "default-model", true));
         assertEquals("mock-answer:default-model",
-                AiApi.getByContext(TaskContext.empty()).chat(simpleReq()).text());
+                AiApi.getByContext(TaskContext.empty()).chat().chat(simpleReq()).text());
     }
 
     @Test
     void getByContextWithRouter() {
         AiApi.register(endpointJson("d", "default-model", true));
         AiApi.register("{\"id\":\"c\",\"apiKind\":\"OPENAI_LIKE\",\"modelId\":\"chosen-model\"," +
-                "\"baseUrl\":\"http://c\",\"spec\":{\"kind\":\"reasoning\"}}");
+                "\"baseUrl\":\"http://c\",\"capabilities\":[\"CHAT\",\"STREAM\"]," +
+                "\"spec\":{\"kind\":\"reasoning\"}}");
         AiApi.setRouter((endpoints, ctx) -> {
             for (Endpoint e : endpoints) {
                 if ("reasoning".equals(e.spec().get("kind"))) {
@@ -140,7 +169,7 @@ class AiApiTest {
             return null;
         });
         assertEquals("mock-answer:chosen-model",
-                AiApi.getByContext(TaskContext.of("need", "reasoning")).chat(simpleReq()).text());
+                AiApi.getByContext(TaskContext.of("need", "reasoning")).chat().chat(simpleReq()).text());
     }
 
     @Test
@@ -148,7 +177,7 @@ class AiApiTest {
         AiApi.register(endpointJson("d", "default-model", true));
         AiApi.setRouter((endpoints, ctx) -> null);
         assertEquals("mock-answer:default-model",
-                AiApi.getByContext(TaskContext.empty()).chat(simpleReq()).text());
+                AiApi.getByContext(TaskContext.empty()).chat().chat(simpleReq()).text());
     }
 
     @Test
@@ -158,7 +187,7 @@ class AiApiTest {
             throw new RuntimeException("router boom");
         });
         assertEquals("mock-answer:default-model",
-                AiApi.getByContext(TaskContext.empty()).chat(simpleReq()).text());
+                AiApi.getByContext(TaskContext.empty()).chat().chat(simpleReq()).text());
     }
 
     @Test
@@ -172,8 +201,16 @@ class AiApiTest {
     @Test
     void streamingCapabilityDetected() {
         AiApi.register(endpointJson("mock-1", "mock-model", false));
-        ChatClient client = AiApi.getByName("mock-1");
-        assertInstanceOf(StreamingClient.class, client);
-        assertEquals("mock-answer", ((StreamingClient) client).stream(null).collectText());
+        EndpointClients clients = AiApi.getByName("mock-1");
+        assertTrue(clients.supports(StreamingClient.class));
+        assertEquals("mock-answer", clients.stream().stream(null).collectText());
+    }
+
+    @Test
+    void clientsContainerRejectsMissing() {
+        AiApi.register(endpointJson("mock-1", "mock-model", false));
+        EndpointClients clients = AiApi.getByName("mock-1");
+        assertFalse(clients.supports(com.flora.ai.api.JsonClient.class));
+        assertThrows(IllegalStateException.class, clients::json);
     }
 }

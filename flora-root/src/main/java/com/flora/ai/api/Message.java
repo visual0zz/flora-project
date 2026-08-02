@@ -23,6 +23,17 @@ public record Message(Role role, List<ContentBlock> content,
         USER, ASSISTANT, TOOL
     }
 
+    /** 便捷：拼接全部文本块的内容（忽略图片/音频/文件块）。 */
+    public String text() {
+        StringBuilder sb = new StringBuilder();
+        for (ContentBlock b : content) {
+            if (b instanceof ContentBlock.Text t) {
+                sb.append(t.text());
+            }
+        }
+        return sb.toString();
+    }
+
     /** 便捷构造：纯文本消息。 */
     public static Message of(Role role, String text) {
         return new Message(role, List.of(new ContentBlock.Text(text)), List.of(), null, null, false);

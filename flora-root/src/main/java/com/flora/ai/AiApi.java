@@ -8,9 +8,10 @@ import com.flora.ai.api.provider.DeepSeekProvider;
 import com.flora.ai.api.provider.GeminiProvider;
 import com.flora.ai.api.provider.OpenAiCompatibleProvider;
 import com.flora.ai.api.provider.OpenAiProvider;
+import com.flora.ai.api.spi.AiProvider;
 import com.flora.ai.api.spi.Router;
 import com.flora.ai.api.spi.TaskContext;
-import com.flora.ai.api.spi.AiProvider;
+import com.flora.codec.json.JsonBuilder;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -19,25 +20,29 @@ import java.util.Map;
 import java.util.ServiceLoader;
 
 /**
- * AI 统一接入门面：模型目录 + 注册 + client 创建。不参与路由分发。
- * <p><b>职责</b>：provider 注册（内置代码注册，外部 SPI 附加）、client 注册（JSON）、
- * 列出模型目录、按明确指定的模型创建 client。</p>
- * <p><b>不职责</b>：自动路由选模型——由用户注册的 {@link Router} 负责；
- * 未注册 Router 时 {@link #routed(TaskContext)} 一律返回默认模型。</p>
+ * AI 统一接入门面：注册与使用分离。
+ * <p><b>注册阶段</b>（加载时）：从配置读出所有端点注册（{@link #register}/{@link #registerAll}），
+ * 并注册路由解析器（{@link #setRouter}）。</p>
+ * <p><b>使用阶段</b>：只通过三个获取接口获得 client：
+ * {@link #getByContext}（Router 按任务上下文选）、{@link #getByName}（按注册名取特定）、
+ * {@link #getDefault}（默认）。</p>
  *
  * <pre>{@code
- * Endpoint m = AiApi.register("{\"apiKind\":\"OPENAI_OFFICIAL\",\"modelId\":\"gpt-5\",...}");
- * ChatClient c = AiApi.client(m);                      // 按注册端点创建
- * String answer = c.ask(ChatRequest.builder().message(...).build());
+ * // 加载阶段
+ * AiApi.registerAll("[{\"apiKind\":\"OPENAI_OFFICIAL\",\"modelId\":\"gpt-5\",...}, ...]");
+ * AiApi.setRouter((endpoints, ctx) -> ...);
  *
- * AiApi.setRouter((models, ctx) -> ...);               // 自定义路由
- * ChatClient rc = AiApi.routed(TaskContext.of("kind", "reasoning"));
+ * // 使用阶段
+ * ChatClient c = AiApi.getByContext(TaskContext.of("kind", "reasoning"));
+ * ChatClient specific = AiApi.getByName("my-gpt");
+ * ChatClient def = AiApi.getDefault();
+ * String answer = c.ask(ChatRequest.builder().message(...).build());
  * }</pre>
  */
 public final class AiApi {
 
     private static final List<AiProvider> PROVIDERS = new ArrayList<>();
-    private static final Map<String, Endpoint> MODELS = new LinkedHashMap<>();
+    private static final Map<String, Endpoint> CLIENTS = new LinkedHashMap<>();
     private static Router router;
 
     static {
@@ -72,82 +77,49 @@ public final class AiApi {
         return List.copyOf(PROVIDERS);
     }
 
-    // ── client 注册（JSON）──
+    // ── 注册阶段 ──
 
     /**
-     * 注册 client：解析 JSON 并加入目录。
+     * 注册单端点：解析 JSON 并加入目录。
      * <p>核心字段：{@code id}/{@code apiKind}/{@code modelId}/{@code baseUrl}/
-     * {@code apiKey}/{@code default}/{@code tags}/{@code spec}，其余字段进 {@code extra}。
-     * 若 {@code default:true} 而目录中已有默认模型，则抛 {@link IllegalArgumentException}。
-     * 重复注册相同 id 会覆盖。</p>
+     * {@code apiKey}/{@code default}/{@code tags}/{@code spec}，其余字段进 {@code extra}
+     * （供 Router 读取）。若 {@code default:true} 而目录中已有默认端点，则抛
+     * {@link IllegalArgumentException}。重复注册相同 id 会覆盖。</p>
      */
     public static Endpoint register(String jsonConfig) {
-        Endpoint model = Endpoint.fromJson(jsonConfig);
-        return register(model);
+        return register(Endpoint.fromJson(jsonConfig));
     }
 
-    /** 注册 client：直接传入模型对象。 */
-    public static Endpoint register(Endpoint model) {
-        if (model.isDefault()) {
-            Endpoint existing = defaultModel();
-            if (existing != null && !existing.id().equals(model.id())) {
-                throw new IllegalArgumentException("默认模型已存在: " + existing.id()
+    /**
+     * 批量注册：解析配置 JSON 数组并逐个注册。
+     * <p>任一项 {@code default:true} 与已有默认冲突时抛异常（default 必须唯一）。</p>
+     */
+    public static List<Endpoint> registerAll(String jsonArray) {
+        List<?> list = com.flora.codec.json.JsonParser.parseArray(jsonArray);
+        List<Endpoint> registered = new ArrayList<>();
+        for (Object item : list) {
+            registered.add(register(JsonBuilder.toJsonString(item)));
+        }
+        return registered;
+    }
+
+    /** 注册端点：直接传入对象。 */
+    public static Endpoint register(Endpoint endpoint) {
+        if (endpoint.isDefault()) {
+            Endpoint existing = getDefaultEndpoint();
+            if (existing != null && !existing.id().equals(endpoint.id())) {
+                throw new IllegalArgumentException("默认端点已存在: " + existing.id()
                         + "，default 必须唯一");
             }
         }
-        MODELS.put(model.id(), model);
-        return model;
+        CLIENTS.put(endpoint.id(), endpoint);
+        return endpoint;
     }
 
-    /** 注销 client。 */
+    /** 注销端点。 */
     public static void unregister(String id) {
-        MODELS.remove(id);
+        CLIENTS.remove(id);
     }
-
-    // ── 目录（不路由）──
-
-    /** 列出所有注册端点。 */
-    public static List<Endpoint> models() {
-        return List.copyOf(MODELS.values());
-    }
-
-    /** 默认模型（isDefault=true）；无则 null。 */
-    public static Endpoint defaultModel() {
-        for (Endpoint m : MODELS.values()) {
-            if (m.isDefault()) {
-                return m;
-            }
-        }
-        return null;
-    }
-
-    // ── 创建 client（按明确指定的模型/端点）──
-
-    /** 按注册端点创建 client；无对应 provider 抛异常。 */
-    public static ChatClient client(Endpoint model) {
-        if (model == null) {
-            throw new IllegalArgumentException("model 不能为空");
-        }
-        AiProvider provider = providerFor(model.apiKind());
-        return provider.createClient(model);
-    }
-
-    /** 便捷：按 API 类型 + 端点创建 client（不入目录，不设 default）。 */
-    public static ChatClient client(ApiKind kind, String baseUrl, String apiKey) {
-        Endpoint m = Endpoint.of(kind, "model", baseUrl, apiKey);
-        return providerFor(kind).createClient(m);
-    }
-
-    private static AiProvider providerFor(ApiKind kind) {
-        for (AiProvider p : PROVIDERS) {
-            if (p.apiKind() == kind) {
-                return p;
-            }
-        }
-        throw new IllegalArgumentException("没有 provider 支持 apiKind: " + kind);
-    }
-
-    // ── Router（路由由用户负责）──
 
     /** 注册路由解析器。 */
     public static void setRouter(Router router) {
@@ -159,27 +131,77 @@ public final class AiApi {
         return router;
     }
 
+    // ── 使用阶段：三个获取接口 ──
+
     /**
-     * 路由辅助：用 Router 从注册端点中选择并返回其 client。
-     * <p>未注册 Router、或 route 返回 null、或路由抛异常 → fallback 到默认模型
-     * （无默认模型则抛异常）。真正路由决策由用户 Router 完成。</p>
+     * 按任务上下文获取 client：Router 从注册端点中选择。
+     * <p>未注册 Router、route 返回 null、或路由抛异常 → fallback 到默认端点。
+     * 无默认端点则抛 {@link IllegalStateException}。</p>
      */
-    public static ChatClient routed(TaskContext context) {
+    public static ChatClient getByContext(TaskContext context) {
         Endpoint selected = null;
         Router r = router;
         if (r != null) {
             try {
-                selected = r.route(models(), context);
+                selected = r.route(clients(), context);
             } catch (RuntimeException ignored) {
                 // 路由异常 → fallback 默认
             }
         }
         if (selected == null) {
-            selected = defaultModel();
+            selected = getDefaultEndpoint();
         }
         if (selected == null) {
-            throw new IllegalStateException("无可用模型：未注册 Router 且没有默认模型");
+            throw new IllegalStateException("无可用端点：未注册 Router 且没有默认端点");
         }
-        return client(selected);
+        return createClient(selected);
+    }
+
+    /** 按注册名获取特定 client；未注册抛 {@link IllegalArgumentException}。 */
+    public static ChatClient getByName(String id) {
+        Endpoint endpoint = CLIENTS.get(id);
+        if (endpoint == null) {
+            throw new IllegalArgumentException("未注册端点: " + id);
+        }
+        return createClient(endpoint);
+    }
+
+    /** 获取默认 client；无默认端点抛 {@link IllegalStateException}。 */
+    public static ChatClient getDefault() {
+        Endpoint endpoint = getDefaultEndpoint();
+        if (endpoint == null) {
+            throw new IllegalStateException("未注册默认端点");
+        }
+        return createClient(endpoint);
+    }
+
+    // ── 管理 ──
+
+    /** 列出所有注册端点。 */
+    public static List<Endpoint> clients() {
+        return List.copyOf(CLIENTS.values());
+    }
+
+    /** 默认端点（isDefault=true）；无则 null。 */
+    private static Endpoint getDefaultEndpoint() {
+        for (Endpoint e : CLIENTS.values()) {
+            if (e.isDefault()) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    private static ChatClient createClient(Endpoint endpoint) {
+        return providerFor(endpoint.apiKind()).createClient(endpoint);
+    }
+
+    private static AiProvider providerFor(ApiKind kind) {
+        for (AiProvider p : PROVIDERS) {
+            if (p.apiKind() == kind) {
+                return p;
+            }
+        }
+        throw new IllegalArgumentException("没有 provider 支持 apiKind: " + kind);
     }
 }

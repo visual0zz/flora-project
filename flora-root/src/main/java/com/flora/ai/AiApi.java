@@ -3,8 +3,11 @@ package com.flora.ai;
 import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.Capability;
 import com.flora.ai.api.ChatClient;
+import com.flora.ai.api.ClientSpec;
 import com.flora.ai.api.Endpoint;
-import com.flora.ai.api.EndpointClients;
+import com.flora.ai.api.JsonClient;
+import com.flora.ai.api.MultimodalClient;
+import com.flora.ai.api.StreamingClient;
 import com.flora.ai.api.provider.AnthropicOfficialProvider;
 import com.flora.ai.api.provider.DeepSeekOfficialProvider;
 import com.flora.ai.api.provider.GeminiOfficialProvider;
@@ -16,7 +19,6 @@ import com.flora.ai.api.spi.TaskContext;
 import com.flora.codec.json.JsonBuilder;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,19 +29,22 @@ import java.util.ServiceLoader;
  * <p><b>注册阶段</b>（加载时）：从配置读出所有端点注册（{@link #register}/{@link #registerAll}），
  * 并注册路由解析器（{@link #setRouter}）。注册时校验端点声明的 {@code capabilities}
  * 必须被对应 provider 支持，否则报错。</p>
- * <p><b>使用阶段</b>：获取端点后通过 {@link EndpointClients} 按能力取单能力 client：
- * {@link #getByContext}（Router 选端点）、{@link #getByName}（按注册名取特定）、
- * {@link #getDefault}（默认）。</p>
+ * <p><b>使用阶段</b>：获取单个能力 client——采用 chat/stream/json 的能力信息由
+ * {@link TaskContext} 携带，{@link Router} 据此返回 {@link ClientSpec}（端点+能力），
+ * {@link #getByContext} 构造并返回对应 client；或通过 {@link #getByName}/{@link #getDefault}
+ * 带 {@code Class} 参数明确指定能力。</p>
  *
  * <pre>{@code
  * // 加载阶段
  * AiApi.registerAll("[{\"apiKind\":\"OPENAI_OFFICIAL\",\"modelId\":\"gpt-5\",...}, ...]");
  * AiApi.setRouter((endpoints, ctx) -> ...);
  *
- * // 使用阶段
- * EndpointClients clients = AiApi.getByContext(TaskContext.of("kind", "reasoning"));
- * String answer = clients.chat().ask(ChatRequest.builder().message(...).build());
- * ChatClient specific = AiApi.getByName("my-gpt", ChatClient.class);
+ * // 使用阶段：能力由调用方左侧类型指定（Router 需返回对应能力的 ClientSpec）
+ * ChatClient chat = AiApi.getByContext(TaskContext.of("capability", "CHAT"));
+ * String answer = chat.ask(ChatRequest.builder().message(...).build());
+ *
+ * // 或明确指定
+ * StreamingClient stream = AiApi.getByName("my-gpt", StreamingClient.class);
  * }</pre>
  */
 public final class AiApi {
@@ -149,53 +154,54 @@ public final class AiApi {
         return router;
     }
 
-    // ── 使用阶段 ──
+    // ── 使用阶段：返回单个 client ──
 
     /**
-     * 按任务上下文获取端点的 client 容器：Router 从注册端点中选择。
-     * <p>未注册 Router、route 返回 null、或路由抛异常 → fallback 到默认端点。
-     * 无默认端点则抛 {@link IllegalStateException}。</p>
+     * 按任务上下文获取单个能力 client。
+     * <p>Router 根据 ctx（含能力信息）返回 {@link ClientSpec}；未注册 Router、
+     * route 返回 null、或路由抛异常 → fallback 默认端点 + CHAT 能力。
+     * 返回类型由调用方左侧变量指定（如 {@code ChatClient c = getByContext(ctx)}），
+     * 若 Router 返回的能力与目标类型不符则 {@link ClassCastException}。</p>
      */
-    public static EndpointClients getByContext(TaskContext context) {
-        Endpoint selected = null;
+    @SuppressWarnings("unchecked")
+    public static <T> T getByContext(TaskContext context) {
+        ClientSpec spec = null;
         Router r = router;
         if (r != null) {
             try {
-                selected = r.route(endpoints(), context);
+                spec = r.route(endpoints(), context);
             } catch (RuntimeException ignored) {
                 // 路由异常 → fallback 默认
             }
         }
-        if (selected == null) {
-            selected = getDefaultEndpoint();
+        if (spec == null) {
+            Endpoint def = getDefaultEndpoint();
+            if (def == null) {
+                throw new IllegalStateException("无可用端点：未注册 Router 且没有默认端点");
+            }
+            spec = ClientSpec.of(def, Capability.CHAT);
         }
-        if (selected == null) {
-            throw new IllegalStateException("无可用端点：未注册 Router 且没有默认端点");
-        }
-        return buildClients(selected);
-    }
-
-    /** 按注册名获取端点的 client 容器；未注册抛 {@link IllegalArgumentException}。 */
-    public static EndpointClients getByName(String id) {
-        Endpoint endpoint = CLIENTS.get(id);
-        if (endpoint == null) {
-            throw new IllegalArgumentException("未注册端点: " + id);
-        }
-        return buildClients(endpoint);
+        return (T) createClient(spec);
     }
 
     /** 按注册名 + 能力类型获取单能力 client。 */
     public static <T> T getByName(String id, Class<T> capabilityType) {
-        return getByName(id).as(capabilityType);
+        Endpoint endpoint = CLIENTS.get(id);
+        if (endpoint == null) {
+            throw new IllegalArgumentException("未注册端点: " + id);
+        }
+        Capability capability = capabilityOf(capabilityType);
+        return capabilityType.cast(createClient(ClientSpec.of(endpoint, capability)));
     }
 
-    /** 获取默认端点的 client 容器；无默认端点抛 {@link IllegalStateException}。 */
-    public static EndpointClients getDefault() {
+    /** 默认端点 + 指定能力的 client；无默认端点抛 {@link IllegalStateException}。 */
+    public static <T> T getDefault(Class<T> capabilityType) {
         Endpoint endpoint = getDefaultEndpoint();
         if (endpoint == null) {
             throw new IllegalStateException("未注册默认端点");
         }
-        return buildClients(endpoint);
+        Capability capability = capabilityOf(capabilityType);
+        return capabilityType.cast(createClient(ClientSpec.of(endpoint, capability)));
     }
 
     // ── 管理 ──
@@ -215,26 +221,25 @@ public final class AiApi {
         return null;
     }
 
-    /** 按端点声明的能力构造一批单能力 client。 */
-    private static EndpointClients buildClients(Endpoint endpoint) {
-        AiProvider provider = providerFor(endpoint.apiKind());
-        Map<Class<?>, Object> clients = new HashMap<>();
-        for (Capability c : endpoint.capabilities()) {
-            Object client = provider.createClient(endpoint, c);
-            clients.put(interfaceOf(c), client);
-        }
-        return EndpointClients.of(clients);
+    private static Object createClient(ClientSpec spec) {
+        return providerFor(spec.endpoint().apiKind()).createClient(spec.endpoint(), spec.capability());
     }
 
-    /** 能力 → 对应 client 接口类型。 */
-    private static Class<?> interfaceOf(Capability c) {
-        return switch (c) {
-            case CHAT -> com.flora.ai.api.ChatClient.class;
-            case STREAM -> com.flora.ai.api.StreamingClient.class;
-            case JSON -> com.flora.ai.api.JsonClient.class;
-            case MULTIMODAL -> com.flora.ai.api.MultimodalClient.class;
-            default -> throw new IllegalArgumentException("能力尚无对应 client 接口: " + c);
-        };
+    /** Class → Capability 映射。 */
+    private static Capability capabilityOf(Class<?> type) {
+        if (type == ChatClient.class) {
+            return Capability.CHAT;
+        }
+        if (type == StreamingClient.class) {
+            return Capability.STREAM;
+        }
+        if (type == JsonClient.class) {
+            return Capability.JSON;
+        }
+        if (type == MultimodalClient.class) {
+            return Capability.MULTIMODAL;
+        }
+        throw new IllegalArgumentException("未知 client 能力类型: " + type.getName());
     }
 
     private static AiProvider providerFor(ApiKind kind) {

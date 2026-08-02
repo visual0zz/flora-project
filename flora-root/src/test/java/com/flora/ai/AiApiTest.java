@@ -4,8 +4,9 @@ import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.Capability;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
+import com.flora.ai.api.ClientSpec;
 import com.flora.ai.api.Endpoint;
-import com.flora.ai.api.EndpointClients;
+import com.flora.ai.api.JsonClient;
 import com.flora.ai.api.Message;
 import com.flora.ai.api.StreamingClient;
 import com.flora.ai.api.Tag;
@@ -16,7 +17,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * {@link AiApi} 门面：注册/使用分离 + 端点 client 容器测试。
+ * {@link AiApi} 门面：注册/使用分离 + 返回单个 client 测试。
  */
 class AiApiTest {
 
@@ -75,7 +76,6 @@ class AiApiTest {
 
     @Test
     void registerUnsupportedCapabilityThrows() {
-        // Anthropic 官方不支持 JSON，声明了 JSON 能力应报错
         assertThrows(IllegalArgumentException.class,
                 () -> AiApi.register("{\"id\":\"x\",\"apiKind\":\"ANTHROPIC_OFFICIAL\"," +
                         "\"modelId\":\"claude\",\"baseUrl\":\"http://x\"," +
@@ -88,7 +88,7 @@ class AiApiTest {
         var registered = AiApi.registerAll(jsonArray);
         assertEquals(2, registered.size());
         assertEquals(2, AiApi.endpoints().size());
-        assertEquals("mock-answer:mb", AiApi.getDefault().chat().ask(simpleReq()));
+        assertEquals("mock-answer:mb", AiApi.getDefault(ChatClient.class).ask(simpleReq()));
     }
 
     @Test
@@ -106,56 +106,57 @@ class AiApiTest {
         assertEquals(0, AiApi.endpoints().size());
     }
 
-    // ── 获取 ──
+    // ── 获取：返回单个 client ──
 
     @Test
-    void getByNameReturnsClients() {
-        AiApi.register(endpointJson("mock-1", "mock-model", false));
-        EndpointClients clients = AiApi.getByName("mock-1");
-        assertEquals("mock-answer:mock-model", clients.chat().chat(simpleReq()).text());
-    }
-
-    @Test
-    void getByNameWithClass() {
+    void getByNameReturnsChatClient() {
         AiApi.register(endpointJson("mock-1", "mock-model", false));
         ChatClient c = AiApi.getByName("mock-1", ChatClient.class);
         assertEquals("mock-answer:mock-model", c.ask(simpleReq()));
     }
 
     @Test
+    void getByNameReturnsStreamClient() {
+        AiApi.register(endpointJson("mock-1", "mock-model", false));
+        StreamingClient s = AiApi.getByName("mock-1", StreamingClient.class);
+        assertEquals("mock-answer", s.stream(null).collectText());
+    }
+
+    @Test
     void getByNameUnknownThrows() {
-        assertThrows(IllegalArgumentException.class, () -> AiApi.getByName("nope"));
+        assertThrows(IllegalArgumentException.class,
+                () -> AiApi.getByName("nope", ChatClient.class));
     }
 
     @Test
     void getByNameMissingCapabilityThrows() {
         AiApi.register(endpointJson("mock-1", "mock-model", false));
-        // 该端点未声明 JSON 能力 → 取 json 抛异常
-        assertThrows(IllegalStateException.class,
-                () -> AiApi.getByName("mock-1").json());
+        // 该端点未声明 JSON 能力
+        assertThrows(IllegalArgumentException.class,
+                () -> AiApi.getByName("mock-1", JsonClient.class));
     }
 
     @Test
-    void getDefaultReturnsClients() {
+    void getDefaultReturnsChatClient() {
         AiApi.register(endpointJson("d", "default-model", true));
         assertEquals("mock-answer:default-model",
-                AiApi.getDefault().chat().chat(simpleReq()).text());
+                AiApi.getDefault(ChatClient.class).ask(simpleReq()));
     }
 
     @Test
     void getDefaultNoDefaultThrows() {
-        assertThrows(IllegalStateException.class, AiApi::getDefault);
+        assertThrows(IllegalStateException.class, () -> AiApi.getDefault(ChatClient.class));
     }
 
     @Test
-    void getByContextWithoutRouterFallsBackToDefault() {
+    void getByContextWithoutRouterFallsBackToDefaultChat() {
         AiApi.register(endpointJson("d", "default-model", true));
-        assertEquals("mock-answer:default-model",
-                AiApi.getByContext(TaskContext.empty()).chat().chat(simpleReq()).text());
+        ChatClient c = AiApi.getByContext(TaskContext.empty());
+        assertEquals("mock-answer:default-model", c.ask(simpleReq()));
     }
 
     @Test
-    void getByContextWithRouter() {
+    void getByContextWithRouterReturnsChat() {
         AiApi.register(endpointJson("d", "default-model", true));
         AiApi.register("{\"id\":\"c\",\"apiKind\":\"OPENAI_LIKE\",\"modelId\":\"chosen-model\"," +
                 "\"baseUrl\":\"http://c\",\"capabilities\":[\"CHAT\",\"STREAM\"]," +
@@ -163,31 +164,50 @@ class AiApiTest {
         AiApi.setRouter((endpoints, ctx) -> {
             for (Endpoint e : endpoints) {
                 if ("reasoning".equals(e.spec().get("kind"))) {
-                    return e;
+                    return ClientSpec.of(e, Capability.CHAT);
                 }
             }
             return null;
         });
-        assertEquals("mock-answer:chosen-model",
-                AiApi.getByContext(TaskContext.of("need", "reasoning")).chat().chat(simpleReq()).text());
+        ChatClient c = AiApi.getByContext(TaskContext.of("need", "reasoning"));
+        assertEquals("mock-answer:chosen-model", c.ask(simpleReq()));
     }
 
     @Test
-    void getByContextRouterReturnsNullFallsBackToDefault() {
+    void getByContextWithRouterReturnsStream() {
+        AiApi.register(endpointJson("d", "default-model", true));
+        AiApi.register("{\"id\":\"c\",\"apiKind\":\"OPENAI_LIKE\",\"modelId\":\"chosen-model\"," +
+                "\"baseUrl\":\"http://c\",\"capabilities\":[\"CHAT\",\"STREAM\"]," +
+                "\"spec\":{\"kind\":\"reasoning\"}}");
+        // Router 读 ctx 能力信息，返回 STREAM 能力的 ClientSpec
+        AiApi.setRouter((endpoints, ctx) -> {
+            for (Endpoint e : endpoints) {
+                if ("reasoning".equals(e.spec().get("kind"))) {
+                    return ClientSpec.of(e, Capability.STREAM);
+                }
+            }
+            return null;
+        });
+        StreamingClient s = AiApi.getByContext(TaskContext.of("capability", "STREAM"));
+        assertEquals("mock-answer", s.stream(null).collectText());
+    }
+
+    @Test
+    void getByContextRouterReturnsNullFallsBackToDefaultChat() {
         AiApi.register(endpointJson("d", "default-model", true));
         AiApi.setRouter((endpoints, ctx) -> null);
-        assertEquals("mock-answer:default-model",
-                AiApi.getByContext(TaskContext.empty()).chat().chat(simpleReq()).text());
+        ChatClient c = AiApi.getByContext(TaskContext.empty());
+        assertEquals("mock-answer:default-model", c.ask(simpleReq()));
     }
 
     @Test
-    void getByContextRouterThrowsFallsBackToDefault() {
+    void getByContextRouterThrowsFallsBackToDefaultChat() {
         AiApi.register(endpointJson("d", "default-model", true));
         AiApi.setRouter((endpoints, ctx) -> {
             throw new RuntimeException("router boom");
         });
-        assertEquals("mock-answer:default-model",
-                AiApi.getByContext(TaskContext.empty()).chat().chat(simpleReq()).text());
+        ChatClient c = AiApi.getByContext(TaskContext.empty());
+        assertEquals("mock-answer:default-model", c.ask(simpleReq()));
     }
 
     @Test
@@ -196,21 +216,16 @@ class AiApiTest {
                 () -> AiApi.getByContext(TaskContext.empty()));
     }
 
-    // ── 能力发现 ──
-
     @Test
-    void streamingCapabilityDetected() {
-        AiApi.register(endpointJson("mock-1", "mock-model", false));
-        EndpointClients clients = AiApi.getByName("mock-1");
-        assertTrue(clients.supports(StreamingClient.class));
-        assertEquals("mock-answer", clients.stream().stream(null).collectText());
-    }
-
-    @Test
-    void clientsContainerRejectsMissing() {
-        AiApi.register(endpointJson("mock-1", "mock-model", false));
-        EndpointClients clients = AiApi.getByName("mock-1");
-        assertFalse(clients.supports(com.flora.ai.api.JsonClient.class));
-        assertThrows(IllegalStateException.class, clients::json);
+    void getByContextTypeMismatchThrows() {
+        AiApi.register(endpointJson("d", "default-model", true));
+        // Router 返回 CHAT 的 ClientSpec，但调用方声明 StreamingClient
+        AiApi.setRouter((endpoints, ctx) ->
+                ClientSpec.of(endpoints.get(0), Capability.CHAT));
+        // 泛型 T 在赋值给 StreamingClient 时 JVM checkcast → ClassCastException
+        assertThrows(ClassCastException.class, () -> {
+            StreamingClient s = AiApi.getByContext(TaskContext.empty());
+            s.toString();
+        });
     }
 }

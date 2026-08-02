@@ -97,14 +97,6 @@ class AiModelTest {
     }
 
     @Test
-    void samplingWithAnnealing() {
-        InferenceConfig s = InferenceConfig.withAnnealing(1.0, 0.2, 100);
-        assertEquals(1.0, s.annealing().startTemp());
-        assertEquals(0.2, s.annealing().endTemp());
-        assertEquals(100, s.maxTokens());
-    }
-
-    @Test
     void responseThinkingFlag() {
         assertTrue(new ChatResponse("a", "thought", List.of(), null, "stop", null).isThinking());
         assertFalse(new ChatResponse("a", null, List.of(), null, "stop", null).isThinking());

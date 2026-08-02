@@ -69,9 +69,6 @@ public final class GeminiProtocol {
             if (c.topP() != null) {
                 genConfig.put("topP", c.topP());
             }
-            if (c.topK() != null) {
-                genConfig.put("topK", c.topK());
-            }
             if (c.maxTokens() != null) {
                 genConfig.put("maxOutputTokens", c.maxTokens());
             }

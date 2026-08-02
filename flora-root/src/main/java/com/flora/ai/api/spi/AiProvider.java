@@ -13,7 +13,7 @@ import com.flora.ai.api.Endpoint;
  * <pre>{@code
  * public final class MyProvider implements AiProvider {
  *     public ApiKind apiKind() { return ApiKind.OPENAI_COMPATIBLE; }
- *     public ChatClient createClient(Endpoint model) { return new MyClient(model); }
+ *     public ChatClient createClient(Endpoint endpoint) { return new MyClient(endpoint); }
  * }
  * }</pre>
  */
@@ -26,5 +26,5 @@ public interface AiProvider {
     String name();
 
     /** 按注册端点创建客户端（实现类按需实现 StreamingClient/JsonClient/MultimodalClient）。 */
-    ChatClient createClient(Endpoint model);
+    ChatClient createClient(Endpoint endpoint);
 }

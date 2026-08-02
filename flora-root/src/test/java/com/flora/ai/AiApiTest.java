@@ -20,7 +20,7 @@ class AiApiTest {
 
     @AfterEach
     void cleanup() {
-        for (Endpoint e : AiApi.clients()) {
+        for (Endpoint e : AiApi.endpoints()) {
             AiApi.unregister(e.id());
         }
         AiApi.setRouter(null);
@@ -73,7 +73,7 @@ class AiApiTest {
         String jsonArray = "[" + endpointJson("a", "ma", false) + "," + endpointJson("b", "mb", true) + "]";
         var registered = AiApi.registerAll(jsonArray);
         assertEquals(2, registered.size());
-        assertEquals(2, AiApi.clients().size());
+        assertEquals(2, AiApi.endpoints().size());
         // b 为 default，getDefault 返回其 client
         assertEquals("mock-answer:mb", AiApi.getDefault().ask(simpleReq()));
     }
@@ -88,9 +88,9 @@ class AiApiTest {
     @Test
     void unregisterRemovesEndpoint() {
         AiApi.register(endpointJson("m1", "x", false));
-        assertEquals(1, AiApi.clients().size());
+        assertEquals(1, AiApi.endpoints().size());
         AiApi.unregister("m1");
-        assertEquals(0, AiApi.clients().size());
+        assertEquals(0, AiApi.endpoints().size());
     }
 
     // ── 三个获取接口 ──

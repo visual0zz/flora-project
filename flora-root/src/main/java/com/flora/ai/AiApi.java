@@ -61,9 +61,13 @@ public final class AiApi {
     private AiApi() {
     }
 
-    // ── provider 注册 ──
+    // ── provider 注册（低层接口）──
 
-    /** 注册 provider（内置代码注册 / 外部 SPI 附加）。 */
+    /**
+     * 注册 provider（内置代码注册 / 外部 SPI 附加）。
+     * <p>低层接口：普通使用只需注册端点（{@link #register}），内置五家 provider
+     * 已自动注册，外部厂商经 SPI 或本方法追加。</p>
+     */
     public static void registerProvider(AiProvider provider) {
         if (provider == null) {
             throw new IllegalArgumentException("provider 不能为空");
@@ -143,7 +147,7 @@ public final class AiApi {
         Router r = router;
         if (r != null) {
             try {
-                selected = r.route(clients(), context);
+                selected = r.route(endpoints(), context);
             } catch (RuntimeException ignored) {
                 // 路由异常 → fallback 默认
             }
@@ -178,7 +182,7 @@ public final class AiApi {
     // ── 管理 ──
 
     /** 列出所有注册端点。 */
-    public static List<Endpoint> clients() {
+    public static List<Endpoint> endpoints() {
         return List.copyOf(CLIENTS.values());
     }
 

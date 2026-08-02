@@ -23,21 +23,21 @@ import java.util.concurrent.BlockingQueue;
  */
 public final class GeminiClient implements ChatClient, StreamingClient, JsonClient {
 
-    private final Endpoint model;
+    private final Endpoint endpoint;
     private final HttpTransport http;
 
-    public GeminiClient(Endpoint model, HttpTransport http) {
-        this.model = model;
+    public GeminiClient(Endpoint endpoint, HttpTransport http) {
+        this.endpoint = endpoint;
         this.http = http;
     }
 
     private String url(boolean stream) {
-        String base = model.baseUrl() + "/v1beta/models/" + model.modelId();
+        String base = endpoint.baseUrl() + "/v1beta/models/" + endpoint.modelId();
         return stream ? base + ":streamGenerateContent?alt=sse" : base + ":generateContent";
     }
 
     private Map<String, String> headers() {
-        return Map.of("x-goog-api-key", model.apiKey() == null ? "" : model.apiKey());
+        return Map.of("x-goog-api-key", endpoint.apiKey() == null ? "" : endpoint.apiKey());
     }
 
     @Override

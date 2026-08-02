@@ -31,21 +31,21 @@ public final class MockAiProvider implements AiProvider {
     }
 
     @Override
-    public ChatClient createClient(Endpoint model) {
-        return new MockClient(model);
+    public ChatClient createClient(Endpoint endpoint) {
+        return new MockClient(endpoint);
     }
 
     /** mock 客户端：对话返回固定文本，流式返回固定事件序列。 */
     static final class MockClient implements ChatClient, StreamingClient {
-        private final Endpoint model;
+        private final Endpoint endpoint;
 
-        MockClient(Endpoint model) {
-            this.model = model;
+        MockClient(Endpoint endpoint) {
+            this.endpoint = endpoint;
         }
 
         @Override
         public ChatResponse chat(ChatRequest request) {
-            return new ChatResponse("mock-answer:" + model.modelId(),
+            return new ChatResponse("mock-answer:" + endpoint.modelId(),
                     null, new TokenUsage(1, 1, 0, 0), "stop", null);
         }
 

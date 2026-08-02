@@ -26,31 +26,31 @@ import java.util.concurrent.BlockingQueue;
  */
 public final class OpenAiClient implements ChatClient, StreamingClient, JsonClient {
 
-    private final Endpoint model;
+    private final Endpoint endpoint;
     private final HttpTransport http;
 
-    public OpenAiClient(Endpoint model, HttpTransport http) {
-        this.model = model;
+    public OpenAiClient(Endpoint endpoint, HttpTransport http) {
+        this.endpoint = endpoint;
         this.http = http;
     }
 
     private String url() {
-        return model.baseUrl() + "/v1/chat/completions";
+        return endpoint.baseUrl() + "/v1/chat/completions";
     }
 
     private Map<String, String> headers() {
-        return Map.of("Authorization", "Bearer " + (model.apiKey() == null ? "" : model.apiKey()));
+        return Map.of("Authorization", "Bearer " + (endpoint.apiKey() == null ? "" : endpoint.apiKey()));
     }
 
     @Override
     public ChatResponse chat(ChatRequest request) {
-        String json = http.postJson(url(), headers(), OpenAiProtocol.buildRequest(request, model.modelId()));
+        String json = http.postJson(url(), headers(), OpenAiProtocol.buildRequest(request, endpoint.modelId()));
         return OpenAiProtocol.parseResponse(json);
     }
 
     @Override
     public StreamIterator stream(ChatRequest request) {
-        String body = JsonBuilder.toJsonString(OpenAiProtocol.buildRequestMap(request, model.modelId(), true));
+        String body = JsonBuilder.toJsonString(OpenAiProtocol.buildRequestMap(request, endpoint.modelId(), true));
         BlockingQueue<StreamEvent> queue = new ArrayBlockingQueue<>(64);
         http.streamSse(url(), headers(), body, data -> {
             if (SseParser.DONE.equals(data)) {

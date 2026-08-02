@@ -20,16 +20,16 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 /**
- * OpenAI Chat Completions 客户端：对话 + 流式 + JSON 模式。
- * <p>同时服务 {@code OPENAI_OFFICIAL}/{@code OPENAI_COMPATIBLE}/{@code DEEPSEEK_OFFICIAL}
- * 三类 OpenAI 兼容接口。</p>
+ * OpenAI 官方客户端：对话 + 流式 + JSON 模式。
+ * <p>绑定 {@code OPENAI_OFFICIAL}，JSON 模式支持 {@code json_object} 与
+ * {@code json_schema}（完整 OpenAI structured outputs）。</p>
  */
-public final class OpenAiClient implements ChatClient, StreamingClient, JsonClient {
+public final class OpenAiOfficialClient implements ChatClient, StreamingClient, JsonClient {
 
     private final Endpoint endpoint;
     private final HttpTransport http;
 
-    public OpenAiClient(Endpoint endpoint, HttpTransport http) {
+    public OpenAiOfficialClient(Endpoint endpoint, HttpTransport http) {
         this.endpoint = endpoint;
         this.http = http;
     }
@@ -80,7 +80,9 @@ public final class OpenAiClient implements ChatClient, StreamingClient, JsonClie
 
     @Override
     public Map<String, Object> chatJson(ChatRequest request) {
-        ChatResponse resp = chat(request);
-        return com.flora.codec.json.JsonParser.parseObject(resp.text());
+        String body = JsonBuilder.toJsonString(OpenAiProtocol.buildRequestMap(request,
+                endpoint.modelId(), false, Map.of("type", "json_object")));
+        String json = http.postJson(url(), headers(), body);
+        return com.flora.codec.json.JsonParser.parseObject(OpenAiProtocol.parseResponse(json).text());
     }
 }

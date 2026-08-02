@@ -19,31 +19,41 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * OpenAI Chat Completions 协议翻译。
- * <p>把统一 {@link ChatRequest} 翻译为 OpenAI 请求 JSON，并解析响应 JSON。
- * 逻辑与网络解耦，便于单测。</p>
+ * DeepSeek 官方协议翻译（独立于 OpenAI 协议）。
+ * <p>DeepSeek API 为 OpenAI Chat Completions 兼容格式，差异点：
+ * JSON 模式仅支持 {@code json_object}（不支持 {@code json_schema}）；
+ * {@code deepseek-reasoner} 模型不支持工具调用（请求带 tools 抛异常）。</p>
  */
-public final class OpenAiProtocol {
+public final class DeepSeekProtocol {
 
-    private OpenAiProtocol() {
+    /** reasoner 模型标识子串。 */
+    public static final String REASONER = "reasoner";
+
+    private DeepSeekProtocol() {
     }
 
-    /** 构建请求体 JSON（{@code stream=false}）。 */
-    public static String buildRequest(ChatRequest req, String modelId) {
-        return JsonBuilder.toJsonString(buildRequestMap(req, modelId, false));
+    /** 构建请求体 JSON。 */
+    public static String buildRequest(ChatRequest req, String modelId, boolean stream) {
+        return JsonBuilder.toJsonString(buildRequestMap(req, modelId, stream, null));
     }
 
-    public static Map<String, Object> buildRequestMap(ChatRequest req, String modelId, boolean stream) {
-        return buildRequestMap(req, modelId, stream, null);
-    }
-
-    /** 构建请求体 Map，支持 tools 与 JSON 模式（responseFormat 如 {"type":"json_object"}）。 */
+    /** 构建请求体 Map；responseFormat 仅接受 json_object。 */
     public static Map<String, Object> buildRequestMap(ChatRequest req, String modelId, boolean stream,
                                                       Map<String, Object> responseFormat) {
+        // reasoner 模型不支持工具调用
+        if (modelId != null && modelId.contains(REASONER)
+                && req.tools() != null && !req.tools().isEmpty()) {
+            throw new IllegalArgumentException("deepseek-reasoner 不支持工具调用");
+        }
+        // JSON 模式仅 json_object
+        if (responseFormat != null && !responseFormat.isEmpty()
+                && !"json_object".equals(responseFormat.get("type"))) {
+            throw new IllegalArgumentException("DeepSeek 仅支持 json_object，不支持: " + responseFormat.get("type"));
+        }
+
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", modelId);
         body.put("messages", buildMessages(req.messages()));
-
         if (req.tools() != null && !req.tools().isEmpty()) {
             body.put("tools", buildTools(req.tools()));
         }
@@ -62,48 +72,39 @@ public final class OpenAiProtocol {
             if (s.maxTokens() != null) {
                 body.put("max_tokens", s.maxTokens());
             }
-            if (s.seed() != null) {
-                body.put("seed", s.seed());
-            }
         }
-
         ThinkingConfig t = req.thinking();
         if (t != null && t.enabled() && t.effort() != null) {
             body.put("reasoning_effort", switch (t.effort()) {
                 case LOW -> "low";
                 case MEDIUM -> "medium";
                 case HIGH -> "high";
-                case MAX -> "high"; // OpenAI 无 max，映射到 high
+                case MAX -> "high";
             });
         }
-
         if (stream) {
             body.put("stream", true);
         }
         return body;
     }
 
-    /** 构建 messages 数组。 */
     private static List<Object> buildMessages(List<Message> messages) {
         List<Object> list = new ArrayList<>();
         for (Message m : messages) {
             Map<String, Object> msg = new LinkedHashMap<>();
             msg.put("role", m.role().name().toLowerCase());
-            // TOOL 角色：带 tool_call_id 回执
             if (m.role() == Message.Role.TOOL) {
                 msg.put("tool_call_id", m.toolCallId() == null ? "" : m.toolCallId());
                 msg.put("content", textOf(m));
                 list.add(msg);
                 continue;
             }
-            // ASSISTANT 带工具调用：content 用 null + tool_calls
             if (m.toolCalls() != null && !m.toolCalls().isEmpty()) {
                 msg.put("content", textOf(m));
                 msg.put("tool_calls", buildToolCalls(m.toolCalls()));
                 list.add(msg);
                 continue;
             }
-            // 纯文本单块 → String；否则内容块数组
             if (m.content().size() == 1 && m.content().get(0) instanceof ContentBlock.Text text) {
                 msg.put("content", text.text());
             } else {
@@ -138,7 +139,6 @@ public final class OpenAiProtocol {
         return list;
     }
 
-    /** 构建 tools 数组。 */
     private static List<Object> buildTools(List<ToolSpec> tools) {
         List<Object> list = new ArrayList<>();
         for (ToolSpec t : tools) {
@@ -154,7 +154,6 @@ public final class OpenAiProtocol {
         return list;
     }
 
-    /** 构建多模态 content 块数组（text/image_url）。 */
     private static List<Object> buildContentBlocks(List<ContentBlock> blocks) {
         List<Object> list = new ArrayList<>();
         for (ContentBlock b : blocks) {
@@ -165,27 +164,19 @@ public final class OpenAiProtocol {
                     m.put("text", text.text());
                     list.add(m);
                 }
-                case ContentBlock.Image img -> {
-                    Map<String, Object> inner = new LinkedHashMap<>();
-                    inner.put("url", img.dataUrl());
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("type", "image_url");
-                    m.put("image_url", inner);
-                    list.add(m);
-                }
-                default -> throw new IllegalArgumentException("OpenAI 不支持的内容块: " + b.getClass().getSimpleName());
+                default -> throw new IllegalArgumentException(
+                        "DeepSeek 不支持的内容块: " + b.getClass().getSimpleName());
             }
         }
         return list;
     }
 
-    /** 解析响应 JSON → ChatResponse。 */
+    /** 解析响应 JSON → ChatResponse（含 tool_calls）。 */
     public static ChatResponse parseResponse(String json) {
         Map<String, Object> root = JsonParser.parseObject(json);
         List<?> choices = JsonHelper.asList(root.get("choices"));
         Map<?, ?> choice = choices.isEmpty() ? null : JsonHelper.asMap(choices.get(0));
         Map<?, ?> message = choice == null ? null : JsonHelper.asMap(choice.get("message"));
-
         String text = message == null ? null : JsonHelper.str(message.get("content"));
         String thinking = message == null ? null : JsonHelper.str(message.get("reasoning_content"));
         List<ToolCall> toolCalls = message == null ? List.of() : parseToolCalls(message.get("tool_calls"));
@@ -194,7 +185,6 @@ public final class OpenAiProtocol {
         return new ChatResponse(text, thinking, toolCalls, usage, stopReason, root);
     }
 
-    /** 解析 tool_calls → List<ToolCall>（arguments 为 JSON 串，解析为 Map）。 */
     @SuppressWarnings("unchecked")
     private static List<ToolCall> parseToolCalls(Object o) {
         List<ToolCall> calls = new ArrayList<>();
@@ -219,7 +209,30 @@ public final class OpenAiProtocol {
         if (usage == null) {
             return TokenUsage.ZERO;
         }
-        return new TokenUsage(JsonHelper.intOf(usage.get("prompt_tokens")), JsonHelper.intOf(usage.get("completion_tokens")),
-                JsonHelper.intOf(usage.get("prompt_tokens_details")), 0);
+        return new TokenUsage(JsonHelper.intOf(usage.get("prompt_tokens")),
+                JsonHelper.intOf(usage.get("completion_tokens")), 0, 0);
+    }
+
+    /** 流式增量结果。 */
+    public record Delta(String text, boolean thinking) {
+    }
+
+    /** 从 SSE data 提取流式增量（choices[0].delta）。 */
+    public static Delta extractStreamDelta(String data) {
+        Map<String, Object> root = JsonParser.parseObject(data);
+        List<?> choices = JsonHelper.asList(root.get("choices"));
+        if (choices.isEmpty()) {
+            return null;
+        }
+        Map<String, Object> delta = JsonHelper.asMap(JsonHelper.asMap(choices.get(0)).get("delta"));
+        String text = JsonHelper.str(delta.get("content"));
+        if (text != null && !text.isEmpty()) {
+            return new Delta(text, false);
+        }
+        String thinking = JsonHelper.str(delta.get("reasoning_content"));
+        if (thinking != null && !thinking.isEmpty()) {
+            return new Delta(thinking, true);
+        }
+        return null;
     }
 }

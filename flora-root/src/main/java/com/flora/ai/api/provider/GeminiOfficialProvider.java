@@ -4,26 +4,26 @@ import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.impl.HttpTransport;
-import com.flora.ai.api.provider.client.OpenAiClient;
+import com.flora.ai.api.provider.client.GeminiOfficialClient;
 import com.flora.ai.api.spi.AiProvider;
 
 /**
- * OpenAI 官方提供者：绑定 {@link ApiKind#OPENAI_OFFICIAL}。
+ * Google Gemini 官方提供者：绑定 {@link ApiKind#GEMINI_OFFICIAL}。
  */
-public final class OpenAiProvider implements AiProvider {
+public final class GeminiOfficialProvider implements AiProvider {
 
     @Override
     public ApiKind apiKind() {
-        return ApiKind.OPENAI_OFFICIAL;
+        return ApiKind.GEMINI_OFFICIAL;
     }
 
     @Override
     public String name() {
-        return "openai";
+        return "gemini";
     }
 
     @Override
     public ChatClient createClient(Endpoint endpoint) {
-        return new OpenAiClient(endpoint, HttpTransport.create());
+        return new GeminiOfficialClient(endpoint, HttpTransport.create());
     }
 }

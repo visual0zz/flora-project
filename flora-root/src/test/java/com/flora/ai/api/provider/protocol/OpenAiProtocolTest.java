@@ -5,6 +5,8 @@ import com.flora.ai.api.ContentBlock;
 import com.flora.ai.api.Message;
 import com.flora.ai.api.SamplingConfig;
 import com.flora.ai.api.ThinkingConfig;
+import com.flora.ai.api.ToolCall;
+import com.flora.ai.api.ToolSpec;
 import com.flora.ai.api.provider.protocol.OpenAiProtocol;
 import com.flora.codec.json.JsonParser;
 import org.junit.jupiter.api.Test;
@@ -62,7 +64,7 @@ class OpenAiProtocolTest {
     void buildRequestMultimodal() {
         Message m = new Message(Message.Role.USER, List.of(
                 new ContentBlock.Text("what is this?"),
-                new ContentBlock.Image("data:image/png;base64,abc", "image/png")));
+                new ContentBlock.Image("data:image/png;base64,abc", "image/png")), List.of(), null, null);
         ChatRequest req = ChatRequest.builder().message(m).build();
         Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, MODEL, false);
         List<?> messages = (List<?>) body.get("messages");
@@ -98,5 +100,65 @@ class OpenAiProtocolTest {
         Map<?, ?> delta = (Map<?, ?>) ((Map<?, ?>) choices.get(0)).get("delta");
         assertEquals("Hello", delta.get("content"));
         assertEquals("hmm", delta.get("reasoning_content"));
+    }
+
+    // ── tools / response_format ──
+
+    @Test
+    void buildRequestTools() {
+        ChatRequest req = ChatRequest.builder()
+                .message(Message.of(Message.Role.USER, "hi"))
+                .tool(ToolSpec.of("get_weather", "查询天气",
+                        Map.of("type", "object")))
+                .build();
+        Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, MODEL, false);
+        List<?> tools = (List<?>) body.get("tools");
+        assertEquals(1, tools.size());
+        Map<?, ?> tool = (Map<?, ?>) tools.get(0);
+        assertEquals("function", tool.get("type"));
+        assertEquals("get_weather", ((Map<?, ?>) tool.get("function")).get("name"));
+    }
+
+    @Test
+    void buildRequestResponseFormatJsonObject() {
+        ChatRequest req = ChatRequest.builder()
+                .message(Message.of(Message.Role.USER, "hi"))
+                .build();
+        Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, MODEL, false,
+                Map.of("type", "json_object"));
+        assertEquals("json_object", ((Map<?, ?>) body.get("response_format")).get("type"));
+    }
+
+    @Test
+    void buildRequestToolResultMessage() {
+        ChatRequest req = ChatRequest.builder()
+                .messages(List.of(
+                        Message.of(Message.Role.USER, "weather?"),
+                        Message.assistantWithCalls(
+                                List.of(ToolCall.of("call_1", "get_weather", Map.of("city", "bj"))), null),
+                        Message.toolResult("call_1", "sunny")))
+                .build();
+        Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, MODEL, false);
+        List<?> messages = (List<?>) body.get("messages");
+        assertEquals(3, messages.size());
+        Map<?, ?> toolMsg = (Map<?, ?>) messages.get(2);
+        assertEquals("tool", toolMsg.get("role"));
+        assertEquals("call_1", toolMsg.get("tool_call_id"));
+    }
+
+    @Test
+    void parseResponseToolCalls() {
+        String json = """
+                {"choices":[{"message":{"role":"assistant","content":null,
+                  "tool_calls":[{"id":"call_1","type":"function",
+                    "function":{"name":"get_weather","arguments":"{\\"city\\":\\"beijing\\"}"}}]},
+                  "finish_reason":"tool_calls"}],
+                 "usage":{"prompt_tokens":10,"completion_tokens":5}}
+                """;
+        var resp = OpenAiProtocol.parseResponse(json);
+        assertTrue(resp.hasToolCalls());
+        assertEquals("call_1", resp.toolCalls().get(0).id());
+        assertEquals("get_weather", resp.toolCalls().get(0).name());
+        assertEquals("beijing", resp.toolCalls().get(0).arguments().get("city"));
     }
 }

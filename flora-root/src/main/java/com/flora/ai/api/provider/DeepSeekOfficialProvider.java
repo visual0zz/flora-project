@@ -4,14 +4,15 @@ import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.impl.HttpTransport;
-import com.flora.ai.api.provider.client.OpenAiClient;
+import com.flora.ai.api.provider.client.DeepSeekOfficialClient;
 import com.flora.ai.api.spi.AiProvider;
 
 /**
  * DeepSeek 官方提供者：绑定 {@link ApiKind#DEEPSEEK_OFFICIAL}。
- * <p>DeepSeek API 为 OpenAI 兼容格式，复用 OpenAI 协议实现（独立 provider 类）。</p>
+ * <p>使用独立 {@code DeepSeekProtocol}（JSON 仅 json_object、reasoner 拒绝工具调用），
+ * 客户端为 {@code DeepSeekOfficialClient}。</p>
  */
-public final class DeepSeekProvider implements AiProvider {
+public final class DeepSeekOfficialProvider implements AiProvider {
 
     @Override
     public ApiKind apiKind() {
@@ -25,6 +26,6 @@ public final class DeepSeekProvider implements AiProvider {
 
     @Override
     public ChatClient createClient(Endpoint endpoint) {
-        return new OpenAiClient(endpoint, HttpTransport.create());
+        return new DeepSeekOfficialClient(endpoint, HttpTransport.create());
     }
 }

@@ -13,16 +13,17 @@ import com.flora.ai.api.spi.AiProvider;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 
 /**
- * 测试用 mock AI 提供者：绑定 {@code OPENAI_COMPATIBLE} 协议标识，实现对话与流式能力。
+ * 测试用 mock AI 提供者：绑定 {@code OPENAI_LIKE} 协议标识，实现对话与流式能力。
  * 通过 {@code META-INF/services/com.flora.ai.api.spi.AiProvider} 注册，验证外部 SPI 附加加载。
  */
 public final class MockAiProvider implements AiProvider {
 
     @Override
     public ApiKind apiKind() {
-        return ApiKind.OPENAI_COMPATIBLE;
+        return ApiKind.OPENAI_LIKE;
     }
 
     @Override
@@ -46,7 +47,7 @@ public final class MockAiProvider implements AiProvider {
         @Override
         public ChatResponse chat(ChatRequest request) {
             return new ChatResponse("mock-answer:" + endpoint.modelId(),
-                    null, new TokenUsage(1, 1, 0, 0), "stop", null);
+                    null, List.of(), new TokenUsage(1, 1, 0, 0), "stop", null);
         }
 
         @Override

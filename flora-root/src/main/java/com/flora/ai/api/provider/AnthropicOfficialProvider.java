@@ -4,13 +4,13 @@ import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.impl.HttpTransport;
-import com.flora.ai.api.provider.client.AnthropicClient;
+import com.flora.ai.api.provider.client.AnthropicOfficialClient;
 import com.flora.ai.api.spi.AiProvider;
 
 /**
  * Anthropic 官方提供者：绑定 {@link ApiKind#ANTHROPIC_OFFICIAL}。
  */
-public final class AnthropicProvider implements AiProvider {
+public final class AnthropicOfficialProvider implements AiProvider {
 
     @Override
     public ApiKind apiKind() {
@@ -24,6 +24,6 @@ public final class AnthropicProvider implements AiProvider {
 
     @Override
     public ChatClient createClient(Endpoint endpoint) {
-        return new AnthropicClient(endpoint, HttpTransport.create());
+        return new AnthropicOfficialClient(endpoint, HttpTransport.create());
     }
 }

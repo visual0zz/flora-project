@@ -12,7 +12,7 @@ import com.flora.ai.api.Endpoint;
  *
  * <pre>{@code
  * public final class MyProvider implements AiProvider {
- *     public ApiKind apiKind() { return ApiKind.OPENAI_COMPATIBLE; }
+ *     public ApiKind apiKind() { return ApiKind.OPENAI_LIKE; }
  *     public ChatClient createClient(Endpoint endpoint) { return new MyClient(endpoint); }
  * }
  * }</pre>

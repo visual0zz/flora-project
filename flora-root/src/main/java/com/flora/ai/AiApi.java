@@ -3,11 +3,11 @@ package com.flora.ai;
 import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.Endpoint;
-import com.flora.ai.api.provider.AnthropicProvider;
-import com.flora.ai.api.provider.DeepSeekProvider;
-import com.flora.ai.api.provider.GeminiProvider;
+import com.flora.ai.api.provider.AnthropicOfficialProvider;
+import com.flora.ai.api.provider.DeepSeekOfficialProvider;
+import com.flora.ai.api.provider.GeminiOfficialProvider;
 import com.flora.ai.api.provider.OpenAiLikeProvider;
-import com.flora.ai.api.provider.OpenAiProvider;
+import com.flora.ai.api.provider.OpenAiOfficialProvider;
 import com.flora.ai.api.spi.AiProvider;
 import com.flora.ai.api.spi.Router;
 import com.flora.ai.api.spi.TaskContext;
@@ -47,11 +47,11 @@ public final class AiApi {
 
     static {
         // 内置 provider 直接代码注册（不走 SPI）
-        registerProvider(new OpenAiProvider());
-        registerProvider(new AnthropicProvider());
-        registerProvider(new GeminiProvider());
+        registerProvider(new OpenAiOfficialProvider());
+        registerProvider(new AnthropicOfficialProvider());
+        registerProvider(new GeminiOfficialProvider());
         registerProvider(new OpenAiLikeProvider());
-        registerProvider(new DeepSeekProvider());
+        registerProvider(new DeepSeekOfficialProvider());
         // 外部厂商经 SPI 附加注册
         for (AiProvider provider : ServiceLoader.load(AiProvider.class)) {
             registerProvider(provider);

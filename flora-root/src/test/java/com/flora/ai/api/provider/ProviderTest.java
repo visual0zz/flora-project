@@ -12,35 +12,35 @@ class ProviderTest {
 
     @Test
     void openAiProvider() {
-        OpenAiProvider p = new OpenAiProvider();
+        OpenAiOfficialProvider p = new OpenAiOfficialProvider();
         assertEquals("openai", p.name());
         assertEquals(ApiKind.OPENAI_OFFICIAL, p.apiKind());
     }
 
     @Test
-    void openAiCompatibleProvider() {
+    void openAiLikeProvider() {
         OpenAiLikeProvider p = new OpenAiLikeProvider();
-        assertEquals("openai-compatible", p.name());
-        assertEquals(ApiKind.OPENAI_COMPATIBLE, p.apiKind());
+        assertEquals("openai-like", p.name());
+        assertEquals(ApiKind.OPENAI_LIKE, p.apiKind());
     }
 
     @Test
     void anthropicProvider() {
-        AnthropicProvider p = new AnthropicProvider();
+        AnthropicOfficialProvider p = new AnthropicOfficialProvider();
         assertEquals("anthropic", p.name());
         assertEquals(ApiKind.ANTHROPIC_OFFICIAL, p.apiKind());
     }
 
     @Test
     void geminiProvider() {
-        GeminiProvider p = new GeminiProvider();
+        GeminiOfficialProvider p = new GeminiOfficialProvider();
         assertEquals("gemini", p.name());
         assertEquals(ApiKind.GEMINI_OFFICIAL, p.apiKind());
     }
 
     @Test
     void deepSeekProvider() {
-        DeepSeekProvider p = new DeepSeekProvider();
+        DeepSeekOfficialProvider p = new DeepSeekOfficialProvider();
         assertEquals("deepseek", p.name());
         assertEquals(ApiKind.DEEPSEEK_OFFICIAL, p.apiKind());
     }

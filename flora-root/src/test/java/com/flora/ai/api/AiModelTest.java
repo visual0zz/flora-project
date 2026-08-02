@@ -68,7 +68,8 @@ class AiModelTest {
     void messageRolesAndBlocks() {
         Message m = new Message(Message.Role.USER, List.of(
                 new ContentBlock.Text("look at"),
-                new ContentBlock.Image("data:image/png;base64,xxx", "image/png")));
+                new ContentBlock.Image("data:image/png;base64,xxx", "image/png")),
+                List.of(), null, null);
         assertEquals(2, m.content().size());
         assertInstanceOf(ContentBlock.Image.class, m.content().get(1));
     }
@@ -90,7 +91,7 @@ class AiModelTest {
 
     @Test
     void responseThinkingFlag() {
-        assertTrue(new ChatResponse("a", "thought", null, "stop", null).isThinking());
-        assertFalse(new ChatResponse("a", null, null, "stop", null).isThinking());
+        assertTrue(new ChatResponse("a", "thought", List.of(), null, "stop", null).isThinking());
+        assertFalse(new ChatResponse("a", null, List.of(), null, "stop", null).isThinking());
     }
 }

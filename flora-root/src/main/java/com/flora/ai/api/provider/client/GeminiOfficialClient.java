@@ -21,12 +21,12 @@ import java.util.concurrent.BlockingQueue;
  * Gemini 客户端：对话 + 流式 + JSON 模式。
  * <p>流式使用 {@code :streamGenerateContent?alt=sse} 端点。</p>
  */
-public final class GeminiClient implements ChatClient, StreamingClient, JsonClient {
+public final class GeminiOfficialClient implements ChatClient, StreamingClient, JsonClient {
 
     private final Endpoint endpoint;
     private final HttpTransport http;
 
-    public GeminiClient(Endpoint endpoint, HttpTransport http) {
+    public GeminiOfficialClient(Endpoint endpoint, HttpTransport http) {
         this.endpoint = endpoint;
         this.http = http;
     }

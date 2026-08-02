@@ -40,7 +40,7 @@ class GeminiProtocolTest {
     void buildRequestImageInlineData() {
         Message m = new Message(Message.Role.USER, List.of(
                 new ContentBlock.Text("look"),
-                new ContentBlock.Image("data:image/png;base64,xyz", "image/png")));
+                new ContentBlock.Image("data:image/png;base64,xyz", "image/png")), List.of(), null, null);
         ChatRequest req = ChatRequest.builder().message(m).build();
         Map<String, Object> body = GeminiProtocol.buildRequestMap(req);
         List<?> contents = (List<?>) body.get("contents");

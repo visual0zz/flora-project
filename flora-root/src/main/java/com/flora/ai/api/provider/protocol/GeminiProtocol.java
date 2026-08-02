@@ -152,7 +152,7 @@ public final class GeminiProtocol {
         String finishReason = candidates.isEmpty()
                 ? null : JsonHelper.str(JsonHelper.asMap(candidates.get(0)).get("finishReason"));
         TokenUsage usage = parseUsage(JsonHelper.asMap(root.get("usageMetadata")));
-        return new ChatResponse(text.toString(), thinking.toString(), usage, finishReason, root);
+        return new ChatResponse(text.toString(), thinking.toString(), List.of(), usage, finishReason, root);
     }
 
     private static TokenUsage parseUsage(Map<String, Object> usage) {

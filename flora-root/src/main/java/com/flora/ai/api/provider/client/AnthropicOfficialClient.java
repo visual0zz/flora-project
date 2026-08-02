@@ -19,12 +19,12 @@ import java.util.concurrent.BlockingQueue;
 /**
  * Anthropic Messages 客户端：对话 + 流式（Extended Thinking 支持）。
  */
-public final class AnthropicClient implements ChatClient, StreamingClient {
+public final class AnthropicOfficialClient implements ChatClient, StreamingClient {
 
     private final Endpoint endpoint;
     private final HttpTransport http;
 
-    public AnthropicClient(Endpoint endpoint, HttpTransport http) {
+    public AnthropicOfficialClient(Endpoint endpoint, HttpTransport http) {
         this.endpoint = endpoint;
         this.http = http;
     }

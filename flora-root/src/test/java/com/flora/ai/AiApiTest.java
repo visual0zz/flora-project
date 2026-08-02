@@ -33,7 +33,7 @@ class AiApiTest {
     }
 
     private String endpointJson(String id, String modelId, boolean isDefault) {
-        return "{\"id\":\"" + id + "\",\"apiKind\":\"OPENAI_COMPATIBLE\",\"modelId\":\"" + modelId + "\"," +
+        return "{\"id\":\"" + id + "\",\"apiKind\":\"OPENAI_LIKE\",\"modelId\":\"" + modelId + "\"," +
                 "\"baseUrl\":\"http://" + id + "\"" + (isDefault ? ",\"default\":true" : "") + "}";
     }
 
@@ -45,7 +45,7 @@ class AiApiTest {
         assertTrue(AiApi.providers().stream().anyMatch(p -> p.name().equals("anthropic")));
         assertTrue(AiApi.providers().stream().anyMatch(p -> p.name().equals("gemini")));
         assertTrue(AiApi.providers().stream().anyMatch(p -> p.name().equals("deepseek")));
-        // mock 绑定 OPENAI_COMPATIBLE 且经 SPI 附加，会顶替内置 openai-compatible（同 ApiKind）
+        // mock 绑定 OPENAI_LIKE 且经 SPI 附加，会顶替内置 openai-compatible（同 ApiKind）
         assertTrue(AiApi.providers().stream().anyMatch(p -> p.name().equals("mock")));
     }
 
@@ -54,7 +54,7 @@ class AiApiTest {
     @Test
     void registerJsonAddsEndpoint() {
         String json = """
-                {"id":"mock-1","apiKind":"OPENAI_COMPATIBLE","modelId":"mock-model",
+                {"id":"mock-1","apiKind":"OPENAI_LIKE","modelId":"mock-model",
                  "baseUrl":"http://mock","apiKey":"k","default":true,
                  "tags":["THINKING","JSON_MODE"],"spec":{"contextWindow":128000},
                  "priority":5}
@@ -129,7 +129,7 @@ class AiApiTest {
     @Test
     void getByContextWithRouter() {
         AiApi.register(endpointJson("d", "default-model", true));
-        AiApi.register("{\"id\":\"c\",\"apiKind\":\"OPENAI_COMPATIBLE\",\"modelId\":\"chosen-model\"," +
+        AiApi.register("{\"id\":\"c\",\"apiKind\":\"OPENAI_LIKE\",\"modelId\":\"chosen-model\"," +
                 "\"baseUrl\":\"http://c\",\"spec\":{\"kind\":\"reasoning\"}}");
         AiApi.setRouter((endpoints, ctx) -> {
             for (Endpoint e : endpoints) {

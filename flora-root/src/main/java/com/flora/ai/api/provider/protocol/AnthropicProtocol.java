@@ -165,7 +165,7 @@ public final class AnthropicProtocol {
         }
         String stopReason = JsonHelper.str(root.get("stop_reason"));
         TokenUsage usage = parseUsage(JsonHelper.asMap(root.get("usage")));
-        return new ChatResponse(text.toString(), thinking.toString(), usage, stopReason, root);
+        return new ChatResponse(text.toString(), thinking.toString(), List.of(), usage, stopReason, root);
     }
 
     private static TokenUsage parseUsage(Map<String, Object> usage) {

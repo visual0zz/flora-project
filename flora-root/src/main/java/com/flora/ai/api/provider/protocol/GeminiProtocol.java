@@ -63,12 +63,6 @@ public final class GeminiProtocol {
         Map<String, Object> genConfig = new LinkedHashMap<>();
         InferenceConfig c = req.config();
         if (c != null) {
-            if (c.temperature() != null) {
-                genConfig.put("temperature", c.temperature());
-            }
-            if (c.topP() != null) {
-                genConfig.put("topP", c.topP());
-            }
             if (c.maxTokens() != null) {
                 genConfig.put("maxOutputTokens", c.maxTokens());
             }

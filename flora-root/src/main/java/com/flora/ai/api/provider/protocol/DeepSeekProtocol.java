@@ -62,12 +62,6 @@ public final class DeepSeekProtocol {
 
         InferenceConfig c = req.config();
         if (c != null) {
-            if (c.temperature() != null) {
-                body.put("temperature", c.temperature());
-            }
-            if (c.topP() != null) {
-                body.put("top_p", c.topP());
-            }
             if (c.maxTokens() != null) {
                 body.put("max_tokens", c.maxTokens());
             }

@@ -52,11 +52,8 @@ public final class OpenAiProtocol {
 
         InferenceConfig c = req.config();
         if (c != null) {
-            if (c.temperature() != null) {
-                body.put("temperature", c.temperature());
-            }
-            if (c.topP() != null) {
-                body.put("top_p", c.topP());
+            if (c.seed() != null) {
+                body.put("seed", c.seed());
             }
             if (c.maxTokens() != null) {
                 body.put("max_tokens", c.maxTokens());

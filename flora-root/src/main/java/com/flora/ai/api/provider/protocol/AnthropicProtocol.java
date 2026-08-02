@@ -64,15 +64,6 @@ public final class AnthropicProtocol {
         }
         body.put("max_tokens", maxTokens);
 
-        if (c != null) {
-            if (c.temperature() != null) {
-                body.put("temperature", c.temperature());
-            }
-            if (c.topP() != null) {
-                body.put("top_p", c.topP());
-            }
-        }
-
         // 思考：废弃 budget_tokens，改 adaptive thinking + effort（Anthropic 4.7+）
         if (c != null && c.thinking() != null && c.thinking() != com.flora.ai.api.Thinking.OFF) {
             Map<String, Object> thinking = new LinkedHashMap<>();

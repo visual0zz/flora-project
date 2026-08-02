@@ -43,10 +43,10 @@ class OpenAiProtocolTest {
     void buildRequestSampling() {
         ChatRequest req = ChatRequest.builder()
                 .message(Message.of(Message.Role.USER, "hi"))
-                .config(InferenceConfig.of(0.5, 128))
+                .config(InferenceConfig.of(128))
                 .build();
         Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, MODEL, false);
-        assertEquals(0.5, body.get("temperature"));
+        assertFalse(body.containsKey("temperature"));
         assertEquals(128, body.get("max_tokens"));
     }
 

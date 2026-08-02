@@ -72,10 +72,9 @@ class AiModelTest {
     void chatRequestBuilds() {
         ChatRequest req = ChatRequest.builder()
                 .message(Message.of(Message.Role.USER, "hello"))
-                .config(InferenceConfig.of(0.7, 512))
+                .config(InferenceConfig.of(512))
                 .build();
         assertEquals(1, req.messages().size());
-        assertEquals(0.7, req.config().temperature());
         assertEquals(512, req.config().maxTokens());
         assertEquals(Thinking.AUTO, req.config().thinking());
     }

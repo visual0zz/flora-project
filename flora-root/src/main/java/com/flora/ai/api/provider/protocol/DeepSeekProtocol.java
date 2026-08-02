@@ -4,8 +4,7 @@ import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.ChatResponse;
 import com.flora.ai.api.ContentBlock;
 import com.flora.ai.api.Message;
-import com.flora.ai.api.SamplingConfig;
-import com.flora.ai.api.ThinkingConfig;
+import com.flora.ai.api.InferenceConfig;
 import com.flora.ai.api.TokenUsage;
 import com.flora.ai.api.ToolCall;
 import com.flora.ai.api.ToolSpec;
@@ -61,26 +60,25 @@ public final class DeepSeekProtocol {
             body.put("response_format", responseFormat);
         }
 
-        SamplingConfig s = req.sampling();
-        if (s != null) {
-            if (s.temperature() != null) {
-                body.put("temperature", s.temperature());
+        InferenceConfig c = req.config();
+        if (c != null) {
+            if (c.temperature() != null) {
+                body.put("temperature", c.temperature());
             }
-            if (s.topP() != null) {
-                body.put("top_p", s.topP());
+            if (c.topP() != null) {
+                body.put("top_p", c.topP());
             }
-            if (s.maxTokens() != null) {
-                body.put("max_tokens", s.maxTokens());
+            if (c.maxTokens() != null) {
+                body.put("max_tokens", c.maxTokens());
             }
-        }
-        ThinkingConfig t = req.thinking();
-        if (t != null && t.enabled() && t.effort() != null) {
-            body.put("reasoning_effort", switch (t.effort()) {
-                case LOW -> "low";
-                case MEDIUM -> "medium";
-                case HIGH -> "high";
-                case MAX -> "high";
-            });
+            if (c.thinking() != null) {
+                switch (c.thinking()) {
+                    case LOW -> body.put("reasoning_effort", "low");
+                    case MEDIUM -> body.put("reasoning_effort", "medium");
+                    case HIGH, MAX -> body.put("reasoning_effort", "high");
+                    case OFF, AUTO -> { /* 不传 reasoning_effort */ }
+                }
+            }
         }
         if (stream) {
             body.put("stream", true);

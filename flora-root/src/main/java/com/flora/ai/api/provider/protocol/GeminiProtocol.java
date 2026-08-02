@@ -4,8 +4,7 @@ import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.ChatResponse;
 import com.flora.ai.api.ContentBlock;
 import com.flora.ai.api.Message;
-import com.flora.ai.api.SamplingConfig;
-import com.flora.ai.api.ThinkingConfig;
+import com.flora.ai.api.InferenceConfig;
 import com.flora.ai.api.TokenUsage;
 import com.flora.ai.api.impl.JsonHelper;
 import com.flora.codec.json.JsonBuilder;
@@ -61,30 +60,37 @@ public final class GeminiProtocol {
         }
 
         // generationConfig
-        Map<String, Object> config = new LinkedHashMap<>();
-        SamplingConfig s = req.sampling();
-        if (s != null) {
-            if (s.temperature() != null) {
-                config.put("temperature", s.temperature());
+        Map<String, Object> genConfig = new LinkedHashMap<>();
+        InferenceConfig c = req.config();
+        if (c != null) {
+            if (c.temperature() != null) {
+                genConfig.put("temperature", c.temperature());
             }
-            if (s.topP() != null) {
-                config.put("topP", s.topP());
+            if (c.topP() != null) {
+                genConfig.put("topP", c.topP());
             }
-            if (s.topK() != null) {
-                config.put("topK", s.topK());
+            if (c.topK() != null) {
+                genConfig.put("topK", c.topK());
             }
-            if (s.maxTokens() != null) {
-                config.put("maxOutputTokens", s.maxTokens());
+            if (c.maxTokens() != null) {
+                genConfig.put("maxOutputTokens", c.maxTokens());
             }
         }
-        ThinkingConfig t = req.thinking();
-        if (t != null && t.enabled()) {
+        // 思考：废弃 thinkingBudget 直接指定，按强度映射预算
+        if (c != null && c.thinking() != null && c.thinking() != com.flora.ai.api.Thinking.OFF) {
             Map<String, Object> tc = new LinkedHashMap<>();
-            tc.put("thinkingBudget", t.budgetTokens() != null ? t.budgetTokens() : 1024);
-            config.put("thinkingConfig", tc);
+            switch (c.thinking()) {
+                case com.flora.ai.api.Thinking.LOW -> tc.put("thinkingBudget", 1024);
+                case com.flora.ai.api.Thinking.MEDIUM -> tc.put("thinkingBudget", 4096);
+                case com.flora.ai.api.Thinking.HIGH, com.flora.ai.api.Thinking.MAX ->
+                        tc.put("thinkingBudget", 8192);
+                case com.flora.ai.api.Thinking.AUTO, com.flora.ai.api.Thinking.OFF ->
+                        tc.put("thinkingBudget", 2048);
+            }
+            genConfig.put("thinkingConfig", tc);
         }
-        if (!config.isEmpty()) {
-            body.put("generationConfig", config);
+        if (!genConfig.isEmpty()) {
+            body.put("generationConfig", genConfig);
         }
         return body;
     }

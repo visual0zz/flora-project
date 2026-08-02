@@ -3,12 +3,12 @@ package com.flora.ai.api;
 import java.util.List;
 
 /**
- * 对话请求：消息 + 工具 + 思考配置 + 采样配置。
+ * 对话请求：消息 + 工具 + 推理配置。
  * <p>不绑定模型——具体模型由路由层从注册端点中选择，客户端持有自己的模型标识。
  * 不可变对象，通过 {@link #builder()} 构建。</p>
  */
 public record ChatRequest(List<Message> messages, List<ToolSpec> tools,
-                          ThinkingConfig thinking, SamplingConfig sampling) {
+                          InferenceConfig config) {
 
     public static Builder builder() {
         return new Builder();
@@ -17,8 +17,7 @@ public record ChatRequest(List<Message> messages, List<ToolSpec> tools,
     public static final class Builder {
         private List<Message> messages = List.of();
         private List<ToolSpec> tools = List.of();
-        private ThinkingConfig thinking = ThinkingConfig.auto();
-        private SamplingConfig sampling = SamplingConfig.DEFAULT;
+        private InferenceConfig config = InferenceConfig.DEFAULT;
 
         public Builder messages(List<Message> messages) {
             this.messages = List.copyOf(messages);
@@ -40,18 +39,13 @@ public record ChatRequest(List<Message> messages, List<ToolSpec> tools,
             return this;
         }
 
-        public Builder thinking(ThinkingConfig thinking) {
-            this.thinking = thinking;
-            return this;
-        }
-
-        public Builder sampling(SamplingConfig sampling) {
-            this.sampling = sampling;
+        public Builder config(InferenceConfig config) {
+            this.config = config;
             return this;
         }
 
         public ChatRequest build() {
-            return new ChatRequest(messages, tools, thinking, sampling);
+            return new ChatRequest(messages, tools, config);
         }
     }
 }

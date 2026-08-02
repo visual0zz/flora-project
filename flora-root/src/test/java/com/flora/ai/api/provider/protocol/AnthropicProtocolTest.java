@@ -2,7 +2,8 @@ package com.flora.ai.api.provider.protocol;
 
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.Message;
-import com.flora.ai.api.ThinkingConfig;
+import com.flora.ai.api.InferenceConfig;
+import com.flora.ai.api.Thinking;
 import com.flora.ai.api.provider.protocol.AnthropicProtocol;
 import org.junit.jupiter.api.Test;
 
@@ -45,13 +46,13 @@ class AnthropicProtocolTest {
     void buildRequestThinking() {
         ChatRequest req = ChatRequest.builder()
                 .message(Message.of(Message.Role.USER, "hi"))
-                .thinking(ThinkingConfig.of(ThinkingConfig.Mode.ON, ThinkingConfig.Effort.HIGH))
+                .config(InferenceConfig.thinking(Thinking.HIGH))
                 .build();
         Map<String, Object> body = AnthropicProtocol.buildRequestMap(req, MODEL, false);
         Map<?, ?> thinking = (Map<?, ?>) body.get("thinking");
         assertNotNull(thinking);
         assertEquals("enabled", thinking.get("type"));
-        assertNotNull(thinking.get("budget_tokens"));
+        assertEquals("high", thinking.get("effort"));
     }
 
     @Test

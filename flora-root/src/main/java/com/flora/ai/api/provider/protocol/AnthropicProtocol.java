@@ -4,8 +4,7 @@ import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.ChatResponse;
 import com.flora.ai.api.ContentBlock;
 import com.flora.ai.api.Message;
-import com.flora.ai.api.SamplingConfig;
-import com.flora.ai.api.ThinkingConfig;
+import com.flora.ai.api.InferenceConfig;
 import com.flora.ai.api.TokenUsage;
 import com.flora.ai.api.impl.JsonHelper;
 import com.flora.codec.json.JsonBuilder;
@@ -59,29 +58,40 @@ public final class AnthropicProtocol {
 
         // max_tokens 必填
         int maxTokens = DEFAULT_MAX_TOKENS;
-        SamplingConfig s = req.sampling();
-        if (s != null && s.maxTokens() != null) {
-            maxTokens = s.maxTokens();
+        InferenceConfig c = req.config();
+        if (c != null && c.maxTokens() != null) {
+            maxTokens = c.maxTokens();
         }
         body.put("max_tokens", maxTokens);
 
-        if (s != null) {
-            if (s.temperature() != null) {
-                body.put("temperature", s.temperature());
+        if (c != null) {
+            if (c.temperature() != null) {
+                body.put("temperature", c.temperature());
             }
-            if (s.topP() != null) {
-                body.put("top_p", s.topP());
+            if (c.topP() != null) {
+                body.put("top_p", c.topP());
             }
         }
 
-        ThinkingConfig t = req.thinking();
-        if (t != null && t.enabled()) {
+        // 思考：废弃 budget_tokens，改 adaptive thinking + effort（Anthropic 4.7+）
+        if (c != null && c.thinking() != null && c.thinking() != com.flora.ai.api.Thinking.OFF) {
             Map<String, Object> thinking = new LinkedHashMap<>();
-            thinking.put("type", "enabled");
-            if (t.budgetTokens() != null) {
-                thinking.put("budget_tokens", t.budgetTokens());
-            } else {
-                thinking.put("budget_tokens", Math.max(1024, maxTokens));
+            switch (c.thinking()) {
+                case com.flora.ai.api.Thinking.AUTO -> thinking.put("type", "adaptive");
+                case com.flora.ai.api.Thinking.LOW -> {
+                    thinking.put("type", "enabled");
+                    thinking.put("effort", "low");
+                }
+                case com.flora.ai.api.Thinking.MEDIUM -> {
+                    thinking.put("type", "enabled");
+                    thinking.put("effort", "medium");
+                }
+                case com.flora.ai.api.Thinking.HIGH, com.flora.ai.api.Thinking.MAX -> {
+                    thinking.put("type", "enabled");
+                    thinking.put("effort", "high");
+                }
+                default -> {
+                }
             }
             body.put("thinking", thinking);
         }

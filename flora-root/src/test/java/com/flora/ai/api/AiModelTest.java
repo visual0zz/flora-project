@@ -55,13 +55,12 @@ class AiModelTest {
     void chatRequestBuilds() {
         ChatRequest req = ChatRequest.builder()
                 .message(Message.of(Message.Role.USER, "hello"))
-                .thinking(ThinkingConfig.of(ThinkingConfig.Mode.ON, ThinkingConfig.Effort.HIGH))
-                .sampling(SamplingConfig.of(0.7, 512))
+                .config(InferenceConfig.of(0.7, 512))
                 .build();
         assertEquals(1, req.messages().size());
-        assertEquals(ThinkingConfig.Mode.ON, req.thinking().mode());
-        assertEquals(0.7, req.sampling().temperature());
-        assertEquals(512, req.sampling().maxTokens());
+        assertEquals(0.7, req.config().temperature());
+        assertEquals(512, req.config().maxTokens());
+        assertEquals(Thinking.AUTO, req.config().thinking());
     }
 
     @Test
@@ -76,14 +75,13 @@ class AiModelTest {
 
     @Test
     void thinkingConfig() {
-        assertFalse(ThinkingConfig.off().enabled());
-        assertTrue(ThinkingConfig.of(ThinkingConfig.Mode.ON, ThinkingConfig.Effort.MAX).enabled());
-        assertEquals(ThinkingConfig.Mode.AUTO, ThinkingConfig.auto().mode());
+        assertEquals(Thinking.AUTO, InferenceConfig.DEFAULT.thinking());
+        assertEquals(Thinking.HIGH, InferenceConfig.thinking(Thinking.HIGH).thinking());
     }
 
     @Test
     void samplingWithAnnealing() {
-        SamplingConfig s = SamplingConfig.withAnnealing(1.0, 0.2, 100);
+        InferenceConfig s = InferenceConfig.withAnnealing(1.0, 0.2, 100);
         assertEquals(1.0, s.annealing().startTemp());
         assertEquals(0.2, s.annealing().endTemp());
         assertEquals(100, s.maxTokens());

@@ -3,8 +3,8 @@ package com.flora.ai.api.provider.protocol;
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.ContentBlock;
 import com.flora.ai.api.Message;
-import com.flora.ai.api.SamplingConfig;
-import com.flora.ai.api.ThinkingConfig;
+import com.flora.ai.api.InferenceConfig;
+import com.flora.ai.api.Thinking;
 import com.flora.ai.api.ToolCall;
 import com.flora.ai.api.ToolSpec;
 import com.flora.ai.api.provider.protocol.OpenAiProtocol;
@@ -43,7 +43,7 @@ class OpenAiProtocolTest {
     void buildRequestSampling() {
         ChatRequest req = ChatRequest.builder()
                 .message(Message.of(Message.Role.USER, "hi"))
-                .sampling(SamplingConfig.of(0.5, 128))
+                .config(InferenceConfig.of(0.5, 128))
                 .build();
         Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, MODEL, false);
         assertEquals(0.5, body.get("temperature"));
@@ -54,7 +54,7 @@ class OpenAiProtocolTest {
     void buildRequestThinking() {
         ChatRequest req = ChatRequest.builder()
                 .message(Message.of(Message.Role.USER, "hi"))
-                .thinking(ThinkingConfig.of(ThinkingConfig.Mode.ON, ThinkingConfig.Effort.HIGH))
+                .config(InferenceConfig.thinking(Thinking.HIGH))
                 .build();
         Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, MODEL, false);
         assertEquals("high", body.get("reasoning_effort"));

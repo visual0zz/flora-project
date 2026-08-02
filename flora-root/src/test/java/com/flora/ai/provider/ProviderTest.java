@@ -1,16 +1,17 @@
 package com.flora.ai.provider;
 
+import com.flora.ai.api.ApiKind;
 import com.flora.ai.provider.anthropic.AnthropicProvider;
+import com.flora.ai.provider.deepseek.DeepSeekProvider;
 import com.flora.ai.provider.gemini.GeminiProvider;
+import com.flora.ai.provider.openai.OpenAiCompatibleProvider;
 import com.flora.ai.provider.openai.OpenAiProvider;
 import org.junit.jupiter.api.Test;
-
-import com.flora.ai.api.ModelSpec;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 三个厂商 Provider 的 supports/name 断言。
+ * 五家 Provider 的 apiKind/name 断言。
  */
 class ProviderTest {
 
@@ -18,23 +19,34 @@ class ProviderTest {
     void openAiProvider() {
         OpenAiProvider p = new OpenAiProvider();
         assertEquals("openai", p.name());
-        assertTrue(p.supports(ModelSpec.of("gpt-5", "openai")));
-        assertFalse(p.supports(ModelSpec.of("claude", "anthropic")));
+        assertEquals(ApiKind.OPENAI_OFFICIAL, p.apiKind());
+    }
+
+    @Test
+    void openAiCompatibleProvider() {
+        OpenAiCompatibleProvider p = new OpenAiCompatibleProvider();
+        assertEquals("openai-compatible", p.name());
+        assertEquals(ApiKind.OPENAI_COMPATIBLE, p.apiKind());
     }
 
     @Test
     void anthropicProvider() {
         AnthropicProvider p = new AnthropicProvider();
         assertEquals("anthropic", p.name());
-        assertTrue(p.supports(ModelSpec.of("claude-sonnet-4", "anthropic")));
-        assertFalse(p.supports(ModelSpec.of("gemini", "gemini")));
+        assertEquals(ApiKind.ANTHROPIC_OFFICIAL, p.apiKind());
     }
 
     @Test
     void geminiProvider() {
         GeminiProvider p = new GeminiProvider();
         assertEquals("gemini", p.name());
-        assertTrue(p.supports(ModelSpec.of("gemini-2.5-flash", "gemini")));
-        assertFalse(p.supports(ModelSpec.of("gpt", "openai")));
+        assertEquals(ApiKind.GEMINI_OFFICIAL, p.apiKind());
+    }
+
+    @Test
+    void deepSeekProvider() {
+        DeepSeekProvider p = new DeepSeekProvider();
+        assertEquals("deepseek", p.name());
+        assertEquals(ApiKind.DEEPSEEK_OFFICIAL, p.apiKind());
     }
 }

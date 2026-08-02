@@ -3,7 +3,6 @@ package com.flora.ai.provider.gemini;
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.ContentBlock;
 import com.flora.ai.api.Message;
-import com.flora.ai.api.ModelSpec;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -16,12 +15,11 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class GeminiProtocolTest {
 
-    private static final ModelSpec SPEC = ModelSpec.of("gemini-2.5-pro", "gemini");
+    private static final String MODEL = "gemini-2.5-pro";
 
     @Test
     void buildRequestPartsWithRoleMapping() {
         ChatRequest req = ChatRequest.builder()
-                .model(SPEC)
                 .messages(List.of(
                         Message.of(Message.Role.SYSTEM, "you are gemini"),
                         Message.of(Message.Role.USER, "hello"),
@@ -42,7 +40,7 @@ class GeminiProtocolTest {
         Message m = new Message(Message.Role.USER, List.of(
                 new ContentBlock.Text("look"),
                 new ContentBlock.Image("data:image/png;base64,xyz", "image/png")));
-        ChatRequest req = ChatRequest.builder().model(SPEC).message(m).build();
+        ChatRequest req = ChatRequest.builder().message(m).build();
         Map<String, Object> body = GeminiProtocol.buildRequestMap(req);
         List<?> contents = (List<?>) body.get("contents");
         List<?> parts = (List<?>) ((Map<?, ?>) contents.get(0)).get("parts");

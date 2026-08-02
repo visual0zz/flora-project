@@ -1,19 +1,19 @@
 package com.flora.ai.provider.gemini;
 
+import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.ChatClient;
-import com.flora.ai.api.ModelSpec;
+import com.flora.ai.api.RegisteredModel;
 import com.flora.ai.http.HttpTransport;
 import com.flora.ai.spi.AiProvider;
-import com.flora.ai.spi.Endpoint;
 
 /**
- * Google Gemini 提供者 SPI：支持 provider 名为 {@code "gemini"} 的模型。
+ * Google Gemini 官方提供者：绑定 {@link ApiKind#GEMINI_OFFICIAL}。
  */
 public final class GeminiProvider implements AiProvider {
 
     @Override
-    public boolean supports(ModelSpec model) {
-        return "gemini".equals(model.provider());
+    public ApiKind apiKind() {
+        return ApiKind.GEMINI_OFFICIAL;
     }
 
     @Override
@@ -22,7 +22,7 @@ public final class GeminiProvider implements AiProvider {
     }
 
     @Override
-    public ChatClient createClient(ModelSpec model, Endpoint endpoint) {
-        return new GeminiClient(model, endpoint, HttpTransport.create());
+    public ChatClient createClient(RegisteredModel model) {
+        return new GeminiClient(model, HttpTransport.create());
     }
 }

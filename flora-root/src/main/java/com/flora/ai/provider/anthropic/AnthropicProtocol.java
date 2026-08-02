@@ -33,13 +33,13 @@ final class AnthropicProtocol {
     }
 
     /** 构建请求体 JSON。 */
-    static String buildRequest(ChatRequest req, boolean stream) {
-        return JsonBuilder.toJsonString(buildRequestMap(req, stream));
+    static String buildRequest(ChatRequest req, String modelId, boolean stream) {
+        return JsonBuilder.toJsonString(buildRequestMap(req, modelId, stream));
     }
 
-    static Map<String, Object> buildRequestMap(ChatRequest req, boolean stream) {
+    static Map<String, Object> buildRequestMap(ChatRequest req, String modelId, boolean stream) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", req.model().id());
+        body.put("model", modelId);
 
         // 顶层 system（SYSTEM 角色消息拼接）
         StringBuilder system = new StringBuilder();

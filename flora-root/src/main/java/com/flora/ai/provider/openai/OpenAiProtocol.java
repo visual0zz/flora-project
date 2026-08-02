@@ -27,13 +27,13 @@ final class OpenAiProtocol {
     }
 
     /** 构建请求体 JSON（{@code stream=false}）。 */
-    static String buildRequest(ChatRequest req) {
-        return JsonBuilder.toJsonString(buildRequestMap(req, false));
+    static String buildRequest(ChatRequest req, String modelId) {
+        return JsonBuilder.toJsonString(buildRequestMap(req, modelId, false));
     }
 
-    static Map<String, Object> buildRequestMap(ChatRequest req, boolean stream) {
+    static Map<String, Object> buildRequestMap(ChatRequest req, String modelId, boolean stream) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", req.model().id());
+        body.put("model", modelId);
         body.put("messages", buildMessages(req.messages()));
 
         SamplingConfig s = req.sampling();

@@ -4,7 +4,7 @@ import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.ChatResponse;
 import com.flora.ai.api.JsonClient;
-import com.flora.ai.api.ModelSpec;
+import com.flora.ai.api.RegisteredModel;
 import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.StreamIterator;
 import com.flora.ai.api.StreamingClient;
@@ -13,7 +13,6 @@ import com.flora.ai.http.HttpTransport;
 import com.flora.ai.http.SseParser;
 import com.flora.ai.provider.JsonHelper;
 import com.flora.ai.provider.QueueStreamIterator;
-import com.flora.ai.spi.Endpoint;
 
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -21,36 +20,36 @@ import java.util.concurrent.BlockingQueue;
 
 /**
  * OpenAI Chat Completions 客户端：对话 + 流式 + JSON 模式。
+ * <p>同时服务 {@code OPENAI_OFFICIAL}/{@code OPENAI_COMPATIBLE}/{@code DEEPSEEK_OFFICIAL}
+ * 三类 OpenAI 兼容接口。</p>
  */
-final class OpenAiClient implements ChatClient, StreamingClient, JsonClient {
+public final class OpenAiClient implements ChatClient, StreamingClient, JsonClient {
 
-    private final ModelSpec model;
-    private final Endpoint endpoint;
+    private final RegisteredModel model;
     private final HttpTransport http;
 
-    OpenAiClient(ModelSpec model, Endpoint endpoint, HttpTransport http) {
+    public OpenAiClient(RegisteredModel model, HttpTransport http) {
         this.model = model;
-        this.endpoint = endpoint;
         this.http = http;
     }
 
     private String url() {
-        return endpoint.baseUrl() + "/v1/chat/completions";
+        return model.baseUrl() + "/v1/chat/completions";
     }
 
     private Map<String, String> headers() {
-        return Map.of("Authorization", "Bearer " + (endpoint.apiKey() == null ? "" : endpoint.apiKey()));
+        return Map.of("Authorization", "Bearer " + (model.apiKey() == null ? "" : model.apiKey()));
     }
 
     @Override
     public ChatResponse chat(ChatRequest request) {
-        String json = http.postJson(url(), headers(), OpenAiProtocol.buildRequest(request));
+        String json = http.postJson(url(), headers(), OpenAiProtocol.buildRequest(request, model.modelId()));
         return OpenAiProtocol.parseResponse(json);
     }
 
     @Override
     public StreamIterator stream(ChatRequest request) {
-        String body = JsonBuilder.toJsonString(OpenAiProtocol.buildRequestMap(request, true));
+        String body = JsonBuilder.toJsonString(OpenAiProtocol.buildRequestMap(request, model.modelId(), true));
         BlockingQueue<StreamEvent> queue = new ArrayBlockingQueue<>(64);
         http.streamSse(url(), headers(), body, data -> {
             if (SseParser.DONE.equals(data)) {

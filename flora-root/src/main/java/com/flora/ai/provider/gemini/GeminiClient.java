@@ -4,14 +4,13 @@ import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.ChatResponse;
 import com.flora.ai.api.JsonClient;
-import com.flora.ai.api.ModelSpec;
+import com.flora.ai.api.RegisteredModel;
 import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.StreamIterator;
 import com.flora.ai.api.StreamingClient;
 import com.flora.ai.provider.QueueStreamIterator;
 import com.flora.ai.http.HttpTransport;
 import com.flora.ai.http.SseParser;
-import com.flora.ai.spi.Endpoint;
 
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -23,23 +22,21 @@ import java.util.concurrent.BlockingQueue;
  */
 final class GeminiClient implements ChatClient, StreamingClient, JsonClient {
 
-    private final ModelSpec model;
-    private final Endpoint endpoint;
+    private final RegisteredModel model;
     private final HttpTransport http;
 
-    GeminiClient(ModelSpec model, Endpoint endpoint, HttpTransport http) {
+    GeminiClient(RegisteredModel model, HttpTransport http) {
         this.model = model;
-        this.endpoint = endpoint;
         this.http = http;
     }
 
     private String url(boolean stream) {
-        String base = endpoint.baseUrl() + "/v1beta/models/" + model.id();
+        String base = model.baseUrl() + "/v1beta/models/" + model.modelId();
         return stream ? base + ":streamGenerateContent?alt=sse" : base + ":generateContent";
     }
 
     private Map<String, String> headers() {
-        return Map.of("x-goog-api-key", endpoint.apiKey() == null ? "" : endpoint.apiKey());
+        return Map.of("x-goog-api-key", model.apiKey() == null ? "" : model.apiKey());
     }
 
     @Override

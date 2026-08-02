@@ -1,28 +1,28 @@
 package com.flora.ai;
 
+import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.ChatResponse;
-import com.flora.ai.api.ModelSpec;
+import com.flora.ai.api.RegisteredModel;
 import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.StreamIterator;
 import com.flora.ai.api.StreamingClient;
 import com.flora.ai.api.TokenUsage;
 import com.flora.ai.spi.AiProvider;
-import com.flora.ai.spi.Endpoint;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
 
 /**
- * 测试用 mock AI 提供者：支持 "mock" 厂商，实现对话与流式能力。
- * 通过 {@code META-INF/services/com.flora.ai.spi.AiProvider} 注册，验证 ServiceLoader 加载。
+ * 测试用 mock AI 提供者：绑定 {@code OPENAI_COMPATIBLE} 协议标识，实现对话与流式能力。
+ * 通过 {@code META-INF/services/com.flora.ai.spi.AiProvider} 注册，验证外部 SPI 附加加载。
  */
 public final class MockAiProvider implements AiProvider {
 
     @Override
-    public boolean supports(ModelSpec model) {
-        return "mock".equals(model.provider());
+    public ApiKind apiKind() {
+        return ApiKind.OPENAI_COMPATIBLE;
     }
 
     @Override
@@ -31,23 +31,21 @@ public final class MockAiProvider implements AiProvider {
     }
 
     @Override
-    public ChatClient createClient(ModelSpec model, Endpoint endpoint) {
-        return new MockClient(model, endpoint);
+    public ChatClient createClient(RegisteredModel model) {
+        return new MockClient(model);
     }
 
     /** mock 客户端：对话返回固定文本，流式返回固定事件序列。 */
     static final class MockClient implements ChatClient, StreamingClient {
-        private final ModelSpec model;
-        private final Endpoint endpoint;
+        private final RegisteredModel model;
 
-        MockClient(ModelSpec model, Endpoint endpoint) {
+        MockClient(RegisteredModel model) {
             this.model = model;
-            this.endpoint = endpoint;
         }
 
         @Override
         public ChatResponse chat(ChatRequest request) {
-            return new ChatResponse("mock-answer:" + model.id(),
+            return new ChatResponse("mock-answer:" + model.modelId(),
                     null, new TokenUsage(1, 1, 0, 0), "stop", null);
         }
 

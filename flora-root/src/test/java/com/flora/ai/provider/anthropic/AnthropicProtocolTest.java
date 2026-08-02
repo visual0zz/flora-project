@@ -2,7 +2,6 @@ package com.flora.ai.provider.anthropic;
 
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.Message;
-import com.flora.ai.api.ModelSpec;
 import com.flora.ai.api.ThinkingConfig;
 import org.junit.jupiter.api.Test;
 
@@ -16,17 +15,16 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class AnthropicProtocolTest {
 
-    private static final ModelSpec SPEC = ModelSpec.of("claude-sonnet-4", "anthropic");
+    private static final String MODEL = "claude-sonnet-4";
 
     @Test
     void buildRequestSystemTopLevel() {
         ChatRequest req = ChatRequest.builder()
-                .model(SPEC)
                 .messages(List.of(
                         Message.of(Message.Role.SYSTEM, "you are claude"),
                         Message.of(Message.Role.USER, "hi")))
                 .build();
-        Map<String, Object> body = AnthropicProtocol.buildRequestMap(req, false);
+        Map<String, Object> body = AnthropicProtocol.buildRequestMap(req, MODEL, false);
         assertEquals("you are claude", body.get("system"));
         List<?> messages = (List<?>) body.get("messages");
         assertEquals(1, messages.size(), "SYSTEM 消息不应出现在 messages");
@@ -36,21 +34,19 @@ class AnthropicProtocolTest {
     @Test
     void buildRequestDefaultMaxTokens() {
         ChatRequest req = ChatRequest.builder()
-                .model(SPEC)
                 .message(Message.of(Message.Role.USER, "hi"))
                 .build();
-        Map<String, Object> body = AnthropicProtocol.buildRequestMap(req, false);
+        Map<String, Object> body = AnthropicProtocol.buildRequestMap(req, MODEL, false);
         assertEquals(AnthropicProtocol.DEFAULT_MAX_TOKENS, body.get("max_tokens"));
     }
 
     @Test
     void buildRequestThinking() {
         ChatRequest req = ChatRequest.builder()
-                .model(SPEC)
                 .message(Message.of(Message.Role.USER, "hi"))
                 .thinking(ThinkingConfig.of(ThinkingConfig.Mode.ON, ThinkingConfig.Effort.HIGH))
                 .build();
-        Map<String, Object> body = AnthropicProtocol.buildRequestMap(req, false);
+        Map<String, Object> body = AnthropicProtocol.buildRequestMap(req, MODEL, false);
         Map<?, ?> thinking = (Map<?, ?>) body.get("thinking");
         assertNotNull(thinking);
         assertEquals("enabled", thinking.get("type"));

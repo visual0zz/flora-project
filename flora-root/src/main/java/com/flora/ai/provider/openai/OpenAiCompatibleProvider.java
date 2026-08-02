@@ -7,18 +7,20 @@ import com.flora.ai.http.HttpTransport;
 import com.flora.ai.spi.AiProvider;
 
 /**
- * OpenAI 官方提供者 SPI：绑定 {@link ApiKind#OPENAI_OFFICIAL}。
+ * OpenAI 风格兼容接口提供者：绑定 {@link ApiKind#OPENAI_COMPATIBLE}。
+ * <p>复用 OpenAI Chat Completions 协议实现，面向第三方 OpenAI 兼容端点
+ * （Together/Fireworks/vLLM/Ollama 等）。</p>
  */
-public final class OpenAiProvider implements AiProvider {
+public final class OpenAiCompatibleProvider implements AiProvider {
 
     @Override
     public ApiKind apiKind() {
-        return ApiKind.OPENAI_OFFICIAL;
+        return ApiKind.OPENAI_COMPATIBLE;
     }
 
     @Override
     public String name() {
-        return "openai";
+        return "openai-compatible";
     }
 
     @Override

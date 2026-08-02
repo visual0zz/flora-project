@@ -3,7 +3,6 @@ package com.flora.ai.provider.openai;
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.ContentBlock;
 import com.flora.ai.api.Message;
-import com.flora.ai.api.ModelSpec;
 import com.flora.ai.api.SamplingConfig;
 import com.flora.ai.api.ThinkingConfig;
 import com.flora.ai.api.TokenUsage;
@@ -20,17 +19,16 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class OpenAiProtocolTest {
 
-    private static final ModelSpec SPEC = ModelSpec.of("gpt-5", "openai");
+    private static final String MODEL = "gpt-5";
 
     @Test
     void buildRequestBasic() {
         ChatRequest req = ChatRequest.builder()
-                .model(SPEC)
                 .messages(List.of(
                         Message.of(Message.Role.SYSTEM, "be nice"),
                         Message.of(Message.Role.USER, "hello")))
                 .build();
-        Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, false);
+        Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, MODEL, false);
         assertEquals("gpt-5", body.get("model"));
         List<?> messages = (List<?>) body.get("messages");
         assertEquals(2, messages.size());
@@ -42,11 +40,10 @@ class OpenAiProtocolTest {
     @Test
     void buildRequestSampling() {
         ChatRequest req = ChatRequest.builder()
-                .model(SPEC)
                 .message(Message.of(Message.Role.USER, "hi"))
                 .sampling(SamplingConfig.of(0.5, 128))
                 .build();
-        Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, false);
+        Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, MODEL, false);
         assertEquals(0.5, body.get("temperature"));
         assertEquals(128, body.get("max_tokens"));
     }
@@ -54,11 +51,10 @@ class OpenAiProtocolTest {
     @Test
     void buildRequestThinking() {
         ChatRequest req = ChatRequest.builder()
-                .model(SPEC)
                 .message(Message.of(Message.Role.USER, "hi"))
                 .thinking(ThinkingConfig.of(ThinkingConfig.Mode.ON, ThinkingConfig.Effort.HIGH))
                 .build();
-        Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, false);
+        Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, MODEL, false);
         assertEquals("high", body.get("reasoning_effort"));
     }
 
@@ -67,8 +63,8 @@ class OpenAiProtocolTest {
         Message m = new Message(Message.Role.USER, List.of(
                 new ContentBlock.Text("what is this?"),
                 new ContentBlock.Image("data:image/png;base64,abc", "image/png")));
-        ChatRequest req = ChatRequest.builder().model(SPEC).message(m).build();
-        Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, false);
+        ChatRequest req = ChatRequest.builder().message(m).build();
+        Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, MODEL, false);
         List<?> messages = (List<?>) body.get("messages");
         Map<?, ?> msg = (Map<?, ?>) messages.get(0);
         List<?> content = (List<?>) msg.get("content");

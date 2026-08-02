@@ -49,10 +49,12 @@ module com.flora.root {
     exports com.flora.ai.api;
     exports com.flora.ai.spi;
     exports com.flora.ai.http;
+    exports com.flora.ai.route;
     exports com.flora.ai.provider;
     exports com.flora.ai.provider.openai;
     exports com.flora.ai.provider.anthropic;
     exports com.flora.ai.provider.gemini;
+    exports com.flora.ai.provider.deepseek;
 
     uses Converter;
     uses com.flora.ai.spi.AiProvider;

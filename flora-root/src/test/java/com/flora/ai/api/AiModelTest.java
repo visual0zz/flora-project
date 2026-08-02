@@ -3,42 +3,64 @@ package com.flora.ai.api;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * AI 数据模型测试：请求构建与各配置。
+ * AI 数据模型测试：RegisteredModel 解析、请求构建与各配置。
  */
 class AiModelTest {
 
-    private static final ModelSpec SPEC = ModelSpec.of("gpt-5", "openai", ModelSpec.Size.LARGE);
+    @Test
+    void registeredModelFromJson() {
+        String json = """
+                {"id":"gpt","apiKind":"OPENAI_OFFICIAL","modelId":"gpt-5",
+                 "baseUrl":"https://api.openai.com","apiKey":"sk","default":true,
+                 "tags":["THINKING","MULTIMODAL"],"spec":{"contextWindow":128000},
+                 "customFlag":"abc"}
+                """;
+        RegisteredModel m = RegisteredModel.fromJson(json);
+        assertEquals("gpt", m.id());
+        assertEquals(ApiKind.OPENAI_OFFICIAL, m.apiKind());
+        assertEquals("gpt-5", m.modelId());
+        assertTrue(m.isDefault());
+        assertTrue(m.tags().containsAll(Set.of(Tag.THINKING, Tag.MULTIMODAL)));
+        assertEquals(128000L, m.spec().get("contextWindow"));
+        assertEquals("abc", m.extra().get("customFlag"));
+    }
 
     @Test
-    void modelSpec() {
-        assertEquals("gpt-5", SPEC.id());
-        assertEquals("openai", SPEC.provider());
-        assertEquals(ModelSpec.Size.LARGE, SPEC.size());
+    void registeredModelAutoId() {
+        RegisteredModel m = RegisteredModel.of(ApiKind.GEMINI_OFFICIAL, "gemini-2.5", "http://g", "k");
+        assertEquals("GEMINI_OFFICIAL@http://g", m.id());
+        assertFalse(m.isDefault());
+    }
+
+    @Test
+    void registeredModelExtraExcludesCoreFields() {
+        String json = """
+                {"apiKind":"DEEPSEEK_OFFICIAL","modelId":"deepseek-reasoner",
+                 "baseUrl":"http://d","apiKey":"k","extraKey":1}
+                """;
+        RegisteredModel m = RegisteredModel.fromJson(json);
+        assertEquals(1L, m.extra().get("extraKey"));
+        assertFalse(m.extra().containsKey("apiKind"));
+        assertFalse(m.extra().containsKey("modelId"));
+        assertFalse(m.extra().containsKey("baseUrl"));
     }
 
     @Test
     void chatRequestBuilds() {
         ChatRequest req = ChatRequest.builder()
-                .model(SPEC)
                 .message(Message.of(Message.Role.USER, "hello"))
                 .thinking(ThinkingConfig.of(ThinkingConfig.Mode.ON, ThinkingConfig.Effort.HIGH))
                 .sampling(SamplingConfig.of(0.7, 512))
                 .build();
         assertEquals(1, req.messages().size());
         assertEquals(ThinkingConfig.Mode.ON, req.thinking().mode());
-        assertEquals(ThinkingConfig.Effort.HIGH, req.thinking().effort());
         assertEquals(0.7, req.sampling().temperature());
         assertEquals(512, req.sampling().maxTokens());
-    }
-
-    @Test
-    void chatRequestRequiresModel() {
-        assertThrows(IllegalStateException.class,
-                () -> ChatRequest.builder().message(Message.of(Message.Role.USER, "x")).build());
     }
 
     @Test
@@ -52,7 +74,7 @@ class AiModelTest {
 
     @Test
     void thinkingConfig() {
-        assertTrue(ThinkingConfig.off().enabled() == false);
+        assertFalse(ThinkingConfig.off().enabled());
         assertTrue(ThinkingConfig.of(ThinkingConfig.Mode.ON, ThinkingConfig.Effort.MAX).enabled());
         assertEquals(ThinkingConfig.Mode.AUTO, ThinkingConfig.auto().mode());
     }

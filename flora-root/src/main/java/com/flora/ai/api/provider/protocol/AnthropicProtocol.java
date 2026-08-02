@@ -123,6 +123,9 @@ public final class AnthropicProtocol {
                 tr.put("type", "tool_result");
                 tr.put("tool_use_id", m.toolCallId() == null ? "" : m.toolCallId());
                 tr.put("content", buildToolResultContent(m));
+                if (m.error()) {
+                    tr.put("is_error", true);
+                }
                 msg.put("role", "user");
                 msg.put("content", List.of(tr));
                 list.add(msg);

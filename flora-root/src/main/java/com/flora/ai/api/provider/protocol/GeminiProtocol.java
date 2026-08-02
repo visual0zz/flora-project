@@ -128,7 +128,10 @@ public final class GeminiProtocol {
     private static Map<String, Object> functionResponsePart(Message m) {
         Map<String, Object> fr = new LinkedHashMap<>();
         fr.put("name", m.name() == null ? "" : m.name());
-        fr.put("response", Map.of("result", textOf(m)));
+        // 执行失败：response 传 {"error": ...}，让模型感知工具异常
+        fr.put("response", m.error()
+                ? Map.of("error", textOf(m))
+                : Map.of("result", textOf(m)));
         Map<String, Object> part = new LinkedHashMap<>();
         part.put("functionResponse", fr);
         return part;

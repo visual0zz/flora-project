@@ -175,6 +175,22 @@ class AnthropicProtocolTest {
     }
 
     @Test
+    void buildRequestToolResultErrorFlag() {
+        ChatRequest req = ChatRequest.builder()
+                .messages(List.of(
+                        Message.of(Message.Role.USER, "weather?"),
+                        Message.assistantWithCalls(
+                                List.of(ToolCall.of("call_1", "getWeather", Map.of("city", "BJ"))), null),
+                        Message.toolResult("call_1", "boom", true)))
+                .build();
+        Map<String, Object> body = AnthropicProtocol.buildRequestMap(req, MODEL, false, null);
+        Map<?, ?> result = (Map<?, ?>) ((List<?>) body.get("messages")).get(2);
+        Map<?, ?> tr = (Map<?, ?>) ((List<?>) result.get("content")).get(0);
+        assertEquals("tool_result", tr.get("type"));
+        assertEquals(Boolean.TRUE, tr.get("is_error"), "执行失败应标记 is_error=true");
+    }
+
+    @Test
     void buildRequestJsonModeForcesTool() {
         ChatRequest req = ChatRequest.builder()
                 .message(Message.of(Message.Role.USER, "give me json"))

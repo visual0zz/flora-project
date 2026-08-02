@@ -10,7 +10,14 @@ import java.util.List;
  * 的消息可含 {@code toolCalls}（模型发起调用）；{@code name} 标记调用名（TOOL 消息用）。</p>
  */
 public record Message(Role role, List<ContentBlock> content,
-                      List<ToolCall> toolCalls, String toolCallId, String name) {
+                      List<ToolCall> toolCalls, String toolCallId, String name,
+                      boolean error) {
+
+    /** 兼容构造：默认非错误。 */
+    public Message(Role role, List<ContentBlock> content,
+                   List<ToolCall> toolCalls, String toolCallId, String name) {
+        this(role, content, toolCalls, toolCallId, name, false);
+    }
 
     public enum Role {
         USER, ASSISTANT, TOOL
@@ -18,7 +25,7 @@ public record Message(Role role, List<ContentBlock> content,
 
     /** 便捷构造：纯文本消息。 */
     public static Message of(Role role, String text) {
-        return new Message(role, List.of(new ContentBlock.Text(text)), List.of(), null, null);
+        return new Message(role, List.of(new ContentBlock.Text(text)), List.of(), null, null, false);
     }
 
     /** 便捷构造：单角色纯文本列表。 */
@@ -28,18 +35,28 @@ public record Message(Role role, List<ContentBlock> content,
 
     /** 构造 TOOL 角色回执消息（文本）。 */
     public static Message toolResult(String toolCallId, String result) {
-        return toolResult(toolCallId, List.of(new ContentBlock.Text(result)));
+        return toolResult(toolCallId, List.of(new ContentBlock.Text(result)), false);
     }
 
     /** 构造 TOOL 角色回执消息（多模态：text/image 块列表）。 */
     public static Message toolResult(String toolCallId, List<ContentBlock> content) {
-        return new Message(Role.TOOL, List.copyOf(content), List.of(), toolCallId, null);
+        return toolResult(toolCallId, content, false);
+    }
+
+    /** 构造 TOOL 角色回执消息（文本，标记执行失败）。 */
+    public static Message toolResult(String toolCallId, String result, boolean isError) {
+        return toolResult(toolCallId, List.of(new ContentBlock.Text(result)), isError);
+    }
+
+    /** 构造 TOOL 角色回执消息（多模态内容块，标记执行失败）。 */
+    public static Message toolResult(String toolCallId, List<ContentBlock> content, boolean isError) {
+        return new Message(Role.TOOL, List.copyOf(content), List.of(), toolCallId, null, isError);
     }
 
     /** 构造 ASSISTANT 角色消息：含工具调用（可选附带文本）。 */
     public static Message assistantWithCalls(List<ToolCall> calls, String text) {
         List<ContentBlock> content = text == null
                 ? List.of() : List.of(new ContentBlock.Text(text));
-        return new Message(Role.ASSISTANT, content, List.copyOf(calls), null, null);
+        return new Message(Role.ASSISTANT, content, List.copyOf(calls), null, null, false);
     }
 }

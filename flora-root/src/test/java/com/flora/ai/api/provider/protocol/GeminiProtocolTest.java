@@ -127,6 +127,26 @@ class GeminiProtocolTest {
     }
 
     @Test
+    void buildRequestToolResultErrorPayload() {
+        ChatRequest req = ChatRequest.builder()
+                .messages(List.of(
+                        Message.of(Message.Role.USER, "weather?"),
+                        Message.assistantWithCalls(
+                                List.of(ToolCall.of("call_1", "getWeather", Map.of("city", "BJ"))), null),
+                        new Message(Message.Role.TOOL, List.of(new ContentBlock.Text("boom")),
+                                List.of(), "call_1", "getWeather", true)))
+                .build();
+        Map<String, Object> body = GeminiProtocol.buildRequestMap(req, null);
+        Map<?, ?> result = (Map<?, ?>) ((List<?>) body.get("contents")).get(2);
+        Map<?, ?> fr = (Map<?, ?>) ((Map<?, ?>) ((List<?>) result.get("parts")).get(0)).get("functionResponse");
+        assertEquals("getWeather", fr.get("name"));
+        Map<?, ?> response = (Map<?, ?>) fr.get("response");
+        assertTrue(response.containsKey("error"), "执行失败 response 应传 error 而非 result");
+        assertEquals("boom", response.get("error"));
+        assertFalse(response.containsKey("result"));
+    }
+
+    @Test
     void buildRequestJsonModeSetsResponseMimeType() {
         ChatRequest req = ChatRequest.builder()
                 .message(Message.of(Message.Role.USER, "give me json"))

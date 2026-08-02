@@ -10,6 +10,7 @@ import com.flora.ai.api.spi.AiProvider;
 import com.flora.ai.api.spi.Router;
 import com.flora.ai.api.spi.TaskContext;
 import com.flora.codec.json.JsonBuilder;
+import com.flora.tag.ThreadFragile;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -92,6 +93,7 @@ public final class AiApi {
      * 展开后每个 Endpoint 的 {@code capability} 必须 ⊆ provider 支持能力，否则报错。
      * {@code default:true} 在同一 baseId 内唯一。</p>
      */
+    @ThreadFragile("全局注册表无锁，运行时并发注册/注销与查询需外部同步")
     public static List<Endpoint> register(String jsonConfig) {
         List<Endpoint> expanded = Endpoint.fromJsonAll(jsonConfig);
         List<Endpoint> registered = new ArrayList<>();
@@ -105,6 +107,7 @@ public final class AiApi {
     }
 
     /** 批量注册：解析配置 JSON 数组并逐个注册。 */
+    @ThreadFragile("全局注册表无锁，运行时并发注册/注销与查询需外部同步")
     public static List<Endpoint> registerAll(String jsonArray) {
         List<?> list = com.flora.codec.json.JsonParser.parseArray(jsonArray);
         List<Endpoint> registered = new ArrayList<>();
@@ -125,6 +128,7 @@ public final class AiApi {
     }
 
     /** 注销端点（含其展开的所有能力条目）。 */
+    @ThreadFragile("全局注册表无锁，运行时并发注册/注销与查询需外部同步")
     public static void unregister(String baseId) {
         List<String> toRemove = new ArrayList<>();
         for (String id : ENDPOINTS.keySet()) {
@@ -141,6 +145,7 @@ public final class AiApi {
     }
 
     /** 注册路由解析器。 */
+    @ThreadFragile("router 非 volatile，并发 setRouter 与 getByContext 可能读到陈旧值")
     public static void setRouter(Router router) {
         AiApi.router = router;
     }

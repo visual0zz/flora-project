@@ -3,6 +3,7 @@ package com.flora.ai.api.provider.client;
 import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.ToolCall;
 import com.flora.codec.json.JsonParser;
+import com.flora.tag.ThreadFragile;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -16,6 +17,7 @@ import java.util.Map;
  * （{@code finish_reason="tool_calls"} 或流结束）到来时整批 flush 出完整调用。
  * arguments 分片拼接后解析为 Map；解析失败时保留空 Map，原始串由事件 {@code rawArguments} 带出。</p>
  */
+@ThreadFragile("内部按 index 累积碎片的可变 Map 状态，非线程安全；单次流式调用内单线程使用")
 final class OpenAiToolCallAggregator {
 
     private final Map<Integer, StringBuilder> argsByIndex = new LinkedHashMap<>();

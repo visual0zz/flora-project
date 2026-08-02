@@ -2,6 +2,7 @@ package com.flora.ai.api.provider;
 
 import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.StreamIterator;
+import com.flora.tag.ThreadFragile;
 
 import java.util.NoSuchElementException;
 import java.util.concurrent.BlockingQueue;
@@ -12,6 +13,7 @@ import java.util.concurrent.TimeUnit;
  * <p>SSE 回调线程把事件放入 {@link BlockingQueue}，消费线程阻塞拉取；
  * DONE 事件仅作为终止信号，不对外暴露。超时（30s）视为流结束。</p>
  */
+@ThreadFragile("内部 next 字段可变，单消费者迭代；多线程并发迭代同一实例需外部同步")
 public final class QueueStreamIterator implements StreamIterator {
 
     private final BlockingQueue<StreamEvent> queue;

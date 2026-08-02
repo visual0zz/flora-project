@@ -48,16 +48,11 @@ module com.flora.root {
 
     exports com.flora.ai;
     exports com.flora.ai.api;
-    exports com.flora.ai.api.spi;
     exports com.flora.ai.api.impl;
-    exports com.flora.ai.route;
+    exports com.flora.ai.api.spi;
     exports com.flora.ai.api.provider;
-    exports com.flora.ai.provider.openai;
-    exports com.flora.ai.provider.anthropic;
-    exports com.flora.ai.provider.gemini;
-    exports com.flora.ai.provider.deepseek;
     exports com.flora.ai.api.provider.client;
-    exports com.flora.ai.provider.impl;
+    exports com.flora.ai.api.provider.protocol;
 
     uses Converter;
     uses AiProvider;

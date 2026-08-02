@@ -1,4 +1,4 @@
-package com.flora.ai.api.impl;
+package com.flora.ai.api;
 
 /**
  * 内容块：消息内容的一部分，支持多模态（文本/图片/音频/文件）。

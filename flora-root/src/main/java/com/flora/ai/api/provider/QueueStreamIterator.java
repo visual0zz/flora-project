@@ -1,7 +1,7 @@
 package com.flora.ai.api.provider;
 
-import com.flora.ai.api.impl.StreamEvent;
-import com.flora.ai.api.impl.StreamIterator;
+import com.flora.ai.api.StreamEvent;
+import com.flora.ai.api.StreamIterator;
 
 import java.util.NoSuchElementException;
 import java.util.concurrent.BlockingQueue;

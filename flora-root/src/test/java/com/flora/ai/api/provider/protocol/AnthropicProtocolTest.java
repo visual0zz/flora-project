@@ -1,9 +1,9 @@
-package com.flora.ai.provider.anthropic;
+package com.flora.ai.api.provider.protocol;
 
-import com.flora.ai.api.impl.ChatRequest;
-import com.flora.ai.api.impl.Message;
-import com.flora.ai.api.impl.ThinkingConfig;
-import com.flora.ai.api.provider.protocal.AnthropicProtocol;
+import com.flora.ai.api.ChatRequest;
+import com.flora.ai.api.Message;
+import com.flora.ai.api.ThinkingConfig;
+import com.flora.ai.api.provider.protocol.AnthropicProtocol;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

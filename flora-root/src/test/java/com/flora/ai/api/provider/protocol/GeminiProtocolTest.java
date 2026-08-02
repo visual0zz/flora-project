@@ -1,9 +1,9 @@
-package com.flora.ai.provider.gemini;
+package com.flora.ai.api.provider.protocol;
 
-import com.flora.ai.api.impl.ChatRequest;
-import com.flora.ai.api.impl.ContentBlock;
-import com.flora.ai.api.impl.Message;
-import com.flora.ai.api.provider.protocal.GeminiProtocol;
+import com.flora.ai.api.ChatRequest;
+import com.flora.ai.api.ContentBlock;
+import com.flora.ai.api.Message;
+import com.flora.ai.api.provider.protocol.GeminiProtocol;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

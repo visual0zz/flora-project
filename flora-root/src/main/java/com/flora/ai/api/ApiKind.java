@@ -1,4 +1,4 @@
-package com.flora.ai.api.impl;
+package com.flora.ai.api;
 
 /**
  * 模型 API 类型：协议分类。

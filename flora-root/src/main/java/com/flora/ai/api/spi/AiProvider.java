@@ -1,13 +1,13 @@
 package com.flora.ai.api.spi;
 
-import com.flora.ai.api.impl.ApiKind;
-import com.flora.ai.api.impl.ChatClient;
-import com.flora.ai.api.impl.RegisteredModel;
+import com.flora.ai.api.ApiKind;
+import com.flora.ai.api.ChatClient;
+import com.flora.ai.api.RegisteredModel;
 
 /**
  * AI 提供者 SPI：绑定一种 {@link ApiKind} 协议，按注册模型创建客户端。
  * <p>内置 provider（OpenAI/Anthropic/Gemini 等）由 {@code AiApi} 直接代码注册；
- * 外部新厂商实现本接口并通过 ServiceLoader（{@code META-INF/services/com.flora.ai.spi.AiProvider}）
+ * 外部新厂商实现本接口并通过 ServiceLoader（{@code META-INF/services/com.flora.ai.api.spi.AiProvider}）
  * 注册。每个实现负责一种 API 类型的协议翻译（如 OpenAI 官方、Anthropic 官方）。</p>
  *
  * <pre>{@code

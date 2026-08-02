@@ -1,14 +1,14 @@
 package com.flora.ai;
 
-import com.flora.ai.api.impl.ApiKind;
-import com.flora.ai.api.impl.ChatClient;
-import com.flora.ai.api.impl.ChatRequest;
-import com.flora.ai.api.impl.ChatResponse;
-import com.flora.ai.api.impl.RegisteredModel;
-import com.flora.ai.api.impl.StreamEvent;
-import com.flora.ai.api.impl.StreamIterator;
-import com.flora.ai.api.impl.StreamingClient;
-import com.flora.ai.api.impl.TokenUsage;
+import com.flora.ai.api.ApiKind;
+import com.flora.ai.api.ChatClient;
+import com.flora.ai.api.ChatRequest;
+import com.flora.ai.api.ChatResponse;
+import com.flora.ai.api.RegisteredModel;
+import com.flora.ai.api.StreamEvent;
+import com.flora.ai.api.StreamIterator;
+import com.flora.ai.api.StreamingClient;
+import com.flora.ai.api.TokenUsage;
 import com.flora.ai.api.spi.AiProvider;
 
 import java.util.ArrayDeque;
@@ -16,7 +16,7 @@ import java.util.Deque;
 
 /**
  * 测试用 mock AI 提供者：绑定 {@code OPENAI_COMPATIBLE} 协议标识，实现对话与流式能力。
- * 通过 {@code META-INF/services/com.flora.ai.spi.AiProvider} 注册，验证外部 SPI 附加加载。
+ * 通过 {@code META-INF/services/com.flora.ai.api.spi.AiProvider} 注册，验证外部 SPI 附加加载。
  */
 public final class MockAiProvider implements AiProvider {
 

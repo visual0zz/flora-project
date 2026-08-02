@@ -1,6 +1,6 @@
 package com.flora.ai.api.spi;
 
-import com.flora.ai.api.impl.RegisteredModel;
+import com.flora.ai.api.RegisteredModel;
 
 import java.util.List;
 

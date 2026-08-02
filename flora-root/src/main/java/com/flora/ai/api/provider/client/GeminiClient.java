@@ -1,17 +1,17 @@
 package com.flora.ai.api.provider.client;
 
-import com.flora.ai.api.impl.ChatClient;
-import com.flora.ai.api.impl.ChatRequest;
-import com.flora.ai.api.impl.ChatResponse;
-import com.flora.ai.api.impl.JsonClient;
-import com.flora.ai.api.impl.RegisteredModel;
-import com.flora.ai.api.impl.StreamEvent;
-import com.flora.ai.api.impl.StreamIterator;
-import com.flora.ai.api.impl.StreamingClient;
+import com.flora.ai.api.ChatClient;
+import com.flora.ai.api.ChatRequest;
+import com.flora.ai.api.ChatResponse;
+import com.flora.ai.api.JsonClient;
+import com.flora.ai.api.RegisteredModel;
+import com.flora.ai.api.StreamEvent;
+import com.flora.ai.api.StreamIterator;
+import com.flora.ai.api.StreamingClient;
 import com.flora.ai.api.provider.QueueStreamIterator;
 import com.flora.ai.api.impl.HttpTransport;
 import com.flora.ai.api.impl.SseParser;
-import com.flora.ai.api.provider.protocal.GeminiProtocol;
+import com.flora.ai.api.provider.protocol.GeminiProtocol;
 
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -21,12 +21,12 @@ import java.util.concurrent.BlockingQueue;
  * Gemini 客户端：对话 + 流式 + JSON 模式。
  * <p>流式使用 {@code :streamGenerateContent?alt=sse} 端点。</p>
  */
-final class GeminiClient implements ChatClient, StreamingClient, JsonClient {
+public final class GeminiClient implements ChatClient, StreamingClient, JsonClient {
 
     private final RegisteredModel model;
     private final HttpTransport http;
 
-    GeminiClient(RegisteredModel model, HttpTransport http) {
+    public GeminiClient(RegisteredModel model, HttpTransport http) {
         this.model = model;
         this.http = http;
     }

@@ -1,8 +1,8 @@
 package com.flora.ai;
 
-import com.flora.ai.api.impl.ApiKind;
-import com.flora.ai.api.impl.ChatClient;
-import com.flora.ai.api.impl.RegisteredModel;
+import com.flora.ai.api.ApiKind;
+import com.flora.ai.api.ChatClient;
+import com.flora.ai.api.RegisteredModel;
 import com.flora.ai.api.provider.AnthropicProvider;
 import com.flora.ai.api.provider.DeepSeekProvider;
 import com.flora.ai.api.provider.GeminiProvider;

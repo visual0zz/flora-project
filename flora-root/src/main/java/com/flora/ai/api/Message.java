@@ -1,4 +1,4 @@
-package com.flora.ai.api.impl;
+package com.flora.ai.api;
 
 import java.util.List;
 

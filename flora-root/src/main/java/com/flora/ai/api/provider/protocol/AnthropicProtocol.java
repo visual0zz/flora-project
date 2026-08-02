@@ -1,12 +1,12 @@
-package com.flora.ai.api.provider.protocal;
+package com.flora.ai.api.provider.protocol;
 
-import com.flora.ai.api.impl.ChatRequest;
-import com.flora.ai.api.impl.ChatResponse;
-import com.flora.ai.api.impl.ContentBlock;
-import com.flora.ai.api.impl.Message;
-import com.flora.ai.api.impl.SamplingConfig;
-import com.flora.ai.api.impl.ThinkingConfig;
-import com.flora.ai.api.impl.TokenUsage;
+import com.flora.ai.api.ChatRequest;
+import com.flora.ai.api.ChatResponse;
+import com.flora.ai.api.ContentBlock;
+import com.flora.ai.api.Message;
+import com.flora.ai.api.SamplingConfig;
+import com.flora.ai.api.ThinkingConfig;
+import com.flora.ai.api.TokenUsage;
 import com.flora.ai.api.impl.JsonHelper;
 import com.flora.codec.json.JsonBuilder;
 import com.flora.codec.json.JsonParser;
@@ -27,7 +27,7 @@ public final class AnthropicProtocol {
     public static final String API_VERSION = "2023-06-01";
 
     /** max_tokens 默认值（Anthropic 必填）。 */
-    static final int DEFAULT_MAX_TOKENS = 1024;
+    public static final int DEFAULT_MAX_TOKENS = 1024;
 
     private AnthropicProtocol() {
     }
@@ -37,7 +37,7 @@ public final class AnthropicProtocol {
         return JsonBuilder.toJsonString(buildRequestMap(req, modelId, stream));
     }
 
-    static Map<String, Object> buildRequestMap(ChatRequest req, String modelId, boolean stream) {
+    public static Map<String, Object> buildRequestMap(ChatRequest req, String modelId, boolean stream) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", modelId);
 
@@ -179,7 +179,7 @@ public final class AnthropicProtocol {
     }
 
     /** 流式增量结果。 */
-    record Delta(String text, boolean thinking) {
+    public record Delta(String text, boolean thinking) {
     }
 
     /** 从 SSE data 提取流式增量（content_block_delta 事件）；非增量事件返回 null。 */

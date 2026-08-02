@@ -1,4 +1,4 @@
-package com.flora.ai.api.impl;
+package com.flora.ai.api;
 
 /**
  * 流式事件：增量输出、思考增量或流结束。

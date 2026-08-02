@@ -1,4 +1,4 @@
-package com.flora.ai.impl;
+package com.flora.ai.api.impl;
 
 import com.flora.ai.api.impl.SseParser;
 import org.junit.jupiter.api.Test;

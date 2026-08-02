@@ -1,4 +1,4 @@
-package com.flora.ai.api.impl;
+package com.flora.ai.api;
 
 /**
  * 基础对话客户端：所有 AI 提供者必须实现的能力。

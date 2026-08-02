@@ -1,4 +1,4 @@
-package com.flora.ai.api.impl;
+package com.flora.ai.api;
 
 /**
  * 思考配置：是否启用推理思考、思考强度、预算。

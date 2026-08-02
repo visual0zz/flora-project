@@ -1,12 +1,12 @@
-package com.flora.ai.api.provider.protocal;
+package com.flora.ai.api.provider.protocol;
 
-import com.flora.ai.api.impl.ChatRequest;
-import com.flora.ai.api.impl.ChatResponse;
-import com.flora.ai.api.impl.ContentBlock;
-import com.flora.ai.api.impl.Message;
-import com.flora.ai.api.impl.SamplingConfig;
-import com.flora.ai.api.impl.ThinkingConfig;
-import com.flora.ai.api.impl.TokenUsage;
+import com.flora.ai.api.ChatRequest;
+import com.flora.ai.api.ChatResponse;
+import com.flora.ai.api.ContentBlock;
+import com.flora.ai.api.Message;
+import com.flora.ai.api.SamplingConfig;
+import com.flora.ai.api.ThinkingConfig;
+import com.flora.ai.api.TokenUsage;
 import com.flora.ai.api.impl.JsonHelper;
 import com.flora.codec.json.JsonBuilder;
 import com.flora.codec.json.JsonParser;

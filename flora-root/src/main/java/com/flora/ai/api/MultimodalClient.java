@@ -1,4 +1,4 @@
-package com.flora.ai.api.impl;
+package com.flora.ai.api;
 
 /**
  * 多模态输入能力（可选）：请求可含图片/音频/文件内容块。

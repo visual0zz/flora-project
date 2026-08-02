@@ -1,10 +1,10 @@
 package com.flora.ai.api.provider;
 
-import com.flora.ai.api.impl.ApiKind;
-import com.flora.ai.api.impl.ChatClient;
-import com.flora.ai.api.impl.RegisteredModel;
+import com.flora.ai.api.ApiKind;
+import com.flora.ai.api.ChatClient;
+import com.flora.ai.api.RegisteredModel;
 import com.flora.ai.api.impl.HttpTransport;
-import com.flora.ai.provider.client.AnthropicClient;
+import com.flora.ai.api.provider.client.AnthropicClient;
 import com.flora.ai.api.spi.AiProvider;
 
 /**

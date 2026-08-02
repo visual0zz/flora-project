@@ -1,14 +1,14 @@
 package com.flora.ai.api.provider;
 
-import com.flora.ai.api.impl.ApiKind;
-import com.flora.ai.api.impl.ChatClient;
-import com.flora.ai.api.impl.RegisteredModel;
+import com.flora.ai.api.ApiKind;
+import com.flora.ai.api.ChatClient;
+import com.flora.ai.api.RegisteredModel;
 import com.flora.ai.api.impl.HttpTransport;
 import com.flora.ai.api.provider.client.OpenAiClient;
 import com.flora.ai.api.spi.AiProvider;
 
 /**
- * OpenAI 官方提供者 SPI：绑定 {@link ApiKind#OPENAI_OFFICIAL}。
+ * OpenAI 官方提供者：绑定 {@link ApiKind#OPENAI_OFFICIAL}。
  */
 public final class OpenAiProvider implements AiProvider {
 

@@ -1,4 +1,4 @@
-package com.flora.ai.api.impl;
+package com.flora.ai.api;
 
 /**
  * 系统统一能力标签：跨厂商一致，供上层路由与能力判断。

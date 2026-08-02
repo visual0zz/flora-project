@@ -1,14 +1,14 @@
 package com.flora.ai.api.provider.client;
 
-import com.flora.ai.api.impl.ChatClient;
-import com.flora.ai.api.impl.ChatRequest;
-import com.flora.ai.api.impl.ChatResponse;
-import com.flora.ai.api.impl.JsonClient;
-import com.flora.ai.api.impl.RegisteredModel;
-import com.flora.ai.api.impl.StreamEvent;
-import com.flora.ai.api.impl.StreamIterator;
-import com.flora.ai.api.impl.StreamingClient;
-import com.flora.ai.api.provider.protocal.OpenAiProtocol;
+import com.flora.ai.api.ChatClient;
+import com.flora.ai.api.ChatRequest;
+import com.flora.ai.api.ChatResponse;
+import com.flora.ai.api.JsonClient;
+import com.flora.ai.api.RegisteredModel;
+import com.flora.ai.api.StreamEvent;
+import com.flora.ai.api.StreamIterator;
+import com.flora.ai.api.StreamingClient;
+import com.flora.ai.api.provider.protocol.OpenAiProtocol;
 import com.flora.codec.json.JsonBuilder;
 import com.flora.ai.api.impl.HttpTransport;
 import com.flora.ai.api.impl.SseParser;

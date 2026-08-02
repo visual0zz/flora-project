@@ -1,4 +1,4 @@
-package com.flora.ai.api.impl;
+package com.flora.ai.api;
 
 /**
  * 对话响应：文本、思考内容、token 用量、停止原因、原始响应。

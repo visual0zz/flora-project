@@ -1,6 +1,6 @@
-package com.flora.ai.provider;
+package com.flora.ai.api.provider;
 
-import com.flora.ai.api.impl.ApiKind;
+import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.provider.*;
 import org.junit.jupiter.api.Test;
 

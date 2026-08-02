@@ -1,6 +1,5 @@
 package com.flora.ai.api;
 
-import com.flora.ai.api.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -25,7 +24,7 @@ class AiModelTest {
         assertEquals(1, endpoints.size()); // 默认 CHAT
         Endpoint m = endpoints.get(0);
         assertEquals("gpt:CHAT", m.id());
-        assertEquals(ApiKind.OPENAI_OFFICIAL, m.apiKind());
+        assertEquals(ApiSchema.OPENAI_OFFICIAL, m.apiKind());
         assertEquals("gpt-5", m.modelId());
         assertTrue(m.isDefault());
         assertEquals(Capability.CHAT, m.capability());
@@ -50,7 +49,7 @@ class AiModelTest {
 
     @Test
     void registeredModelAutoId() {
-        Endpoint m = Endpoint.of(ApiKind.GEMINI_OFFICIAL, "gemini-2.5", "http://g", "k");
+        Endpoint m = Endpoint.of(ApiSchema.GEMINI_OFFICIAL, "gemini-2.5", "http://g", "k");
         assertEquals("GEMINI_OFFICIAL@http://g", m.id());
         assertEquals(Capability.CHAT, m.capability());
         assertFalse(m.isDefault());

@@ -1,9 +1,6 @@
 package com.flora.ai.api.provider;
 
-import com.flora.ai.api.ApiKind;
-import com.flora.ai.api.ChatClient;
-import com.flora.ai.api.Capability;
-import com.flora.ai.api.Endpoint;
+import com.flora.ai.api.*;
 import com.flora.ai.api.impl.HttpTransport;
 import com.flora.ai.api.provider.client.AnthropicOfficialClient;
 import com.flora.ai.api.spi.AiProvider;
@@ -12,13 +9,13 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * Anthropic 官方提供者：绑定 {@link ApiKind#ANTHROPIC_OFFICIAL}。
+ * Anthropic 官方提供者：绑定 {@link ApiSchema#ANTHROPIC_OFFICIAL}。
  */
 public final class AnthropicOfficialProvider implements AiProvider {
 
     @Override
-    public ApiKind apiKind() {
-        return ApiKind.ANTHROPIC_OFFICIAL;
+    public ApiSchema apiKind() {
+        return ApiSchema.ANTHROPIC_OFFICIAL;
     }
 
     @Override

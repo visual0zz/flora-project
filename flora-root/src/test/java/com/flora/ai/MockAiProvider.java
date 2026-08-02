@@ -1,6 +1,6 @@
 package com.flora.ai;
 
-import com.flora.ai.api.ApiKind;
+import com.flora.ai.api.ApiSchema;
 import com.flora.ai.api.Capability;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
@@ -26,8 +26,8 @@ import java.util.Set;
 public final class MockAiProvider implements AiProvider {
 
     @Override
-    public ApiKind apiKind() {
-        return ApiKind.OPENAI_LIKE;
+    public ApiSchema apiKind() {
+        return ApiSchema.OPENAI_LIKE;
     }
 
     @Override

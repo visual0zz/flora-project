@@ -18,7 +18,7 @@ import java.util.Set;
  */
 public record Endpoint(
         String id,
-        ApiKind apiKind,
+        ApiSchema apiKind,
         String modelId,
         String baseUrl,
         String apiKey,
@@ -29,7 +29,7 @@ public record Endpoint(
         Map<String, Object> extra) {
 
     /** 便捷构造。 */
-    public static Endpoint of(String id, ApiKind apiKind, String modelId,
+    public static Endpoint of(String id, ApiSchema apiKind, String modelId,
                               String baseUrl, String apiKey, boolean isDefault,
                               Capability capability, Set<Tag> tags, Map<String, Object> spec) {
         return new Endpoint(id, apiKind, modelId, baseUrl, apiKey, isDefault, capability,
@@ -38,7 +38,7 @@ public record Endpoint(
     }
 
     /** 便捷构造：自动生成 id（baseUrl + apiKind 派生），默认 CHAT 能力。 */
-    public static Endpoint of(ApiKind apiKind, String modelId,
+    public static Endpoint of(ApiSchema apiKind, String modelId,
                               String baseUrl, String apiKey) {
         return new Endpoint(autoId(apiKind, baseUrl), apiKind, modelId, baseUrl, apiKey,
                 false, Capability.CHAT, Set.of(), Map.of(), Map.of());
@@ -53,7 +53,7 @@ public record Endpoint(
      */
     public static List<Endpoint> fromJsonAll(String json) {
         Map<String, Object> m = JsonParser.parseObject(json);
-        ApiKind kind = ApiKind.valueOf(String.valueOf(m.get("apiKind")));
+        ApiSchema kind = ApiSchema.valueOf(String.valueOf(m.get("apiKind")));
         String modelId = String.valueOf(m.get("modelId"));
         String baseUrl = String.valueOf(m.get("baseUrl"));
         String apiKey = m.get("apiKey") == null ? null : String.valueOf(m.get("apiKey"));
@@ -102,7 +102,7 @@ public record Endpoint(
         return endpoints;
     }
 
-    private static String autoId(ApiKind kind, String baseUrl) {
+    private static String autoId(ApiSchema kind, String baseUrl) {
         return kind.name() + "@" + baseUrl;
     }
 }

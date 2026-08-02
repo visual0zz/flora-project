@@ -1,6 +1,6 @@
 package com.flora.ai.api.provider;
 
-import com.flora.ai.api.ApiKind;
+import com.flora.ai.api.ApiSchema;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.Capability;
 import com.flora.ai.api.Endpoint;
@@ -12,15 +12,15 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * OpenAI 风格兼容端点提供者：绑定 {@link ApiKind#OPENAI_LIKE}。
+ * OpenAI 风格兼容端点提供者：绑定 {@link ApiSchema#OPENAI_LIKE}。
  * <p>复用 {@link OpenAiOfficialClient}（协议相同），面向第三方 OpenAI 兼容端点
  * （Together/Fireworks/vLLM/Ollama 等）。</p>
  */
 public final class OpenAiLikeProvider implements AiProvider {
 
     @Override
-    public ApiKind apiKind() {
-        return ApiKind.OPENAI_LIKE;
+    public ApiSchema apiKind() {
+        return ApiSchema.OPENAI_LIKE;
     }
 
     @Override

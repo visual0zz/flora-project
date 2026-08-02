@@ -1,6 +1,5 @@
 package com.flora.ai;
 
-import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.Capability;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;

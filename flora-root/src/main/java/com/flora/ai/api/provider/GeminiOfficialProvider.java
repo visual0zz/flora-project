@@ -1,9 +1,6 @@
 package com.flora.ai.api.provider;
 
-import com.flora.ai.api.ApiKind;
-import com.flora.ai.api.ChatClient;
-import com.flora.ai.api.Capability;
-import com.flora.ai.api.Endpoint;
+import com.flora.ai.api.*;
 import com.flora.ai.api.impl.HttpTransport;
 import com.flora.ai.api.provider.client.GeminiOfficialClient;
 import com.flora.ai.api.spi.AiProvider;
@@ -12,13 +9,13 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * Gemini 官方提供者：绑定 {@link ApiKind#GEMINI_OFFICIAL}。
+ * Gemini 官方提供者：绑定 {@link ApiSchema#GEMINI_OFFICIAL}。
  */
 public final class GeminiOfficialProvider implements AiProvider {
 
     @Override
-    public ApiKind apiKind() {
-        return ApiKind.GEMINI_OFFICIAL;
+    public ApiSchema apiKind() {
+        return ApiSchema.GEMINI_OFFICIAL;
     }
 
     @Override

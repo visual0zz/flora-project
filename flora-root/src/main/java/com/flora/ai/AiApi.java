@@ -1,12 +1,6 @@
 package com.flora.ai;
 
-import com.flora.ai.api.ApiKind;
-import com.flora.ai.api.Capability;
-import com.flora.ai.api.ChatClient;
-import com.flora.ai.api.Endpoint;
-import com.flora.ai.api.JsonClient;
-import com.flora.ai.api.MultimodalClient;
-import com.flora.ai.api.StreamingClient;
+import com.flora.ai.api.*;
 import com.flora.ai.api.provider.AnthropicOfficialProvider;
 import com.flora.ai.api.provider.DeepSeekOfficialProvider;
 import com.flora.ai.api.provider.GeminiOfficialProvider;
@@ -253,7 +247,7 @@ public final class AiApi {
         throw new IllegalArgumentException("未知 client 能力类型: " + type.getName());
     }
 
-    private static AiProvider providerFor(ApiKind kind) {
+    private static AiProvider providerFor(ApiSchema kind) {
         for (AiProvider p : PROVIDERS) {
             if (p.apiKind() == kind) {
                 return p;

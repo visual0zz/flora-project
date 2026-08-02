@@ -6,7 +6,7 @@ package com.flora.ai.api;
  * OpenAI 风格兼容接口 / DeepSeek 官方）。{@code OPENAI_LIKE} 与 {@code DEEPSEEK_OFFICIAL}
  * 复用 OpenAI 协议格式（各自独立 provider）。</p>
  */
-public enum ApiKind {
+public enum ApiSchema {
     OPENAI_OFFICIAL,
     ANTHROPIC_OFFICIAL,
     GEMINI_OFFICIAL,

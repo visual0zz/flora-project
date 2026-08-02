@@ -1,6 +1,6 @@
 package com.flora.ai.api.provider;
 
-import com.flora.ai.api.ApiKind;
+import com.flora.ai.api.ApiSchema;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.Capability;
 import com.flora.ai.api.Endpoint;
@@ -12,14 +12,14 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * DeepSeek 官方提供者：绑定 {@link ApiKind#DEEPSEEK_OFFICIAL}。
+ * DeepSeek 官方提供者：绑定 {@link ApiSchema#DEEPSEEK_OFFICIAL}。
  * <p>使用独立 {@code DeepSeekProtocol}（JSON 仅 json_object、reasoner 拒绝工具调用）。</p>
  */
 public final class DeepSeekOfficialProvider implements AiProvider {
 
     @Override
-    public ApiKind apiKind() {
-        return ApiKind.DEEPSEEK_OFFICIAL;
+    public ApiSchema apiKind() {
+        return ApiSchema.DEEPSEEK_OFFICIAL;
     }
 
     @Override

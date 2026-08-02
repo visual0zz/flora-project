@@ -2,7 +2,7 @@ package com.flora.ai;
 
 import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.ChatClient;
-import com.flora.ai.api.RegisteredModel;
+import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.provider.AnthropicProvider;
 import com.flora.ai.api.provider.DeepSeekProvider;
 import com.flora.ai.api.provider.GeminiProvider;
@@ -26,8 +26,8 @@ import java.util.ServiceLoader;
  * 未注册 Router 时 {@link #routed(TaskContext)} 一律返回默认模型。</p>
  *
  * <pre>{@code
- * RegisteredModel m = AiApi.register("{\"apiKind\":\"OPENAI_OFFICIAL\",\"modelId\":\"gpt-5\",...}");
- * ChatClient c = AiApi.client(m);                      // 按注册模型创建
+ * Endpoint m = AiApi.register("{\"apiKind\":\"OPENAI_OFFICIAL\",\"modelId\":\"gpt-5\",...}");
+ * ChatClient c = AiApi.client(m);                      // 按注册端点创建
  * String answer = c.ask(ChatRequest.builder().message(...).build());
  *
  * AiApi.setRouter((models, ctx) -> ...);               // 自定义路由
@@ -37,7 +37,7 @@ import java.util.ServiceLoader;
 public final class AiApi {
 
     private static final List<AiProvider> PROVIDERS = new ArrayList<>();
-    private static final Map<String, RegisteredModel> MODELS = new LinkedHashMap<>();
+    private static final Map<String, Endpoint> MODELS = new LinkedHashMap<>();
     private static Router router;
 
     static {
@@ -81,15 +81,15 @@ public final class AiApi {
      * 若 {@code default:true} 而目录中已有默认模型，则抛 {@link IllegalArgumentException}。
      * 重复注册相同 id 会覆盖。</p>
      */
-    public static RegisteredModel register(String jsonConfig) {
-        RegisteredModel model = RegisteredModel.fromJson(jsonConfig);
+    public static Endpoint register(String jsonConfig) {
+        Endpoint model = Endpoint.fromJson(jsonConfig);
         return register(model);
     }
 
     /** 注册 client：直接传入模型对象。 */
-    public static RegisteredModel register(RegisteredModel model) {
+    public static Endpoint register(Endpoint model) {
         if (model.isDefault()) {
-            RegisteredModel existing = defaultModel();
+            Endpoint existing = defaultModel();
             if (existing != null && !existing.id().equals(model.id())) {
                 throw new IllegalArgumentException("默认模型已存在: " + existing.id()
                         + "，default 必须唯一");
@@ -106,14 +106,14 @@ public final class AiApi {
 
     // ── 目录（不路由）──
 
-    /** 列出所有注册模型。 */
-    public static List<RegisteredModel> models() {
+    /** 列出所有注册端点。 */
+    public static List<Endpoint> models() {
         return List.copyOf(MODELS.values());
     }
 
     /** 默认模型（isDefault=true）；无则 null。 */
-    public static RegisteredModel defaultModel() {
-        for (RegisteredModel m : MODELS.values()) {
+    public static Endpoint defaultModel() {
+        for (Endpoint m : MODELS.values()) {
             if (m.isDefault()) {
                 return m;
             }
@@ -123,8 +123,8 @@ public final class AiApi {
 
     // ── 创建 client（按明确指定的模型/端点）──
 
-    /** 按注册模型创建 client；无对应 provider 抛异常。 */
-    public static ChatClient client(RegisteredModel model) {
+    /** 按注册端点创建 client；无对应 provider 抛异常。 */
+    public static ChatClient client(Endpoint model) {
         if (model == null) {
             throw new IllegalArgumentException("model 不能为空");
         }
@@ -134,7 +134,7 @@ public final class AiApi {
 
     /** 便捷：按 API 类型 + 端点创建 client（不入目录，不设 default）。 */
     public static ChatClient client(ApiKind kind, String baseUrl, String apiKey) {
-        RegisteredModel m = RegisteredModel.of(kind, "model", baseUrl, apiKey);
+        Endpoint m = Endpoint.of(kind, "model", baseUrl, apiKey);
         return providerFor(kind).createClient(m);
     }
 
@@ -160,12 +160,12 @@ public final class AiApi {
     }
 
     /**
-     * 路由辅助：用 Router 从注册模型中选择并返回其 client。
+     * 路由辅助：用 Router 从注册端点中选择并返回其 client。
      * <p>未注册 Router、或 route 返回 null、或路由抛异常 → fallback 到默认模型
      * （无默认模型则抛异常）。真正路由决策由用户 Router 完成。</p>
      */
     public static ChatClient routed(TaskContext context) {
-        RegisteredModel selected = null;
+        Endpoint selected = null;
         Router r = router;
         if (r != null) {
             try {

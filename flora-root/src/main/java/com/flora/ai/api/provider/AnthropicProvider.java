@@ -2,7 +2,7 @@ package com.flora.ai.api.provider;
 
 import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.ChatClient;
-import com.flora.ai.api.RegisteredModel;
+import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.impl.HttpTransport;
 import com.flora.ai.api.provider.client.AnthropicClient;
 import com.flora.ai.api.spi.AiProvider;
@@ -23,7 +23,7 @@ public final class AnthropicProvider implements AiProvider {
     }
 
     @Override
-    public ChatClient createClient(RegisteredModel model) {
+    public ChatClient createClient(Endpoint model) {
         return new AnthropicClient(model, HttpTransport.create());
     }
 }

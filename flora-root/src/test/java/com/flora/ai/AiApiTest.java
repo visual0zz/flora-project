@@ -4,7 +4,7 @@ import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.Message;
-import com.flora.ai.api.RegisteredModel;
+import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.StreamingClient;
 import com.flora.ai.api.Tag;
 import com.flora.ai.api.spi.TaskContext;
@@ -20,7 +20,7 @@ class AiApiTest {
 
     @AfterEach
     void cleanup() {
-        for (RegisteredModel m : AiApi.models()) {
+        for (Endpoint m : AiApi.models()) {
             AiApi.unregister(m.id());
         }
         AiApi.setRouter(null);
@@ -52,7 +52,7 @@ class AiApiTest {
                  "tags":["THINKING","JSON_MODE"],"spec":{"contextWindow":128000},
                  "priority":5}
                 """;
-        RegisteredModel m = AiApi.register(json);
+        Endpoint m = AiApi.register(json);
         assertEquals("mock-1", m.id());
         assertEquals("mock-model", m.modelId());
         assertTrue(m.isDefault());
@@ -81,8 +81,8 @@ class AiApiTest {
     }
 
     @Test
-    void clientCreatedFromRegisteredModel() {
-        RegisteredModel m = AiApi.register("{\"id\":\"mock-1\",\"apiKind\":\"OPENAI_COMPATIBLE\"," +
+    void clientCreatedFromEndpoint() {
+        Endpoint m = AiApi.register("{\"id\":\"mock-1\",\"apiKind\":\"OPENAI_COMPATIBLE\"," +
                 "\"modelId\":\"mock-model\",\"baseUrl\":\"http://mock\"}");
         ChatClient client = AiApi.client(m);
         assertEquals("mock-answer:mock-model", client.chat(simpleReq()).text());
@@ -109,7 +109,7 @@ class AiApiTest {
         AiApi.register("{\"id\":\"c\",\"apiKind\":\"OPENAI_COMPATIBLE\",\"modelId\":\"chosen-model\"," +
                 "\"baseUrl\":\"http://c\",\"spec\":{\"kind\":\"reasoning\"}}");
         AiApi.setRouter((models, ctx) -> {
-            for (RegisteredModel m : models) {
+            for (Endpoint m : models) {
                 if ("reasoning".equals(m.spec().get("kind"))) {
                     return m;
                 }
@@ -136,7 +136,7 @@ class AiApiTest {
 
     @Test
     void streamingCapabilityDetected() {
-        RegisteredModel m = AiApi.register("{\"id\":\"mock-1\",\"apiKind\":\"OPENAI_COMPATIBLE\"," +
+        Endpoint m = AiApi.register("{\"id\":\"mock-1\",\"apiKind\":\"OPENAI_COMPATIBLE\"," +
                 "\"modelId\":\"mock-model\",\"baseUrl\":\"http://mock\"}");
         ChatClient client = AiApi.client(m);
         assertInstanceOf(StreamingClient.class, client);
@@ -154,7 +154,7 @@ class AiApiTest {
 
     @Test
     void clientForOfficialKindUsesBuiltinProvider() {
-        RegisteredModel m = RegisteredModel.of(ApiKind.ANTHROPIC_OFFICIAL, "claude", "http://x", "k");
+        Endpoint m = Endpoint.of(ApiKind.ANTHROPIC_OFFICIAL, "claude", "http://x", "k");
         assertNotNull(AiApi.client(m));
     }
 }

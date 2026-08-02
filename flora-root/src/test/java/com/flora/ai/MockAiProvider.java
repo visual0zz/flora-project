@@ -4,7 +4,7 @@ import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.ChatResponse;
-import com.flora.ai.api.RegisteredModel;
+import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.StreamIterator;
 import com.flora.ai.api.StreamingClient;
@@ -31,15 +31,15 @@ public final class MockAiProvider implements AiProvider {
     }
 
     @Override
-    public ChatClient createClient(RegisteredModel model) {
+    public ChatClient createClient(Endpoint model) {
         return new MockClient(model);
     }
 
     /** mock 客户端：对话返回固定文本，流式返回固定事件序列。 */
     static final class MockClient implements ChatClient, StreamingClient {
-        private final RegisteredModel model;
+        private final Endpoint model;
 
-        MockClient(RegisteredModel model) {
+        MockClient(Endpoint model) {
             this.model = model;
         }
 

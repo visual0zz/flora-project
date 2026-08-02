@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * 对话请求：消息 + 思考配置 + 采样配置。
- * <p>不绑定模型——具体模型由路由层从注册模型中选择，客户端持有自己的模型标识。
+ * <p>不绑定模型——具体模型由路由层从注册端点中选择，客户端持有自己的模型标识。
  * 不可变对象，通过 {@link #builder()} 构建。</p>
  */
 public record ChatRequest(List<Message> messages,

@@ -2,7 +2,7 @@ package com.flora.ai.api;
 
 /**
  * 系统统一能力标签：跨厂商一致，供上层路由与能力判断。
- * <p>区别于 {@code RegisteredModel.spec()}（技术规格，定制化自由 key）——
+ * <p>区别于 {@code Endpoint.spec()}（技术规格，定制化自由 key）——
  * 标签是统一的、可枚举的，spec 是定制化的。新能力枚举值即新能力（向前兼容）。</p>
  */
 public enum Tag {

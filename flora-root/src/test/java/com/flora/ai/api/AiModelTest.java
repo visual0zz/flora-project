@@ -9,7 +9,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * AI 数据模型测试：RegisteredModel 解析、请求构建与各配置。
+ * AI 数据模型测试：Endpoint 解析、请求构建与各配置。
  */
 class AiModelTest {
 
@@ -21,7 +21,7 @@ class AiModelTest {
                  "tags":["THINKING","MULTIMODAL"],"spec":{"contextWindow":128000},
                  "customFlag":"abc"}
                 """;
-        RegisteredModel m = RegisteredModel.fromJson(json);
+        Endpoint m = Endpoint.fromJson(json);
         assertEquals("gpt", m.id());
         assertEquals(ApiKind.OPENAI_OFFICIAL, m.apiKind());
         assertEquals("gpt-5", m.modelId());
@@ -33,7 +33,7 @@ class AiModelTest {
 
     @Test
     void registeredModelAutoId() {
-        RegisteredModel m = RegisteredModel.of(ApiKind.GEMINI_OFFICIAL, "gemini-2.5", "http://g", "k");
+        Endpoint m = Endpoint.of(ApiKind.GEMINI_OFFICIAL, "gemini-2.5", "http://g", "k");
         assertEquals("GEMINI_OFFICIAL@http://g", m.id());
         assertFalse(m.isDefault());
     }
@@ -44,7 +44,7 @@ class AiModelTest {
                 {"apiKind":"DEEPSEEK_OFFICIAL","modelId":"deepseek-reasoner",
                  "baseUrl":"http://d","apiKey":"k","extraKey":1}
                 """;
-        RegisteredModel m = RegisteredModel.fromJson(json);
+        Endpoint m = Endpoint.fromJson(json);
         assertEquals(1L, m.extra().get("extraKey"));
         assertFalse(m.extra().containsKey("apiKind"));
         assertFalse(m.extra().containsKey("modelId"));

@@ -4,7 +4,7 @@ import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.ChatResponse;
 import com.flora.ai.api.JsonClient;
-import com.flora.ai.api.RegisteredModel;
+import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.StreamIterator;
 import com.flora.ai.api.StreamingClient;
@@ -26,10 +26,10 @@ import java.util.concurrent.BlockingQueue;
  */
 public final class OpenAiClient implements ChatClient, StreamingClient, JsonClient {
 
-    private final RegisteredModel model;
+    private final Endpoint model;
     private final HttpTransport http;
 
-    public OpenAiClient(RegisteredModel model, HttpTransport http) {
+    public OpenAiClient(Endpoint model, HttpTransport http) {
         this.model = model;
         this.http = http;
     }

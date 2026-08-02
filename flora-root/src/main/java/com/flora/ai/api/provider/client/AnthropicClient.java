@@ -3,7 +3,7 @@ package com.flora.ai.api.provider.client;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.ChatResponse;
-import com.flora.ai.api.RegisteredModel;
+import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.StreamIterator;
 import com.flora.ai.api.StreamingClient;
@@ -21,10 +21,10 @@ import java.util.concurrent.BlockingQueue;
  */
 public final class AnthropicClient implements ChatClient, StreamingClient {
 
-    private final RegisteredModel model;
+    private final Endpoint model;
     private final HttpTransport http;
 
-    public AnthropicClient(RegisteredModel model, HttpTransport http) {
+    public AnthropicClient(Endpoint model, HttpTransport http) {
         this.model = model;
         this.http = http;
     }

@@ -7,13 +7,13 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 注册的模型：唯一的模型描述类型。
- * <p>区分两部分：{@code spec}（技术规格，定制化 Map，不同模型不同 key，如
- * {@code contextWindow}/{@code modalities}）与 {@code tags}（系统统一能力标签）。
- * 另含端点配置（{@code apiKind}/{@code baseUrl}/{@code apiKey}）与
- * {@code isDefault}（是否默认，路由 fallback 目标）及 {@code extra}（用户自定义附加参数）。</p>
+ * AI 端点：一个可注册、可路由的模型接入点。
+ * <p>承载模型接入的完整配置与描述：端点配置（{@code apiKind}/{@code baseUrl}/
+ * {@code apiKey}）、协议模型标识（{@code modelId}）、系统统一能力标签（{@code tags}）、
+ * 定制化技术规格（{@code spec}，不同模型不同 key，如 {@code contextWindow}/{@code modalities}）、
+ * 是否默认（{@code isDefault}，路由 fallback 目标）及用户自定义附加参数（{@code extra}）。</p>
  */
-public record RegisteredModel(
+public record Endpoint(
         String id,
         ApiKind apiKind,
         String modelId,
@@ -27,18 +27,18 @@ public record RegisteredModel(
     /**
      * 便捷构造：无附加参数。
      */
-    public static RegisteredModel of(String id, ApiKind apiKind, String modelId,
+    public static Endpoint of(String id, ApiKind apiKind, String modelId,
                                      String baseUrl, String apiKey, boolean isDefault,
                                      Set<Tag> tags, Map<String, Object> spec) {
-        return new RegisteredModel(id, apiKind, modelId, baseUrl, apiKey, isDefault,
+        return new Endpoint(id, apiKind, modelId, baseUrl, apiKey, isDefault,
                 Set.copyOf(tags == null ? Set.of() : tags),
                 spec == null ? Map.of() : Map.copyOf(spec), Map.of());
     }
 
     /** 便捷构造：自动生成 id（baseUrl + apiKind 派生）。 */
-    public static RegisteredModel of(ApiKind apiKind, String modelId,
+    public static Endpoint of(ApiKind apiKind, String modelId,
                                      String baseUrl, String apiKey) {
-        return new RegisteredModel(autoId(apiKind, baseUrl), apiKind, modelId, baseUrl, apiKey,
+        return new Endpoint(autoId(apiKind, baseUrl), apiKind, modelId, baseUrl, apiKey,
                 false, Set.of(), Map.of(), Map.of());
     }
 
@@ -49,7 +49,7 @@ public record RegisteredModel(
      * 附加字段保留到 {@code extra}（供 Router 读取）。{@code apiKind} 为 {@link ApiKind}
      * 枚举名。</p>
      */
-    public static RegisteredModel fromJson(String json) {
+    public static Endpoint fromJson(String json) {
         Map<String, Object> m = JsonParser.parseObject(json);
         ApiKind kind = ApiKind.valueOf(String.valueOf(m.get("apiKind")));
         String modelId = String.valueOf(m.get("modelId"));
@@ -79,7 +79,7 @@ public record RegisteredModel(
                 default -> extra.put(e.getKey(), e.getValue());
             }
         }
-        return new RegisteredModel(id, kind, modelId, baseUrl, apiKey, isDefault,
+        return new Endpoint(id, kind, modelId, baseUrl, apiKey, isDefault,
                 Set.copyOf(tags), Map.copyOf(spec), Map.copyOf(extra));
     }
 

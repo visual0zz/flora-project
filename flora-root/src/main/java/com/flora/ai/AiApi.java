@@ -6,7 +6,7 @@ import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.provider.AnthropicProvider;
 import com.flora.ai.api.provider.DeepSeekProvider;
 import com.flora.ai.api.provider.GeminiProvider;
-import com.flora.ai.api.provider.OpenAiCompatibleProvider;
+import com.flora.ai.api.provider.OpenAiLikeProvider;
 import com.flora.ai.api.provider.OpenAiProvider;
 import com.flora.ai.api.spi.AiProvider;
 import com.flora.ai.api.spi.Router;
@@ -50,7 +50,7 @@ public final class AiApi {
         registerProvider(new OpenAiProvider());
         registerProvider(new AnthropicProvider());
         registerProvider(new GeminiProvider());
-        registerProvider(new OpenAiCompatibleProvider());
+        registerProvider(new OpenAiLikeProvider());
         registerProvider(new DeepSeekProvider());
         // 外部厂商经 SPI 附加注册
         for (AiProvider provider : ServiceLoader.load(AiProvider.class)) {

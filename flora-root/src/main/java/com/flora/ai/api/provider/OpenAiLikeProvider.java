@@ -12,7 +12,7 @@ import com.flora.ai.api.spi.AiProvider;
  * <p>复用 OpenAI Chat Completions 协议实现，面向第三方 OpenAI 兼容端点
  * （Together/Fireworks/vLLM/Ollama 等）。</p>
  */
-public final class OpenAiCompatibleProvider implements AiProvider {
+public final class OpenAiLikeProvider implements AiProvider {
 
     @Override
     public ApiKind apiKind() {

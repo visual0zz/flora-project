@@ -1,7 +1,6 @@
 package com.flora.ai.api.provider;
 
 import com.flora.ai.api.ApiKind;
-import com.flora.ai.api.provider.*;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -20,7 +19,7 @@ class ProviderTest {
 
     @Test
     void openAiCompatibleProvider() {
-        OpenAiCompatibleProvider p = new OpenAiCompatibleProvider();
+        OpenAiLikeProvider p = new OpenAiLikeProvider();
         assertEquals("openai-compatible", p.name());
         assertEquals(ApiKind.OPENAI_COMPATIBLE, p.apiKind());
     }

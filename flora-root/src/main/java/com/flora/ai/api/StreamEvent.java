@@ -3,8 +3,8 @@ package com.flora.ai.api;
 /**
  * 流式事件：多态，覆盖真实厂商流式协议的事件类型。
  * <p>调用方通过 {@code switch} 模式匹配处理各类型：
- * {@link Text}（文本增量）、{@link Thinking}（思考增量）、{@link ToolCallDelta}
- * （工具调用增量，分片推送）、{@link Error}（流式错误）、{@link Done}（流结束，含用量）。</p>
+ * {@link Text}（文本增量）、{@link Thinking}（思考增量）、{@link ToolCallCompleted}
+ * （工具调用完整攒齐）、{@link Error}（流式错误）、{@link Done}（流结束，含用量）。</p>
  */
 public sealed interface StreamEvent {
 
@@ -17,12 +17,14 @@ public sealed interface StreamEvent {
     }
 
     /**
-     * 工具调用增量（分片）：承载单个工具调用的部分字段。
-     * <p>流式 tool_calls 分片推送（id/name/arguments 各为独立 delta）。
-     * {@code call.arguments()} 为已解析的 Map（若增量是 JSON 片段，存原始串于
-     * {@code rawArguments}），由调用方决定拼接时机与最终解析。</p>
+     * 工具调用完整攒齐（非碎片推送）。
+     * <p>各家客户端负责在协议层完成信号出现时发出：
+     * Anthropic 在 {@code content_block_stop}、Gemini 在 {@code functionCall} part 到达时
+     * 逐块发出；OpenAI 的 {@code tool_calls} 是分片传输且无 per-index 完成标记，故客户端
+     * 按 {@code index} 聚合碎片，到 {@code finish_reason="tool_calls"}（或流结束）整批发出。
+     * {@code call.arguments()} 为解析后的参数 Map，{@code rawArguments} 为原始 JSON 串。</p>
      */
-    record ToolCallDelta(ToolCall call, String rawArguments) implements StreamEvent {
+    record ToolCallCompleted(ToolCall call, String rawArguments) implements StreamEvent {
     }
 
     /** 流式错误。 */

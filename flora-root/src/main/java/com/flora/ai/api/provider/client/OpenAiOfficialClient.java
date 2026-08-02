@@ -56,40 +56,49 @@ public final class OpenAiOfficialClient implements ChatClient, StreamingClient, 
         String body = JsonBuilder.toJsonString(
                 OpenAiProtocol.buildRequestMap(request, endpoint.modelId(), true));
         BlockingQueue<StreamEvent> queue = new ArrayBlockingQueue<>(64);
+        OpenAiToolCallAggregator aggregator = new OpenAiToolCallAggregator();
         http.streamSse(url(), headers(), body, data -> {
             if (SseParser.DONE.equals(data)) {
+                emitToolCalls(queue, aggregator);
                 queue.offer(new StreamEvent.Done("stop", null));
                 return;
             }
             Map<String, Object> chunk = com.flora.codec.json.JsonParser.parseObject(data);
             var choices = JsonHelper.asList(chunk.get("choices"));
             if (!choices.isEmpty()) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> delta = (Map<String, Object>) ((Map<?, ?>) choices.get(0)).get("delta");
-                if (delta != null) {
-                    String text = JsonHelper.str(delta.get("content"));
-                    if (text != null && !text.isEmpty()) {
-                        queue.offer(new StreamEvent.Text(text));
-                    }
-                    String thinking = JsonHelper.str(delta.get("reasoning_content"));
-                    if (thinking != null && !thinking.isEmpty()) {
-                        queue.offer(new StreamEvent.Thinking(thinking));
-                    }
-                    // 工具调用增量（分片推送：id/name/arguments 各为独立 delta）
-                    for (Object tc : JsonHelper.asList(delta.get("tool_calls"))) {
-                        Map<String, Object> call = JsonHelper.asMap(tc);
-                        Map<String, Object> fn = JsonHelper.asMap(call.get("function"));
-                        String rawArgs = JsonHelper.str(fn.get("arguments"));
-                        queue.offer(new StreamEvent.ToolCallDelta(new ToolCall(
-                                JsonHelper.str(call.get("id")),
-                                JsonHelper.str(fn.get("name")),
-                                rawArgs == null ? Map.of() : Map.of("_json", rawArgs)),
-                                rawArgs));
-                    }
+                Map<String, Object> choice = JsonHelper.asMap(choices.get(0));
+                Map<String, Object> delta = JsonHelper.asMap(choice.get("delta"));
+                String text = JsonHelper.str(delta.get("content"));
+                if (text != null && !text.isEmpty()) {
+                    queue.offer(new StreamEvent.Text(text));
+                }
+                String thinking = JsonHelper.str(delta.get("reasoning_content"));
+                if (thinking != null && !thinking.isEmpty()) {
+                    queue.offer(new StreamEvent.Thinking(thinking));
+                }
+                // 工具调用碎片：按 index 归组（id/name 仅首片出现）
+                for (Object tc : JsonHelper.asList(delta.get("tool_calls"))) {
+                    Map<String, Object> call = JsonHelper.asMap(tc);
+                    int index = JsonHelper.intOf(call.get("index"));
+                    Map<String, Object> fn = JsonHelper.asMap(call.get("function"));
+                    aggregator.add(index, JsonHelper.str(call.get("id")),
+                            JsonHelper.str(fn.get("name")), JsonHelper.str(fn.get("arguments")));
+                }
+                // 协议层完成信号：finish_reason="tool_calls" 表示本批调用结束
+                if ("tool_calls".equals(JsonHelper.str(choice.get("finish_reason")))) {
+                    emitToolCalls(queue, aggregator);
                 }
             }
         });
         return new QueueStreamIterator(queue);
+    }
+
+    /** 把聚合器里已攒齐的调用作为完整事件发出。 */
+    private static void emitToolCalls(BlockingQueue<StreamEvent> queue,
+                                      OpenAiToolCallAggregator aggregator) {
+        for (StreamEvent.ToolCallCompleted tc : aggregator.flush()) {
+            queue.offer(tc);
+        }
     }
 
     @Override

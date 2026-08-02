@@ -92,8 +92,20 @@ public final class AnthropicOfficialClient implements ChatClient, StreamingClien
                 }
                 case "content_block_stop" -> {
                     if (curTool[0] != null) {
-                        queue.offer(new StreamEvent.ToolCallDelta(
-                                new ToolCall(curTool[0], curTool[1], Map.of()), curJson.toString()));
+                        String raw = curJson.toString();
+                        Map<String, Object> parsed = Map.of();
+                        if (raw != null && !raw.isBlank()) {
+                            try {
+                                Object v = JsonParser.parse(raw);
+                                if (v instanceof Map<?, ?> m) {
+                                    parsed = (Map<String, Object>) m;
+                                }
+                            } catch (IllegalStateException ignored) {
+                                // 非完整 JSON：保留空 Map，原始串由 rawArguments 带出
+                            }
+                        }
+                        queue.offer(new StreamEvent.ToolCallCompleted(
+                                new ToolCall(curTool[0], curTool[1], parsed), raw));
                         curTool[0] = curTool[1] = null;
                         curJson.setLength(0);
                     }

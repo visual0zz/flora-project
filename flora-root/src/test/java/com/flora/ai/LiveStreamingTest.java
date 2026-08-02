@@ -95,7 +95,8 @@ class LiveStreamingTest {
                     case StreamEvent.Done d -> System.out.println(
                             "\n[done] finishReason=" + d.finishReason() + ", usage=" + d.usage());
                     case StreamEvent.Error err -> System.out.println("\n[error] " + err.message());
-                    case StreamEvent.ToolCallDelta ignored -> { /* not triggered here */ }
+                    case StreamEvent.ToolCallCompleted t -> System.out.println(
+                            "\n[tool] " + t.call().name() + " args=" + t.call().arguments());
                 }
             }
         }

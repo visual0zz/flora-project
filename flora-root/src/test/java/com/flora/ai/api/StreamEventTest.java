@@ -26,12 +26,13 @@ class StreamEventTest {
     }
 
     @Test
-    void toolCallDeltaEvent() {
-        ToolCall call = ToolCall.of("call_1", "get_weather", Map.of());
-        StreamEvent e = new StreamEvent.ToolCallDelta(call, "{\"city\":\"b");
-        assertInstanceOf(StreamEvent.ToolCallDelta.class, e);
-        assertEquals("call_1", ((StreamEvent.ToolCallDelta) e).call().id());
-        assertEquals("{\"city\":\"b", ((StreamEvent.ToolCallDelta) e).rawArguments());
+    void toolCallCompletedEvent() {
+        ToolCall call = ToolCall.of("call_1", "get_weather", Map.of("city", "beijing"));
+        StreamEvent e = new StreamEvent.ToolCallCompleted(call, "{\"city\":\"beijing\"}");
+        assertInstanceOf(StreamEvent.ToolCallCompleted.class, e);
+        assertEquals("call_1", ((StreamEvent.ToolCallCompleted) e).call().id());
+        assertEquals("beijing", ((StreamEvent.ToolCallCompleted) e).call().arguments().get("city"));
+        assertEquals("{\"city\":\"beijing\"}", ((StreamEvent.ToolCallCompleted) e).rawArguments());
     }
 
     @Test
@@ -57,7 +58,7 @@ class StreamEventTest {
         String kind = switch (e) {
             case StreamEvent.Text t -> "text";
             case StreamEvent.Thinking t -> "thinking";
-            case StreamEvent.ToolCallDelta t -> "tool";
+            case StreamEvent.ToolCallCompleted t -> "tool";
             case StreamEvent.Error t -> "error";
             case StreamEvent.Done t -> "done";
         };

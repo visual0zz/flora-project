@@ -225,8 +225,14 @@ public final class JsonParser {
         i++;
     }
 
-    private char peek() { return s.charAt(i); }
-    private char next() { return s.charAt(i++); }
+    private char peek() {
+        if (i >= s.length()) throw err("期望更多字符，输入意外结束");
+        return s.charAt(i);
+    }
+    private char next() {
+        if (i >= s.length()) throw err("期望更多字符，输入意外结束");
+        return s.charAt(i++);
+    }
 
     private void skipWs() {
         while (i < s.length() && Character.isWhitespace(s.charAt(i))) i++;

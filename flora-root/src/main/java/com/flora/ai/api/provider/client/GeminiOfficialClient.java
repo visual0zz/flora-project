@@ -67,7 +67,7 @@ public final class GeminiOfficialClient implements ChatClient, StreamingClient, 
                     Map<String, Object> part = JsonHelper.asMap(p);
                     if (part.containsKey("functionCall")) {
                         Map<String, Object> fc = JsonHelper.asMap(part.get("functionCall"));
-                        queue.offer(new StreamEvent.ToolCallDelta(
+                        queue.offer(new StreamEvent.ToolCallCompleted(
                                 new ToolCall(null, JsonHelper.str(fc.get("name")),
                                         JsonHelper.asMap(fc.get("args"))), null));
                     } else {

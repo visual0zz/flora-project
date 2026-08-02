@@ -14,7 +14,7 @@ import java.util.Set;
 public final class AnthropicOfficialProvider implements AiProvider {
 
     @Override
-    public ApiSchema apiKind() {
+    public ApiSchema apiSchema() {
         return ApiSchema.ANTHROPIC_OFFICIAL;
     }
 
@@ -25,7 +25,7 @@ public final class AnthropicOfficialProvider implements AiProvider {
 
     @Override
     public Set<Capability> supportedCapabilities() {
-        return EnumSet.of(Capability.CHAT, Capability.STREAM);
+        return EnumSet.of(Capability.CHAT, Capability.STREAM, Capability.JSON);
     }
 
     @Override

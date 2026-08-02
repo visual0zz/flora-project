@@ -8,6 +8,7 @@ import com.flora.ai.api.JsonClient;
 import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.StreamIterator;
 import com.flora.ai.api.StreamingClient;
+import com.flora.ai.api.ToolClient;
 import com.flora.ai.api.impl.HttpTransport;
 import com.flora.ai.api.impl.SseParser;
 import com.flora.ai.api.provider.QueueStreamIterator;
@@ -23,7 +24,7 @@ import java.util.concurrent.BlockingQueue;
  * <p>实现类为多能力单类，注册时按 endpoint 声明的 capabilities 创建多个实例。
  * 使用独立 {@link DeepSeekProtocol}（JSON 仅 json_object、reasoner 拒绝工具调用）。</p>
  */
-public final class DeepSeekOfficialClient implements ChatClient, StreamingClient, JsonClient {
+public final class DeepSeekOfficialClient implements ChatClient, StreamingClient, JsonClient, ToolClient {
 
     private final Endpoint endpoint;
     private final HttpTransport http;

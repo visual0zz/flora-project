@@ -19,7 +19,7 @@ import java.util.Set;
 public final class OpenAiLikeProvider implements AiProvider {
 
     @Override
-    public ApiSchema apiKind() {
+    public ApiSchema apiSchema() {
         return ApiSchema.OPENAI_LIKE;
     }
 

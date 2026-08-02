@@ -14,7 +14,7 @@ import java.util.Set;
 public final class GeminiOfficialProvider implements AiProvider {
 
     @Override
-    public ApiSchema apiKind() {
+    public ApiSchema apiSchema() {
         return ApiSchema.GEMINI_OFFICIAL;
     }
 

@@ -52,7 +52,15 @@ public final class DeepSeekProtocol {
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", modelId);
-        body.put("messages", buildMessages(req.messages()));
+        List<Object> messages = buildMessages(req.messages());
+        // 顶层 system 字段 → 合成 system 消息（DeepSeek 兼容 OpenAI 格式）
+        if (req.system() != null && !req.system().isBlank()) {
+            Map<String, Object> sys = new LinkedHashMap<>();
+            sys.put("role", "system");
+            sys.put("content", req.system());
+            messages.add(0, sys);
+        }
+        body.put("messages", messages);
         if (req.tools() != null && !req.tools().isEmpty()) {
             body.put("tools", buildTools(req.tools()));
         }
@@ -110,8 +118,8 @@ public final class DeepSeekProtocol {
     private static String textOf(Message m) {
         StringBuilder sb = new StringBuilder();
         for (ContentBlock b : m.content()) {
-            if (b instanceof ContentBlock.Text text) {
-                sb.append(text.text());
+            if (b instanceof ContentBlock.Text(String text)) {
+                sb.append(text);
             }
         }
         return sb.toString();
@@ -167,7 +175,7 @@ public final class DeepSeekProtocol {
     public static ChatResponse parseResponse(String json) {
         Map<String, Object> root = JsonParser.parseObject(json);
         List<?> choices = JsonHelper.asList(root.get("choices"));
-        Map<?, ?> choice = choices.isEmpty() ? null : JsonHelper.asMap(choices.get(0));
+        Map<?, ?> choice = choices.isEmpty() ? null : JsonHelper.asMap(choices.getFirst());
         Map<?, ?> message = choice == null ? null : JsonHelper.asMap(choice.get("message"));
         String text = message == null ? null : JsonHelper.str(message.get("content"));
         String thinking = message == null ? null : JsonHelper.str(message.get("reasoning_content"));

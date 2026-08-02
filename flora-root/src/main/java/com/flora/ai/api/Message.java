@@ -4,14 +4,16 @@ import java.util.List;
 
 /**
  * 消息：角色 + 内容块列表 + 工具调用信息。
- * <p>角色 {@code TOOL} 的消息用 {@code toolCallId} 回执对应调用；角色 {@code ASSISTANT}
+ * <p>系统提示不在此处表示，而是 {@link com.flora.ai.api.ChatRequest#system()} 顶层字段
+ * （与 Anthropic/Gemini 的原生顶层 system 对齐，OpenAI 在协议层再合成 system 消息）。
+ * 角色 {@code TOOL} 的消息用 {@code toolCallId} 回执对应调用；角色 {@code ASSISTANT}
  * 的消息可含 {@code toolCalls}（模型发起调用）；{@code name} 标记调用名（TOOL 消息用）。</p>
  */
 public record Message(Role role, List<ContentBlock> content,
                       List<ToolCall> toolCalls, String toolCallId, String name) {
 
     public enum Role {
-        SYSTEM, USER, ASSISTANT, TOOL
+        USER, ASSISTANT, TOOL
     }
 
     /** 便捷构造：纯文本消息。 */
@@ -24,10 +26,14 @@ public record Message(Role role, List<ContentBlock> content,
         return java.util.Arrays.stream(texts).map(t -> of(role, t)).toList();
     }
 
-    /** 构造 TOOL 角色回执消息。 */
+    /** 构造 TOOL 角色回执消息（文本）。 */
     public static Message toolResult(String toolCallId, String result) {
-        return new Message(Role.TOOL, List.of(new ContentBlock.Text(result)), List.of(),
-                toolCallId, null);
+        return toolResult(toolCallId, List.of(new ContentBlock.Text(result)));
+    }
+
+    /** 构造 TOOL 角色回执消息（多模态：text/image 块列表）。 */
+    public static Message toolResult(String toolCallId, List<ContentBlock> content) {
+        return new Message(Role.TOOL, List.copyOf(content), List.of(), toolCallId, null);
     }
 
     /** 构造 ASSISTANT 角色消息：含工具调用（可选附带文本）。 */

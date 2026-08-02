@@ -85,7 +85,7 @@ class AiApiTest {
         assertThrows(IllegalArgumentException.class,
                 () -> AiApi.register("{\"id\":\"x\",\"apiKind\":\"ANTHROPIC_OFFICIAL\"," +
                         "\"modelId\":\"claude\",\"baseUrl\":\"http://x\"," +
-                        "\"capabilities\":[\"CHAT\",\"JSON\"]}"));
+                        "\"capabilities\":[\"CHAT\",\"MULTIMODAL\"]}"));
     }
 
     @Test
@@ -94,7 +94,7 @@ class AiApiTest {
         var registered = AiApi.registerAll(jsonArray);
         assertEquals(4, registered.size());
         assertEquals(4, AiApi.endpoints().size());
-        assertEquals("mock-answer:mb", AiApi.getDefault(ChatClient.class).ask(simpleReq()));
+        assertEquals("mock-answer:mb", AiApi.getDefault(ChatClient.class).chat(simpleReq()).text());
     }
 
     @Test
@@ -111,7 +111,7 @@ class AiApiTest {
     void getByNameReturnsChatClient() {
         AiApi.register(endpointJson("mock-1", "mock-model", false));
         ChatClient c = AiApi.getByName("mock-1:CHAT", ChatClient.class);
-        assertEquals("mock-answer:mock-model", c.ask(simpleReq()));
+        assertEquals("mock-answer:mock-model", c.chat(simpleReq()).text());
     }
 
     @Test
@@ -140,7 +140,7 @@ class AiApiTest {
     void getDefaultReturnsChatClient() {
         AiApi.register(endpointJson("d", "default-model", true));
         assertEquals("mock-answer:default-model",
-                AiApi.getDefault(ChatClient.class).ask(simpleReq()));
+                AiApi.getDefault(ChatClient.class).chat(simpleReq()).text());
     }
 
     @Test
@@ -152,7 +152,7 @@ class AiApiTest {
     void getByContextWithoutRouterFallsBackToDefaultChat() {
         AiApi.register(endpointJson("d", "default-model", true));
         ChatClient c = AiApi.getByContext(TaskContext.empty());
-        assertEquals("mock-answer:default-model", c.ask(simpleReq()));
+        assertEquals("mock-answer:default-model", c.chat(simpleReq()).text());
     }
 
     @Test
@@ -172,7 +172,7 @@ class AiApiTest {
             return null;
         });
         ChatClient c = AiApi.getByContext(TaskContext.of("need", "reasoning"));
-        assertEquals("mock-answer:chosen-model", c.ask(simpleReq()));
+        assertEquals("mock-answer:chosen-model", c.chat(simpleReq()).text());
     }
 
     @Test
@@ -199,7 +199,7 @@ class AiApiTest {
         AiApi.register(endpointJson("d", "default-model", true));
         AiApi.setRouter((endpoints, ctx) -> null);
         ChatClient c = AiApi.getByContext(TaskContext.empty());
-        assertEquals("mock-answer:default-model", c.ask(simpleReq()));
+        assertEquals("mock-answer:default-model", c.chat(simpleReq()).text());
     }
 
     @Test
@@ -209,7 +209,7 @@ class AiApiTest {
             throw new RuntimeException("router boom");
         });
         ChatClient c = AiApi.getByContext(TaskContext.empty());
-        assertEquals("mock-answer:default-model", c.ask(simpleReq()));
+        assertEquals("mock-answer:default-model", c.chat(simpleReq()).text());
     }
 
     @Test

@@ -26,7 +26,7 @@ import java.util.Set;
 public final class MockAiProvider implements AiProvider {
 
     @Override
-    public ApiSchema apiKind() {
+    public ApiSchema apiSchema() {
         return ApiSchema.OPENAI_LIKE;
     }
 

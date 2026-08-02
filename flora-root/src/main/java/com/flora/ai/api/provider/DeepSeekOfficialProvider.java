@@ -18,7 +18,7 @@ import java.util.Set;
 public final class DeepSeekOfficialProvider implements AiProvider {
 
     @Override
-    public ApiSchema apiKind() {
+    public ApiSchema apiSchema() {
         return ApiSchema.DEEPSEEK_OFFICIAL;
     }
 

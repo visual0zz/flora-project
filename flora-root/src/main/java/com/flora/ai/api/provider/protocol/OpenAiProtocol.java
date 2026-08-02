@@ -41,7 +41,15 @@ public final class OpenAiProtocol {
                                                       Map<String, Object> responseFormat) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", modelId);
-        body.put("messages", buildMessages(req.messages()));
+        List<Object> messages = buildMessages(req.messages());
+        // 顶层 system 字段 → 合成 system 消息（OpenAI 原生无顶层 system）
+        if (req.system() != null && !req.system().isBlank()) {
+            Map<String, Object> sys = new LinkedHashMap<>();
+            sys.put("role", "system");
+            sys.put("content", req.system());
+            messages.add(0, sys);
+        }
+        body.put("messages", messages);
 
         if (req.tools() != null && !req.tools().isEmpty()) {
             body.put("tools", buildTools(req.tools()));
@@ -98,8 +106,8 @@ public final class OpenAiProtocol {
                 continue;
             }
             // 纯文本单块 → String；否则内容块数组
-            if (m.content().size() == 1 && m.content().get(0) instanceof ContentBlock.Text text) {
-                msg.put("content", text.text());
+            if (m.content().size() == 1 && m.content().getFirst() instanceof ContentBlock.Text(String text1)) {
+                msg.put("content", text1);
             } else {
                 msg.put("content", buildContentBlocks(m.content()));
             }
@@ -111,8 +119,8 @@ public final class OpenAiProtocol {
     private static String textOf(Message m) {
         StringBuilder sb = new StringBuilder();
         for (ContentBlock b : m.content()) {
-            if (b instanceof ContentBlock.Text text) {
-                sb.append(text.text());
+            if (b instanceof ContentBlock.Text(String text1)) {
+                sb.append(text1);
             }
         }
         return sb.toString();

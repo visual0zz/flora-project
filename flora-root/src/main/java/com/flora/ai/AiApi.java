@@ -74,7 +74,7 @@ public final class AiApi {
         if (provider == null) {
             throw new IllegalArgumentException("provider 不能为空");
         }
-        PROVIDERS.removeIf(p -> p.apiKind() == provider.apiKind());
+        PROVIDERS.removeIf(p -> p.apiSchema() == provider.apiSchema());
         PROVIDERS.add(provider);
     }
 
@@ -249,10 +249,10 @@ public final class AiApi {
 
     private static AiProvider providerFor(ApiSchema kind) {
         for (AiProvider p : PROVIDERS) {
-            if (p.apiKind() == kind) {
+            if (p.apiSchema() == kind) {
                 return p;
             }
         }
-        throw new IllegalArgumentException("没有 provider 支持 apiKind: " + kind);
+        throw new IllegalArgumentException("没有 provider 支持 apiSchema: " + kind);
     }
 }

@@ -15,7 +15,7 @@ import java.util.Set;
 public final class OpenAiOfficialProvider implements AiProvider {
 
     @Override
-    public ApiSchema apiKind() {
+    public ApiSchema apiSchema() {
         return ApiSchema.OPENAI_OFFICIAL;
     }
 

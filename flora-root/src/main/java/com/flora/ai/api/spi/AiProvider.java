@@ -13,7 +13,7 @@ import java.util.Set;
  *
  * <pre>{@code
  * public final class MyProvider implements AiProvider {
- *     public ApiSchema apiKind() { return ApiSchema.OPENAI_LIKE; }
+ *     public ApiSchema apiSchema() { return ApiSchema.OPENAI_LIKE; }
  *     public String name() { return "my"; }
  *     public Set<Capability> supportedCapabilities() {
  *         return EnumSet.of(Capability.CHAT, Capability.STREAM);
@@ -27,7 +27,7 @@ import java.util.Set;
 public interface AiProvider {
 
     /** 本 provider 支持的模型 API 类型。 */
-    ApiSchema apiKind();
+    ApiSchema apiSchema();
 
     /** 提供者标识（如 "openai"、"anthropic"）。 */
     String name();

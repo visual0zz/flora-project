@@ -9,6 +9,7 @@ import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.StreamIterator;
 import com.flora.ai.api.StreamingClient;
 import com.flora.ai.api.ToolCall;
+import com.flora.ai.api.ToolClient;
 import com.flora.ai.api.impl.HttpTransport;
 import com.flora.ai.api.impl.JsonHelper;
 import com.flora.ai.api.impl.SseParser;
@@ -25,7 +26,7 @@ import java.util.concurrent.BlockingQueue;
  * <p>实现类为多能力单类，注册时按 endpoint 声明的 capabilities 创建多个实例
  * （每能力一个对象）。JSON 模式支持 {@code json_object} 与 {@code json_schema}。</p>
  */
-public final class OpenAiOfficialClient implements ChatClient, StreamingClient, JsonClient {
+public final class OpenAiOfficialClient implements ChatClient, StreamingClient, JsonClient, ToolClient {
 
     private final Endpoint endpoint;
     private final HttpTransport http;

@@ -26,9 +26,8 @@ class OpenAiProtocolTest {
     @Test
     void buildRequestBasic() {
         ChatRequest req = ChatRequest.builder()
-                .messages(List.of(
-                        Message.of(Message.Role.SYSTEM, "be nice"),
-                        Message.of(Message.Role.USER, "hello")))
+                .system("be nice")
+                .message(Message.of(Message.Role.USER, "hello"))
                 .build();
         Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, MODEL, false);
         assertEquals("gpt-5", body.get("model"));

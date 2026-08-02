@@ -3,7 +3,6 @@ package com.flora.ai.api;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -17,7 +16,7 @@ class AiModelTest {
         String json = """
                 {"id":"gpt","apiKind":"OPENAI_OFFICIAL","modelId":"gpt-5",
                  "baseUrl":"https://api.openai.com","apiKey":"sk","default":true,
-                 "tags":["THINKING","MULTIMODAL"],"spec":{"contextWindow":128000},
+                 "spec":{"contextWindow":128000},
                  "customFlag":"abc"}
                 """;
         var endpoints = Endpoint.fromJsonAll(json);
@@ -27,8 +26,7 @@ class AiModelTest {
         assertEquals(ApiSchema.OPENAI_OFFICIAL, m.apiKind());
         assertEquals("gpt-5", m.modelId());
         assertTrue(m.isDefault());
-        assertEquals(Capability.CHAT, m.capability());
-        assertTrue(m.tags().containsAll(Set.of(Tag.THINKING, Tag.MULTIMODAL)));
+        assertEquals(IOMode.CHAT, m.capability());
         assertEquals(128000L, m.spec().get("contextWindow"));
         assertEquals("abc", m.extra().get("customFlag"));
     }
@@ -51,7 +49,7 @@ class AiModelTest {
     void registeredModelAutoId() {
         Endpoint m = Endpoint.of(ApiSchema.GEMINI_OFFICIAL, "gemini-2.5", "http://g", "k");
         assertEquals("GEMINI_OFFICIAL@http://g", m.id());
-        assertEquals(Capability.CHAT, m.capability());
+        assertEquals(IOMode.CHAT, m.capability());
         assertFalse(m.isDefault());
     }
 

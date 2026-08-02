@@ -195,7 +195,7 @@ public final class AiApi {
 
     /** 默认端点 + 指定能力的 client；无默认端点抛 {@link IllegalStateException}。 */
     public static <T> T getDefault(Class<T> capabilityType) {
-        Capability capability = capabilityOf(capabilityType);
+        IOMode capability = capabilityOf(capabilityType);
         Endpoint endpoint = defaultEndpoint();
         if (endpoint == null) {
             throw new IllegalStateException("未注册默认端点");
@@ -215,7 +215,7 @@ public final class AiApi {
         Endpoint fallback = null;
         for (Endpoint e : ENDPOINTS.values()) {
             if (e.isDefault()) {
-                if (e.capability() == Capability.CHAT) {
+                if (e.capability() == IOMode.CHAT) {
                     return e;
                 }
                 if (fallback == null) {
@@ -235,19 +235,16 @@ public final class AiApi {
         return client;
     }
 
-    /** Class → Capability 映射。 */
-    private static Capability capabilityOf(Class<?> type) {
+    /** Class → IOMode 映射。 */
+    private static IOMode capabilityOf(Class<?> type) {
         if (type == ChatClient.class) {
-            return Capability.CHAT;
+            return IOMode.CHAT;
         }
         if (type == StreamingClient.class) {
-            return Capability.STREAM;
+            return IOMode.STREAM;
         }
         if (type == JsonClient.class) {
-            return Capability.JSON;
-        }
-        if (type == MultimodalClient.class) {
-            return Capability.MULTIMODAL;
+            return IOMode.JSON;
         }
         throw new IllegalArgumentException("未知 client 能力类型: " + type.getName());
     }

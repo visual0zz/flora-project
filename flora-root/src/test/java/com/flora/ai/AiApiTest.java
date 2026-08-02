@@ -1,13 +1,13 @@
 package com.flora.ai;
 
-import com.flora.ai.api.Capability;
+import com.flora.ai.api.IOMode;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.JsonClient;
 import com.flora.ai.api.Message;
 import com.flora.ai.api.StreamingClient;
-import com.flora.ai.api.Tag;
+import com.flora.ai.api.Capability;
 import com.flora.ai.api.spi.TaskContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -59,15 +59,14 @@ class AiApiTest {
                 {"id":"mock-1","apiKind":"OPENAI_LIKE","modelId":"mock-model",
                  "baseUrl":"http://mock","apiKey":"k","default":true,
                  "capabilities":["CHAT","STREAM"],
-                 "tags":["THINKING"],"spec":{"contextWindow":128000},"priority":5}
+                 "spec":{"contextWindow":128000},"priority":5}
                 """;
         var endpoints = AiApi.register(json);
         assertEquals(2, endpoints.size());
         // id 展开为 原id:capability
         assertEquals("mock-1:CHAT", endpoints.get(0).id());
         assertEquals("mock-1:STREAM", endpoints.get(1).id());
-        assertEquals(Capability.CHAT, endpoints.get(0).capability());
-        assertTrue(endpoints.get(0).tags().contains(Tag.THINKING));
+        assertEquals(IOMode.CHAT, endpoints.get(0).capability());
         assertEquals(128000L, endpoints.get(0).spec().get("contextWindow"));
         assertEquals(5L, endpoints.get(0).extra().get("priority"));
     }
@@ -85,7 +84,7 @@ class AiApiTest {
         assertThrows(IllegalArgumentException.class,
                 () -> AiApi.register("{\"id\":\"x\",\"apiKind\":\"ANTHROPIC_OFFICIAL\"," +
                         "\"modelId\":\"claude\",\"baseUrl\":\"http://x\"," +
-                        "\"capabilities\":[\"CHAT\",\"MULTIMODAL\"]}"));
+                        "\"capabilities\":[\"CHAT\",\"EMBEDDING\"]}"));
     }
 
     @Test
@@ -165,7 +164,7 @@ class AiApiTest {
         AiApi.setRouter((endpoints, ctx) -> {
             for (Endpoint e : endpoints) {
                 if ("reasoning".equals(e.spec().get("kind"))
-                        && e.capability() == Capability.CHAT) {
+                        && e.capability() == IOMode.CHAT) {
                     return e;
                 }
             }
@@ -184,7 +183,7 @@ class AiApiTest {
         AiApi.setRouter((endpoints, ctx) -> {
             for (Endpoint e : endpoints) {
                 if ("reasoning".equals(e.spec().get("kind"))
-                        && e.capability() == Capability.STREAM) {
+                        && e.capability() == IOMode.STREAM) {
                     return e;
                 }
             }

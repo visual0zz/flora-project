@@ -11,7 +11,7 @@ package com.flora.ai.api;
  * }
  * }</pre></p>
  */
-public interface StreamingClient {
+public interface StreamingClient extends ApiClient {
 
     /** 流式发送请求，返回事件迭代器（用后应关闭）。 */
     StreamIterator stream(ChatRequest request);

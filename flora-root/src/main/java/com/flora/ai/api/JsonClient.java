@@ -8,7 +8,7 @@ import java.util.Map;
  * 返回已解析的 JSON 对象（Map/List 嵌套），由实现方负责与厂商的
  * {@code response_format} / JSON schema 协议对齐。</p>
  */
-public interface JsonClient {
+public interface JsonClient extends ApiClient {
 
     /** 请求 JSON 结构化输出，返回解析后的 JSON 对象。 */
     Map<String, Object> chatJson(ChatRequest request);

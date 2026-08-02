@@ -1,5 +1,6 @@
 package com.flora.ai.api.provider.client;
 
+import com.flora.ai.api.Capability;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.ChatResponse;
@@ -9,7 +10,6 @@ import com.flora.ai.api.StreamEvent;
 import com.flora.ai.api.StreamIterator;
 import com.flora.ai.api.StreamingClient;
 import com.flora.ai.api.ToolCall;
-import com.flora.ai.api.ToolClient;
 import com.flora.ai.api.impl.HttpTransport;
 import com.flora.ai.api.impl.JsonHelper;
 import com.flora.codec.json.JsonParser;
@@ -17,7 +17,9 @@ import com.flora.ai.api.impl.SseParser;
 import com.flora.ai.api.provider.QueueStreamIterator;
 import com.flora.ai.api.provider.protocol.GeminiProtocol;
 
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
@@ -26,7 +28,7 @@ import java.util.concurrent.BlockingQueue;
  * <p>实现类为多能力单类，注册时按 endpoint 声明的 capabilities 创建多个实例。
  * 流式使用 {@code :streamGenerateContent?alt=sse} 端点。</p>
  */
-public final class GeminiOfficialClient implements ChatClient, StreamingClient, JsonClient, ToolClient {
+public final class GeminiOfficialClient implements ChatClient, StreamingClient, JsonClient {
 
     private final Endpoint endpoint;
     private final HttpTransport http;
@@ -34,6 +36,12 @@ public final class GeminiOfficialClient implements ChatClient, StreamingClient, 
     public GeminiOfficialClient(Endpoint endpoint, HttpTransport http) {
         this.endpoint = endpoint;
         this.http = http;
+    }
+
+    @Override
+    public Set<Capability> capabilities() {
+        return EnumSet.of(Capability.STREAMING, Capability.JSON_MODE,
+                Capability.TOOL_USE, Capability.MULTIMODAL, Capability.THINKING);
     }
 
     private String url(boolean stream) {

@@ -1,15 +1,6 @@
 package com.flora.ai;
 
-import com.flora.ai.api.ApiSchema;
-import com.flora.ai.api.Capability;
-import com.flora.ai.api.ChatClient;
-import com.flora.ai.api.ChatRequest;
-import com.flora.ai.api.ChatResponse;
-import com.flora.ai.api.Endpoint;
-import com.flora.ai.api.StreamEvent;
-import com.flora.ai.api.StreamIterator;
-import com.flora.ai.api.StreamingClient;
-import com.flora.ai.api.TokenUsage;
+import com.flora.ai.api.*;
 import com.flora.ai.api.spi.AiProvider;
 
 import java.util.ArrayDeque;
@@ -36,8 +27,8 @@ public final class MockAiProvider implements AiProvider {
     }
 
     @Override
-    public Set<Capability> supportedCapabilities() {
-        return EnumSet.of(Capability.CHAT, Capability.STREAM);
+    public Set<IOMode> supportedCapabilities() {
+        return EnumSet.of(IOMode.CHAT, IOMode.STREAM);
     }
 
     @Override
@@ -52,6 +43,11 @@ public final class MockAiProvider implements AiProvider {
 
         MockClient(Endpoint endpoint) {
             this.endpoint = endpoint;
+        }
+
+        @Override
+        public Set<Capability> capabilities() {
+            return EnumSet.of(Capability.STREAMING);
         }
 
         @Override

@@ -1,9 +1,6 @@
 package com.flora.ai.api.provider;
 
-import com.flora.ai.api.ApiSchema;
-import com.flora.ai.api.ChatClient;
-import com.flora.ai.api.Capability;
-import com.flora.ai.api.Endpoint;
+import com.flora.ai.api.*;
 import com.flora.ai.api.impl.HttpTransport;
 import com.flora.ai.api.provider.client.DeepSeekOfficialClient;
 import com.flora.ai.api.spi.AiProvider;
@@ -28,8 +25,8 @@ public final class DeepSeekOfficialProvider implements AiProvider {
     }
 
     @Override
-    public Set<Capability> supportedCapabilities() {
-        return EnumSet.of(Capability.CHAT, Capability.STREAM, Capability.JSON);
+    public Set<IOMode> supportedCapabilities() {
+        return EnumSet.of(IOMode.CHAT, IOMode.STREAM, IOMode.JSON);
     }
 
     @Override

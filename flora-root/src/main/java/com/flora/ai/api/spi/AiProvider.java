@@ -15,8 +15,8 @@ import java.util.Set;
  * public final class MyProvider implements AiProvider {
  *     public ApiSchema apiSchema() { return ApiSchema.OPENAI_LIKE; }
  *     public String name() { return "my"; }
- *     public Set<Capability> supportedCapabilities() {
- *         return EnumSet.of(Capability.CHAT, Capability.STREAM);
+ *     public Set<IOMode> supportedCapabilities() {
+ *         return EnumSet.of(IOMode.CHAT, IOMode.STREAM);
  *     }
  *     public ChatClient createClient(Endpoint endpoint) {
  *         return new MyClient(endpoint);
@@ -33,7 +33,7 @@ public interface AiProvider {
     String name();
 
     /** 本 provider 协议支持的能力集合（校验用）。 */
-    Set<Capability> supportedCapabilities();
+    Set<IOMode> supportedCapabilities();
 
     /** 按注册端点创建 client（端点已含能力）。 */
     ChatClient createClient(Endpoint endpoint);

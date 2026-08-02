@@ -1,5 +1,6 @@
 package com.flora.ai.orchestration;
 
+import com.flora.ai.api.Capability;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
 import com.flora.ai.api.ChatResponse;
@@ -26,6 +27,11 @@ class SessionTest {
     /** 记录请求的假客户端。 */
     private static ChatClient recordingClient(ChatResponse toReturn) {
         return new ChatClient() {
+            @Override
+            public java.util.Set<Capability> capabilities() {
+                return java.util.Set.of();
+            }
+
             @Override
             public ChatResponse chat(ChatRequest request) {
                 return toReturn;

@@ -24,8 +24,8 @@ public final class GeminiOfficialProvider implements AiProvider {
     }
 
     @Override
-    public Set<Capability> supportedCapabilities() {
-        return EnumSet.of(Capability.CHAT, Capability.STREAM, Capability.JSON);
+    public Set<IOMode> supportedCapabilities() {
+        return EnumSet.of(IOMode.CHAT, IOMode.STREAM, IOMode.JSON);
     }
 
     @Override

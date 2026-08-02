@@ -1,6 +1,7 @@
 package com.flora.ai.api.provider;
 
 import com.flora.ai.api.ApiKind;
+import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.Capability;
 import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.impl.HttpTransport;
@@ -33,8 +34,7 @@ public final class OpenAiLikeProvider implements AiProvider {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public <T> T createClient(Endpoint endpoint, Capability capability) {
-        return (T) new OpenAiOfficialClient(endpoint, HttpTransport.create());
+    public ChatClient createClient(Endpoint endpoint) {
+        return new OpenAiOfficialClient(endpoint, HttpTransport.create());
     }
 }

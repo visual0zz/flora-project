@@ -4,7 +4,6 @@ import com.flora.ai.api.ApiKind;
 import com.flora.ai.api.Capability;
 import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.ChatRequest;
-import com.flora.ai.api.ClientSpec;
 import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.JsonClient;
 import com.flora.ai.api.Message;
@@ -17,14 +16,14 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * {@link AiApi} 门面：注册/使用分离 + 返回单个 client 测试。
+ * {@link AiApi} 门面：注册展开 + 端点与 client 一对一测试。
  */
 class AiApiTest {
 
     @AfterEach
     void cleanup() {
         for (Endpoint e : AiApi.endpoints()) {
-            AiApi.unregister(e.id());
+            AiApi.unregister(e.id().substring(0, e.id().indexOf(':')));
         }
         AiApi.setRouter(null);
     }
@@ -53,25 +52,33 @@ class AiApiTest {
         assertTrue(AiApi.providers().stream().anyMatch(p -> p.name().equals("mock")));
     }
 
-    // ── 注册 ──
+    // ── 注册：JSON 展开为多 Endpoint ──
 
     @Test
-    void registerJsonAddsEndpoint() {
+    void registerExpandsCapabilities() {
         String json = """
                 {"id":"mock-1","apiKind":"OPENAI_LIKE","modelId":"mock-model",
                  "baseUrl":"http://mock","apiKey":"k","default":true,
                  "capabilities":["CHAT","STREAM"],
-                 "tags":["THINKING","JSON_MODE"],"spec":{"contextWindow":128000},
-                 "priority":5}
+                 "tags":["THINKING"],"spec":{"contextWindow":128000},"priority":5}
                 """;
-        Endpoint e = AiApi.register(json);
-        assertEquals("mock-1", e.id());
-        assertEquals("mock-model", e.modelId());
-        assertTrue(e.isDefault());
-        assertTrue(e.capabilities().contains(Capability.CHAT));
-        assertTrue(e.tags().contains(Tag.THINKING));
-        assertEquals(128000L, e.spec().get("contextWindow"));
-        assertEquals(5L, e.extra().get("priority"), "附加字段应保留到 extra");
+        var endpoints = AiApi.register(json);
+        assertEquals(2, endpoints.size());
+        // id 展开为 原id:capability
+        assertEquals("mock-1:CHAT", endpoints.get(0).id());
+        assertEquals("mock-1:STREAM", endpoints.get(1).id());
+        assertEquals(Capability.CHAT, endpoints.get(0).capability());
+        assertTrue(endpoints.get(0).tags().contains(Tag.THINKING));
+        assertEquals(128000L, endpoints.get(0).spec().get("contextWindow"));
+        assertEquals(5L, endpoints.get(0).extra().get("priority"));
+    }
+
+    @Test
+    void registerDefaultsToChat() {
+        AiApi.register("{\"id\":\"m\",\"apiKind\":\"OPENAI_LIKE\",\"modelId\":\"x\"," +
+                "\"baseUrl\":\"http://m\"}");
+        assertEquals(1, AiApi.endpoints().size());
+        assertEquals("m:CHAT", AiApi.endpoints().get(0).id());
     }
 
     @Test
@@ -86,65 +93,48 @@ class AiApiTest {
     void registerAllParsesArray() {
         String jsonArray = "[" + endpointJson("a", "ma", false) + "," + endpointJson("b", "mb", true) + "]";
         var registered = AiApi.registerAll(jsonArray);
-        assertEquals(2, registered.size());
-        assertEquals(2, AiApi.endpoints().size());
+        assertEquals(4, registered.size());
+        assertEquals(4, AiApi.endpoints().size());
         assertEquals("mock-answer:mb", AiApi.getDefault(ChatClient.class).ask(simpleReq()));
     }
 
     @Test
-    void defaultMustBeUnique() {
-        AiApi.register(endpointJson("a", "m1", true));
-        assertThrows(IllegalArgumentException.class,
-                () -> AiApi.register(endpointJson("b", "m2", true)));
-    }
-
-    @Test
-    void unregisterRemovesEndpoint() {
+    void unregisterRemovesAllCapabilities() {
         AiApi.register(endpointJson("m1", "x", false));
-        assertEquals(1, AiApi.endpoints().size());
+        assertEquals(2, AiApi.endpoints().size());
         AiApi.unregister("m1");
         assertEquals(0, AiApi.endpoints().size());
     }
 
-    // ── 获取：返回单个 client ──
+    // ── 获取：展开后 id ──
 
     @Test
     void getByNameReturnsChatClient() {
         AiApi.register(endpointJson("mock-1", "mock-model", false));
-        ChatClient c = AiApi.getByName("mock-1", ChatClient.class);
+        ChatClient c = AiApi.getByName("mock-1:CHAT", ChatClient.class);
         assertEquals("mock-answer:mock-model", c.ask(simpleReq()));
     }
 
     @Test
     void getByNameReturnsStreamClient() {
         AiApi.register(endpointJson("mock-1", "mock-model", false));
-        StreamingClient s = AiApi.getByName("mock-1", StreamingClient.class);
+        StreamingClient s = AiApi.getByName("mock-1:STREAM", StreamingClient.class);
         assertEquals("mock-answer", s.stream(null).collectText());
     }
 
     @Test
-    void eachCapabilityIsSeparateInstance() {
-        AiApi.register(endpointJson("mock-1", "mock-model", false));
-        ChatClient chat1 = AiApi.getByName("mock-1", ChatClient.class);
-        ChatClient chat2 = AiApi.getByName("mock-1", ChatClient.class);
-        StreamingClient stream = AiApi.getByName("mock-1", StreamingClient.class);
-        // 每能力一实例：同能力两次取是同一预建实例；不同能力是不同实例
-        assertSame(chat1, chat2);
-        assertNotSame(chat1, stream);
-    }
-
-    @Test
     void getByNameUnknownThrows() {
+        AiApi.register(endpointJson("mock-1", "mock-model", false));
         assertThrows(IllegalArgumentException.class,
-                () -> AiApi.getByName("nope", ChatClient.class));
+                () -> AiApi.getByName("nope:CHAT", ChatClient.class));
     }
 
     @Test
     void getByNameMissingCapabilityThrows() {
         AiApi.register(endpointJson("mock-1", "mock-model", false));
         // 该端点未声明 JSON 能力
-        assertThrows(IllegalStateException.class,
-                () -> AiApi.getByName("mock-1", JsonClient.class));
+        assertThrows(IllegalArgumentException.class,
+                () -> AiApi.getByName("mock-1:JSON", JsonClient.class));
     }
 
     @Test
@@ -167,15 +157,17 @@ class AiApiTest {
     }
 
     @Test
-    void getByContextWithRouterReturnsChat() {
+    void getByContextWithRouterReturnsEndpoint() {
         AiApi.register(endpointJson("d", "default-model", true));
         AiApi.register("{\"id\":\"c\",\"apiKind\":\"OPENAI_LIKE\",\"modelId\":\"chosen-model\"," +
                 "\"baseUrl\":\"http://c\",\"capabilities\":[\"CHAT\",\"STREAM\"]," +
                 "\"spec\":{\"kind\":\"reasoning\"}}");
+        // Router 读 ctx，返回匹配的 Endpoint（已含能力）
         AiApi.setRouter((endpoints, ctx) -> {
             for (Endpoint e : endpoints) {
-                if ("reasoning".equals(e.spec().get("kind"))) {
-                    return ClientSpec.of(e, Capability.CHAT);
+                if ("reasoning".equals(e.spec().get("kind"))
+                        && e.capability() == Capability.CHAT) {
+                    return e;
                 }
             }
             return null;
@@ -185,16 +177,16 @@ class AiApiTest {
     }
 
     @Test
-    void getByContextWithRouterReturnsStream() {
+    void getByContextRouterReturnsStreamEndpoint() {
         AiApi.register(endpointJson("d", "default-model", true));
         AiApi.register("{\"id\":\"c\",\"apiKind\":\"OPENAI_LIKE\",\"modelId\":\"chosen-model\"," +
                 "\"baseUrl\":\"http://c\",\"capabilities\":[\"CHAT\",\"STREAM\"]," +
                 "\"spec\":{\"kind\":\"reasoning\"}}");
-        // Router 读 ctx 能力信息，返回 STREAM 能力的 ClientSpec
         AiApi.setRouter((endpoints, ctx) -> {
             for (Endpoint e : endpoints) {
-                if ("reasoning".equals(e.spec().get("kind"))) {
-                    return ClientSpec.of(e, Capability.STREAM);
+                if ("reasoning".equals(e.spec().get("kind"))
+                        && e.capability() == Capability.STREAM) {
+                    return e;
                 }
             }
             return null;
@@ -225,5 +217,16 @@ class AiApiTest {
     void getByContextNoEndpointsThrows() {
         assertThrows(IllegalStateException.class,
                 () -> AiApi.getByContext(TaskContext.empty()));
+    }
+
+    @Test
+    void eachCapabilityIsSeparateEndpoint() {
+        AiApi.register(endpointJson("mock-1", "mock-model", false));
+        // CHAT 与 STREAM 是独立 Endpoint（独立实例）
+        assertNotSame(AiApi.getByName("mock-1:CHAT", ChatClient.class),
+                AiApi.getByName("mock-1:STREAM", StreamingClient.class));
+        // 同能力同 id 是同一预建实例
+        assertSame(AiApi.getByName("mock-1:CHAT", ChatClient.class),
+                AiApi.getByName("mock-1:CHAT", ChatClient.class));
     }
 }

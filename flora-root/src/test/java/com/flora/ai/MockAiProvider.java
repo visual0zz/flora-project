@@ -41,10 +41,9 @@ public final class MockAiProvider implements AiProvider {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public <T> T createClient(Endpoint endpoint, Capability capability) {
-        // 实现类为多能力单类；每能力 new 一个实例
-        return (T) new MockClient(endpoint);
+    public ChatClient createClient(Endpoint endpoint) {
+        // 实现类为多能力单类；每端点一个实例
+        return new MockClient(endpoint);
     }
 
     /** mock 客户端（多能力）：对话返回固定文本，流式返回固定事件序列。 */

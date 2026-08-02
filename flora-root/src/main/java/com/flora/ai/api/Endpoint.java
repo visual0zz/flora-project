@@ -2,17 +2,19 @@ package com.flora.ai.api;
 
 import com.flora.codec.json.JsonParser;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * AI 端点：一个可注册、可路由的模型接入点。
- * <p>承载模型接入的完整配置与描述：端点配置（{@code apiKind}/{@code baseUrl}/
- * {@code apiKey}）、协议模型标识（{@code modelId}）、系统统一能力标签（{@code tags}）、
- * 可实例化的 client 能力（{@code capabilities}，注册时按此构造一批独立 client）、
- * 定制化技术规格（{@code spec}，不同模型不同 key）、
- * 是否默认（{@code isDefault}，路由 fallback 目标）及用户自定义附加参数（{@code extra}）。</p>
+ * AI 端点：一个可注册、可路由的模型接入点，对应一种单能力 client。
+ * <p>与 client 一一对齐：一个 Endpoint 承载一个端点的一种能力（{@code capability}）。
+ * 注册 JSON 中的 {@code capabilities} 数组会被展开为多个 Endpoint（id = {@code 原id:capability}）。
+ * 其余字段：端点配置（{@code apiKind}/{@code baseUrl}/{@code apiKey}）、协议模型标识
+ * （{@code modelId}）、是否默认（{@code isDefault}）、能力标签（{@code tags}）、
+ * 定制化技术规格（{@code spec}）及附加参数（{@code extra}）。</p>
  */
 public record Endpoint(
         String id,
@@ -21,37 +23,35 @@ public record Endpoint(
         String baseUrl,
         String apiKey,
         boolean isDefault,
+        Capability capability,
         Set<Tag> tags,
-        Set<Capability> capabilities,
         Map<String, Object> spec,
         Map<String, Object> extra) {
 
-    /**
-     * 便捷构造：无附加参数，默认声明全部 provider 支持的能力（由调用方后续校验）。
-     */
+    /** 便捷构造。 */
     public static Endpoint of(String id, ApiKind apiKind, String modelId,
                               String baseUrl, String apiKey, boolean isDefault,
-                              Set<Tag> tags, Set<Capability> capabilities, Map<String, Object> spec) {
-        return new Endpoint(id, apiKind, modelId, baseUrl, apiKey, isDefault,
+                              Capability capability, Set<Tag> tags, Map<String, Object> spec) {
+        return new Endpoint(id, apiKind, modelId, baseUrl, apiKey, isDefault, capability,
                 Set.copyOf(tags == null ? Set.of() : tags),
-                Set.copyOf(capabilities == null ? Set.of() : capabilities),
                 spec == null ? Map.of() : Map.copyOf(spec), Map.of());
     }
 
-    /** 便捷构造：自动生成 id（baseUrl + apiKind 派生），默认声明全部能力。 */
+    /** 便捷构造：自动生成 id（baseUrl + apiKind 派生），默认 CHAT 能力。 */
     public static Endpoint of(ApiKind apiKind, String modelId,
                               String baseUrl, String apiKey) {
         return new Endpoint(autoId(apiKind, baseUrl), apiKind, modelId, baseUrl, apiKey,
-                false, Set.of(), Set.of(), Map.of(), Map.of());
+                false, Capability.CHAT, Set.of(), Map.of(), Map.of());
     }
 
     /**
-     * 解析注册 JSON。
+     * 解析注册 JSON 并展开为多个 Endpoint（每能力一个，id = {@code 原id:capability}）。
      * <p>核心字段：{@code id}/{@code apiKind}/{@code modelId}/{@code baseUrl}/
      * {@code apiKey}/{@code default}/{@code tags}/{@code capabilities}/{@code spec}。
-     * 除核心字段外的所有附加字段保留到 {@code extra}（供 Router 读取）。</p>
+     * {@code capabilities} 未声明时默认 {@code ["CHAT"]}。除核心字段外的附加字段
+     * 保留到 {@code extra}（供 Router 读取）。</p>
      */
-    public static Endpoint fromJson(String json) {
+    public static List<Endpoint> fromJsonAll(String json) {
         Map<String, Object> m = JsonParser.parseObject(json);
         ApiKind kind = ApiKind.valueOf(String.valueOf(m.get("apiKind")));
         String modelId = String.valueOf(m.get("modelId"));
@@ -59,7 +59,7 @@ public record Endpoint(
         String apiKey = m.get("apiKey") == null ? null : String.valueOf(m.get("apiKey"));
 
         Object idObj = m.get("id");
-        String id = idObj != null ? String.valueOf(idObj) : autoId(kind, baseUrl);
+        String baseId = idObj != null ? String.valueOf(idObj) : autoId(kind, baseUrl);
         boolean isDefault = Boolean.TRUE.equals(m.get("default"));
 
         Set<Tag> tags = new LinkedHashSet<>();
@@ -68,12 +68,17 @@ public record Endpoint(
                 tags.add(Tag.valueOf(String.valueOf(t)));
             }
         }
-        Set<Capability> capabilities = new LinkedHashSet<>();
+        // capabilities：未声明默认 CHAT
+        List<Capability> capabilities = new ArrayList<>();
         if (m.get("capabilities") instanceof Iterable<?> capList) {
             for (Object c : capList) {
                 capabilities.add(Capability.valueOf(String.valueOf(c)));
             }
         }
+        if (capabilities.isEmpty()) {
+            capabilities.add(Capability.CHAT);
+        }
+
         @SuppressWarnings("unchecked")
         Map<String, Object> spec = m.get("spec") instanceof Map<?, ?> sm
                 ? (Map<String, Object>) sm : Map.of();
@@ -88,8 +93,13 @@ public record Endpoint(
                 default -> extra.put(e.getKey(), e.getValue());
             }
         }
-        return new Endpoint(id, kind, modelId, baseUrl, apiKey, isDefault,
-                Set.copyOf(tags), Set.copyOf(capabilities), Map.copyOf(spec), Map.copyOf(extra));
+
+        List<Endpoint> endpoints = new ArrayList<>();
+        for (Capability c : capabilities) {
+            endpoints.add(new Endpoint(baseId + ":" + c.name(), kind, modelId, baseUrl, apiKey,
+                    isDefault, c, Set.copyOf(tags), Map.copyOf(spec), Map.copyOf(extra)));
+        }
+        return endpoints;
     }
 
     private static String autoId(ApiKind kind, String baseUrl) {

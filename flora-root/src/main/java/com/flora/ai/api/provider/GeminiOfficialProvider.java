@@ -1,6 +1,7 @@
 package com.flora.ai.api.provider;
 
 import com.flora.ai.api.ApiKind;
+import com.flora.ai.api.ChatClient;
 import com.flora.ai.api.Capability;
 import com.flora.ai.api.Endpoint;
 import com.flora.ai.api.impl.HttpTransport;
@@ -31,9 +32,8 @@ public final class GeminiOfficialProvider implements AiProvider {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public <T> T createClient(Endpoint endpoint, Capability capability) {
+    public ChatClient createClient(Endpoint endpoint) {
         // 实现类为多能力单类；按能力各 new 一个实例
-        return (T) new GeminiOfficialClient(endpoint, HttpTransport.create());
+        return new GeminiOfficialClient(endpoint, HttpTransport.create());
     }
 }

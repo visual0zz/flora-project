@@ -10,8 +10,9 @@ import java.util.List;
 /**
  * 对话上下文：一个对话主体的完整状态（真相源）。
  * <p>持有有序 {@link Message} 列表（含用户/助手/工具结果/多模态输入），供投影器
- * {@link ChatProjector} 折叠为模型可见的请求。本类只存"事实"，所有裁剪/注入/
- * 摘要决策都在投影时进行，不修改本状态。</p>
+ * {@link ChatProjector} 折叠为模型可见的请求。投影（{@code assemble}）是只读操作，
+ * 不修改本状态；本类仅通过 {@link #append}/{@link #autoCompact} 显式变更。
+ * {@code autoCompact} 把最旧历史折叠为摘要消息，是一种原地压缩，非投影副作用。</p>
  * <p>不可直接跨线程共享：同一 {@code Context} 建议单线程使用（多 agent 各自持有实例）。</p>
  */
 @ThreadFragile("内部可变消息列表，非线程安全；同一实例建议单线程使用")

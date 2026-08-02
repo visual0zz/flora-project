@@ -12,11 +12,11 @@ import java.util.List;
  *
  * <pre>{@code
  * // 本地规则实现：拼接要点（快）
- * Compactor local = history -> Message.of(Message.Role.SYSTEM,
- *     "【历史摘要】" + history.stream().map(m -> m.text()).toList());
+ * Compactor local = history -> Message.of(Message.Role.ASSISTANT,
+ *     "【历史摘要】" + history.stream().map(Message::text).toList());
  *
  * // 模型实现：把旧历史喂给 ChatClient 要摘要
- * Compactor llm = history -> Message.of(Message.Role.SYSTEM,
+ * Compactor llm = history -> Message.of(Message.Role.ASSISTANT,
  *     summarizeClient.chat(ChatRequest.builder().messages(history).build()).text());
  * }</pre>
  */
@@ -26,7 +26,10 @@ public interface Compactor {
     /** 把一批旧消息压缩为一条摘要消息（通常是 ASSISTANT 或 SYSTEM 角色）。 */
     Message compact(List<Message> history);
 
-    /** 便捷：从对象提取文本生成摘要消息（忽略非文本块）。 */
+    /**
+     * 便捷构造：给定一个摘要生成函数，压缩结果包装为 ASSISTANT 摘要消息，
+     * 文本前缀 {@code 【历史摘要】} 标记其来源。
+     */
     static Compactor of(java.util.function.Function<List<Message>, String> summarizer) {
         return history -> Message.of(Message.Role.ASSISTANT,
                 "【历史摘要】" + summarizer.apply(history));

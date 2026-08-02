@@ -54,8 +54,9 @@ public record Endpoint(
     public static List<Endpoint> fromJsonAll(String json) {
         Map<String, Object> m = JsonParser.parseObject(json);
         ApiSchema kind = ApiSchema.valueOf(String.valueOf(m.get("apiKind")));
-        String modelId = String.valueOf(m.get("modelId"));
-        String baseUrl = String.valueOf(m.get("baseUrl"));
+        Object modelObj = m.get("modelId");
+        String modelId = modelObj == null ? null : String.valueOf(modelObj);
+        String baseUrl = m.get("baseUrl") == null ? null : String.valueOf(m.get("baseUrl"));
         String apiKey = m.get("apiKey") == null ? null : String.valueOf(m.get("apiKey"));
 
         Object idObj = m.get("id");

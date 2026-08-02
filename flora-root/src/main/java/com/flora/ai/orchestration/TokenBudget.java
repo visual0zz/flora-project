@@ -11,8 +11,9 @@ import java.util.List;
  * token 预算：估算一段上下文的 token 占用，并在超限时裁剪历史。
  * <p>估算器采用近似策略（文本按 4 字符≈1 token，图片/音频/文件按固定值），
  * 不追求精确计数——预算的目的是防止请求超窗，留出模型输出余量。</p>
- * <p>裁剪策略：按优先级保留——注入内容与最近的系统提示最优先，
- * 历史从后往前保留直到达到预算；超出部分丢弃最旧的历史。</p>
+ * <p>裁剪策略（{@link #trim}）：对调用方给定的消息序列<b>从后往前</b>保留，
+ * 直到预算耗尽。投影器把注入内容（记忆/RAG）置于序列头部、历史置于尾部，
+ * 因此注入内容优先保留，最旧的历史先被裁掉。</p>
  */
 @ThreadFragile("无共享可变状态；若估算器注入的有状态实现需自行同步")
 public final class TokenBudget {
@@ -34,8 +35,10 @@ public final class TokenBudget {
     /** 估算单条消息的 token 占用。 */
     public static int estimate(Message m) {
         int total = 0;
-        for (ContentBlock b : m.content()) {
-            total += estimateBlock(b);
+        if (m.content() != null) {
+            for (ContentBlock b : m.content()) {
+                total += estimateBlock(b);
+            }
         }
         // 角色与结构开销
         return total + 4;
@@ -43,7 +46,7 @@ public final class TokenBudget {
 
     private static int estimateBlock(ContentBlock b) {
         return switch (b) {
-            case ContentBlock.Text t -> (t.text().length() + 3) / 4;
+            case ContentBlock.Text t -> t.text() == null ? 1 : (t.text().length() + 3) / 4;
             case ContentBlock.Image ignored -> IMAGE_TOKENS;
             case ContentBlock.Audio ignored -> AUDIO_TOKENS;
             case ContentBlock.File ignored -> FILE_TOKENS;

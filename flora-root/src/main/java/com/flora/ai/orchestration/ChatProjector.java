@@ -12,9 +12,10 @@ import java.util.concurrent.CompletionException;
 
 /**
  * 对话投影器：把 {@link Context} 折叠成模型可见的 {@link ChatRequest}。
- * <p>每次投影都从零开始：注入器链（系统提示/记忆/RAG/世界观）并行执行写入
- * {@link ProjectionBuilder}，全部完成后与历史上下文合并，再经 {@link TokenBudget}
- * 裁剪，最终产出请求。投影为纯操作，不修改 {@link Context}。</p>
+ * <p>每次投影从零开始：注入器链（系统提示/记忆/RAG/世界观）并行执行写入
+ * {@link ProjectionBuilder}，全部完成后把注入内容与历史上下文合并，再经
+ * {@link TokenBudget} 裁剪（注入内容置前优先保留，历史从旧到新被裁），
+ * 最终产出请求。投影为只读操作，不修改 {@link Context}。</p>
  * <p>支持同步（{@link #assemble}）与异步（{@link #assembleAsync}）两种形态：
  * 异步形态并行等待所有注入器，慢检索（RAG）不阻塞调用线程。</p>
  */
@@ -67,8 +68,13 @@ public final class ChatProjector {
     }
 
     private ChatRequest build(Context context, ProjectionBuilder builder) {
-        List<Message> history = budget.trim(context.messages());
+        // 注入内容置前、历史随后，统一进入预算裁剪：注入优先，历史从旧到新被裁
+        List<Message> injected = builder.injected();
+        List<Message> all = new ArrayList<>(injected.size() + context.size());
+        all.addAll(injected);
+        all.addAll(context.messages());
+        List<Message> messages = budget.trim(all);
         List<ToolSpec> toolsList = tools == null ? List.of() : tools.declarations();
-        return builder.build(history, toolsList, config);
+        return builder.build(messages, toolsList, config);
     }
 }

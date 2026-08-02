@@ -26,9 +26,11 @@ public record Message(Role role, List<ContentBlock> content,
     /** 便捷：拼接全部文本块的内容（忽略图片/音频/文件块）。 */
     public String text() {
         StringBuilder sb = new StringBuilder();
-        for (ContentBlock b : content) {
-            if (b instanceof ContentBlock.Text t) {
-                sb.append(t.text());
+        if (content != null) {
+            for (ContentBlock b : content) {
+                if (b instanceof ContentBlock.Text t) {
+                    sb.append(t.text());
+                }
             }
         }
         return sb.toString();

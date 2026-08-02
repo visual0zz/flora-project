@@ -15,9 +15,10 @@ import java.util.concurrent.CompletableFuture;
  *     return CompletableFuture.completedFuture(null);
  * };
  *
- * // 异步注入：RAG 检索结果
- * Injector rag = b -> http.searchAsync(query).thenAccept(hits ->
- *     b.inject(Message.of(Message.Role.USER, hits.toPrompt())));
+ * // 异步注入：RAG 检索结果（thenAccept 内为语句，忽略 inject 返回值）
+ * Injector rag = b -> http.searchAsync(query).thenAccept(hits -> {
+ *     b.inject(Message.of(Message.Role.USER, hits.toPrompt()));
+ * });
  * }</pre>
  */
 @FunctionalInterface

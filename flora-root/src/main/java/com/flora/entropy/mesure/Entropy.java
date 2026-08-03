@@ -1,12 +1,7 @@
 package com.flora.entropy.mesure;
 
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.zip.Deflater;
-
 /**
- * 随机性与熵的评估工具。
+ * 随机性与熵的评估工具门面类。
  * <p>
  * 提供两类互补度量，用于在不知道先验分布的前提下判断一段字符串是否"长得像随机密钥"：
  * <ul>
@@ -19,21 +14,13 @@ import java.util.zip.Deflater;
  *   <li><b>压缩复杂度比</b>：用 Deflate 压缩后的长度与原长的比值（Kolmogorov 复杂度的工程近似）；
  *       接近 1 表示不可压缩（高随机），接近 0 表示高度重复/结构化。</li>
  * </ul>
- * 本类为无状态纯函数工具，不依赖任何外部库；所有方法对 {@code null} 之外的输入均返回有限值。
+ * 本类为无状态纯函数工具，所有方法委托给 {@link EntropyProvider} 注册的算法实现。
+ * </p>
  */
 public final class Entropy {
 
     private Entropy() {
     }
-
-    /** 小写字母类别位。 */
-    private static final int LOWER = 1;
-    /** 大写字母类别位。 */
-    private static final int UPPER = 2;
-    /** 数字类别位。 */
-    private static final int DIGIT = 4;
-    /** 符号（非字母数字、非空白、非控制字符）类别位。 */
-    private static final int SYMBOL = 8;
 
     /**
      * 计算字符串的香农熵（bit/字符，按码点计）。
@@ -43,18 +30,7 @@ public final class Entropy {
      * @return 香农熵，单位 bit/符号，始终非负
      */
     public static double shannon(String s) {
-        if (s == null || s.isEmpty()) {
-            return 0.0;
-        }
-        Map<Integer, Integer> counts = new HashMap<>();
-        int total = 0;
-        for (int i = 0; i < s.length(); ) {
-            int cp = s.codePointAt(i);
-            counts.merge(cp, 1, Integer::sum);
-            total++;
-            i += Character.charCount(cp);
-        }
-        return shannonFromCounts(counts.values(), total);
+        return EntropyProvider.metric("SHANNON").measure(s);
     }
 
     /**
@@ -65,23 +41,7 @@ public final class Entropy {
      * @return 香农熵，单位 bit/字节，始终非负
      */
     public static double shannon(byte[] data) {
-        if (data == null || data.length == 0) {
-            return 0.0;
-        }
-        int[] freq = new int[256];
-        for (byte b : data) {
-            freq[b & 0xFF]++;
-        }
-        int total = data.length;
-        double h = 0.0;
-        for (int c : freq) {
-            if (c == 0) {
-                continue;
-            }
-            double p = (double) c / total;
-            h -= p * Math.log(p);
-        }
-        return h / Math.log(2);
+        return EntropyProvider.metric("SHANNON").measure(data);
     }
 
     /**
@@ -93,24 +53,7 @@ public final class Entropy {
      * @return 归一化熵，范围 {@code [0,1]}
      */
     public static double normalized(String s) {
-        if (s == null || s.isEmpty()) {
-            return 0.0;
-        }
-        Map<Integer, Integer> counts = new HashMap<>();
-        int total = 0;
-        for (int i = 0; i < s.length(); ) {
-            int cp = s.codePointAt(i);
-            counts.merge(cp, 1, Integer::sum);
-            total++;
-            i += Character.charCount(cp);
-        }
-        int alphabet = counts.size();
-        if (alphabet <= 1) {
-            return 0.0;
-        }
-        double h = shannonFromCounts(counts.values(), total);
-        double max = Math.log(alphabet) / Math.log(2);
-        return h / max;
+        return EntropyProvider.metric("NORMALIZED").measure(s);
     }
 
     /**
@@ -121,25 +64,7 @@ public final class Entropy {
      * @return 出现的字符大类种数，范围 {@code [0,4]}
      */
     public static int characterClasses(String s) {
-        if (s == null || s.isEmpty()) {
-            return 0;
-        }
-        int mask = 0;
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c >= 'a' && c <= 'z') {
-                mask |= LOWER;
-            } else if (c >= 'A' && c <= 'Z') {
-                mask |= UPPER;
-            } else if (c >= '0' && c <= '9') {
-                mask |= DIGIT;
-            } else if (!Character.isWhitespace(c)
-                    && !Character.isISOControl(c)
-                    && !Character.isLetterOrDigit(c)) {
-                mask |= SYMBOL;
-            }
-        }
-        return Integer.bitCount(mask);
+        return (int) EntropyProvider.metric("CHARACTER_CLASSES").measure(s);
     }
 
     /**
@@ -153,21 +78,7 @@ public final class Entropy {
      * @return 出现的字母/数字类别种数，范围 {@code [0,3]}
      */
     public static int alnumClasses(String s) {
-        if (s == null || s.isEmpty()) {
-            return 0;
-        }
-        int mask = 0;
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c >= 'a' && c <= 'z') {
-                mask |= LOWER;
-            } else if (c >= 'A' && c <= 'Z') {
-                mask |= UPPER;
-            } else if (c >= '0' && c <= '9') {
-                mask |= DIGIT;
-            }
-        }
-        return Integer.bitCount(mask);
+        return (int) EntropyProvider.metric("ALNUM_CLASSES").measure(s);
     }
 
     /**
@@ -180,26 +91,6 @@ public final class Entropy {
      * @return 压缩后长度 / 原长度，通常落在 {@code [0,~1.1]}
      */
     public static double complexityRatio(String s) {
-        if (s == null || s.isEmpty()) {
-            return 0.0;
-        }
-        byte[] data = s.getBytes(StandardCharsets.UTF_8);
-        Deflater deflater = new Deflater(Deflater.BEST_COMPRESSION);
-        deflater.setInput(data);
-        deflater.finish();
-        byte[] buf = new byte[data.length + 64];
-        int compressed = deflater.deflate(buf);
-        deflater.end();
-        return (double) compressed / data.length;
-    }
-
-    /** 由频次表计算香农熵（bit/符号）。 */
-    private static double shannonFromCounts(Iterable<Integer> counts, int total) {
-        double h = 0.0;
-        for (int c : counts) {
-            double p = (double) c / total;
-            h -= p * Math.log(p);
-        }
-        return h / Math.log(2);
+        return EntropyProvider.metric("COMPLEXITY_RATIO").measure(s);
     }
 }

@@ -35,6 +35,8 @@ import com.flora.java.CheckUtil;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -72,6 +74,10 @@ public final class CryptoProvider {
     }
 
     // ── 注册表：算法名 → 提供者条目列表（每个条目含优先级/具体度/工厂）──
+
+    /** 记录每个原型类声明的算法名，用于 {@link #registeredImplementations()} 查询。 */
+    private static final Map<Class<?>, Set<String>> REGISTERED_PROTOTYPES = new LinkedHashMap<>();
+
     private record Entry<T>(int priority, int specificity, Supplier<? extends T> factory) {
     }
 
@@ -186,6 +192,7 @@ public final class CryptoProvider {
         }
         int priority = family.priority();
         int specificity = algorithms.size();
+        REGISTERED_PROTOTYPES.computeIfAbsent(prototype.getClass(), k -> new LinkedHashSet<>()).addAll(algorithms);
         for (String name : algorithms) {
             reg.computeIfAbsent(name, k -> new CopyOnWriteArrayList<>())
                     .add(new Entry<>(priority, specificity, () -> factory.apply(name)));
@@ -322,6 +329,21 @@ public final class CryptoProvider {
 
     private static <T> Set<String> keysOf(Map<String, List<Entry<T>>> reg) {
         return Collections.unmodifiableSet(reg.keySet());
+    }
+
+    /**
+     * 按注册原型类列出每个实现类所支持的算法名（跨族汇总）。
+     * <p>返回的 Map 键为注册时传入的原型实例的 {@code Class}，
+     * 值为该实现声明的算法名集合（不可变视图）。</p>
+     *
+     * @return 实现类 → 算法名的不可变映射
+     */
+    public static Map<Class<?>, Set<String>> registeredImplementations() {
+        Map<Class<?>, Set<String>> result = new LinkedHashMap<>();
+        for (var entry : REGISTERED_PROTOTYPES.entrySet()) {
+            result.put(entry.getKey(), Collections.unmodifiableSet(entry.getValue()));
+        }
+        return Collections.unmodifiableMap(result);
     }
 
     private static <T> T resolve(Map<String, List<Entry<T>>> reg, String name, String role) {

@@ -38,10 +38,6 @@ import java.util.regex.Pattern;
  * 综合优先级：占位符整体豁免最优先；其次厂商前缀判 ERROR；其次常规结构按结构豁免值形态；
  * 否则值像随机密钥报 ERROR；否则键名像密钥报 WARNING。值一律打码，避免把真实密钥写进报告。
  * <p>
- * 误报与漏报不能靠调阈值同时改善：调阈值只是全局滑动，压误报必连带压召回。真正能同时
- * 改善两者的，是像 {@link #KNOWN_FORMATS} 这样按<b>结构</b>精确排除已知公开数据——这既抹掉
- * 了"长且混合"的误报来源，又无需为此钝化对未知形态的灵敏度。
- * <p>
  * 通用配置（经 {@link #configure(Map)} 传入）可调整阈值：阈值越低越激进（更易报），
  * 越高越保守。支持的键：{@code secret.minLength}、{@code secret.minClasses}、
  * {@code secret.minEntropy}。
@@ -119,13 +115,9 @@ public final class SecretCheck extends LineCheck {
 
     /**
      * 常规数据结构豁免清单：这些形态天然"长且字符混合"，在熵评估上与随机密钥无法区分，
-     * 但它们都是<b>有确定语法的公开数据</b>，不构成凭据泄露。
-     * <p>
-     * 与调阈值的区别：阈值是全局滑动，压掉这类误报的同时必然连带压低真密钥的召回；
-     * 本清单按<b>结构</b>逐项精确豁免，不影响其他形态的判定灵敏度。这也是同时降低
-     * 漏报率与误报率的唯一途径——排除已知结构，而不是钝化整体灵敏度。
-     * <p>
-     * 每条规则按<b>整值完全匹配</b>生效（{@link Matcher#matches()}），避免"值里含一个
+ * 但它们都是<b>有确定语法的公开数据</b>，不构成凭据泄露。
+ * <p>
+ * 每条规则按<b>整值完全匹配</b>生效（{@link Matcher#matches()}），避免"值里含一个
      * 日期子串"就把整条密钥豁免掉。本清单只豁免<b>值形态</b>（ERROR）判定；若键名本身
      * 像密钥，仍会给出 WARNING 作为兜底——例如 {@code secretKey = "<64位hex>"} 无法排除
      * 它是十六进制编码的真密钥，此时值形态不报但键名仍提示复核。
@@ -343,7 +335,7 @@ public final class SecretCheck extends LineCheck {
     /**
      * 值中是否含足够长的连续递增字符段（{@code abcdefghij}、{@code 0123456789}）。
      * <p>字母表常量（如随机串生成器的字符池）天然又长又混合字符类别，熵评估无法与随机
-     * 密钥区分，但"字符严格递增"是它独有的结构特征，用代码判定比正则清晰得多。</p>
+     * 密钥区分，但"字符严格递增"是它独有的结构特征，可据此识别。</p>
      */
     private static boolean hasLongSequentialRun(String value) {
         final int required = 10;

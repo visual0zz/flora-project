@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 /**
  * 编码检查项：校验文本文件是否能被允许的编码完整解码。
  * <p>
- * 默认仅允许 {@code UTF-8}（保持历史行为）。可通过检查项级配置的
+ * 默认仅允许 {@code UTF-8}。可通过检查项级配置的
  * {@value #CONFIG_ALLOWED} 键扩展允许的编码清单（多个名称以 {@code ,}、{@code ;}、
  * {@code |}、{@code &} 中任意一个分隔，取并集），例如 {@code UTF-8;GBK}。
  * <p>

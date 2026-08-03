@@ -231,7 +231,8 @@ public final class Osmetes {
     }
 
     /**
-     * 内置检查项集合（可被子类/第三方通过 SPI 扩展）。
+     * 内置检查项集合；第三方检查项可通过 SPI（{@code FileCheck} 的 ServiceLoader）
+     * 在 {@link #discoverChecks()} 中追加。
      */
     public static List<FileCheck> builtinChecks() {
         return List.of(

@@ -85,134 +85,134 @@ public class JSch {
 
     config.put("compression_level", Util.getSystemProperty("jsch.compression_level", "6"));
 
-    config.put("diffie-hellman-group-exchange-sha1", "com.flora.communication.DHGEX1");
-    config.put("diffie-hellman-group1-sha1", "com.flora.communication.DHG1");
-    config.put("diffie-hellman-group14-sha1", "com.flora.communication.DHG14");
-    config.put("diffie-hellman-group-exchange-sha256", "com.flora.communication.DHGEX256");
-    config.put("diffie-hellman-group-exchange-sha224@ssh.com", "com.flora.communication.DHGEX224");
-    config.put("diffie-hellman-group-exchange-sha384@ssh.com", "com.flora.communication.DHGEX384");
-    config.put("diffie-hellman-group-exchange-sha512@ssh.com", "com.flora.communication.DHGEX512");
-    config.put("diffie-hellman-group14-sha256", "com.flora.communication.DHG14256");
-    config.put("diffie-hellman-group15-sha512", "com.flora.communication.DHG15");
-    config.put("diffie-hellman-group16-sha512", "com.flora.communication.DHG16");
-    config.put("diffie-hellman-group17-sha512", "com.flora.communication.DHG17");
-    config.put("diffie-hellman-group18-sha512", "com.flora.communication.DHG18");
-    config.put("diffie-hellman-group14-sha256@ssh.com", "com.flora.communication.DHG14256");
-    config.put("diffie-hellman-group14-sha224@ssh.com", "com.flora.communication.DHG14224");
-    config.put("diffie-hellman-group15-sha256@ssh.com", "com.flora.communication.DHG15256");
-    config.put("diffie-hellman-group15-sha384@ssh.com", "com.flora.communication.DHG15384");
-    config.put("diffie-hellman-group16-sha512@ssh.com", "com.flora.communication.DHG16");
-    config.put("diffie-hellman-group16-sha384@ssh.com", "com.flora.communication.DHG16384");
-    config.put("diffie-hellman-group18-sha512@ssh.com", "com.flora.communication.DHG18");
-    config.put("ecdsa-sha2-nistp256", "com.flora.communication.crypto.SignatureEcdsa256");
-    config.put("ecdsa-sha2-nistp384", "com.flora.communication.crypto.SignatureEcdsa384");
-    config.put("ecdsa-sha2-nistp521", "com.flora.communication.crypto.SignatureEcdsa521");
+    config.put("diffie-hellman-group-exchange-sha1", "com.flora.comm.ssh.DHGEX1");
+    config.put("diffie-hellman-group1-sha1", "com.flora.comm.ssh.DHG1");
+    config.put("diffie-hellman-group14-sha1", "com.flora.comm.ssh.DHG14");
+    config.put("diffie-hellman-group-exchange-sha256", "com.flora.comm.ssh.DHGEX256");
+    config.put("diffie-hellman-group-exchange-sha224@ssh.com", "com.flora.comm.ssh.DHGEX224");
+    config.put("diffie-hellman-group-exchange-sha384@ssh.com", "com.flora.comm.ssh.DHGEX384");
+    config.put("diffie-hellman-group-exchange-sha512@ssh.com", "com.flora.comm.ssh.DHGEX512");
+    config.put("diffie-hellman-group14-sha256", "com.flora.comm.ssh.DHG14256");
+    config.put("diffie-hellman-group15-sha512", "com.flora.comm.ssh.DHG15");
+    config.put("diffie-hellman-group16-sha512", "com.flora.comm.ssh.DHG16");
+    config.put("diffie-hellman-group17-sha512", "com.flora.comm.ssh.DHG17");
+    config.put("diffie-hellman-group18-sha512", "com.flora.comm.ssh.DHG18");
+    config.put("diffie-hellman-group14-sha256@ssh.com", "com.flora.comm.ssh.DHG14256");
+    config.put("diffie-hellman-group14-sha224@ssh.com", "com.flora.comm.ssh.DHG14224");
+    config.put("diffie-hellman-group15-sha256@ssh.com", "com.flora.comm.ssh.DHG15256");
+    config.put("diffie-hellman-group15-sha384@ssh.com", "com.flora.comm.ssh.DHG15384");
+    config.put("diffie-hellman-group16-sha512@ssh.com", "com.flora.comm.ssh.DHG16");
+    config.put("diffie-hellman-group16-sha384@ssh.com", "com.flora.comm.ssh.DHG16384");
+    config.put("diffie-hellman-group18-sha512@ssh.com", "com.flora.comm.ssh.DHG18");
+    config.put("ecdsa-sha2-nistp256", "com.flora.comm.ssh.crypto.SignatureEcdsa256");
+    config.put("ecdsa-sha2-nistp384", "com.flora.comm.ssh.crypto.SignatureEcdsa384");
+    config.put("ecdsa-sha2-nistp521", "com.flora.comm.ssh.crypto.SignatureEcdsa521");
 
-    config.put("ecdh-sha2-nistp256", "com.flora.communication.DHEC256");
-    config.put("ecdh-sha2-nistp384", "com.flora.communication.DHEC384");
-    config.put("ecdh-sha2-nistp521", "com.flora.communication.DHEC521");
+    config.put("ecdh-sha2-nistp256", "com.flora.comm.ssh.DHEC256");
+    config.put("ecdh-sha2-nistp384", "com.flora.comm.ssh.DHEC384");
+    config.put("ecdh-sha2-nistp521", "com.flora.comm.ssh.DHEC521");
 
-    config.put("ecdh-sha2-nistp", "com.flora.communication.crypto.FloraEcdh");
+    config.put("ecdh-sha2-nistp", "com.flora.comm.ssh.crypto.FloraEcdh");
 
-    config.put("curve25519-sha256", "com.flora.communication.DH25519");
-    config.put("curve25519-sha256@libssh.org", "com.flora.communication.DH25519");
-    config.put("curve448-sha512", "com.flora.communication.DH448");
-    config.put("mlkem768x25519-sha256", "com.flora.communication.DH25519MLKEM768");
-    config.put("mlkem768nistp256-sha256", "com.flora.communication.DHEC256MLKEM768");
-    config.put("mlkem1024nistp384-sha384", "com.flora.communication.DHEC384MLKEM1024");
-    config.put("sntrup761x25519-sha512", "com.flora.communication.DH25519SNTRUP761");
-    config.put("sntrup761x25519-sha512@openssh.com", "com.flora.communication.DH25519SNTRUP761");
+    config.put("curve25519-sha256", "com.flora.comm.ssh.DH25519");
+    config.put("curve25519-sha256@libssh.org", "com.flora.comm.ssh.DH25519");
+    config.put("curve448-sha512", "com.flora.comm.ssh.DH448");
+    config.put("mlkem768x25519-sha256", "com.flora.comm.ssh.DH25519MLKEM768");
+    config.put("mlkem768nistp256-sha256", "com.flora.comm.ssh.DHEC256MLKEM768");
+    config.put("mlkem1024nistp384-sha384", "com.flora.comm.ssh.DHEC384MLKEM1024");
+    config.put("sntrup761x25519-sha512", "com.flora.comm.ssh.DH25519SNTRUP761");
+    config.put("sntrup761x25519-sha512@openssh.com", "com.flora.comm.ssh.DH25519SNTRUP761");
 
-    config.put("mlkem768", "com.flora.communication.crypto.Mlkem768");
-    config.put("mlkem1024", "com.flora.communication.crypto.Mlkem1024");
+    config.put("mlkem768", "com.flora.comm.ssh.crypto.Mlkem768");
+    config.put("mlkem1024", "com.flora.comm.ssh.crypto.Mlkem1024");
     // sntrup761: 非 JDK 原生且 BouncyCastle 后端已移除，暂不支持。
     // ML-KEM 的 JDK 支持自 Java 21 起可用，本模块面向 Java 26。
 
-    config.put("dh", "com.flora.communication.crypto.FloraDh");
-    config.put("3des-cbc", "com.flora.communication.crypto.TripleDesCbc");
-    config.put("blowfish-cbc", "com.flora.communication.crypto.BlowfishCbc");
-    config.put("hmac-sha1", "com.flora.communication.crypto.HmacSha1");
-    config.put("hmac-sha1-96", "com.flora.communication.crypto.HmacSha196");
-    config.put("hmac-sha2-256", "com.flora.communication.crypto.HmacSha256");
-    config.put("hmac-sha2-512", "com.flora.communication.crypto.HmacSha512");
-    config.put("hmac-md5", "com.flora.communication.crypto.HmacMd5");
-    config.put("hmac-md5-96", "com.flora.communication.crypto.HmacMd596");
-    config.put("hmac-sha1-etm@openssh.com", "com.flora.communication.crypto.HmacSha1Etm");
-    config.put("hmac-sha1-96-etm@openssh.com", "com.flora.communication.crypto.HmacSha196Etm");
-    config.put("hmac-sha2-256-etm@openssh.com", "com.flora.communication.crypto.HmacSha256Etm");
-    config.put("hmac-sha2-512-etm@openssh.com", "com.flora.communication.crypto.HmacSha512Etm");
-    config.put("hmac-md5-etm@openssh.com", "com.flora.communication.crypto.HmacMd5Etm");
-    config.put("hmac-md5-96-etm@openssh.com", "com.flora.communication.crypto.HmacMd596Etm");
-    config.put("hmac-sha256-2@ssh.com", "com.flora.communication.crypto.HmacSha2562SshCom");
-    config.put("hmac-sha224@ssh.com", "com.flora.communication.crypto.HmacSha224SshCom");
-    config.put("hmac-sha256@ssh.com", "com.flora.communication.crypto.HmacSha256SshCom");
-    config.put("hmac-sha384@ssh.com", "com.flora.communication.crypto.HmacSha384SshCom");
-    config.put("hmac-sha512@ssh.com", "com.flora.communication.crypto.HmacSha512SshCom");
-    config.put("sha-1", "com.flora.communication.crypto.Sha1");
-    config.put("sha-224", "com.flora.communication.crypto.Sha224");
-    config.put("sha-256", "com.flora.communication.crypto.Sha256");
-    config.put("sha-384", "com.flora.communication.crypto.Sha384");
-    config.put("sha-512", "com.flora.communication.crypto.Sha512");
-    config.put("md5", "com.flora.communication.crypto.Md5");
-    config.put("sha1", "com.flora.communication.crypto.Sha1");
-    config.put("sha224", "com.flora.communication.crypto.Sha224");
-    config.put("sha256", "com.flora.communication.crypto.Sha256");
-    config.put("sha384", "com.flora.communication.crypto.Sha384");
-    config.put("sha512", "com.flora.communication.crypto.Sha512");
-    config.put("signature.dss", "com.flora.communication.crypto.FloraSignatureDsa");
-    config.put("ssh-rsa", "com.flora.communication.crypto.SignatureRsa");
-    config.put("rsa-sha2-256", "com.flora.communication.crypto.SignatureRsaSha256");
-    config.put("rsa-sha2-512", "com.flora.communication.crypto.SignatureRsaSha512");
-    config.put("ssh-rsa-sha224@ssh.com", "com.flora.communication.crypto.SignatureRsaSha224SshCom");
-    config.put("ssh-rsa-sha256@ssh.com", "com.flora.communication.crypto.SignatureRsaSha256SshCom");
-    config.put("ssh-rsa-sha384@ssh.com", "com.flora.communication.crypto.SignatureRsaSha384SshCom");
-    config.put("ssh-rsa-sha512@ssh.com", "com.flora.communication.crypto.SignatureRsaSha512SshCom");
-    config.put("keypairgen.dsa", "com.flora.communication.crypto.FloraKeyPairGenDsa");
-    config.put("keypairgen.rsa", "com.flora.communication.crypto.FloraKeyPairGenRsa");
-    config.put("keypairgen.ecdsa", "com.flora.communication.crypto.FloraKeyPairGenEcdsa");
-    config.put("random", "com.flora.communication.crypto.FloraRandom");
+    config.put("dh", "com.flora.comm.ssh.crypto.FloraDh");
+    config.put("3des-cbc", "com.flora.comm.ssh.crypto.TripleDesCbc");
+    config.put("blowfish-cbc", "com.flora.comm.ssh.crypto.BlowfishCbc");
+    config.put("hmac-sha1", "com.flora.comm.ssh.crypto.HmacSha1");
+    config.put("hmac-sha1-96", "com.flora.comm.ssh.crypto.HmacSha196");
+    config.put("hmac-sha2-256", "com.flora.comm.ssh.crypto.HmacSha256");
+    config.put("hmac-sha2-512", "com.flora.comm.ssh.crypto.HmacSha512");
+    config.put("hmac-md5", "com.flora.comm.ssh.crypto.HmacMd5");
+    config.put("hmac-md5-96", "com.flora.comm.ssh.crypto.HmacMd596");
+    config.put("hmac-sha1-etm@openssh.com", "com.flora.comm.ssh.crypto.HmacSha1Etm");
+    config.put("hmac-sha1-96-etm@openssh.com", "com.flora.comm.ssh.crypto.HmacSha196Etm");
+    config.put("hmac-sha2-256-etm@openssh.com", "com.flora.comm.ssh.crypto.HmacSha256Etm");
+    config.put("hmac-sha2-512-etm@openssh.com", "com.flora.comm.ssh.crypto.HmacSha512Etm");
+    config.put("hmac-md5-etm@openssh.com", "com.flora.comm.ssh.crypto.HmacMd5Etm");
+    config.put("hmac-md5-96-etm@openssh.com", "com.flora.comm.ssh.crypto.HmacMd596Etm");
+    config.put("hmac-sha256-2@ssh.com", "com.flora.comm.ssh.crypto.HmacSha2562SshCom");
+    config.put("hmac-sha224@ssh.com", "com.flora.comm.ssh.crypto.HmacSha224SshCom");
+    config.put("hmac-sha256@ssh.com", "com.flora.comm.ssh.crypto.HmacSha256SshCom");
+    config.put("hmac-sha384@ssh.com", "com.flora.comm.ssh.crypto.HmacSha384SshCom");
+    config.put("hmac-sha512@ssh.com", "com.flora.comm.ssh.crypto.HmacSha512SshCom");
+    config.put("sha-1", "com.flora.comm.ssh.crypto.Sha1");
+    config.put("sha-224", "com.flora.comm.ssh.crypto.Sha224");
+    config.put("sha-256", "com.flora.comm.ssh.crypto.Sha256");
+    config.put("sha-384", "com.flora.comm.ssh.crypto.Sha384");
+    config.put("sha-512", "com.flora.comm.ssh.crypto.Sha512");
+    config.put("md5", "com.flora.comm.ssh.crypto.Md5");
+    config.put("sha1", "com.flora.comm.ssh.crypto.Sha1");
+    config.put("sha224", "com.flora.comm.ssh.crypto.Sha224");
+    config.put("sha256", "com.flora.comm.ssh.crypto.Sha256");
+    config.put("sha384", "com.flora.comm.ssh.crypto.Sha384");
+    config.put("sha512", "com.flora.comm.ssh.crypto.Sha512");
+    config.put("signature.dss", "com.flora.comm.ssh.crypto.FloraSignatureDsa");
+    config.put("ssh-rsa", "com.flora.comm.ssh.crypto.SignatureRsa");
+    config.put("rsa-sha2-256", "com.flora.comm.ssh.crypto.SignatureRsaSha256");
+    config.put("rsa-sha2-512", "com.flora.comm.ssh.crypto.SignatureRsaSha512");
+    config.put("ssh-rsa-sha224@ssh.com", "com.flora.comm.ssh.crypto.SignatureRsaSha224SshCom");
+    config.put("ssh-rsa-sha256@ssh.com", "com.flora.comm.ssh.crypto.SignatureRsaSha256SshCom");
+    config.put("ssh-rsa-sha384@ssh.com", "com.flora.comm.ssh.crypto.SignatureRsaSha384SshCom");
+    config.put("ssh-rsa-sha512@ssh.com", "com.flora.comm.ssh.crypto.SignatureRsaSha512SshCom");
+    config.put("keypairgen.dsa", "com.flora.comm.ssh.crypto.FloraKeyPairGenDsa");
+    config.put("keypairgen.rsa", "com.flora.comm.ssh.crypto.FloraKeyPairGenRsa");
+    config.put("keypairgen.ecdsa", "com.flora.comm.ssh.crypto.FloraKeyPairGenEcdsa");
+    config.put("random", "com.flora.comm.ssh.crypto.FloraRandom");
 
     // hmac-ripemd160*: RIPEMD-160 非 JDK 原生且 BouncyCastle 后端已移除，暂不支持。
 
-    config.put("none", "com.flora.communication.CipherNone");
+    config.put("none", "com.flora.comm.ssh.CipherNone");
 
-    config.put("aes128-gcm@openssh.com", "com.flora.communication.crypto.Aes128Gcm");
-    config.put("aes256-gcm@openssh.com", "com.flora.communication.crypto.Aes256Gcm");
+    config.put("aes128-gcm@openssh.com", "com.flora.comm.ssh.crypto.Aes128Gcm");
+    config.put("aes256-gcm@openssh.com", "com.flora.comm.ssh.crypto.Aes256Gcm");
 
-    config.put("aes128-cbc", "com.flora.communication.crypto.Aes128Cbc");
-    config.put("aes192-cbc", "com.flora.communication.crypto.Aes192Cbc");
-    config.put("aes256-cbc", "com.flora.communication.crypto.Aes256Cbc");
-    config.put("rijndael-cbc@lysator.liu.se", "com.flora.communication.crypto.Aes256Cbc");
+    config.put("aes128-cbc", "com.flora.comm.ssh.crypto.Aes128Cbc");
+    config.put("aes192-cbc", "com.flora.comm.ssh.crypto.Aes192Cbc");
+    config.put("aes256-cbc", "com.flora.comm.ssh.crypto.Aes256Cbc");
+    config.put("rijndael-cbc@lysator.liu.se", "com.flora.comm.ssh.crypto.Aes256Cbc");
 
     // chacha20-poly1305 / cast128 / twofish / seed: 非 JDK 原生且 BouncyCastle 后端已移除，暂不支持。
 
-    config.put("aes128-ctr", "com.flora.communication.crypto.Aes128Ctr");
-    config.put("aes192-ctr", "com.flora.communication.crypto.Aes192Ctr");
-    config.put("aes256-ctr", "com.flora.communication.crypto.Aes256Ctr");
-    config.put("3des-ctr", "com.flora.communication.crypto.TripleDesCtr");
-    config.put("blowfish-ctr", "com.flora.communication.crypto.BlowfishCtr");
+    config.put("aes128-ctr", "com.flora.comm.ssh.crypto.Aes128Ctr");
+    config.put("aes192-ctr", "com.flora.comm.ssh.crypto.Aes192Ctr");
+    config.put("aes256-ctr", "com.flora.comm.ssh.crypto.Aes256Ctr");
+    config.put("3des-ctr", "com.flora.comm.ssh.crypto.TripleDesCtr");
+    config.put("blowfish-ctr", "com.flora.comm.ssh.crypto.BlowfishCtr");
     // arcfour(128/256): RC4 流密码，flora 无流密码原语且已废弃，暂不支持。
 
-    config.put("userauth.none", "com.flora.communication.UserAuthNone");
-    config.put("userauth.password", "com.flora.communication.UserAuthPassword");
-    config.put("userauth.keyboard-interactive", "com.flora.communication.UserAuthKeyboardInteractive");
-    config.put("userauth.publickey", "com.flora.communication.UserAuthPublicKey");
-    config.put("userauth.gssapi-with-mic", "com.flora.communication.UserAuthGSSAPIWithMIC");
+    config.put("userauth.none", "com.flora.comm.ssh.UserAuthNone");
+    config.put("userauth.password", "com.flora.comm.ssh.UserAuthPassword");
+    config.put("userauth.keyboard-interactive", "com.flora.comm.ssh.UserAuthKeyboardInteractive");
+    config.put("userauth.publickey", "com.flora.comm.ssh.UserAuthPublicKey");
+    config.put("userauth.gssapi-with-mic", "com.flora.comm.ssh.UserAuthGSSAPIWithMIC");
     // gssapi-with-mic.krb5: jgss 后端已移除，暂不支持 Kerberos GSSAPI 认证。
 
     config.put("zlib", "com.flora.comm.ssh.compress.Compression");
     config.put("zlib@openssh.com", "com.flora.comm.ssh.compress.Compression");
 
-    config.put("pbkdf2", "com.flora.communication.crypto.FloraPbkdf2");
+    config.put("pbkdf2", "com.flora.comm.ssh.crypto.FloraPbkdf2");
     config.put("bcrypt", "com.flora.comm.ssh.jbcrypt.JBCrypt");
     // Argon2d/i/id、scrypt: 非 JDK 原生且 BouncyCastle 后端已移除，暂不支持。
 
-    config.put("xdh", "com.flora.communication.crypto.FloraXdh");
+    config.put("xdh", "com.flora.comm.ssh.crypto.FloraXdh");
 
-    config.put("keypairgen.eddsa", "com.flora.communication.crypto.FloraKeyPairGenEdDsa");
-    config.put("ssh-ed25519", "com.flora.communication.crypto.SignatureEd25519");
-    config.put("ssh-ed448", "com.flora.communication.crypto.SignatureEd448");
-    config.put("keypairgen_fromprivate.eddsa", "com.flora.communication.crypto.FloraKeyPairGenEdDsa");
+    config.put("keypairgen.eddsa", "com.flora.comm.ssh.crypto.FloraKeyPairGenEdDsa");
+    config.put("ssh-ed25519", "com.flora.comm.ssh.crypto.SignatureEd25519");
+    config.put("ssh-ed448", "com.flora.comm.ssh.crypto.SignatureEd448");
+    config.put("keypairgen_fromprivate.eddsa", "com.flora.comm.ssh.crypto.FloraKeyPairGenEdDsa");
 
     config.put("StrictHostKeyChecking", "ask");
     config.put("HashKnownHosts", "no");
@@ -300,7 +300,7 @@ public class JSch {
     @Override
     public void log(int level, String message) {}
   };
-  static Logger logger = new FloraLogBridge(LoggerFactory.getLogger("com.flora.communication.JSch"));
+  static Logger logger = new FloraLogBridge(LoggerFactory.getLogger("com.flora.comm.ssh.JSch"));
 
   public JSch() {}
 

@@ -74,7 +74,7 @@ public final class CodeGenUtil {
         }
         MetaParser.MetaData md = metaNodes.isEmpty()
                 ? new MetaParser.MetaData(null, null, null, null, null)
-                : ((MetaNode) metaNodes.get(0)).data();
+                : ((MetaNode) metaNodes.getFirst()).data();
         TemplateMeta meta = TemplateMeta.from(md);
 
         List<Generated> results = new ArrayList<>();

@@ -1,6 +1,7 @@
 package com.flora.codegen;
 
 import com.flora.codegen.engine.CodeGenException;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -101,10 +102,15 @@ public final class Ramet {
                     }
                     Path outputFile = outputDir.resolve(g.relativePath()).toAbsolutePath().normalize();
                     count++;
+                    String normalized = normalize(g.content());
                     if (dryRun) {
                         System.out.println("[dry-run] " + outputFile);
                     } else {
-                        writeFile(outputFile, g.content());
+                        Path parent = outputFile.getParent();
+                        if (parent != null) {
+                            Files.createDirectories(parent);
+                        }
+                        Files.writeString(outputFile, normalized, StandardCharsets.UTF_8);
                         System.out.println("generated: " + outputFile);
                     }
                 }
@@ -209,10 +215,7 @@ public final class Ramet {
         }
     }
 
-    /**
-     * 将内容写入文件，自动创建父目录。
-     */
-    private static void writeFile(Path file, String content) throws IOException {
+    private static @NotNull String normalize(String content) {
         String normalized = content
                 .replace("\r\n", "\n")
                 .replace("\r", "\n")
@@ -220,11 +223,7 @@ public final class Ramet {
         if (!normalized.endsWith(System.lineSeparator())) {
             normalized += System.lineSeparator();
         }
-        Path parent = file.getParent();
-        if (parent != null) {
-            Files.createDirectories(parent);
-        }
-        Files.writeString(file, normalized, StandardCharsets.UTF_8);
+        return normalized;
     }
 
 }

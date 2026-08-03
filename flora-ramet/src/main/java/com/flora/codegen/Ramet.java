@@ -93,12 +93,9 @@ public final class Ramet {
                 }
 
                 for (CodeGenUtil.Generated g : results) {
-                    String lowerPath = g.relativePath().toLowerCase();
-                    if (!seenLowerPaths.add(lowerPath)) {
+                    if (!seenLowerPaths.add(g.relativePath().toLowerCase())) {
                         throw new CodeGenException(
-                                "跨模板输出路径大小写不敏感碰撞: " + g.relativePath()
-                                        + "\n  该路径（不区分大小写）已被其他模板占用，"
-                                        + "在大小写不敏感的文件系统上会相互覆盖。");
+                                "路径已被其他模板输出占用（不区分大小写）: " + g.relativePath());
                     }
                     Path outputFile = outputDir.resolve(g.relativePath()).toAbsolutePath().normalize();
                     count++;

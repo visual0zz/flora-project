@@ -13,6 +13,10 @@
     <artifactId>flora-osmetes</artifactId>
 
     <dependencies>
-        <!-- 无需外部依赖，纯 JDK 实现 -->
+        <dependency>
+            <groupId>io.gitee.visual0zz</groupId>
+            <artifactId>flora-root</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 </project>

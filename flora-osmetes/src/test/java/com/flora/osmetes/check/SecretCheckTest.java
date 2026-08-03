@@ -28,10 +28,14 @@ class SecretCheckTest {
     Path tmp;
 
     private List<CheckIssue> run(String content) throws IOException {
-        Path file = tmp.resolve("Sample.java");
+        return runAs("Sample.java", content);
+    }
+
+    private List<CheckIssue> runAs(String fileName, String content) throws IOException {
+        Path file = tmp.resolve(fileName);
         Files.writeString(file, content, StandardCharsets.UTF_8);
         List<CheckIssue> sink = new ArrayList<>();
-        new SecretCheck().check(file, "Sample.java", sink);
+        new SecretCheck().check(file, fileName, sink);
         return sink;
     }
 
@@ -82,9 +86,153 @@ class SecretCheckTest {
     }
 
     @Test
+    void hashValueIsNotTreatedAsSecret() throws IOException {
+        // 长 hex 哈希虽长且高熵，但仅有小写+数字两类，不应判为密钥值
+        List<CheckIssue> issues = run(
+                "class C { String token = \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"; }");
+        assertFalse(issues.stream().anyMatch(i -> i.severity() == Severity.ERROR),
+                "哈希值不应报 ERROR: " + issues);
+        assertEquals(1, issues.size(), "仅因键名报 WARNING: " + issues);
+        assertEquals(Severity.WARNING, issues.getFirst().severity());
+    }
+
+    @Test
+    void timestampValueIsSilent() throws IOException {
+        // ISO 时间戳含大写字母与数字但缺小写，字符类别不足，不应判为密钥
+        assertTrue(run("class C { String ts = \"2024-01-15T103000Z\"; }").isEmpty(),
+                "时间戳值不应报告: ");
+    }
+
+    @Test
+    void versionLikeValueIsSilent() throws IOException {
+        // 版本串含小写与数字两类，字符类别不足，不应误报
+        assertTrue(run("class C { String version = \"20240803release12\"; }").isEmpty(),
+                "版本串不应误报: ");
+    }
+
+    @Test
+    void compoundKeyNameReportsWarning() throws IOException {
+        // 分隔符复合键名（下划线）像密钥，且值非密钥 → WARNING
+        List<CheckIssue> issues = run("class C { String client_secret = \"normal-text-here\"; }");
+        assertEquals(1, issues.size(), "复合键名应报 WARNING: " + issues);
+        assertEquals(Severity.WARNING, issues.getFirst().severity());
+    }
+
+    @Test
     void normalAssignmentIsSilent() throws IOException {
         assertTrue(run("class C { int x = 5; String name = \"alice\"; }").isEmpty(),
                 "普通赋值不应报告: ");
+    }
+
+    @Test
+    void variableReferenceIsSilent() throws IOException {
+        // 字段赋值管道：右值是变量引用而非字面量，不构成硬编码
+        assertTrue(run("class C { void f(String password) { this.password = password; } }").isEmpty(),
+                "变量引用赋值不应报告: ");
+    }
+
+    @Test
+    void numericValueIsSilent() throws IOException {
+        // 数值常量即使键名像密钥也不是硬编码密钥
+        assertTrue(run("class C { static final int SECRET_LEN = 32; }").isEmpty(),
+                "数值常量不应报告: ");
+    }
+
+    @Test
+    void constructorExpressionIsSilent() throws IOException {
+        // 右值是表达式（构造调用），不是字面量
+        assertTrue(run("class C { Map<String, String> TOKEN_COLORS = new HashMap<>(); }").isEmpty(),
+                "构造表达式不应报告: ");
+    }
+
+    @Test
+    void bareScalarInPropertiesReportsWarning() throws IOException {
+        // .properties 允许裸标量，未加引号的值仍需判定
+        List<CheckIssue> issues = runAs("app.properties", "db.password=s3cr3tValue");
+        assertEquals(1, issues.size(), "属性文件裸标量应报告: " + issues);
+        assertEquals(Severity.WARNING, issues.getFirst().severity());
+    }
+
+    @Test
+    void bareScalarPrefixInYamlReportsError() throws IOException {
+        // YAML 裸标量带厂商前缀 → ERROR
+        List<CheckIssue> issues = runAs("app.yaml", "data: sk-aB3kF9xQ2mNpLr7tVcWz");
+        assertEquals(1, issues.size(), "YAML 裸标量前缀应报 ERROR: " + issues);
+        assertEquals(Severity.ERROR, issues.getFirst().severity());
+    }
+
+    @Test
+    void isoTimestampIsSilent() throws IOException {
+        // 时间戳属常规公开结构，按结构豁免，不应报告
+        assertTrue(run("class C { String ts = \"2024-01-15T10:30:00Z\"; }").isEmpty(),
+                "ISO 时间戳不应报告: ");
+        assertTrue(run("class C { String ts = \"20240115T103000Z\"; }").isEmpty(),
+                "紧凑时间戳不应报告: ");
+    }
+
+    @Test
+    void hexDigestSuppressesValueErrorButKeepsKeyWarning() throws IOException {
+        // 64 位 hex 是合法摘要形态；值形态不报 ERROR，但键名像密钥仍给 WARNING 兜底
+        List<CheckIssue> issues = run(
+                "class C { String secretKey = \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"; }");
+        assertFalse(issues.stream().anyMatch(i -> i.severity() == Severity.ERROR),
+                "hex 摘要值不应报 ERROR: " + issues);
+        assertEquals(1, issues.size(), "仅键名 WARNING: " + issues);
+        assertEquals(Severity.WARNING, issues.getFirst().severity());
+    }
+
+    @Test
+    void urlValueIsSilentForKeyName() throws IOException {
+        // URL 是常规结构，值形态豁免；键名普通则不报
+        assertTrue(run("class C { String url = \"https://maven.apache.org/POM/4.0.0\"; }").isEmpty(),
+                "URL 值不应误报: ");
+    }
+
+    @Test
+    void urlEmbeddingCredentialReportsError() throws IOException {
+        // URL 内嵌 user:pass 是真泄露，提示性 negative lookahead 不豁免 → 报 ERROR
+        List<CheckIssue> issues = run("class C { String url = \"https://admin:hunter2@internal.corp/api\"; }");
+        assertEquals(1, issues.size(), "URL 内嵌凭据应报 ERROR: " + issues);
+        assertEquals(Severity.ERROR, issues.getFirst().severity());
+    }
+
+    @Test
+    void repeatedCharValueIsSilent() throws IOException {
+        // xxxx / **** 这类单字符主导的打码串整体豁免
+        assertTrue(run("class C { String token = \"xxxx\"; }").isEmpty(),
+                "打码串不应报告: ");
+        assertTrue(run("class C { String token = \"****\"; }").isEmpty(),
+                "打码串不应报告: ");
+    }
+
+    @Test
+    void algorithmNameInValueIsSilent() throws IOException {
+        // JCA 变换名是算法标识，非密钥材料
+        assertTrue(run("class C { String alg = \"PBKDF2WithHmacSHA256\"; }").isEmpty(),
+                "算法名不应报: ");
+    }
+
+    @Test
+    void alphabetStringIsSilent() throws IOException {
+        // 字母表常量（随机串字符池）虽长且混合类别，但含连续递增段，按结构豁免
+        assertTrue(run("class C { String ALNUM = \"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\"; }")
+                        .isEmpty(),
+                "字母表串不应报: ");
+    }
+
+    @Test
+    void naturalLanguagePhraseIsSilent() throws IOException {
+        // 自然语言短语不是随机密钥
+        assertTrue(run("class C { String msg = \"hello world 12390\"; }").isEmpty(),
+                "自然语言短语不应报: ");
+    }
+
+    @Test
+    void multilineValueIsSilent() throws IOException {
+        // 含换行转义的多行拼接文本不当作单一密钥字面量
+        assertTrue(run("class C { String manifest = \"Manifest-Version: 1.0\\nMain-Class: X\\n\"; }")
+                        .isEmpty(),
+                "多行文本不应报: ");
     }
 
     @Test

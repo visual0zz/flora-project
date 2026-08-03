@@ -8,6 +8,8 @@
  * 通过 {@link com.flora.osmetes.FileCheck} SPI 允许第三方注册自定义检查项。
  */
 module com.flora.osmetes {
+    requires com.flora.root;
+
     exports com.flora.osmetes;
     uses com.flora.osmetes.FileCheck;
 }

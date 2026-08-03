@@ -93,9 +93,25 @@ public final class SuppressWarningsScanner {
 
     /** 判定 {@code tokens[i]} 是否为 {@code @SuppressWarnings} 的 {@code @} 记号。 */
     private static boolean isSuppressWarningsAt(List<Tok> tokens, int i) {
-        return tokens.get(i).text.equals("@")
-                && i + 1 < tokens.size()
-                && tokens.get(i + 1).text.equals(SUPPRESS_WARNINGS);
+        if (!tokens.get(i).text.equals("@")) {
+            return false;
+        }
+        // 注解名可能是全限定名（如 java.lang.SuppressWarnings）。tokenize 把 '.' 吞掉、
+        // 不产生 token，故限定名被切成多个标识符 token；取 '@' 与 '(' 之间的最后一个
+        // 标识符片段判断是否等于 SuppressWarnings，既能识别简单形式也能识别全限定形式。
+        String lastName = null;
+        for (int j = i + 1; j < tokens.size(); j++) {
+            String t = tokens.get(j).text;
+            if (t.equals("(")) {
+                break;
+            }
+            if (!t.isEmpty() && Character.isJavaIdentifierStart(t.charAt(0))) {
+                lastName = t;
+            } else {
+                break;
+            }
+        }
+        return SUPPRESS_WARNINGS.equals(lastName);
     }
 
     /** 从注解参数中提取所有以 {@code osmetes:} 开头的字符串值，返回对应检查名。 */

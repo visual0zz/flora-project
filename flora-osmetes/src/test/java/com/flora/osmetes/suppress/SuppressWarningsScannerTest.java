@@ -162,6 +162,42 @@ class SuppressWarningsScannerTest {
     }
 
     @Test
+    void fullyQualifiedNameRecognized() {
+        // 全限定名 java.lang.SuppressWarnings 也应被识别（编译器合法形式）
+        SuppressWarningsScanner s = scan(
+                "@java.lang.SuppressWarnings(\"osmetes:tab\")\n"
+                        + "class Foo {\n"
+                        + "    int x;\n"
+                        + "}\n");
+        assertTrue(s.isSuppressed(1, "tab"));
+        assertTrue(s.isSuppressed(3, "tab"));
+    }
+
+    @Test
+    void fullyQualifiedNameWithArrayValue() {
+        SuppressWarningsScanner s = scan(
+                "@java.lang.SuppressWarnings({\"osmetes:tab\", \"osmetes:secret\"})\n"
+                        + "class Foo {\n"
+                        + "}\n");
+        assertTrue(s.isSuppressed(1, "tab"));
+        assertTrue(s.isSuppressed(1, "secret"));
+    }
+
+    @Test
+    void nonSuppressWarningsAnnotationIgnored() {
+        // 其他注解（全限定名或非 SuppressWarnings）不应被当作抑制注解
+        SuppressWarningsScanner s = scan(
+                "@java.lang.Deprecated\n"
+                        + "@com.example.Foo(\"osmetes:tab\")\n"
+                        + "class Foo {\n"
+                        + "    int x;\n"
+                        + "}\n");
+        assertFalse(s.isSuppressed(1, "tab"));
+        assertFalse(s.isSuppressed(2, "tab"), "非 SuppressWarnings 注解不应抑制");
+        assertFalse(s.isSuppressed(3, "tab"));
+    }
+
+    @Test
     void realisticSnippetParsesWithoutError() {
         // 泛型、lambda、record、嵌套注解与数组初始化混排，验证解析不崩溃且作用域正确
         SuppressWarningsScanner s = scan(

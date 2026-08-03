@@ -46,7 +46,7 @@ module com.flora.root {
 
     exports com.flora.comm.ssh;
     exports com.flora.comm.ssh.annotations;
-    exports com.flora.comm.ssh.asn1;
+    exports com.flora.codec.asn1;
     exports com.flora.comm.ssh.jbcrypt;
     exports com.flora.comm.ssh.juz;
     exports com.flora.comm.ssh.compress;

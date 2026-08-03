@@ -26,8 +26,8 @@
 
 package com.flora.comm.ssh;
 
-import com.flora.comm.ssh.asn1.ASN1;
-import com.flora.comm.ssh.asn1.ASN1Exception;
+import com.flora.codec.asn1.ASN1;
+import com.flora.codec.asn1.ASN1Exception;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;

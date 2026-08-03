@@ -13,6 +13,7 @@
         <module>flora-ramet</module>
         <module>plugins/maven-plugins/flora-ramet-plugin</module>
         <module>flora-osmetes</module>
+        <module>plugins/maven-plugins/flora-osmetes-plugin</module>
         <module>flora-root</module>
         <module>flora-garden</module>
         <module>flora</module>
@@ -30,8 +31,8 @@
         <maven.compiler.source>26</maven.compiler.source>
         <maven.compiler.target>26</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- Ĭ���ų� slow ����ԣ�����ʵ���缯�ɲ��ԣ��������Խű���
-             -Dsurefire.excludedGroups= ����Ϊ������������ -->
+        <!-- Ĭ���ų� slow ����ԣ�����ʵ���缯�ɲ��ԣ��������Խű���
+             -Dsurefire.excludedGroups= ����Ϊ������������ -->
         <surefire.excludedGroups>slow</surefire.excludedGroups>
     </properties>
 
@@ -51,14 +52,14 @@
                 <version>1.11.4</version>
                 <scope>test</scope>
             </dependency>
-            <!-- plexus-utils: 修复 CVE-2025-67030（目录遍历，CVSS 8.8�?
-                 maven-plugin-api:3.9.11 传递依�? 3.6.0，需覆盖�? 3.6.1 -->
+            <!-- plexus-utils: 修复 CVE-2025-67030（目录遍历，CVSS 8.8�?
+                 maven-plugin-api:3.9.11 传递依�? 3.6.0，需覆盖�? 3.6.1 -->
             <dependency>
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-utils</artifactId>
                 <version>3.6.1</version>
             </dependency>
-            <!-- 编译�? Nullability 注解 -->
+            <!-- 编译�? Nullability 注解 -->
             <dependency>
                 <groupId>org.jetbrains</groupId>
                 <artifactId>annotations</artifactId>
@@ -80,7 +81,7 @@
             <artifactId>junit-platform-launcher</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Nullability 注解：适用于所�? Java 源码 -->
+        <!-- Nullability 注解：适用于所�? Java 源码 -->
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
@@ -91,18 +92,16 @@
     <build>
         <plugins>
             <!-- 单元测试运行器：必须显式指定支持 JUnit5 / Java 26 的版本，
-                 否则默认 surefire 不识�? jupiter 用例（测试结果恒�? 0）�? -->
+                 否则默认 surefire 不识�? jupiter 用例（测试结果恒�? 0）�? -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${surefire.version}</version>
                 <configuration>
-                    <!-- �ų� slow ����ԣ���ʵ����/ɳ����ԣ����� properties.surefire.excludedGroups -->
+                    <!-- �ų� slow ����ԣ���ʵ����/ɳ����ԣ����� properties.surefire.excludedGroups -->
                     <excludedGroups>${surefire.excludedGroups}</excludedGroups>
                 </configuration>
             </plugin>
-            <!-- 编译器：3.1 太旧，无法把模块化依赖（�? com.flora.root）放到模块路径，
-                 会导�? requires 的模块找不到�?3.14.0 支持 JPMS 模块路径并兼�? Java 26�? -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -130,18 +129,4 @@
             </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>osmetes-plugin</id>
-            <activation>
-                <file>
-                    <exists>${user.home}/.m2/repository/io/gitee/visual0zz/flora-osmetes/0.1/flora-osmetes-0.1.jar</exists>
-                </file>
-            </activation>
-            <modules>
-                <module>plugins/maven-plugins/flora-osmetes-plugin</module>
-            </modules>
-        </profile>
-    </profiles>
 </project>

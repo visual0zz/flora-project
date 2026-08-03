@@ -15,6 +15,8 @@ module com.flora.root {
     exports com.flora.crypto.core.interfaces;
     exports com.flora.crypto.core.interfaces.provider;
     exports com.flora.crypto.schemes;
+    exports com.flora.crypto.schemes.keyexchange;
+    exports com.flora.crypto.schemes.engine.kex;
     exports com.flora.entropy;
     exports com.flora.entropy.compress;
     exports com.flora.entropy.compress.engine;

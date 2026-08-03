@@ -55,3 +55,23 @@
 - 非 JDK 原生算法（复杂二进制运算、难以用测试向量验证）留到最后实现。
 - `keypairgen_fromprivate.eddsa` 仍指向会抛 `UnsupportedOperationException` 的默认方法
   （从现有私钥字节生成密钥对的能力缺失，`bc.KeyPairGenEdDSA` 被删前同样不可用）。
+
+## 补充（Phase 0 完成情况，2026-08-03）
+
+留到最后的算法已全部实现并通过 RFC 向量自测（放 `com.flora.crypto.core.engine`，
+参数类型放 `com.flora.crypto.core`，未动 `Schemes`）：
+
+| 算法 | 位置 | 测试向量 |
+|---|---|---|
+| RIPEMD-160 | `Ripemd160Digest` | RFC 2286 标准向量 |
+| BLAKE2b-256/512 | `Blake2bDigest` | RFC 7693 |
+| Poly1305 | `Poly1305Mac` | RFC 8439 §2.5.2 |
+| ChaCha20 + ChaCha20-Poly1305 | `ChaCha20Engine` / `ChaCha20Poly1305` | RFC 8439 §2.3/2.4/2.8 |
+| scrypt | `Scrypt` + `ScryptParameters` | RFC 7914 §12 |
+| Argon2d/i/id | `Argon2` + `Argon2Parameters` | RFC 9106 §5 |
+| HMAC（支持空密钥） | `HMac` | RFC 4231 + 空密钥向量 |
+
+调试中修正的关键实现错误：RIPEMD-160 右通道轮函数反向；BLAKE2b finalize 无
+`h[0]^=~0`、计数器先累加、块对齐消息的"延迟压缩"语义；ChaCha20 counter 占 1 字、
+nonce 占 3 字；Argon2 trunc 乘法需无符号扩展、pass>0 的 XOR 语义、lane 首块 prev 环绕、
+独立索引计数器从 1 起、finalize 用 H' 而非 H。

@@ -1,5 +1,6 @@
 package com.flora.entropy;
 
+import com.flora.entropy.mesure.Entropy;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

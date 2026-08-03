@@ -1,4 +1,4 @@
-package com.flora.entropy;
+package com.flora.entropy.mesure;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;

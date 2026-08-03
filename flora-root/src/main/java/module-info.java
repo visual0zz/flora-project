@@ -64,6 +64,7 @@ module com.flora.root {
     exports com.flora.ai.api.provider.client;
     exports com.flora.ai.api.provider.protocol;
     exports com.flora.ai.orchestration;
+    exports com.flora.entropy.mesure;
 
     uses Converter;
     uses AiProvider;

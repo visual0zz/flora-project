@@ -1,14 +1,14 @@
-flora-root -- com.flora.communication
+flora-root -- com.flora.ssh
 Third-Party Notices
 
 This module includes the following third-party components.  Their copyright
 notices and license texts are reproduced verbatim below.  The corresponding
 source files are distributed in this module (packages under
-com.flora.communication) with the same license headers retained.
+com.flora.ssh) with the same license headers retained.
 
 ===============================================================================
 1. JSch -- SSH2 client library
-   Mapped into this module as package com.flora.communication.
+   Mapped into this module as package com.flora.ssh.
    Copyright (c) 2002-2015 Atsuhiko Yamanaka, JCraft,Inc.
    License: BSD 3-Clause
 -------------------------------------------------------------------------------
@@ -46,8 +46,8 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ===============================================================================
 2. JZlib -- pure Java zlib compression library
-   Mapped into this module as package com.flora.communication.jzlib
-   (wrapped by com.flora.communication.juz).
+   Mapped into this module as package com.flora.ssh.jzlib
+   (wrapped by com.flora.ssh.juz).
    Copyright (c) 2000-2011 ymnk, JCraft,Inc.
    License: BSD 3-Clause
 -------------------------------------------------------------------------------
@@ -84,7 +84,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ===============================================================================
 3. jBCrypt -- bcrypt password hashing
-   Mapped into this module as package com.flora.communication.jbcrypt.
+   Mapped into this module as package com.flora.ssh.jbcrypt.
    Copyright (c) 2006 Damien Miller <djm@mindrot.org>
    License: ISC
 -------------------------------------------------------------------------------

@@ -18,7 +18,7 @@
 
 ### 2. 加密原语双栈并存
 
-`com.flora.crypto.core`（自研 BC 风格库）与 `com.flora.communication.crypto` + `communication.jce`（72 文件）**重复实现同一批算法**：
+`com.flora.crypto.core`（自研 BC 风格库）与 `com.flora.ssh.crypto` + `communication.jce`（72 文件）**重复实现同一批算法**：
 
 - **分组密码**：`JdkBlockCipher` + `mode/`（CBC/CFB/GCM/OFB/SIC）↔ JSch `Cipher` + Aes128Cbc/Aes256Gcm/Blowfish…
 - **MAC/摘要**：`JdkMac`、`JdkDigest` ↔ `FloraMac`、HmacSha256/Md5/Sha1…
@@ -31,7 +31,7 @@
 
 - `com.flora.entropy.HashUtil`（门面 → StandardHash：MD5/SHA1/SHA256/SHA512/SHA3 + MurmurHash + GoldenRatioMix）
 - `com.flora.crypto.core.engine.JdkDigest`（JCE 摘要封装，经 CryptoProvider 注册）
-- `com.flora.communication` 的 `Sha1/Sha256/Sha512/Md5` 等（JSch 第三方）
+- `com.flora.ssh` 的 `Sha1/Sha256/Sha512/Md5` 等（JSch 第三方）
 
 前两处都是自研 SHA/MD5 门面，能力重叠，且 `HashUtil` 与 `CryptoProvider` 都靠 `@SuitedFor`/`AlgorithmFamily` 标注场景，概念上也在竞争。
 

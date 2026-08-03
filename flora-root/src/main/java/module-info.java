@@ -44,13 +44,13 @@ module com.flora.root {
     exports com.flora.mock.regex;
     exports com.flora.mock.regex.automaton;
 
-    exports com.flora.communication;
-    exports com.flora.communication.annotations;
-    exports com.flora.communication.asn1;
-    exports com.flora.communication.jbcrypt;
-    exports com.flora.communication.juz;
-    exports com.flora.communication.jzlib;
-    exports com.flora.communication.logging;
+    exports com.flora.comm.ssh;
+    exports com.flora.comm.ssh.annotations;
+    exports com.flora.comm.ssh.asn1;
+    exports com.flora.comm.ssh.jbcrypt;
+    exports com.flora.comm.ssh.juz;
+    exports com.flora.comm.ssh.jzlib;
+    exports com.flora.comm.ssh.logging;
 
     exports com.flora.syntax;
     exports com.flora.syntax.bracket;

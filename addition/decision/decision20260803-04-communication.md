@@ -1,7 +1,7 @@
 # 决策：SSH 加密算法统一走 flora crypto 界面（Phase 3 适配层）
 
 日期：2026-08-03
-模块：flora-root / com.flora.communication
+模块：flora-root / com.flora.ssh
 编号：decision20260803-04
 
 ## 背景
@@ -18,7 +18,7 @@
    - `JdkKem`：包装 JDK 21+ `javax.crypto.KEM`（ML-KEM 封装/解封装），实现 flora 的
      `KEM` 界面，取代 `PlaceholderKem`。
 
-2. **新建适配包 `com.flora.communication.crypto`（内部实现，不导出）**：
+2. **新建适配包 `com.flora.ssh.crypto`（内部实现，不导出）**：
    - 18 个基类：`FloraCipher`(CBC/CTR)、`FloraAeadCipher`(GCM)、`FloraMac`、`FloraDigest`、
      `FloraSignatureRsa/Dsa/Ecdsa/EdDsa`、`FloraDh`、`FloraXdh`、`FloraEcdh`、`FloraKem`、
      `FloraRandom`、`FloraPbkdf2`、`FloraKeyPairGenRsa/Dsa/Ecdsa/EdDsa`。

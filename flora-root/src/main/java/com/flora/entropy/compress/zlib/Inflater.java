@@ -30,7 +30,7 @@
 
 package com.flora.entropy.compress.zlib;
 
-final class Inflater extends ZStream {
+public final class Inflater extends ZStream {
 
   private static final int MAX_WBITS = 15; // 32K LZ77 window
   private static final int DEF_WBITS = MAX_WBITS;
@@ -57,16 +57,16 @@ final class Inflater extends ZStream {
   private JZlib.WrapperType param_wrapperType = null;
   private boolean param_nowrap = false;
 
-  Inflater() {
+  public Inflater() {
     super();
     init();
   }
 
-  Inflater(JZlib.WrapperType wrapperType) throws GZIPException {
+  public Inflater(JZlib.WrapperType wrapperType) throws GZIPException {
     this(DEF_WBITS, wrapperType);
   }
 
-  Inflater(int w, JZlib.WrapperType wrapperType) throws GZIPException {
+  public Inflater(int w, JZlib.WrapperType wrapperType) throws GZIPException {
     super();
     param_w = w;
     param_wrapperType = wrapperType;
@@ -75,15 +75,15 @@ final class Inflater extends ZStream {
       throw new GZIPException(ret + ": " + msg);
   }
 
-  Inflater(int w) throws GZIPException {
+  public Inflater(int w) throws GZIPException {
     this(w, false);
   }
 
-  Inflater(boolean nowrap) throws GZIPException {
+  public Inflater(boolean nowrap) throws GZIPException {
     this(DEF_WBITS, nowrap);
   }
 
-  Inflater(int w, boolean nowrap) throws GZIPException {
+  public Inflater(int w, boolean nowrap) throws GZIPException {
     super();
     param_w = w;
     param_nowrap = nowrap;
@@ -92,7 +92,7 @@ final class Inflater extends ZStream {
       throw new GZIPException(ret + ": " + msg);
   }
 
-  void reset() {
+  public void reset() {
     finished = false;
     if (param_wrapperType != null) {
       init(param_w, param_wrapperType);
@@ -103,15 +103,15 @@ final class Inflater extends ZStream {
 
   private boolean finished = false;
 
-  int init() {
+  public int init() {
     return init(DEF_WBITS);
   }
 
-  int init(JZlib.WrapperType wrapperType) {
+  public int init(JZlib.WrapperType wrapperType) {
     return init(DEF_WBITS, wrapperType);
   }
 
-  int init(int w, JZlib.WrapperType wrapperType) {
+  public int init(int w, JZlib.WrapperType wrapperType) {
     boolean nowrap = false;
     if (wrapperType == JZlib.W_NONE) {
       nowrap = true;
@@ -124,22 +124,22 @@ final class Inflater extends ZStream {
     return init(w, nowrap);
   }
 
-  int init(boolean nowrap) {
+  public int init(boolean nowrap) {
     return init(DEF_WBITS, nowrap);
   }
 
-  int init(int w) {
+  public int init(int w) {
     return init(w, false);
   }
 
-  int init(int w, boolean nowrap) {
+  public int init(int w, boolean nowrap) {
     finished = false;
     istate = new Inflate(this);
     return istate.inflateInit(nowrap ? -w : w);
   }
 
   @Override
-  int inflate(int f) {
+  public int inflate(int f) {
     if (istate == null)
       return Z_STREAM_ERROR;
     int ret = istate.inflate(f);
@@ -149,7 +149,7 @@ final class Inflater extends ZStream {
   }
 
   @Override
-  int end() {
+  public int end() {
     finished = true;
     if (istate == null)
       return Z_STREAM_ERROR;
@@ -158,26 +158,26 @@ final class Inflater extends ZStream {
     return ret;
   }
 
-  int sync() {
+  public int sync() {
     if (istate == null)
       return Z_STREAM_ERROR;
     return istate.inflateSync();
   }
 
-  int syncPoint() {
+  public int syncPoint() {
     if (istate == null)
       return Z_STREAM_ERROR;
     return istate.inflateSyncPoint();
   }
 
-  int setDictionary(byte[] dictionary, int dictLength) {
+  public int setDictionary(byte[] dictionary, int dictLength) {
     if (istate == null)
       return Z_STREAM_ERROR;
     return istate.inflateSetDictionary(dictionary, dictLength);
   }
 
   @Override
-  boolean finished() {
+  public boolean finished() {
     return istate.mode == 12 /* DONE */;
   }
 }

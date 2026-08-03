@@ -32,7 +32,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-final class InflaterInputStream extends FilterInputStream {
+public final class InflaterInputStream extends FilterInputStream {
   protected final Inflater inflater;
   protected byte[] buf;
 

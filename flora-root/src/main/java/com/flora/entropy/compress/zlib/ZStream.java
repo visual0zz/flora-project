@@ -30,7 +30,7 @@
 
 package com.flora.entropy.compress.zlib;
 
-class ZStream {
+public class ZStream {
 
   private static final int MAX_WBITS = 15; // 32K LZ77 window
   private static final int DEF_WBITS = MAX_WBITS;
@@ -53,50 +53,50 @@ class ZStream {
   private static final int Z_BUF_ERROR = -5;
   private static final int Z_VERSION_ERROR = -6;
 
-  byte[] next_in; // next input byte
-  int next_in_index;
-  int avail_in; // number of bytes available at next_in
-  long total_in; // total nb of input bytes read so far
+  public byte[] next_in; // next input byte
+  public int next_in_index;
+  public int avail_in; // number of bytes available at next_in
+  public long total_in; // total nb of input bytes read so far
 
-  byte[] next_out; // next output byte should be put there
-  int next_out_index;
-  int avail_out; // remaining free space at next_out
-  long total_out; // total nb of bytes output so far
+  public byte[] next_out; // next output byte should be put there
+  public int next_out_index;
+  public int avail_out; // remaining free space at next_out
+  public long total_out; // total nb of bytes output so far
 
-  String msg;
+  public String msg;
 
-  Deflate dstate;
-  Inflate istate;
+  public Deflate dstate;
+  public Inflate istate;
 
-  int data_type; // best guess about the data type: ascii or binary
+  public int data_type; // best guess about the data type: ascii or binary
 
   Checksum adler;
 
-  ZStream() {
+  public ZStream() {
     this(new Adler32());
   }
 
-  ZStream(Checksum adler) {
+  public ZStream(Checksum adler) {
     this.adler = adler;
   }
 
-  int inflateInit() {
+  public int inflateInit() {
     return inflateInit(DEF_WBITS);
   }
 
-  int inflateInit(boolean nowrap) {
+  public int inflateInit(boolean nowrap) {
     return inflateInit(DEF_WBITS, nowrap);
   }
 
-  int inflateInit(int w) {
+  public int inflateInit(int w) {
     return inflateInit(w, false);
   }
 
-  int inflateInit(JZlib.WrapperType wrapperType) {
+  public int inflateInit(JZlib.WrapperType wrapperType) {
     return inflateInit(DEF_WBITS, wrapperType);
   }
 
-  int inflateInit(int w, JZlib.WrapperType wrapperType) {
+  public int inflateInit(int w, JZlib.WrapperType wrapperType) {
     boolean nowrap = false;
     if (wrapperType == JZlib.W_NONE) {
       nowrap = true;
@@ -109,18 +109,18 @@ class ZStream {
     return inflateInit(w, nowrap);
   }
 
-  int inflateInit(int w, boolean nowrap) {
+  public int inflateInit(int w, boolean nowrap) {
     istate = new Inflate(this);
     return istate.inflateInit(nowrap ? -w : w);
   }
 
-  int inflate(int f) {
+  public int inflate(int f) {
     if (istate == null)
       return Z_STREAM_ERROR;
     return istate.inflate(f);
   }
 
-  int inflateEnd() {
+  public int inflateEnd() {
     if (istate == null)
       return Z_STREAM_ERROR;
     int ret = istate.inflateEnd();
@@ -128,41 +128,41 @@ class ZStream {
     return ret;
   }
 
-  int inflateSync() {
+  public int inflateSync() {
     if (istate == null)
       return Z_STREAM_ERROR;
     return istate.inflateSync();
   }
 
-  int inflateSyncPoint() {
+  public int inflateSyncPoint() {
     if (istate == null)
       return Z_STREAM_ERROR;
     return istate.inflateSyncPoint();
   }
 
-  int inflateSetDictionary(byte[] dictionary, int dictLength) {
+  public int inflateSetDictionary(byte[] dictionary, int dictLength) {
     if (istate == null)
       return Z_STREAM_ERROR;
     return istate.inflateSetDictionary(dictionary, dictLength);
   }
 
-  boolean inflateFinished() {
+  public boolean inflateFinished() {
     return istate.mode == 12 /* DONE */;
   }
 
-  int deflateInit(int level) {
+  public int deflateInit(int level) {
     return deflateInit(level, MAX_WBITS);
   }
 
-  int deflateInit(int level, boolean nowrap) {
+  public int deflateInit(int level, boolean nowrap) {
     return deflateInit(level, MAX_WBITS, nowrap);
   }
 
-  int deflateInit(int level, int bits) {
+  public int deflateInit(int level, int bits) {
     return deflateInit(level, bits, false);
   }
 
-  int deflateInit(int level, int bits, int memlevel, JZlib.WrapperType wrapperType) {
+  public int deflateInit(int level, int bits, int memlevel, JZlib.WrapperType wrapperType) {
     if (bits < 9 || bits > 15) {
       return Z_STREAM_ERROR;
     }
@@ -177,24 +177,24 @@ class ZStream {
     return this.deflateInit(level, bits, memlevel);
   }
 
-  int deflateInit(int level, int bits, int memlevel) {
+  public int deflateInit(int level, int bits, int memlevel) {
     dstate = new Deflate(this);
     return dstate.deflateInit(level, bits, memlevel);
   }
 
-  int deflateInit(int level, int bits, boolean nowrap) {
+  public int deflateInit(int level, int bits, boolean nowrap) {
     dstate = new Deflate(this);
     return dstate.deflateInit(level, nowrap ? -bits : bits);
   }
 
-  int deflate(int flush) {
+  public int deflate(int flush) {
     if (dstate == null) {
       return Z_STREAM_ERROR;
     }
     return dstate.deflate(flush);
   }
 
-  int deflateEnd() {
+  public int deflateEnd() {
     if (dstate == null)
       return Z_STREAM_ERROR;
     int ret = dstate.deflateEnd();
@@ -202,13 +202,13 @@ class ZStream {
     return ret;
   }
 
-  int deflateParams(int level, int strategy) {
+  public int deflateParams(int level, int strategy) {
     if (dstate == null)
       return Z_STREAM_ERROR;
     return dstate.deflateParams(level, strategy);
   }
 
-  int deflateSetDictionary(byte[] dictionary, int dictLength) {
+  public int deflateSetDictionary(byte[] dictionary, int dictLength) {
     if (dstate == null)
       return Z_STREAM_ERROR;
     return dstate.deflateSetDictionary(dictionary, dictLength);
@@ -218,7 +218,7 @@ class ZStream {
   // through this function so some applications may wish to modify it
   // to avoid allocating a large strm->next_out buffer and copying into it.
   // (See also read_buf()).
-  void flush_pending() {
+  public void flush_pending() {
     int len = dstate.pending;
 
     if (len > avail_out)
@@ -251,7 +251,7 @@ class ZStream {
   // this function so some applications may wish to modify it to avoid
   // allocating a large strm->next_in buffer and copying from it.
   // (See also flush_pending()).
-  int read_buf(byte[] buf, int start, int size) {
+  public int read_buf(byte[] buf, int start, int size) {
     int len = avail_in;
 
     if (len > size)
@@ -270,35 +270,35 @@ class ZStream {
     return len;
   }
 
-  long getAdler() {
+  public long getAdler() {
     return adler.getValue();
   }
 
-  void free() {
+  public void free() {
     next_in = null;
     next_out = null;
     msg = null;
   }
 
-  void setOutput(byte[] buf) {
+  public void setOutput(byte[] buf) {
     setOutput(buf, 0, buf.length);
   }
 
-  void setOutput(byte[] buf, int off, int len) {
+  public void setOutput(byte[] buf, int off, int len) {
     next_out = buf;
     next_out_index = off;
     avail_out = len;
   }
 
-  void setInput(byte[] buf) {
+  public void setInput(byte[] buf) {
     setInput(buf, 0, buf.length, false);
   }
 
-  void setInput(byte[] buf, boolean append) {
+  public void setInput(byte[] buf, boolean append) {
     setInput(buf, 0, buf.length, append);
   }
 
-  void setInput(byte[] buf, int off, int len, boolean append) {
+  public void setInput(byte[] buf, int off, int len, boolean append) {
     if (len <= 0 && append && next_in != null)
       return;
 
@@ -316,73 +316,73 @@ class ZStream {
     }
   }
 
-  byte[] getNextIn() {
+  public byte[] getNextIn() {
     return next_in;
   }
 
-  void setNextIn(byte[] next_in) {
+  public void setNextIn(byte[] next_in) {
     this.next_in = next_in;
   }
 
-  int getNextInIndex() {
+  public int getNextInIndex() {
     return next_in_index;
   }
 
-  void setNextInIndex(int next_in_index) {
+  public void setNextInIndex(int next_in_index) {
     this.next_in_index = next_in_index;
   }
 
-  int getAvailIn() {
+  public int getAvailIn() {
     return avail_in;
   }
 
-  void setAvailIn(int avail_in) {
+  public void setAvailIn(int avail_in) {
     this.avail_in = avail_in;
   }
 
-  byte[] getNextOut() {
+  public byte[] getNextOut() {
     return next_out;
   }
 
-  void setNextOut(byte[] next_out) {
+  public void setNextOut(byte[] next_out) {
     this.next_out = next_out;
   }
 
-  int getNextOutIndex() {
+  public int getNextOutIndex() {
     return next_out_index;
   }
 
-  void setNextOutIndex(int next_out_index) {
+  public void setNextOutIndex(int next_out_index) {
     this.next_out_index = next_out_index;
   }
 
-  int getAvailOut() {
+  public int getAvailOut() {
     return avail_out;
   }
 
-  void setAvailOut(int avail_out) {
+  public void setAvailOut(int avail_out) {
     this.avail_out = avail_out;
   }
 
-  long getTotalOut() {
+  public long getTotalOut() {
     return total_out;
   }
 
-  long getTotalIn() {
+  public long getTotalIn() {
     return total_in;
   }
 
-  String getMessage() {
+  public String getMessage() {
     return msg;
   }
 
   // Those methods are expected to be override by Inflater and Deflater.
   // In the future, they will become abstract methods.
-  int end() {
+  public int end() {
     return Z_OK;
   }
 
-  boolean finished() {
+  public boolean finished() {
     return false;
   }
 }

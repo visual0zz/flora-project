@@ -30,7 +30,7 @@
 
 package com.flora.entropy.compress.zlib;
 
-final class CRC32 implements Checksum {
+public final class CRC32 implements Checksum {
 
   /*
    * The following logic has come from RFC1952.

@@ -30,7 +30,7 @@
 
 package com.flora.entropy.compress.zlib;
 
-final class InfTree {
+public final class InfTree {
 
   private static final int MANY = 1440;
 

@@ -30,7 +30,7 @@
 
 package com.flora.entropy.compress.zlib;
 
-final class StaticTree {
+public final class StaticTree {
   private static final int MAX_BITS = 15;
 
   private static final int BL_CODES = 19;

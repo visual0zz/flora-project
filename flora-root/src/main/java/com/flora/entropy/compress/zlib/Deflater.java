@@ -30,7 +30,7 @@
 
 package com.flora.entropy.compress.zlib;
 
-final class Deflater extends ZStream {
+public final class Deflater extends ZStream {
 
   private static final int MAX_WBITS = 15; // 32K LZ77 window
   private static final int DEF_WBITS = MAX_WBITS;
@@ -55,56 +55,56 @@ final class Deflater extends ZStream {
 
   private boolean finished = false;
 
-  Deflater() {
+  public Deflater() {
     super();
   }
 
-  Deflater(int level) throws GZIPException {
+  public Deflater(int level) throws GZIPException {
     this(level, MAX_WBITS);
   }
 
-  Deflater(int level, boolean nowrap) throws GZIPException {
+  public Deflater(int level, boolean nowrap) throws GZIPException {
     this(level, MAX_WBITS, nowrap);
   }
 
-  Deflater(int level, int bits) throws GZIPException {
+  public Deflater(int level, int bits) throws GZIPException {
     this(level, bits, false);
   }
 
-  Deflater(int level, int bits, boolean nowrap) throws GZIPException {
+  public Deflater(int level, int bits, boolean nowrap) throws GZIPException {
     super();
     int ret = init(level, bits, nowrap);
     if (ret != Z_OK)
       throw new GZIPException(ret + ": " + msg);
   }
 
-  Deflater(int level, int bits, int memlevel, JZlib.WrapperType wrapperType) throws GZIPException {
+  public Deflater(int level, int bits, int memlevel, JZlib.WrapperType wrapperType) throws GZIPException {
     super();
     int ret = init(level, bits, memlevel, wrapperType);
     if (ret != Z_OK)
       throw new GZIPException(ret + ": " + msg);
   }
 
-  Deflater(int level, int bits, int memlevel) throws GZIPException {
+  public Deflater(int level, int bits, int memlevel) throws GZIPException {
     super();
     int ret = init(level, bits, memlevel);
     if (ret != Z_OK)
       throw new GZIPException(ret + ": " + msg);
   }
 
-  int init(int level) {
+  public int init(int level) {
     return init(level, MAX_WBITS);
   }
 
-  int init(int level, boolean nowrap) {
+  public int init(int level, boolean nowrap) {
     return init(level, MAX_WBITS, nowrap);
   }
 
-  int init(int level, int bits) {
+  public int init(int level, int bits) {
     return init(level, bits, false);
   }
 
-  int init(int level, int bits, int memlevel, JZlib.WrapperType wrapperType) {
+  public int init(int level, int bits, int memlevel, JZlib.WrapperType wrapperType) {
     if (bits < 9 || bits > 15) {
       return Z_STREAM_ERROR;
     }
@@ -119,20 +119,20 @@ final class Deflater extends ZStream {
     return init(level, bits, memlevel);
   }
 
-  int init(int level, int bits, int memlevel) {
+  public int init(int level, int bits, int memlevel) {
     finished = false;
     dstate = new Deflate(this);
     return dstate.deflateInit(level, bits, memlevel);
   }
 
-  int init(int level, int bits, boolean nowrap) {
+  public int init(int level, int bits, boolean nowrap) {
     finished = false;
     dstate = new Deflate(this);
     return dstate.deflateInit(level, nowrap ? -bits : bits);
   }
 
   @Override
-  int deflate(int flush) {
+  public int deflate(int flush) {
     if (dstate == null) {
       return Z_STREAM_ERROR;
     }
@@ -143,7 +143,7 @@ final class Deflater extends ZStream {
   }
 
   @Override
-  int end() {
+  public int end() {
     finished = true;
     if (dstate == null)
       return Z_STREAM_ERROR;
@@ -153,24 +153,24 @@ final class Deflater extends ZStream {
     return ret;
   }
 
-  int params(int level, int strategy) {
+  public int params(int level, int strategy) {
     if (dstate == null)
       return Z_STREAM_ERROR;
     return dstate.deflateParams(level, strategy);
   }
 
-  int setDictionary(byte[] dictionary, int dictLength) {
+  public int setDictionary(byte[] dictionary, int dictLength) {
     if (dstate == null)
       return Z_STREAM_ERROR;
     return dstate.deflateSetDictionary(dictionary, dictLength);
   }
 
   @Override
-  boolean finished() {
+  public boolean finished() {
     return finished;
   }
 
-  int copy(Deflater src) {
+  public int copy(Deflater src) {
     this.finished = src.finished;
     return Deflate.deflateCopy(this, src);
   }

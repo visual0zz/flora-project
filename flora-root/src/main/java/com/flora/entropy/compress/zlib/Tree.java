@@ -30,7 +30,7 @@
 
 package com.flora.entropy.compress.zlib;
 
-final class Tree {
+public final class Tree {
   private static final int MAX_BITS = 15;
   private static final int BL_CODES = 19;
   private static final int D_CODES = 30;

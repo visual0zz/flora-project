@@ -32,7 +32,7 @@ package com.flora.entropy.compress.zlib;
 
 import java.io.ByteArrayOutputStream;
 
-final class Inflate {
+public final class Inflate {
 
   private static final int MAX_WBITS = 15; // 32K LZ77 window
 

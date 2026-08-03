@@ -12,8 +12,11 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-package com.flora.comm.ssh.jbcrypt;
+package com.flora.crypto.core.engine;
 
+import com.flora.crypto.core.BCryptParameters;
+import com.flora.crypto.core.interfaces.DerivationParameters;
+import com.flora.crypto.core.interfaces.provider.DerivationFunction;
 import java.nio.charset.StandardCharsets;
 import java.security.DigestException;
 import java.security.MessageDigest;
@@ -67,7 +70,11 @@ import java.security.SecureRandom;
  * @author Damien Miller
  * @version 0.2
  */
-public class BCrypt {
+public class BCrypt implements DerivationFunction {
+  private byte[] kdfPassword;
+  private byte[] kdfSalt;
+  private int kdfRounds;
+
   // BCrypt parameters
   private static final int GENSALT_DEFAULT_LOG2_ROUNDS = 10;
   private static final int BCRYPT_SALT_LEN = 16;
@@ -714,5 +721,37 @@ public class BCrypt {
     for (int i = 0; i < try_bytes.length; i++)
       ret |= (byte) (hashed_bytes[i] ^ try_bytes[i]);
     return ret == 0;
+  }
+
+  // ===== DerivationFunction =====
+
+  @Override
+  public String getAlgorithmName() {
+    return "bcrypt";
+  }
+
+  @Override
+  public void init(DerivationParameters params) {
+    if (!(params instanceof BCryptParameters)) {
+      throw new IllegalArgumentException("bcrypt 需要 BCryptParameters");
+    }
+    BCryptParameters p = (BCryptParameters) params;
+    this.kdfPassword = p.getPassword();
+    this.kdfSalt = p.getSalt();
+    this.kdfRounds = p.getRounds();
+  }
+
+  @Override
+  public void update(byte[] in, int inOff, int len) {
+    throw new UnsupportedOperationException("bcrypt 为非增量 KDF，不支持增量输入");
+  }
+
+  @Override
+  public int generateBytes(byte[] out, int outOff, int len) {
+    byte[] key = new byte[len];
+    pbkdf(kdfPassword, kdfSalt, kdfRounds, key);
+    System.arraycopy(key, 0, out, outOff, len);
+    java.util.Arrays.fill(key, (byte) 0);
+    return len;
   }
 }

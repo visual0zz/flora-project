@@ -24,13 +24,17 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.flora.comm.ssh.jzlib;
+package com.flora.comm.ssh.compress;
 
 import com.flora.comm.ssh.JSch;
 import com.flora.comm.ssh.Logger;
 import com.flora.comm.ssh.Session;
 import java.io.UncheckedIOException;
 import java.util.function.Supplier;
+import com.flora.entropy.compress.zlib.Deflater;
+import com.flora.entropy.compress.zlib.Inflater;
+import com.flora.entropy.compress.zlib.JZlib;
+import com.flora.entropy.compress.zlib.GZIPException;
 
 public class Compression implements com.flora.comm.ssh.Compression {
   private static final int BUF_SIZE = 4096;

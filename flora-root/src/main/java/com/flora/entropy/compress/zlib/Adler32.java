@@ -30,7 +30,7 @@
 
 package com.flora.entropy.compress.zlib;
 
-final class Adler32 implements Checksum {
+public final class Adler32 implements Checksum {
 
   // largest prime smaller than 65536
   private static final int BASE = 65521;

@@ -30,7 +30,7 @@
 
 package com.flora.entropy.compress.zlib;
 
-final class Deflate implements Cloneable {
+public final class Deflate implements Cloneable {
 
   private static final int MAX_MEM_LEVEL = 9;
 

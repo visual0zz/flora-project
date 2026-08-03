@@ -200,11 +200,11 @@ public class JSch {
     config.put("userauth.gssapi-with-mic", "com.flora.communication.UserAuthGSSAPIWithMIC");
     // gssapi-with-mic.krb5: jgss 后端已移除，暂不支持 Kerberos GSSAPI 认证。
 
-    config.put("zlib", "com.flora.communication.jzlib.Compression");
-    config.put("zlib@openssh.com", "com.flora.communication.jzlib.Compression");
+    config.put("zlib", "com.flora.comm.ssh.compress.Compression");
+    config.put("zlib@openssh.com", "com.flora.comm.ssh.compress.Compression");
 
     config.put("pbkdf2", "com.flora.communication.crypto.FloraPbkdf2");
-    config.put("bcrypt", "com.flora.communication.jbcrypt.JBCrypt");
+    config.put("bcrypt", "com.flora.comm.ssh.jbcrypt.JBCrypt");
     // Argon2d/i/id、scrypt: 非 JDK 原生且 BouncyCastle 后端已移除，暂不支持。
 
     config.put("xdh", "com.flora.communication.crypto.FloraXdh");

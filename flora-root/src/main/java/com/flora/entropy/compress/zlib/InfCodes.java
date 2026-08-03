@@ -30,7 +30,7 @@
 
 package com.flora.entropy.compress.zlib;
 
-final class InfCodes {
+public final class InfCodes {
 
   private static final int[] inflate_mask = {0x00000000, 0x00000001, 0x00000003, 0x00000007,
       0x0000000f, 0x0000001f, 0x0000003f, 0x0000007f, 0x000000ff, 0x000001ff, 0x000003ff,

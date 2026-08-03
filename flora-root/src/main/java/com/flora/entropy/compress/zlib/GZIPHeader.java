@@ -35,7 +35,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * @see <a href="http://www.ietf.org/rfc/rfc1952.txt">http://www.ietf.org/rfc/rfc1952.txt</a>
  */
-final class GZIPHeader implements Cloneable {
+public final class GZIPHeader implements Cloneable {
 
   static final byte OS_MSDOS = (byte) 0x00;
   static final byte OS_AMIGA = (byte) 0x01;

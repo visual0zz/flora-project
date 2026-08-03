@@ -32,7 +32,7 @@ package com.flora.entropy.compress.zlib;
 
 import java.io.IOException;
 
-final class GZIPException extends IOException {
+public final class GZIPException extends IOException {
   private static final long serialVersionUID = -1L;
 
   GZIPException() {

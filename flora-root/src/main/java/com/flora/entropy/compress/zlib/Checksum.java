@@ -30,7 +30,7 @@
 
 package com.flora.entropy.compress.zlib;
 
-interface Checksum {
+public interface Checksum {
   void update(byte[] buf, int index, int len);
 
   void reset();

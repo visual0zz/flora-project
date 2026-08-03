@@ -30,7 +30,7 @@
 
 package com.flora.entropy.compress.zlib;
 
-final class InfBlocks {
+public final class InfBlocks {
   private static final int MANY = 1440;
 
   // And'ing with mask[n] masks the lower n bits

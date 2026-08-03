@@ -6,6 +6,7 @@ import com.flora.osmetes.check.TabCheck;
 import com.flora.osmetes.check.TrailingWhitespaceCheck;
 import com.flora.osmetes.gitignore.GitIgnore;
 import com.flora.osmetes.gitignore.GitIgnoreChain;
+import com.flora.osmetes.suppress.SuppressWarningsScanner;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -116,11 +117,14 @@ public final class Osmetes {
                     return FileVisitResult.CONTINUE;
                 }
                 String rel = relativize(file, absRoot);
+                List<CheckIssue> fileIssues = new ArrayList<>();
                 for (FileCheck check : checks) {
                     if (check.fileExtensions().contains(ext)) {
-                        check.check(file, rel, all);
+                        check.check(file, rel, fileIssues);
                     }
                 }
+                suppressByAnnotation(file, ext, fileIssues);
+                all.addAll(fileIssues);
                 return FileVisitResult.CONTINUE;
             }
 
@@ -140,6 +144,24 @@ public final class Osmetes {
     /** git 内部目录，永远不扫描。 */
     private static boolean isGitInternalDir(Path dir) {
         return dir.getFileName() != null && dir.getFileName().toString().equals(".git");
+    }
+
+    /**
+     * 按源码中的 {@code @SuppressWarnings("osmetes:<检查名>")} 注解过滤行级问题。
+     * <p>
+     * 仅对 {@code .java} 文件生效；文件级问题（行号为 0）不受注解影响。
+     */
+    private static void suppressByAnnotation(Path file, String ext, List<CheckIssue> issues) {
+        if (issues.isEmpty() || !ext.equals(".java")) {
+            return;
+        }
+        SuppressWarningsScanner scanner;
+        try {
+            scanner = SuppressWarningsScanner.parse(file);
+        } catch (IOException | RuntimeException e) {
+            return; // 解析失败则不做抑制，问题照常报告
+        }
+        issues.removeIf(issue -> issue.line() > 0 && scanner.isSuppressed(issue.line(), issue.check()));
     }
 
     /**

@@ -32,3 +32,17 @@ osmetes 检查引擎原用 `Files.walk(root)` 扫描整个仓库根（默认 `${
   如未来需要可在 `GitIgnoreChain` 中追加低优先级层。
 - 遗留：SecretCheck 对 `password`/`secret`/`token` 等变量赋值的误报（36 处）属既有问题，
   本次未处理。
+
+## 追加决策：@SuppressWarnings("osmetes:<检查名>") 支持
+
+**背景**：需要让源码显式豁免某类检查，注解按声明作用域（类/方法/语句）生效。
+
+**决策**：自研轻量 Java 源码扫描器（`SuppressWarningsScanner`，零依赖），而非引入
+JavaParser 等解析库。词法切分产出 `@SuppressWarnings` 注解，按花括号/分号/括号深度
+确定作用域：类级=整个类型体、方法级=方法体、语句级=到分号、括号内（参数等）=仅
+注解行。检查名由检查类自身 `name()` 定义，注解值 `osmetes:<name>` 与之匹配。
+引擎仅对产生问题的 `.java` 文件解析并过滤行级问题。
+
+**影响**：不引入新依赖；解析失败时静默跳过抑制（问题照常报告）；只支持标准
+`@SuppressWarnings` 注解（非 `@SuppressWarning`）；当前不配置任何抑制规则，
+既有 36 处 SecretCheck 误报保持原状。

@@ -60,7 +60,9 @@ public final class Scrypt implements DerivationFunction {
   }
 
   private static byte[] pbkdf2(byte[] pass, byte[] salt, int iter, int dkLen) {
-    Pbkdf2ParametersGenerator gen = new Pbkdf2ParametersGenerator(JdkMac.of("HmacSHA256"));
+    // 用自研 HMac（支持空密钥）而非委托 JDK 的 JdkMac
+    Pbkdf2ParametersGenerator gen =
+        new Pbkdf2ParametersGenerator(new HMac(JdkDigest.of("SHA-256")));
     gen.init(pass, salt, iter);
     return ((KeyParameter) gen.generateDerivedParameters(dkLen * 8)).getKey();
   }

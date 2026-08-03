@@ -16,6 +16,8 @@ module com.flora.root {
     exports com.flora.crypto.core.interfaces.provider;
     exports com.flora.crypto.schemes;
     exports com.flora.entropy;
+    exports com.flora.entropy.compress;
+    exports com.flora.entropy.compress.engine;
     exports com.flora.tag;
     exports com.flora.cache;
     exports com.flora.fast.container.consumer;
@@ -41,6 +43,14 @@ module com.flora.root {
     exports com.flora.mock.jsonschema;
     exports com.flora.mock.regex;
     exports com.flora.mock.regex.automaton;
+
+    exports com.flora.communication;
+    exports com.flora.communication.annotations;
+    exports com.flora.communication.asn1;
+    exports com.flora.communication.jbcrypt;
+    exports com.flora.communication.juz;
+    exports com.flora.communication.jzlib;
+    exports com.flora.communication.logging;
 
     exports com.flora.syntax;
     exports com.flora.syntax.bracket;

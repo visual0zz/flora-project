@@ -28,16 +28,18 @@
  * Gailly(jloup@gzip.org) and Mark Adler(madler@alumni.caltech.edu) and contributors of zlib.
  */
 
-package com.flora.comm.ssh.jzlib;
+package com.flora.entropy.compress.zlib;
 
-interface Checksum {
-  void update(byte[] buf, int index, int len);
+import java.io.IOException;
 
-  void reset();
+final class GZIPException extends IOException {
+  private static final long serialVersionUID = -1L;
 
-  void reset(long init);
+  GZIPException() {
+    super();
+  }
 
-  long getValue();
-
-  Checksum copy();
+  GZIPException(String s) {
+    super(s);
+  }
 }

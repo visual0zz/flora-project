@@ -24,7 +24,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.flora.comm.ssh.jzlib;
+package com.flora.entropy.compress.zlib;
 
 import java.io.EOFException;
 import java.io.FilterInputStream;

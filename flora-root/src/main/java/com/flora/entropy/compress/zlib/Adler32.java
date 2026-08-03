@@ -28,7 +28,7 @@
  * Gailly(jloup@gzip.org) and Mark Adler(madler@alumni.caltech.edu) and contributors of zlib.
  */
 
-package com.flora.comm.ssh.jzlib;
+package com.flora.entropy.compress.zlib;
 
 final class Adler32 implements Checksum {
 

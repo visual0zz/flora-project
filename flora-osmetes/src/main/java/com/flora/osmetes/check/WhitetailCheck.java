@@ -7,11 +7,11 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 行尾空白检查项：检测文本文件每行末尾的多余空白字符（空格/Tab）。
+ * 行尾空白检查项（名称 {@code whitetail}）：检测文本文件每行末尾的多余空白字符（空格/Tab）。
  * <p>
  * 报告精确位置并收集一个文件内的全部命中。
  */
-public final class TrailingWhitespaceCheck extends LineCheck {
+public final class WhitetailCheck extends LineCheck {
 
     private static final Set<String> EXTENSIONS = Set.of(
             ".java", ".ramet", ".xml", ".properties", ".yaml", ".yml",
@@ -19,7 +19,7 @@ public final class TrailingWhitespaceCheck extends LineCheck {
 
     @Override
     public String name() {
-        return "trailing-whitespace";
+        return "whitetail";
     }
 
     @Override

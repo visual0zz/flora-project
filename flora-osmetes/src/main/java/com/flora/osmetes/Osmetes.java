@@ -3,7 +3,7 @@ package com.flora.osmetes;
 import com.flora.osmetes.check.EncodingCheck;
 import com.flora.osmetes.check.SecretCheck;
 import com.flora.osmetes.check.TabCheck;
-import com.flora.osmetes.check.TrailingWhitespaceCheck;
+import com.flora.osmetes.check.WhitetailCheck;
 import com.flora.osmetes.gitignore.GitIgnore;
 import com.flora.osmetes.gitignore.GitIgnoreChain;
 import com.flora.osmetes.suppress.SuppressWarningsScanner;
@@ -23,7 +23,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.Set;
+import java.util.LinkedHashSet;
 
 /**
  * osmetes 综合检查引擎：接收一个根路径，对匹配的文件执行所有已注册检查项，
@@ -31,7 +34,7 @@ import java.util.ServiceLoader;
  * <p>
  * 检查项来源：
  * <ul>
- *   <li>内置检查项（编码、密钥、Tab 缩进、行尾空白），见 {@link #builtinChecks()}；</li>
+ *   <li>内置检查项（编码、密钥、Tab 缩进、行尾空白 whitetail），见 {@link #builtinChecks()}；</li>
  *   <li>通过 SPI（{@code FileCheck} 的 {@code ServiceLoader}）提供的第三方检查项。</li>
  * </ul>
  * <p>
@@ -70,7 +73,16 @@ public final class Osmetes {
     }
 
     public static List<CheckIssue> run(Path root, List<FileCheck> checks) throws IOException {
-        return run(root, checks, "");
+        return run(root, checks, "", Set.of());
+    }
+
+    public static List<CheckIssue> run(Path root, List<FileCheck> checks, String ignorePatterns) throws IOException {
+        return run(root, checks, ignorePatterns, Set.of());
+    }
+
+    public static List<CheckIssue> run(Path root, List<FileCheck> checks, String ignorePatterns,
+                                       Set<String> disabledChecks) throws IOException {
+        return run(root, checks, ignorePatterns, disabledChecks, Map.of());
     }
 
     /**
@@ -79,13 +91,30 @@ public final class Osmetes {
      * 遍历时自动遵循 git 的忽略规则：读取扫描根及其子目录中的 {@code .gitignore}，
      * 按 git 语义跳过被忽略的文件与目录（被忽略目录整棵剪枝，其内部内容不可被
      * 取反重新包含），并始终跳过 {@code .git} 目录。
+     * <p>
+     * {@code disabledChecks} 中列出的检查项名称（{@link FileCheck#name()}）将整体跳过，
+     * 其余检查正常执行。该集合为空时不禁用任何检查项。
+     * <p>
+     * {@code checkConfig} 是检查项级的通用配置表：引擎在扫描开始前统一调用
+     * {@link FileCheck#configure(Map)} 下发给每个检查项，键的含义由各个检查项自行
+     * 约定，引擎不解析也不关心。为空（或其中某检查项未配置）时各检查项使用自身默认值。
      *
-     * @param root   待扫描的根目录
-     * @param checks 参与本次扫描的检查项列表
+     * @param root           待扫描的根目录
+     * @param checks         参与本次扫描的检查项列表
+     * @param ignorePatterns 额外忽略规则（分隔符连接的模式串，见 {@link GitIgnore#parsePatterns}）
+     * @param disabledChecks 需要跳过的检查项名称集合
+     * @param checkConfig    检查项级通用配置（键由各个检查项自行定义）
      * @return 全部检查发现的问题，按文件路径与位置排序
      */
-    public static List<CheckIssue> run(Path root, List<FileCheck> checks, String ignorePatterns) throws IOException {
+    public static List<CheckIssue> run(Path root, List<FileCheck> checks, String ignorePatterns,
+                                       Set<String> disabledChecks, Map<String, String> checkConfig) throws IOException {
         List<CheckIssue> all = new ArrayList<>();
+        for (FileCheck check : checks) {
+            check.configure(checkConfig);
+        }
+        List<FileCheck> active = checks.stream()
+                .filter(c -> !disabledChecks.contains(c.name()))
+                .toList();
         Path absRoot = root.toAbsolutePath().normalize();
         GitIgnoreChain chain = new GitIgnoreChain(GitIgnore.parsePatterns(absRoot, ignorePatterns));
         Files.walkFileTree(absRoot, new SimpleFileVisitor<>() {
@@ -118,7 +147,7 @@ public final class Osmetes {
                 }
                 String rel = relativize(file, absRoot);
                 List<CheckIssue> fileIssues = new ArrayList<>();
-                for (FileCheck check : checks) {
+                for (FileCheck check : active) {
                     if (check.fileExtensions().contains(ext)) {
                         check.check(file, rel, fileIssues);
                     }
@@ -139,6 +168,30 @@ public final class Osmetes {
                 .thenComparing(CheckIssue::column)
                 .thenComparing(CheckIssue::check));
         return all;
+    }
+
+    /**
+     * 将分隔符连接的检查项名称串解析为集合。
+     * <p>
+     * 以 {@code ,}、{@code ;}、{@code |}、{@code &} 中任意一个作为分隔符，多个名称取并集；
+     * 各段首尾空白会被去除，空段忽略。例如 {@code "secret;tab"} 解析为包含
+     * {@code secret} 与 {@code tab} 的集合。供 Maven 插件等外部配置使用。
+     *
+     * @param names 分隔符连接的名称串，可为空字符串
+     * @return 解析出的名称集合（空串返回空集）
+     */
+    static Set<String> parseNames(String names) {
+        if (names == null) {
+            return Set.of();
+        }
+        Set<String> result = new LinkedHashSet<>();
+        for (String segment : names.split("[,;|&]+")) {
+            String trimmed = segment.trim();
+            if (!trimmed.isEmpty()) {
+                result.add(trimmed);
+            }
+        }
+        return result;
     }
 
     /** git 内部目录，永远不扫描。 */
@@ -185,7 +238,7 @@ public final class Osmetes {
                 new EncodingCheck(),
                 new SecretCheck(),
                 new TabCheck(),
-                new TrailingWhitespaceCheck());
+                new WhitetailCheck());
     }
 
     /** 打印全部问题。 */

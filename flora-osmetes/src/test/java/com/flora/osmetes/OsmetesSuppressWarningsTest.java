@@ -94,7 +94,7 @@ class OsmetesSuppressWarningsTest {
 
     @Test
     void suppressionOnlyAffectsNamedCheck() throws IOException {
-        // 注解只抑制 tab，trailing-whitespace 仍应报告
+        // 注解只抑制 tab，whitetail 仍应报告
         write(tmp.resolve("E.java"),
                 "@SuppressWarnings(\"osmetes:tab\")\n"
                         + "class E {\n"
@@ -103,8 +103,8 @@ class OsmetesSuppressWarningsTest {
 
         List<CheckIssue> issues = Osmetes.run(tmp, Osmetes.builtinChecks());
 
-        assertEquals(1, issues.size(), "tab 被抑制，trailing-whitespace 仍应报告: " + issues);
-        assertEquals("trailing-whitespace", issues.getFirst().check());
+        assertEquals(1, issues.size(), "tab 被抑制，whitetail 仍应报告: " + issues);
+        assertEquals("whitetail", issues.getFirst().check());
         assertEquals(3, issues.getFirst().line());
     }
 }

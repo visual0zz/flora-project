@@ -2,6 +2,7 @@ package com.flora.osmetes;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -13,6 +14,9 @@ import java.util.Set;
  * <p>
  * 新增检查项只需实现本接口并注册到 {@code Osmetes} 引擎即可，无需改动引擎
  * 的遍历与上报逻辑——这就是预留的扩展点。
+ * <p>
+ * 检查项级配置通过 {@link #configure(Map)} 下发：引擎在扫描前把一份通用配置表
+ * 交给每个检查项，键的含义完全由各检查项自行约定，引擎不解析也不关心。
  */
 public interface FileCheck {
 
@@ -27,6 +31,18 @@ public interface FileCheck {
      * 引擎只把后缀匹配的文件交给该检查项；返回空集合表示不参与文件级检查。
      */
     Set<String> fileExtensions();
+
+    /**
+     * 接收检查项级配置。
+     * <p>
+     * 引擎在扫描开始前，把同一份通用配置表（{@code 键 -> 值}）统一交给每个检查项；
+     * 各检查项按需读取自己约定的键，未知键直接忽略。默认实现为空（无需配置的
+     * 检查项可不变更），因此外部 SPI 实现的既有检查项无需修改即可接入。
+     *
+     * @param properties 通用配置表，键为各检查项自定义的名称
+     */
+    default void configure(Map<String, String> properties) {
+    }
 
     /**
      * 检查单个文件，把发现的问题追加到 {@code sink}。

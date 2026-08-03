@@ -4,6 +4,7 @@ import com.flora.crypto.core.interfaces.provider.AlgorithmFamily;
 import com.flora.entropy.compress.engine.DeflateCompressor;
 import com.flora.java.CheckUtil;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -68,6 +69,17 @@ public final class CompressorProvider {
             COMPRESSOR_REGISTRY.computeIfAbsent(name, k -> new CopyOnWriteArrayList<>())
                     .add(new Entry<>(priority, specificity, () -> factory.apply(name)));
         }
+    }
+
+    // ── 查询 ──
+
+    /**
+     * 返回当前已注册的所有压缩算法名（不可变视图）。
+     *
+     * @return 算法名集合
+     */
+    public static Set<String> registeredAlgorithms() {
+        return Collections.unmodifiableSet(COMPRESSOR_REGISTRY.keySet());
     }
 
     // ── 分发入口 ──

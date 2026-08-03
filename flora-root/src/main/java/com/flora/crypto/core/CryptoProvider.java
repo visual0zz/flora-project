@@ -33,6 +33,8 @@ import com.flora.crypto.core.padding.ZeroBytePadding;
 
 import com.flora.java.CheckUtil;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -260,6 +262,66 @@ public final class CryptoProvider {
         CheckUtil.notEmpty(hmacAlgorithm, "HMAC 算法名不能为空");
         return resolveOrElse(DRBG_REGISTRY, hmacAlgorithm,
                 new HMacDrbg(mac(hmacAlgorithm), new SecureRandomEntropySource(), securityStrengthBits, personalizationString));
+    }
+
+    // ── 查询：按族列出已注册算法名 ──
+
+    /** @return 所有已注册的摘要算法名 */
+    public static Set<String> digestAlgorithms() { return keysOf(DIGEST_REGISTRY); }
+    /** @return 所有已注册的分组密码算法名 */
+    public static Set<String> blockCipherAlgorithms() { return keysOf(BLOCK_REGISTRY); }
+    /** @return 所有已注册的非对称密码算法名 */
+    public static Set<String> asymmetricCipherAlgorithms() { return keysOf(ASYM_REGISTRY); }
+    /** @return 所有已注册的 MAC 算法名 */
+    public static Set<String> macAlgorithms() { return keysOf(MAC_REGISTRY); }
+    /** @return 所有已注册的密钥对生成器算法名 */
+    public static Set<String> keyPairGeneratorAlgorithms() { return keysOf(KPG_REGISTRY); }
+    /** @return 所有已注册的 XOF 算法名 */
+    public static Set<String> xofAlgorithms() { return keysOf(XOF_REGISTRY); }
+    /** @return 所有已注册的流式非对称密码算法名 */
+    public static Set<String> asymmetricStreamCipherAlgorithms() { return keysOf(ASYM_CIPHER_REGISTRY); }
+    /** @return 所有已注册的密钥协商算法名 */
+    public static Set<String> agreementAlgorithms() { return keysOf(AGREEMENT_REGISTRY); }
+    /** @return 所有已注册的密钥派生函数算法名 */
+    public static Set<String> derivationFunctionAlgorithms() { return keysOf(DERIVATION_REGISTRY); }
+    /** @return 所有已注册的填充策略名 */
+    public static Set<String> blockCipherPaddingAlgorithms() { return keysOf(PADDING_REGISTRY); }
+    /** @return 所有已注册的非对称密钥对生成器算法名 */
+    public static Set<String> asymmetricKeyPairGeneratorAlgorithms() { return keysOf(ASYM_KPG_REGISTRY); }
+    /** @return 所有已注册的 KEM 算法名 */
+    public static Set<String> kemAlgorithms() { return keysOf(KEM_REGISTRY); }
+    /** @return 所有已注册的熵源算法名 */
+    public static Set<String> entropySourceAlgorithms() { return keysOf(ENTROPY_REGISTRY); }
+    /** @return 所有已注册的 DRBG 算法名 */
+    public static Set<String> drbgAlgorithms() { return keysOf(DRBG_REGISTRY); }
+
+    /**
+     * 返回所有已注册的算法名（跨族汇总，不可变视图）。
+     * <p>同一算法名可能出现在多个族中，此方法做并集。</p>
+     *
+     * @return 全部算法名的不可变集合
+     */
+    public static Set<String> registeredAlgorithms() {
+        Set<String> all = new HashSet<>();
+        all.addAll(DIGEST_REGISTRY.keySet());
+        all.addAll(BLOCK_REGISTRY.keySet());
+        all.addAll(ASYM_REGISTRY.keySet());
+        all.addAll(MAC_REGISTRY.keySet());
+        all.addAll(KPG_REGISTRY.keySet());
+        all.addAll(XOF_REGISTRY.keySet());
+        all.addAll(ASYM_CIPHER_REGISTRY.keySet());
+        all.addAll(AGREEMENT_REGISTRY.keySet());
+        all.addAll(DERIVATION_REGISTRY.keySet());
+        all.addAll(PADDING_REGISTRY.keySet());
+        all.addAll(ASYM_KPG_REGISTRY.keySet());
+        all.addAll(KEM_REGISTRY.keySet());
+        all.addAll(ENTROPY_REGISTRY.keySet());
+        all.addAll(DRBG_REGISTRY.keySet());
+        return Collections.unmodifiableSet(all);
+    }
+
+    private static <T> Set<String> keysOf(Map<String, List<Entry<T>>> reg) {
+        return Collections.unmodifiableSet(reg.keySet());
     }
 
     private static <T> T resolve(Map<String, List<Entry<T>>> reg, String name, String role) {

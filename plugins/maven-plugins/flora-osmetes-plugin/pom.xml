@@ -40,6 +40,11 @@
                 <artifactId>maven-plugin-plugin</artifactId>
                 <version>3.15.0</version>
                 <executions>
+                    <!-- 禁用自动描述符生成：maven-plugin-plugin 自带 ASM 尚不支持
+                         Java 26 字节码（major version 70），会解析 Mojo class 失败。
+                         运行时由 Maven 3.x 通过注解反射发现 Mojo 与参数，无需 plugin.xml；
+                         代价是 IDE 对 <configuration> 内自定义参数（如 ignorePatterns）
+                         的校验会误报，属已知且无害的噪音。 -->
                     <execution>
                         <id>default-descriptor</id>
                         <phase>none</phase>

@@ -16,7 +16,7 @@ public interface Logger {
      */
     String getName();
 
-    
+
     /**
      * 判断 TRACE 级别是否启用。
      *
@@ -39,7 +39,7 @@ public interface Logger {
      */
     void trace(String format, Object... args);
 
-    
+
     /**
      * 判断 DEBUG 级别是否启用。
      *
@@ -62,7 +62,7 @@ public interface Logger {
      */
     void debug(String format, Object... args);
 
-    
+
     /**
      * 判断 INFO 级别是否启用。
      *
@@ -85,7 +85,7 @@ public interface Logger {
      */
     void info(String format, Object... args);
 
-    
+
     /**
      * 判断 WARN 级别是否启用。
      *
@@ -108,7 +108,7 @@ public interface Logger {
      */
     void warn(String format, Object... args);
 
-    
+
     /**
      * 判断 ERROR 级别是否启用。
      *

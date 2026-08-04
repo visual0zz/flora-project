@@ -73,7 +73,7 @@ com.flora.codegen
 ```
 Lson.parse("a.b[c]") → AST：PropertyAccess(Reference("a"), "b", IndexAccess("c"))
 
-RefResolver.evalCtx(ast, context) → 
+RefResolver.evalCtx(ast, context) →
   1. Reference("a") → Context.lookup("a") → 变量值
   2. PropertyAccess → TemplateUtils.getProperty(值, "b")
   3. IndexAccess → 列表索引

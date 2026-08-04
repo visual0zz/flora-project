@@ -1,7 +1,7 @@
 package com.flora.comm.ssh.crypto;
 
 import com.flora.comm.ssh.KeyPairGenRSA;
-import com.flora.crypto.core.engine.JdkKeyPairGenerator;
+import com.flora.crypto.core.bridge.JdkKeyPairGenerator;
 import java.security.KeyPair;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.interfaces.RSAPrivateKey;

@@ -1,8 +1,8 @@
 package com.flora.comm.ssh.crypto;
 
 import com.flora.comm.ssh.MAC;
-import com.flora.crypto.core.KeyParameter;
-import com.flora.crypto.core.engine.JdkMac;
+import com.flora.crypto.core.param.KeyParameter;
+import com.flora.crypto.core.bridge.JdkMac;
 
 /**
  * HMAC MAC 适配基类。

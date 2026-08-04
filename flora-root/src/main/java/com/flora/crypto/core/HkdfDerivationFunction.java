@@ -2,6 +2,8 @@ package com.flora.crypto.core;
 import com.flora.crypto.core.interfaces.DerivationParameters;
 import com.flora.crypto.core.interfaces.provider.Mac;
 import com.flora.crypto.core.interfaces.provider.MacDerivationFunction;
+import com.flora.crypto.core.param.HkdfParameters;
+import com.flora.crypto.core.param.KeyParameter;
 
 import com.flora.java.CheckUtil;
 

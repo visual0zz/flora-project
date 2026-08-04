@@ -78,7 +78,7 @@ public final class CollectionUtil {
         return map == null ? 0 : map.size();
     }
 
-    
+
 
     /**
      * 检查集合中是否包含任意一个指定元素。
@@ -122,7 +122,7 @@ public final class CollectionUtil {
         return true;
     }
 
-    
+
 
     /**
      * 根据谓词过滤集合中的元素。
@@ -165,7 +165,7 @@ public final class CollectionUtil {
         return result;
     }
 
-    
+
 
     /**
      * 计算两个集合的并集。
@@ -203,7 +203,7 @@ public final class CollectionUtil {
         return result;
     }
 
-    
+
 
     /**
      * 拼接多个集合为一个列表。
@@ -229,7 +229,7 @@ public final class CollectionUtil {
         return result;
     }
 
-    
+
 
     /**
      * 获取集合的第一个元素；若集合为空则返回 null。

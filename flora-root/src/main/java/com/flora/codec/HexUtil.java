@@ -18,7 +18,7 @@ public final class HexUtil {
         for (int i = 0; i < HEX_DIGITS.length; i++) {
             HEX_TO_BYTE[HEX_DIGITS[i]] = (byte) i;
         }
-        
+
         for (int i = 10; i < 16; i++) {
             HEX_TO_BYTE['A' + i - 10] = (byte) i;
         }

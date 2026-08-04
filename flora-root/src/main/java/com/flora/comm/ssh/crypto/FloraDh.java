@@ -2,9 +2,9 @@ package com.flora.comm.ssh.crypto;
 
 import com.flora.comm.ssh.DH;
 import com.flora.comm.ssh.JSchException;
-import com.flora.crypto.core.AsymmetricKeyParameter;
-import com.flora.crypto.core.engine.JdkAgreement;
-import com.flora.crypto.core.engine.JdkKeyPairGenerator;
+import com.flora.crypto.core.keypair.AsymmetricKeyParameter;
+import com.flora.crypto.core.bridge.JdkAgreement;
+import com.flora.crypto.core.bridge.JdkKeyPairGenerator;
 import java.math.BigInteger;
 import java.security.KeyFactory;
 import java.security.KeyPair;

@@ -36,27 +36,27 @@ public class RametColorSettingsPage implements ColorSettingsPage {
             @SkipWhen{ equals(T.type, "double") }
             </#meta>
             package ${pkg};
-            
+
             <#macro entityDef type name>
             private ${type} ${name};
             public ${type} get${capitalize(name)}() { return ${name}; }
             public void set${capitalize(name)}(${type} ${name}) { this.${name} = ${name}; }
             </#macro>
-            
+
             public class ${T.name}Entity {
-            
+
                 <#for i:range(1, length(entities))>
                 private String ${entities[minus(i,1)]}Id;
                 </#for>
-            
+
                 <#if T.indexed>
                 <@entityDef T.type "value"/>
                 <#else>
                 <@entityDef "Object" "rawValue"/>
                 </#if>
-            
+
                 <#include "common-methods.ramet">
-            
+
                 @Override
                 public String toString() {
                     return "<#" + "${T.name}" + " id=" + id + ">";

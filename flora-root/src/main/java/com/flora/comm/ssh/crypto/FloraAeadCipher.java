@@ -1,9 +1,9 @@
 package com.flora.comm.ssh.crypto;
 
 import com.flora.comm.ssh.Cipher;
-import com.flora.crypto.core.KeyParameter;
-import com.flora.crypto.core.ParametersWithIV;
-import com.flora.crypto.core.engine.JdkBlockCipher;
+import com.flora.crypto.core.param.KeyParameter;
+import com.flora.crypto.core.param.ParametersWithIV;
+import com.flora.crypto.core.bridge.JdkBlockCipher;
 import com.flora.crypto.core.mode.GCMBlockCipher;
 import javax.crypto.AEADBadTagException;
 

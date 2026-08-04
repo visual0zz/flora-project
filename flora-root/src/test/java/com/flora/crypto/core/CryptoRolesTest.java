@@ -1,4 +1,7 @@
 package com.flora.crypto.core;
+import com.flora.crypto.core.combinator.BufferedAsymmetricBlockCipher;
+import com.flora.crypto.core.combinator.PaddedAsymmetricBlockCipher;
+import com.flora.crypto.core.combinator.PaddedBufferedBlockCipher;
 import com.flora.crypto.core.interfaces.provider.AEADBlockCipher;
 import com.flora.crypto.core.interfaces.provider.Agreement;
 import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;
@@ -14,11 +17,18 @@ import com.flora.crypto.core.interfaces.provider.Mac;
 import com.flora.crypto.core.interfaces.provider.SP80090DRBG;
 import com.flora.crypto.core.interfaces.SecretWithEncapsulation;
 import com.flora.crypto.core.interfaces.provider.Xof;
+import com.flora.crypto.core.keypair.AsymmetricCipherKeyPair;
+import com.flora.crypto.core.keypair.AsymmetricKeyParameter;
+import com.flora.crypto.core.param.HkdfParameters;
+import com.flora.crypto.core.param.KdfParameters;
+import com.flora.crypto.core.param.KeyGenerationParameters;
+import com.flora.crypto.core.param.KeyParameter;
+import com.flora.crypto.core.param.ParametersWithIV;
+import com.flora.crypto.core.param.Pbkdf2Parameters;
 
 import org.junit.jupiter.api.Test;
 
-import com.flora.crypto.core.engine.HMacDrbg;
-import com.flora.crypto.core.engine.Pbkdf2ParametersGenerator;
+import com.flora.crypto.core.impl.HMacDrbg;
 import com.flora.crypto.core.mode.CBCBlockCipher;
 import com.flora.crypto.core.mode.GCMBlockCipher;
 import com.flora.crypto.core.padding.PKCS1v15Padding;
@@ -87,9 +97,10 @@ class CryptoRolesTest {
         byte[] salt = randomBytes(16);
         int iter = 1000;
 
-        PBEParametersGenerator pbe = new Pbkdf2ParametersGenerator(CryptoProvider.mac("HmacSHA256"));
-        pbe.init(pw, salt, iter);
-        byte[] derived = ((KeyParameter) pbe.generateDerivedParameters(256)).getKey();
+        DerivationFunction pbkdf2 = CryptoProvider.derivationFunction("PBKDF2(HMac(SHA-256))");
+        pbkdf2.init(new Pbkdf2Parameters(pw, salt, iter));
+        byte[] derived = new byte[32];
+        pbkdf2.generateBytes(derived, 0, 32);
 
         SecretKeyFactory sf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
         PBEKeySpec spec = new PBEKeySpec(new String(pw).toCharArray(), salt, iter, 256);
@@ -104,12 +115,12 @@ class CryptoRolesTest {
     void kdf2Deterministic() {
         byte[] secret = randomBytes(32);
         byte[] info = "ctx".getBytes();
-        DerivationFunction f1 = CryptoProvider.derivationFunction("KDF2");
+        DerivationFunction f1 = CryptoProvider.derivationFunction("KDF2(SHA-256)");
         f1.init(new KdfParameters(secret, info));
         byte[] out1 = new byte[32];
         f1.generateBytes(out1, 0, 32);
 
-        DerivationFunction f2 = CryptoProvider.derivationFunction("KDF2");
+        DerivationFunction f2 = CryptoProvider.derivationFunction("KDF2(SHA-256)");
         f2.init(new KdfParameters(secret, info));
         byte[] out2 = new byte[32];
         f2.generateBytes(out2, 0, 32);
@@ -121,12 +132,12 @@ class CryptoRolesTest {
     void hkdfDeterministic() {
         byte[] prk = randomBytes(32);
         byte[] info = "ctx".getBytes();
-        DerivationFunction f1 = CryptoProvider.derivationFunction("HKDF");
+        DerivationFunction f1 = CryptoProvider.derivationFunction("HKDF(HmacSHA256)");
         f1.init(new HkdfParameters(prk, info));
         byte[] out1 = new byte[32];
         f1.generateBytes(out1, 0, 32);
 
-        DerivationFunction f2 = CryptoProvider.derivationFunction("HKDF");
+        DerivationFunction f2 = CryptoProvider.derivationFunction("HKDF(HmacSHA256)");
         f2.init(new HkdfParameters(prk, info));
         byte[] out2 = new byte[32];
         f2.generateBytes(out2, 0, 32);
@@ -321,7 +332,7 @@ class CryptoRolesTest {
 
     @Test
     void kemPlaceholderThrows() {
-        KEM kem = CryptoProvider.kem("ML-KEM");
+        KEM kem = CryptoProvider.kem("NONEXISTENT-KEM");
         assertThrows(UnsupportedOperationException.class,
                 () -> kem.newEncapsulator(new AsymmetricKeyParameter(
                         CryptoProvider.keyPairGenerator("RSA").generate(2048).getPublic())));

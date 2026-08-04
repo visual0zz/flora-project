@@ -28,7 +28,7 @@ package com.flora.comm.ssh.jbcrypt;
 
 import com.flora.comm.ssh.Buffer;
 import com.flora.comm.ssh.KDF;
-import com.flora.crypto.core.engine.BCrypt;
+import com.flora.crypto.core.impl.BCrypt;
 
 public class JBCrypt implements KDF {
   private BCrypt bcrypt;

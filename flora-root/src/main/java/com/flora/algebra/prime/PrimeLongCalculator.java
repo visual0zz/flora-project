@@ -35,19 +35,19 @@ public final class PrimeLongCalculator {
     public static boolean isPrime(long n) {
         if (n < 2) return false;
 
-        
+
         for (long p : SMALL_PRIMES) {
             if (n == p) return true;
             if (n % p == 0) return false;
         }
 
-        
+
         long d = n - 1;
         int s = 0;
         while ((d & 1) == 0) { d >>= 1; s++; }
 
         for (long a : MR_BASES) {
-            
+
             long x = modPow(a, d, n);
             if (x == 1 || x == n - 1) continue;
 
@@ -98,7 +98,7 @@ public final class PrimeLongCalculator {
         return candidate;
     }
 
-    
+
 
     /**
      * 无溢出模乘 a * b % mod。
@@ -110,7 +110,7 @@ public final class PrimeLongCalculator {
         long hi = Math.multiplyHigh(a, b);
         if (hi == 0 && lo >= 0) return lo % mod;
 
-        
+
         long res = 0;
         a %= mod;
         while (b > 0) {

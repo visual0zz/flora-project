@@ -14,7 +14,7 @@ public final class StrUtil {
     private StrUtil() {
     }
 
-    
+
 
     /**
      * 判断字符串是否为 null 或空字符串。
@@ -84,7 +84,7 @@ public final class StrUtil {
         return "false".equalsIgnoreCase(str);
     }
 
-    
+
 
     /**
      * 去除字符串两端的空白字符。
@@ -107,14 +107,14 @@ public final class StrUtil {
         return trimmed == null || trimmed.isEmpty() ? null : trimmed;
     }
 
-    
+
     public static String trimToEmpty(String str) {
         return str == null ? EMPTY : str.trim();
     }
 
-    
 
-    
+
+
     public static String removePrefix(String str, String prefix) {
         if (isEmpty(str) || isEmpty(prefix)) {
             return str;
@@ -125,7 +125,7 @@ public final class StrUtil {
         return str;
     }
 
-    
+
     public static String removeSuffix(String str, String suffix) {
         if (isEmpty(str) || isEmpty(suffix)) {
             return str;
@@ -136,9 +136,9 @@ public final class StrUtil {
         return str;
     }
 
-    
 
-    
+
+
     public static String substring(String str, int begin) {
         CheckUtil.notNull(str, "字符串不能为空");
         int start = begin < 0 ? Math.max(str.length() + begin, 0) : begin;
@@ -148,7 +148,7 @@ public final class StrUtil {
         return str.substring(start);
     }
 
-    
+
     public static String substring(String str, int begin, int end) {
         CheckUtil.notNull(str, "字符串不能为空");
         int len = str.length();
@@ -159,7 +159,7 @@ public final class StrUtil {
         return str.substring(actualStart, Math.min(actualEnd, len));
     }
 
-    
+
     public static String left(String str, int length) {
         if (str == null) {
             return null;
@@ -170,7 +170,7 @@ public final class StrUtil {
         return str.substring(0, Math.min(length, str.length()));
     }
 
-    
+
     public static String right(String str, int length) {
         if (str == null) {
             return null;
@@ -185,9 +185,9 @@ public final class StrUtil {
         return str.substring(len - length);
     }
 
-    
 
-    
+
+
     public static String padLeft(String str, int length, char padChar) {
         if (str == null) {
             return null;
@@ -199,7 +199,7 @@ public final class StrUtil {
         return String.valueOf(padChar).repeat(pads) + str;
     }
 
-    
+
     public static String padRight(String str, int length, char padChar) {
         if (str == null) {
             return null;
@@ -211,9 +211,9 @@ public final class StrUtil {
         return str + String.valueOf(padChar).repeat(pads);
     }
 
-    
 
-    
+
+
     public static String repeat(String str, int count) {
         if (str == null || count <= 0) {
             return EMPTY;
@@ -221,7 +221,7 @@ public final class StrUtil {
         return str.repeat(count);
     }
 
-    
+
     public static String join(String delimiter, Object... elements) {
         if (elements == null || elements.length == 0) {
             return EMPTY;
@@ -233,7 +233,7 @@ public final class StrUtil {
         return joiner.toString();
     }
 
-    
+
     public static <T> String join(String delimiter, Iterable<T> iterable) {
         if (iterable == null) {
             return EMPTY;
@@ -245,9 +245,9 @@ public final class StrUtil {
         return joiner.toString();
     }
 
-    
 
-    
+
+
     public static String replace(String str, char oldChar, char newChar) {
         if (str == null) {
             return null;
@@ -255,7 +255,7 @@ public final class StrUtil {
         return str.replace(oldChar, newChar);
     }
 
-    
+
     public static String replace(String str, String target, String replacement) {
         if (str == null || target == null || target.isEmpty()) {
             return str;
@@ -264,9 +264,9 @@ public final class StrUtil {
         return str.replace(target, rep);
     }
 
-    
 
-    
+
+
     public static String capitalize(String str) {
         if (isEmpty(str)) {
             return str;
@@ -278,7 +278,7 @@ public final class StrUtil {
         return Character.toUpperCase(first) + str.substring(1);
     }
 
-    
+
     public static String uncapitalize(String str) {
         if (isEmpty(str)) {
             return str;
@@ -290,9 +290,9 @@ public final class StrUtil {
         return Character.toLowerCase(first) + str.substring(1);
     }
 
-    
 
-    
+
+
     public static String reverse(String str) {
         if (str == null) {
             return null;
@@ -300,9 +300,9 @@ public final class StrUtil {
         return new StringBuilder(str).reverse().toString();
     }
 
-    
 
-    
+
+
     public static String truncate(String str, int maxLen, String suffix) {
         if (str == null) {
             return null;
@@ -314,26 +314,26 @@ public final class StrUtil {
         return str.substring(0, Math.max(0, maxLen - suf.length())) + suf;
     }
 
-    
 
-    
+
+
     public static String defaultIfNull(String str, String defaultStr) {
         return ObjectUtil.defaultIfNull(str, defaultStr);
     }
 
-    
+
     public static String defaultIfEmpty(String str, String defaultStr) {
         return isEmpty(str) ? defaultStr : str;
     }
 
-    
+
     public static String defaultIfBlank(String str, String defaultStr) {
         return isBlank(str) ? defaultStr : str;
     }
 
-    
 
-    
+
+
     public static byte[] toBytes(String str) {
         if (str == null) {
             return null;
@@ -341,7 +341,7 @@ public final class StrUtil {
         return str.getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    
+
     public static String fromBytes(byte[] bytes) {
         if (bytes == null) {
             return null;

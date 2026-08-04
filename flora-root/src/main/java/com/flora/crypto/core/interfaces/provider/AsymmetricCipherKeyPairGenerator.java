@@ -1,6 +1,6 @@
 package com.flora.crypto.core.interfaces.provider;
-import com.flora.crypto.core.AsymmetricCipherKeyPair;
-import com.flora.crypto.core.KeyGenerationParameters;
+import com.flora.crypto.core.keypair.AsymmetricCipherKeyPair;
+import com.flora.crypto.core.param.KeyGenerationParameters;
 
 /**
  * 轻量级非对称密钥对生成器接口（Bouncy Castle 风格）。

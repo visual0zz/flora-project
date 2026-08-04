@@ -1,10 +1,16 @@
 package com.flora.crypto.core;
+import com.flora.crypto.core.combinator.BufferedBlockCipher;
+import com.flora.crypto.core.combinator.PaddedAsymmetricBlockCipher;
+import com.flora.crypto.core.combinator.PaddedBufferedBlockCipher;
 import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;
 import com.flora.crypto.core.interfaces.provider.Digest;
 import com.flora.crypto.core.interfaces.provider.Mac;
+import com.flora.crypto.core.keypair.AsymmetricKeyParameter;
+import com.flora.crypto.core.param.KeyParameter;
+import com.flora.crypto.core.param.ParametersWithIV;
 
 import com.flora.codec.HexUtil;
-import com.flora.crypto.core.engine.JdkDigest;
+import com.flora.crypto.core.bridge.JdkDigest;
 import com.flora.crypto.core.mode.CBCBlockCipher;
 import com.flora.crypto.core.mode.GCMBlockCipher;
 import com.flora.crypto.core.padding.PKCS1v15Padding;
@@ -227,8 +233,8 @@ class CryptoAbstractionTest {
         // 未注册时回退到 JDK 适配器
         assertInstanceOf(JdkDigest.class, CryptoProvider.digest("SHA-256"));
 
-        // 按实现类注册自定义实现
-        CryptoProvider.registerDigest(new NoopDigest("MyHash", 7), n -> new NoopDigest(n, 7));
+        // 注册自定义实现
+        CryptoProvider.register(Digest.class, "MyHash", new Class[]{}, args -> new NoopDigest("MyHash", 7));
         Digest custom = CryptoProvider.digest("MyHash");
         assertEquals("MyHash", custom.getAlgorithmName());
         assertEquals(7, custom.getDigestSize());
@@ -236,7 +242,7 @@ class CryptoAbstractionTest {
 
         // 覆盖同名 JDK 算法：注册 "SHA-1"（priority 100 > JdkDigest 的 0）后优先返回自定义。
         // 注意：注册表是 JVM 全局的，此处故意避开其它测试依赖的 "SHA-256" 以免污染。
-        CryptoProvider.registerDigest(new NoopDigest("SHA-1", 9, 100), n -> new NoopDigest(n, 9, 100));
+        CryptoProvider.register(Digest.class, "SHA-1", 100, 1, new Class[]{}, args -> new NoopDigest("SHA-1", 9, 100));
         Digest overridden = CryptoProvider.digest("SHA-1");
         assertInstanceOf(NoopDigest.class, overridden);
         assertEquals(9, overridden.getDigestSize());
@@ -246,13 +252,8 @@ class CryptoAbstractionTest {
     void resolvesBySpecificity() {
         String algo = "RESOLVE-SPEC-" + System.nanoTime();
         // 同 priority(0)：通用（3 算法）vs 专用（1 算法）→ 专用胜出
-        CryptoProvider.registerDigest(new NoopDigest(algo, 1) {
-            @Override
-            public java.util.Set<String> supportedAlgorithms() {
-                return java.util.Set.of(algo, "RESOLVE-OTHER-1", "RESOLVE-OTHER-2");
-            }
-        }, n -> new NoopDigest(n, 1));
-        CryptoProvider.registerDigest(new NoopDigest(algo, 2), n -> new NoopDigest(n, 2));
+        CryptoProvider.register(Digest.class, algo, 0, 3, new Class[]{}, args -> new NoopDigest(algo, 1));
+        CryptoProvider.register(Digest.class, algo, new Class[]{}, args -> new NoopDigest(algo, 2));
 
         assertEquals(2, CryptoProvider.digest(algo).getDigestSize());
     }
@@ -261,8 +262,8 @@ class CryptoAbstractionTest {
     void resolvesByPriority() {
         String algo = "RESOLVE-PRI-" + System.nanoTime();
         // 同具体度（1 算法）：priority 0 vs 100 → 高者胜出
-        CryptoProvider.registerDigest(new NoopDigest(algo, 1), n -> new NoopDigest(n, 1));
-        CryptoProvider.registerDigest(new NoopDigest(algo, 2, 100), n -> new NoopDigest(n, 2, 100));
+        CryptoProvider.register(Digest.class, algo, new Class[]{}, args -> new NoopDigest(algo, 1));
+        CryptoProvider.register(Digest.class, algo, 100, 1, new Class[]{}, args -> new NoopDigest(algo, 2, 100));
 
         assertEquals(2, CryptoProvider.digest(algo).getDigestSize());
     }
@@ -271,8 +272,8 @@ class CryptoAbstractionTest {
     void duplicateRegistrationThrows() {
         String algo = "RESOLVE-DUP-" + System.nanoTime();
         // 同 priority 同具体度 → 平局报错
-        CryptoProvider.registerDigest(new NoopDigest(algo, 1), n -> new NoopDigest(n, 1));
-        CryptoProvider.registerDigest(new NoopDigest(algo, 1), n -> new NoopDigest(n, 1));
+        CryptoProvider.register(Digest.class, algo, new Class[]{}, args -> new NoopDigest(algo, 1));
+        CryptoProvider.register(Digest.class, algo, new Class[]{}, args -> new NoopDigest(algo, 1));
 
         assertThrows(IllegalArgumentException.class, () -> CryptoProvider.digest(algo));
     }

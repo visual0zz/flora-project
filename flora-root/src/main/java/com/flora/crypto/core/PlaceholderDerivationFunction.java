@@ -28,6 +28,6 @@ public final class PlaceholderDerivationFunction implements DerivationFunction {
     @Override
     public int generateBytes(byte[] out, int outOff, int len) {
         throw new UnsupportedOperationException(
-                "PlaceholderDerivationFunction 为占位实现，请注册真实 KDF（如 KDF2 / HKDF）via CryptoProvider.registerDerivationFunction");
+                "PlaceholderDerivationFunction 为占位实现，请通过 CryptoProvider.register 注册真实 KDF（如 KDF2 / HKDF）");
     }
 }

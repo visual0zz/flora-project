@@ -4,15 +4,17 @@ import com.flora.comm.ssh.JSchException;
 import com.flora.comm.ssh.KDF;
 import com.flora.codec.asn1.ASN1;
 import com.flora.codec.asn1.ASN1Exception;
-import com.flora.crypto.core.KeyParameter;
-import com.flora.crypto.core.engine.JdkMac;
-import com.flora.crypto.core.engine.Pbkdf2ParametersGenerator;
+import com.flora.crypto.core.CryptoProvider;
+import com.flora.crypto.core.bridge.JdkMac;
+import com.flora.crypto.core.impl.Pbkdf2DerivationFunction;
+import com.flora.crypto.core.param.Pbkdf2Parameters;
+import com.flora.crypto.core.interfaces.provider.DerivationFunction;
 import java.util.Arrays;
 
 /**
  * PBKDF2 口令派生适配类（OpenSSH 加密私钥 KDF）。
  * <p>ASN.1 参数解析保留在本层；实际的 PBKDF2 迭代计算委托 flora
- * {@link Pbkdf2ParametersGenerator}（以 {@link JdkMac} 为 PRF 原语），
+ * {@link CryptoProvider} 注册的 PBKDF2 {@link DerivationFunction}，
  * 取代 JDK {@code SecretKeyFactory} 的 PBKDF2 组合结构。</p>
  */
 public class FloraPbkdf2 implements KDF {
@@ -107,10 +109,18 @@ public class FloraPbkdf2 implements KDF {
 
   @Override
   public byte[] getKey(byte[] _pass, int size) {
-    Pbkdf2ParametersGenerator gen = new Pbkdf2ParametersGenerator(JdkMac.of(hmacName));
-    gen.init(_pass, salt, iterations);
-    KeyParameter key = (KeyParameter) gen.generateDerivedParameters(size * 8);
-    return key.getKey();
+    // Try registered PBKDF2 first (HmacSHA256); for other HMAC algorithms,
+    // create Pbkdf2DerivationFunction directly with the appropriate Mac.
+    DerivationFunction gen;
+    if ("HmacSHA256".equals(hmacName)) {
+      gen = CryptoProvider.derivationFunction("PBKDF2(HMac(SHA-256))");
+    } else {
+      gen = new Pbkdf2DerivationFunction(JdkMac.of(hmacName));
+    }
+    gen.init(new Pbkdf2Parameters(_pass, salt, iterations));
+    byte[] key = new byte[size];
+    gen.generateBytes(key, 0, size);
+    return key;
   }
 
   static String getHmacName(byte[] id) throws JSchException {

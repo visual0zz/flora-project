@@ -2,7 +2,7 @@ package com.flora.comm.ssh.crypto;
 
 import com.flora.comm.ssh.Buffer;
 import com.flora.comm.ssh.SignatureECDSA;
-import com.flora.crypto.core.engine.JdkSignature;
+import com.flora.crypto.core.bridge.JdkSignature;
 import java.math.BigInteger;
 import java.security.AlgorithmParameters;
 import java.security.KeyFactory;

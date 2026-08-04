@@ -16,9 +16,9 @@ import java.util.Map;
  */
 public class Layout {
 
-    
+
     private static final Map<String, Converter> CONVERTERS = new HashMap<>();
-    
+
     private static final Map<Character, String> ALIASES = new HashMap<>();
 
     static {
@@ -53,7 +53,7 @@ public class Layout {
      */
     public Layout(String pattern) {
         this.pattern = pattern;
-        
+
         var parsed = parse(pattern);
         this.converters = parsed.converters;
         this.leftAligns = parsed.leftAligns;
@@ -85,7 +85,7 @@ public class Layout {
         return sb.toString();
     }
 
-    
+
 
     /**
      * 解析模式字符串，生成转换器数组及其对应的对齐方式、宽度和选项。
@@ -101,19 +101,19 @@ public class Layout {
         java.util.List<String> optionList = new java.util.ArrayList<>();
 
         int i = 0;
-        
+
         StringBuilder literal = new StringBuilder();
 
         while (i < len) {
             char c = pattern.charAt(i);
             if (c == '%') {
-                
+
                 flushLiteral(literal, convList, alignList, widthList, optionList);
 
                 i++;
                 if (i >= len) break;
 
-                
+
                 boolean left = false;
                 int w = 0;
                 if (pattern.charAt(i) == '-') {
@@ -126,14 +126,14 @@ public class Layout {
                 }
                 if (i >= len) break;
 
-                
+
                 int start = i;
                 while (i < len && Character.isLetter(pattern.charAt(i))) {
                     i++;
                 }
                 String word = pattern.substring(start, i);
 
-                
+
                 String option = "";
                 if (i < len && pattern.charAt(i) == '{') {
                     int end = pattern.indexOf('}', i);
@@ -143,12 +143,12 @@ public class Layout {
                     }
                 }
 
-                
+
                 String canon = CONVERTERS.containsKey(word) ? word : null;
                 if (canon == null && word.length() == 1) {
-                    
+
                     char aliasChar = word.charAt(0);
-                    
+
                 }
 
                 Converter conv = CONVERTERS.get(word);
@@ -167,7 +167,7 @@ public class Layout {
                     widthList.add(w);
                     optionList.add(option);
                 } else {
-                    
+
                     literal.append('%');
                     if (left) literal.append('-');
                     if (w > 0) literal.append(w);
@@ -229,14 +229,14 @@ public class Layout {
     private record ParseResult(Converter[] converters, boolean[] leftAligns, int[] widths, String[] optionTexts) {
     }
 
-    
+
 
     @FunctionalInterface
     private interface Converter {
         void apply(StringBuilder sb, LogEvent event, boolean leftAlign, int width, String option);
     }
 
-    
+
 
     /**
      * 追加日期时间到缓冲区。
@@ -323,7 +323,7 @@ public class Layout {
         sb.append('%');
     }
 
-    
+
 
     /**
      * 在缓冲区中追加指定数量的填充字符。

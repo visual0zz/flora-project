@@ -14,9 +14,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class FastHashMapMapApiTest {
 
-    
-    
-    
+
+
+
 
     @Test
     void int2int_getObject() {
@@ -26,8 +26,8 @@ class FastHashMapMapApiTest {
 
         assertEquals(Integer.valueOf(100), map.get(1));
         assertEquals(Integer.valueOf(200), map.get(2));
-        assertNull(map.get((Object) 99));           
-        assertNull(map.get("wrong type"));           
+        assertNull(map.get((Object) 99));
+        assertNull(map.get("wrong type"));
     }
 
     @Test
@@ -39,7 +39,7 @@ class FastHashMapMapApiTest {
         assertTrue(map.containsKey((Object) 1));
         assertTrue(map.containsKey(1));
         assertFalse(map.containsKey((Object) 99));
-        assertFalse(map.containsKey("wrong type"));  
+        assertFalse(map.containsKey("wrong type"));
     }
 
     @Test
@@ -60,8 +60,8 @@ class FastHashMapMapApiTest {
         assertNull(map.get((Object) 1));
         assertEquals(1, map.size());
 
-        assertNull(map.remove((Object) 99));        
-        assertNull(map.remove("wrong type"));        
+        assertNull(map.remove((Object) 99));
+        assertNull(map.remove("wrong type"));
     }
 
     @Test
@@ -111,9 +111,9 @@ class FastHashMapMapApiTest {
 
         assertTrue(map.entrySet().contains(Map.entry(1, 100)));
         assertTrue(map.entrySet().contains(Map.entry(2, 200)));
-        assertFalse(map.entrySet().contains(Map.entry(1, 999)));   
-        assertFalse(map.entrySet().contains(Map.entry(99, 100)));  
-        assertFalse(map.entrySet().contains("not an entry"));       
+        assertFalse(map.entrySet().contains(Map.entry(1, 999)));
+        assertFalse(map.entrySet().contains(Map.entry(99, 100)));
+        assertFalse(map.entrySet().contains("not an entry"));
     }
 
     @Test
@@ -127,7 +127,7 @@ class FastHashMapMapApiTest {
         assertEquals(2, map.size());
         assertNull(map.get((Object) 1));
 
-        
+
         assertFalse(map.entrySet().remove(Map.entry(1, 100)));
         assertFalse(map.entrySet().remove("not an entry"));
     }
@@ -193,26 +193,26 @@ class FastHashMapMapApiTest {
     @Test
     void int2int_zeroKey() {
         var map = new Int2IntFastHashMap();
-        map.put(0, 999);   
+        map.put(0, 999);
 
         assertTrue(map.entrySet().contains(Map.entry(0, 999)));
         assertEquals(Integer.valueOf(999), map.get(0));
 
-        
+
         int[] count = {0};
         map.forEach((Int2IntConsumer) (k, v) -> count[0]++);
         assertEquals(1, count[0]);
 
-        
+
         assertEquals(1, map.entrySet().size());
         var entry = map.entrySet().iterator().next();
         assertEquals(Integer.valueOf(0), entry.getKey());
         assertEquals(Integer.valueOf(999), entry.getValue());
     }
 
-    
-    
-    
+
+
+
 
     @Test
     void object2object_getObject() {
@@ -251,7 +251,7 @@ class FastHashMapMapApiTest {
         assertTrue(map.containsKey(null));
         assertTrue(map.entrySet().contains(new AbstractMap.SimpleEntry<>(null, "nullval")));
 
-        
+
         int[] count = {0};
         map.forEach((Object2ObjectConsumer) (k, v) -> count[0]++);
         assertEquals(1, count[0]);
@@ -276,9 +276,9 @@ class FastHashMapMapApiTest {
         assertNull(map.get("b"));
     }
 
-    
-    
-    
+
+
+
 
     @Test
     void object2long_getObject() {
@@ -298,7 +298,7 @@ class FastHashMapMapApiTest {
 
         assertTrue(map.containsKey("a"));
         assertFalse(map.containsKey("b"));
-        assertFalse(map.containsKey(42));   
+        assertFalse(map.containsKey(42));
     }
 
     @Test
@@ -354,9 +354,9 @@ class FastHashMapMapApiTest {
         assertEquals(3L, sum[0]);
     }
 
-    
-    
-    
+
+
+
 
     @Test
     void byte2byte_entrySet_hashMode() {
@@ -370,7 +370,7 @@ class FastHashMapMapApiTest {
         assertTrue(entries.contains(Map.entry((byte) 10, (byte) 100)));
         assertTrue(entries.contains(Map.entry((byte) 20, (byte) 200)));
 
-        
+
         int[] count = {0};
         map.forEach((Byte2ByteConsumer) (k, v) -> count[0]++);
         assertEquals(2, count[0]);
@@ -378,13 +378,13 @@ class FastHashMapMapApiTest {
 
     @Test
     void byte2byte_entrySet_directMode() {
-        
+
         var map = new Byte2ByteFastHashMap(256, 0.75f);
         for (int i = 0; i < 256; i++) {
             map.put((byte) i, (byte) (i * 2));
         }
 
-        
+
         assertEquals(256, map.size());
 
         var entries = map.entrySet();
@@ -393,11 +393,11 @@ class FastHashMapMapApiTest {
         assertTrue(entries.contains(Map.entry((byte) 255, (byte) (255 * 2))));
         assertFalse(entries.contains(Map.entry((byte) 0, (byte) 99)));
 
-        
+
         assertTrue(entries.remove(Map.entry((byte) 0, (byte) 0)));
         assertEquals(255, map.size());
 
-        
+
         int[] count = {0};
         map.forEach((Byte2ByteConsumer) (k, v) -> count[0]++);
         assertEquals(255, count[0]);
@@ -405,14 +405,14 @@ class FastHashMapMapApiTest {
 
     @Test
     void byte2byte_entrySet_modeTransition() {
-        
+
         var map = new Byte2ByteFastHashMap();
 
         map.put((byte) 1, (byte) 10);
         map.put((byte) 2, (byte) 20);
         assertEquals(2, map.entrySet().size());
 
-        
+
         for (int i = 0; i < 256; i++) {
             map.put((byte) i, (byte) i);
         }
@@ -422,7 +422,7 @@ class FastHashMapMapApiTest {
     @Test
     void byte2byte_zeroKey() {
         var map = new Byte2ByteFastHashMap();
-        map.put((byte) 0, (byte) 99);   
+        map.put((byte) 0, (byte) 99);
 
         assertTrue(map.entrySet().contains(Map.entry((byte) 0, (byte) 99)));
 
@@ -452,18 +452,18 @@ class FastHashMapMapApiTest {
         assertNull(map.remove("wrong type"));
     }
 
-    
-    
-    
+
+
+
 
     @Test
     void allTypes_defaultReturnAndMapApi() {
-        
+
         var map = new Int2IntFastHashMap();
         map.defaultReturnValue(-42);
         assertEquals(Integer.valueOf(-42), map.get(999));
 
-        
+
         var omap = new Object2ObjectFastHashMap();
         omap.defaultReturnValue("NOT_FOUND");
         assertNull(omap.get("missing"));

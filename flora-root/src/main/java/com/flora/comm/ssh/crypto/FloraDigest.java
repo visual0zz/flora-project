@@ -1,7 +1,7 @@
 package com.flora.comm.ssh.crypto;
 
 import com.flora.comm.ssh.HASH;
-import com.flora.crypto.core.engine.JdkDigest;
+import com.flora.crypto.core.bridge.JdkDigest;
 
 /**
  * 摘要（HASH）适配基类。

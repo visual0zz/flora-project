@@ -72,9 +72,9 @@ public final class ClassModel {
     private ClassModel() {
     }
 
-    
 
-    
+
+
     /**
      * 从字节数据读取 Class 文件并构建模型。
      *
@@ -140,7 +140,7 @@ public final class ClassModel {
         return result;
     }
 
-    
+
     private static byte[] readAttributesBytes(DataInputStream in) throws IOException {
         ByteArrayBuilder out = new ByteArrayBuilder();
         int count = in.readUnsignedShort();
@@ -160,7 +160,7 @@ public final class ClassModel {
         return out.toByteArray();
     }
 
-    
+
 
     /**
      * @return 常量池
@@ -214,9 +214,9 @@ public final class ClassModel {
         return thisClass;
     }
 
-    
 
-    
+
+
     /**
      * 重命名类引用（包括常量池中的 Class、UTF8 引用等）。
      *
@@ -225,7 +225,7 @@ public final class ClassModel {
      */
     public void renameClass(String oldName, String newName) {
         ConstantPool cp = this.constantPool;
-        
+
         for (int i = 1; i < cpSlotCount(); i++) {
             ConstantPool.Entry e = cp.entry(i);
             if (e == null) {
@@ -244,7 +244,7 @@ public final class ClassModel {
         }
     }
 
-    
+
     /**
      * 重命名指定类中的成员（字段、方法及所有引用点）。
      *
@@ -272,9 +272,9 @@ public final class ClassModel {
             }
         }
         if (!found) {
-            return; 
+            return;
         }
-        
+
         int newNat = cp.addNameAndType(newName, descriptor);
         for (int i = 1; i < cpSlotCount(); i++) {
             ConstantPool.Entry e = cp.entry(i);
@@ -293,11 +293,11 @@ public final class ClassModel {
     }
 
     private int cpSlotCount() {
-        
+
         return constantPool.size();
     }
 
-    
+
     private static String replaceClassNameInUtf8(String text, String oldName, String newName) {
         if (text == null || text.isEmpty() || !text.contains(oldName)) {
             return text;
@@ -323,7 +323,7 @@ public final class ClassModel {
             sb.append(text.charAt(i));
             i++;
         }
-        
+
         sb.append(text, i, text.length());
         return sb.toString();
     }
@@ -333,9 +333,9 @@ public final class ClassModel {
                 || (c >= '0' && c <= '9') || c == '_' || c == '$' || c == '/';
     }
 
-    
 
-    
+
+
     /**
      * 从字节数据解析属性列表。
      *
@@ -419,12 +419,12 @@ public final class ClassModel {
         setCodeInfo(m, newInfo);
     }
 
-    
 
-    
+
+
     private static final int STRING_KEY = 0x37;
 
-    
+
     /**
      * 混淆当前类中的所有字符串常量。
      * <p>对 String 常量进行 Base64 编码（加简单的 XOR 加密），并在引用处插入解密方法调用。</p>
@@ -434,8 +434,8 @@ public final class ClassModel {
      */
     public boolean obfuscateStrings() throws IOException {
         ConstantPool cp = this.constantPool;
-        
-        
+
+
         java.util.Set<Integer> obfuscated = new java.util.HashSet<>();
         boolean hasAny = false;
         for (MemberInfo m : methods) {
@@ -446,7 +446,7 @@ public final class ClassModel {
             Bytecode.CodeModel cm = Bytecode.parse(info, this::utf8);
             for (Bytecode.Insn in : cm.instructions) {
                 int op = in.opcode;
-                if (op == 0x12 || op == 0x13) { 
+                if (op == 0x12 || op == 0x13) {
                     int idx = readCpIndex(in);
                     // 跳过无效的常量池索引（可能由字节码解析误差导致）
                     if (idx <= 0 || idx >= constantPool.size()) continue;
@@ -468,14 +468,14 @@ public final class ClassModel {
         if (!hasAny) {
             return false;
         }
-        
+
         String synthName = uniqueMethodName("tD");
         int decRef = cp.addMethodref(getThisClassName(), synthName,
                 "(Ljava/lang/String;)Ljava/lang/String;");
-        
+
         for (MemberInfo m : methods) {
             if (utf8(m.nameIndex).equals(synthName)) {
-                continue; 
+                continue;
             }
             byte[] info = getCodeInfo(m);
             if (info == null) {
@@ -490,9 +490,9 @@ public final class ClassModel {
                     if (idx <= 0 || idx >= constantPool.size()) continue;
                     if (obfuscated.contains(idx)) {
                         ByteArrayBuilder b = new ByteArrayBuilder();
-                        b.writeByte(0x13);     
+                        b.writeByte(0x13);
                         b.writeShort(idx);
-                        b.writeByte(0xb8);     
+                        b.writeByte(0xb8);
                         b.writeShort(decRef);
                         reps.put(in.offset, b.toByteArray());
                     }
@@ -502,7 +502,7 @@ public final class ClassModel {
                 setCodeInfo(m, cm.assemble(reps));
             }
         }
-        
+
         methods.add(buildDecryptMethod(cp, synthName, decRef));
         return true;
     }
@@ -510,12 +510,12 @@ public final class ClassModel {
     private static int readCpIndex(Bytecode.Insn in) {
         byte[] o = in.operands();
         if (in.opcode == 0x12) {
-            return o[0] & 0xff; 
+            return o[0] & 0xff;
         }
-        return ((o[0] & 0xff) << 8) | (o[1] & 0xff); 
+        return ((o[0] & 0xff) << 8) | (o[1] & 0xff);
     }
 
-    
+
     private String uniqueMethodName(String base) {
         java.util.Set<String> existing = new java.util.HashSet<>();
         for (MemberInfo m : methods) {
@@ -529,7 +529,7 @@ public final class ClassModel {
         return name;
     }
 
-    
+
     private static String base64(String plain) {
         byte[] bytes = plain.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         for (int i = 0; i < bytes.length; i++) {
@@ -538,7 +538,7 @@ public final class ClassModel {
         return java.util.Base64.getEncoder().encodeToString(bytes);
     }
 
-    
+
     private MemberInfo buildDecryptMethod(ConstantPool cp, String name, int decRef) {
         int nameIndex = cp.addUtf8(name);
         int descIndex = cp.addUtf8("(Ljava/lang/String;)Ljava/lang/String;");
@@ -552,70 +552,70 @@ public final class ClassModel {
         int stringInitRef = cp.addMethodref("java/lang/String", "<init>",
                 "([BLjava/nio/charset/Charset;)V");
         int stringClass = cp.addClass("java/lang/String");
-        int byteArrayClass = cp.addClass("[B");     
+        int byteArrayClass = cp.addClass("[B");
 
-        
+
         ByteArrayBuilder code = new ByteArrayBuilder();
-        code.writeByte(0xb8); code.writeShort(getDecoderRef);   
-        code.writeByte(0x2a);                                    
-        code.writeByte(0xb6); code.writeShort(decodeRef);        
-        code.writeByte(0x4c);                                    
-        code.writeByte(0x03);                                    
-        code.writeByte(0x3d);                                    
-        code.writeByte(0xa7); code.writeShort(0x10);             
-        code.writeByte(0x2b);                                    
-        code.writeByte(0x1c);                                    
-        code.writeByte(0x2b);                                    
-        code.writeByte(0x1c);                                    
-        code.writeByte(0x33);                                    
-        code.writeByte(0x10); code.writeByte(STRING_KEY);        
-        code.writeByte(0x82);                                    
-        code.writeByte(0x92);                                    
-        code.writeByte(0x54);                                    
-        code.writeByte(0x84); code.writeByte(0x02); code.writeByte(0x01); 
-        code.writeByte(0x1c);                                    
-        code.writeByte(0x2b);                                    
-        code.writeByte(0xbe);                                    
-        code.writeByte(0xa1); code.writeShort(-16);             
-        code.writeByte(0xbb); code.writeShort(stringClass);     
-        code.writeByte(0x59);                                    
-        code.writeByte(0x2b);                                    
-        code.writeByte(0xb2); code.writeShort(utf8Ref);          
-        code.writeByte(0xb7); code.writeShort(stringInitRef);    
-        code.writeByte(0xb0);                                    
+        code.writeByte(0xb8); code.writeShort(getDecoderRef);
+        code.writeByte(0x2a);
+        code.writeByte(0xb6); code.writeShort(decodeRef);
+        code.writeByte(0x4c);
+        code.writeByte(0x03);
+        code.writeByte(0x3d);
+        code.writeByte(0xa7); code.writeShort(0x10);
+        code.writeByte(0x2b);
+        code.writeByte(0x1c);
+        code.writeByte(0x2b);
+        code.writeByte(0x1c);
+        code.writeByte(0x33);
+        code.writeByte(0x10); code.writeByte(STRING_KEY);
+        code.writeByte(0x82);
+        code.writeByte(0x92);
+        code.writeByte(0x54);
+        code.writeByte(0x84); code.writeByte(0x02); code.writeByte(0x01);
+        code.writeByte(0x1c);
+        code.writeByte(0x2b);
+        code.writeByte(0xbe);
+        code.writeByte(0xa1); code.writeShort(-16);
+        code.writeByte(0xbb); code.writeShort(stringClass);
+        code.writeByte(0x59);
+        code.writeByte(0x2b);
+        code.writeByte(0xb2); code.writeShort(utf8Ref);
+        code.writeByte(0xb7); code.writeShort(stringInitRef);
+        code.writeByte(0xb0);
 
-        
+
         ByteArrayBuilder codeAttr = new ByteArrayBuilder();
-        codeAttr.writeShort(4);          
-        codeAttr.writeShort(3);          
+        codeAttr.writeShort(4);
+        codeAttr.writeShort(3);
         codeAttr.writeInt(code.size());
         codeAttr.write(code);
-        codeAttr.writeShort(0);          
+        codeAttr.writeShort(0);
         if (majorVersion >= 50) {
-            
-            
+
+
             ByteArrayBuilder smt = new ByteArrayBuilder();
-            smt.writeShort(2);               
-            smt.writeByte(0xff);             
-            smt.writeShort(0x0d);            
-            smt.writeShort(3);               
-            smt.writeByte(0x07); smt.writeShort(stringClass); 
-            smt.writeByte(0x07); smt.writeShort(byteArrayClass); 
-            smt.writeByte(0x01);             
-            smt.writeShort(0);               
-            smt.writeByte(0x0c);             
+            smt.writeShort(2);
+            smt.writeByte(0xff);
+            smt.writeShort(0x0d);
+            smt.writeShort(3);
+            smt.writeByte(0x07); smt.writeShort(stringClass);
+            smt.writeByte(0x07); smt.writeShort(byteArrayClass);
+            smt.writeByte(0x01);
+            smt.writeShort(0);
+            smt.writeByte(0x0c);
             int smtName = cp.addUtf8("StackMapTable");
-            codeAttr.writeShort(1);          
+            codeAttr.writeShort(1);
             codeAttr.writeShort(smtName);
             codeAttr.writeInt(smt.size());
             codeAttr.write(smt);
         } else {
-            codeAttr.writeShort(0);          
+            codeAttr.writeShort(0);
         }
 
         int codeName = cp.addUtf8("Code");
         ByteArrayBuilder attrs = new ByteArrayBuilder();
-        attrs.writeShort(1);                 
+        attrs.writeShort(1);
         attrs.writeShort(codeName);
         attrs.writeInt(codeAttr.size());
         attrs.write(codeAttr);
@@ -623,13 +623,13 @@ public final class ClassModel {
         return new MemberInfo(0x0002 | 0x0008, nameIndex, descIndex, attrs.toByteArray());
     }
 
-    
 
-    
+
+
     private static final int ACC_ABSTRACT = 0x0400;
     private static final int ACC_NATIVE = 0x0100;
 
-    
+
     /**
      * 混淆当前类中所有方法的控制流。
      * <p>在每个方法末尾插入死代码（弹出+pop + aconst_null + athrow），
@@ -655,7 +655,7 @@ public final class ClassModel {
 
     private boolean obfuscateMethodControlFlow(MemberInfo m) throws IOException {
         if ((m.accessFlags & (ACC_ABSTRACT | ACC_NATIVE)) != 0) {
-            return false; 
+            return false;
         }
         byte[] info = getCodeInfo(m);
         if (info == null) {
@@ -665,21 +665,21 @@ public final class ClassModel {
         int codeLen = ((info[4] & 0xff) << 24) | ((info[5] & 0xff) << 16)
                 | ((info[6] & 0xff) << 8) | (info[7] & 0xff);
         byte[] origCode = Arrays.copyOfRange(info, 8, 8 + codeLen);
-        
-        
-        
+
+
+
         ByteArrayBuilder code = new ByteArrayBuilder();
         code.write(origCode);
-        for (int k = 0; k < 5; k++) {                    
+        for (int k = 0; k < 5; k++) {
             code.writeByte(0x03);
             code.writeByte(0x57);
         }
-        code.writeByte(0x01);                            
-        code.writeByte(0xbf);                            
+        code.writeByte(0x01);
+        code.writeByte(0xbf);
         int newCodeLen = code.size();
-        int decoyStart = codeLen; 
+        int decoyStart = codeLen;
 
-        
+
         ByteArrayBuilder ex = new ByteArrayBuilder();
         ex.writeShort(cm.exceptionTable.size());
         for (int[] e : cm.exceptionTable) {
@@ -689,9 +689,9 @@ public final class ClassModel {
             ex.writeShort(e[3]);
         }
 
-        
-        
-        
+
+
+
         List<Attribute> newAttrs = new ArrayList<>();
         boolean patched = false;
         for (Attribute a : cm.attributes) {
@@ -703,13 +703,13 @@ public final class ClassModel {
             }
         }
         if (!patched && majorVersion >= 50) {
-            
+
             int smtName = constantPool.addUtf8("StackMapTable");
             newAttrs.add(new Attribute(smtName, appendSameFrame(null, decoyStart)));
         }
 
         ByteArrayBuilder codeAttr = new ByteArrayBuilder();
-        codeAttr.writeShort(Math.max(cm.maxStack, 1));   
+        codeAttr.writeShort(Math.max(cm.maxStack, 1));
         codeAttr.writeShort(cm.maxLocals);
         codeAttr.writeInt(newCodeLen);
         codeAttr.write(code);
@@ -719,7 +719,7 @@ public final class ClassModel {
         return true;
     }
 
-    
+
     private static int lastStackMapOffset(byte[] smtInfo) throws IOException {
         if (smtInfo == null) {
             return -1;
@@ -739,7 +739,7 @@ public final class ClassModel {
                 delta = in.readUnsignedShort();
                 skipVType(in);
             } else if (ft >= 248 && ft <= 250) {
-                delta = in.readUnsignedShort();    
+                delta = in.readUnsignedShort();
             } else if (ft >= 251 && ft <= 254) {
                 delta = in.readUnsignedShort();
                 for (int x = 0; x < ft - 251; x++) {
@@ -763,38 +763,38 @@ public final class ClassModel {
         return prev;
     }
 
-    
+
     private static void skipVType(DataInputStream in) throws IOException {
         int tag = in.readUnsignedByte();
-        if (tag == 7 || tag == 8) {       
+        if (tag == 7 || tag == 8) {
             in.readUnsignedShort();
         }
-        
+
     }
 
-    
+
     private static byte[] appendSameFrame(byte[] smtInfo, int decoyStart) throws IOException {
         int last = (smtInfo == null) ? -1 : lastStackMapOffset(smtInfo);
-        int newDelta = decoyStart - last - 1; 
+        int newDelta = decoyStart - last - 1;
         int entries = (smtInfo == null) ? 0 : ((smtInfo[0] & 0xff) << 8) | (smtInfo[1] & 0xff);
         ByteArrayBuilder out = new ByteArrayBuilder();
         out.writeShort(entries + 1);
         if (smtInfo != null) {
-            byte[] frames = Arrays.copyOfRange(smtInfo, 2, smtInfo.length); 
+            byte[] frames = Arrays.copyOfRange(smtInfo, 2, smtInfo.length);
             out.write(frames);
         }
         if (newDelta <= 63) {
-            out.writeByte(newDelta);                    
+            out.writeByte(newDelta);
         } else {
-            out.writeByte(247);                         
+            out.writeByte(247);
             out.writeShort(newDelta);
         }
         return out.toByteArray();
     }
 
-    
 
-    
+
+
     /**
      * 剥离调试信息：移除 SourceFile、SourceDebugExtension、Deprecated、Synthetic 等类级属性。
      * <p>Code 属性内的 LineNumberTable 等调试属性在 {@link #toBytes()} 阶段由 Bytecode 处理。</p>
@@ -849,6 +849,6 @@ public final class ClassModel {
         out.writeShort(m.accessFlags);
         out.writeShort(m.nameIndex);
         out.writeShort(m.descriptorIndex);
-        out.write(m.attributes); 
+        out.write(m.attributes);
     }
 }

@@ -53,7 +53,7 @@ public final class JsonBuilder {
         return sb.toString();
     }
 
-    
+
 
     /**
      * 序列化任意 Java 对象到 StringBuilder 中。
@@ -82,7 +82,7 @@ public final class JsonBuilder {
             serializeNumber((Number) obj, sb);
             return;
         }
-        
+
         if (isReferenceType(obj.getClass())) {
             if (visiting.put(obj, Boolean.TRUE) != null) {
                 throw new IllegalArgumentException("检测到循环引用: " + obj.getClass().getName()
@@ -102,7 +102,7 @@ public final class JsonBuilder {
                 serializeArray(obj, sb, indent, visiting);
                 return;
             }
-            
+
             serializeBean(obj, sb, indent, visiting);
         } finally {
             if (isReferenceType(obj.getClass())) {
@@ -111,7 +111,7 @@ public final class JsonBuilder {
         }
     }
 
-    
+
     private static boolean isReferenceType(Class<?> type) {
         return Map.class.isAssignableFrom(type)
                 || List.class.isAssignableFrom(type)
@@ -121,7 +121,7 @@ public final class JsonBuilder {
                     && !type.getName().startsWith("java.math."));
     }
 
-    
+
 
     private static void serializeString(String str, StringBuilder sb) {
         sb.append('"');
@@ -147,7 +147,7 @@ public final class JsonBuilder {
         sb.append('"');
     }
 
-    
+
 
     private static void serializeNumber(Number num, StringBuilder sb) {
         if (num instanceof Double) {
@@ -179,7 +179,7 @@ public final class JsonBuilder {
         sb.append(num.toString());
     }
 
-    
+
 
     private static void serializeMap(Map<?, ?> map, StringBuilder sb, String indent,
                                      IdentityHashMap<Object, Boolean> visiting) {
@@ -205,7 +205,7 @@ public final class JsonBuilder {
         sb.append('}');
     }
 
-    
+
 
     private static void serializeList(List<?> list, StringBuilder sb, String indent,
                                       IdentityHashMap<Object, Boolean> visiting) {
@@ -227,7 +227,7 @@ public final class JsonBuilder {
         sb.append(']');
     }
 
-    
+
 
     private static void serializeArray(Object array, StringBuilder sb, String indent,
                                        IdentityHashMap<Object, Boolean> visiting) {
@@ -249,7 +249,7 @@ public final class JsonBuilder {
         sb.append(']');
     }
 
-    
+
 
     private static void serializeBean(Object obj, StringBuilder sb, String indent,
                                       IdentityHashMap<Object, Boolean> visiting) {
@@ -257,7 +257,7 @@ public final class JsonBuilder {
         serializeMap(fieldMap, sb, indent, visiting);
     }
 
-    
+
     /** 通过 getter 方法收集 Bean 属性。优先 getXxx() / isXxx()，跳过有 @JsonIgnore 的。 */
     private static Map<String, Object> collectProperties(Object obj) {
         Map<String, Object> map = new LinkedHashMap<>();

@@ -166,8 +166,10 @@ public final class SecretCheck extends LineCheck {
             new KnownFormat("classpath-resource", "(?:[\\w.-]+/)+[\\w.-]+\\.[A-Za-z0-9]+"),
 
             // ── 密码学算法名（JCA transformation 等，是算法标识不是密钥材料）──
+            // 词表含 pbe（Password-Based Encryption，如 PBEWithMD5AndDES、PBEWithHmacSHA256），
+            // 否则 PBE 系列算法名会漏到熵判定被误报为随机密钥。
             new KnownFormat("crypto-algorithm",
-                    "(?i)(?:pbkdf2|hmac|aes|des|3des|rsa|dsa|ecdsa|ecdh|ec|sha\\d*|md5|"
+                    "(?i)(?:pbkdf2|pbe|pbes|hmac|aes|des|3des|rsa|dsa|ecdsa|ecdh|ec|sha\\d*|md5|"
                             + "blowfish|rc4|chacha20|poly1305|argon2\\w*|scrypt|bcrypt|"
                             + "base64|utf|iso|pkcs|x509)"
                             + "[a-z0-9]*(?:with[a-z0-9]+)*(?:[/_-][a-z0-9]+)*"),
@@ -186,9 +188,11 @@ public final class SecretCheck extends LineCheck {
             new KnownFormat("color-hex", "#[0-9a-fA-F]{3,8}"),
             new KnownFormat("cron", "[\\d*?/,\\-LW#]+(?:\\s+[\\d*?/,\\-LW#]+){4,6}"),
             new KnownFormat("number-list", "\\d+(?:[,;|]\\d+)+"),
-            // 自然语言短语：多个单词（含常见标点、数字）按常规语序组合，不是随机密钥
+            // 自然语言短语：多个单词（含常见标点、数字）按常规语序组合，不是随机密钥。
+            // 单词 token 允许内嵌数字与连字符（如 pbeWithMD2AndDES-CBC unsupported 这种
+            // "算法标识 + 描述词"短语），避免把算法名当成高熵随机密钥。
             new KnownFormat("natural-language",
-                    "[A-Za-z][A-Za-z'\\-.]*(?:[\\s,.;:!?]+[A-Za-z][A-Za-z'\\-.]*){1,12}"));
+                    "[A-Za-z0-9][A-Za-z0-9'\\-.]*(?:[\\s,.;:!?]+[A-Za-z0-9][A-Za-z0-9'\\-.]*){1,12}"));
 
     /**
      * 值可以是裸标量（不加引号）的配置格式。

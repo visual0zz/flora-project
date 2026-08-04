@@ -22,13 +22,13 @@ public final class LoggerFactory {
     private static final Map<String, Logger> LOGGER_MAP = new ConcurrentHashMap<>();
 
     static {
-        
+
         LOGGER_MAP.put("root", new LoggerImpl("root"));
     }
 
-    
 
-    
+
+
     /**
      * 根据名称获取或创建一个 Logger 实例。
      * <p>
@@ -45,14 +45,14 @@ public final class LoggerFactory {
         LoggerImpl logger = new LoggerImpl(name);
         LoggerImpl old = (LoggerImpl) LOGGER_MAP.putIfAbsent(name, logger);
         if (old != null) {
-            return old; 
+            return old;
         }
-        
+
         logger.recomputeEffectiveLevel();
         return logger;
     }
 
-    
+
     /**
      * 根据 Class 对象获取 Logger 实例，使用类的全限定名作为日志器名称。
      *
@@ -63,9 +63,9 @@ public final class LoggerFactory {
         return getLogger(clazz.getName());
     }
 
-    
 
-    
+
+
     /**
      * 获取根日志器。
      *
@@ -75,7 +75,7 @@ public final class LoggerFactory {
         return LOGGER_MAP.get("root");
     }
 
-    
+
     /**
      * 根据名称查找父级日志器。
      * <p>
@@ -101,7 +101,7 @@ public final class LoggerFactory {
         return LOGGER_MAP.get("root");
     }
 
-    
+
     /**
      * 获取指定名称日志器的有效级别。
      * <p>
@@ -126,9 +126,9 @@ public final class LoggerFactory {
         return Level.DEBUG;
     }
 
-    
 
-    
+
+
     /**
      * 获取所有已注册的日志器映射表。
      *
@@ -138,7 +138,7 @@ public final class LoggerFactory {
         return LOGGER_MAP;
     }
 
-    
+
     /**
      * 重置所有日志器，清空注册表并重新创建根日志器。
      */

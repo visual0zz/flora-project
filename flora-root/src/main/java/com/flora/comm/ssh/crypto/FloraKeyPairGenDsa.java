@@ -1,7 +1,7 @@
 package com.flora.comm.ssh.crypto;
 
 import com.flora.comm.ssh.KeyPairGenDSA;
-import com.flora.crypto.core.engine.JdkKeyPairGenerator;
+import com.flora.crypto.core.bridge.JdkKeyPairGenerator;
 import java.security.KeyPair;
 import java.security.interfaces.DSAKey;
 import java.security.interfaces.DSAParams;

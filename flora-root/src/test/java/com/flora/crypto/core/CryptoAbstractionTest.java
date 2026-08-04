@@ -1,24 +1,14 @@
 package com.flora.crypto.core;
-import com.flora.crypto.core.combinator.BufferedBlockCipher;
-import com.flora.crypto.core.combinator.PaddedAsymmetricBlockCipher;
-import com.flora.crypto.core.combinator.PaddedBufferedBlockCipher;
-import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;
+
+import com.flora.crypto.core.bridge.JdkDigest;
 import com.flora.crypto.core.interfaces.provider.Digest;
 import com.flora.crypto.core.interfaces.provider.Mac;
-import com.flora.crypto.core.keypair.AsymmetricKeyParameter;
-import com.flora.crypto.core.param.KeyParameter;
-import com.flora.crypto.core.param.ParametersWithIV;
 
-import com.flora.codec.HexUtil;
-import com.flora.crypto.core.bridge.JdkDigest;
-import com.flora.crypto.core.mode.CBCBlockCipher;
-import com.flora.crypto.core.mode.GCMBlockCipher;
-import com.flora.crypto.core.padding.PKCS1v15Padding;
 import org.junit.jupiter.api.Test;
 
 import java.security.KeyPair;
 import java.security.SecureRandom;
-import java.util.Arrays;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -42,7 +32,7 @@ class CryptoAbstractionTest {
         byte[] out = new byte[32];
         d.doFinal(out, 0);
         assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-                HexUtil.encodeHex(out));
+                com.flora.codec.HexUtil.encodeHex(out));
     }
 
     // ── BlockCipher：自研 CBC + PKCS7 组合往返 ──
@@ -53,16 +43,16 @@ class CryptoAbstractionTest {
         byte[] iv = randomBytes(16);
         byte[] plain = "the quick brown fox".getBytes();
 
-        PaddedBufferedBlockCipher enc = new PaddedBufferedBlockCipher(
-                new CBCBlockCipher(CryptoProvider.blockCipher("AES")),
+        com.flora.crypto.core.combinator.PaddedBufferedBlockCipher enc = new com.flora.crypto.core.combinator.PaddedBufferedBlockCipher(
+                new com.flora.crypto.core.mode.CBCBlockCipher(CryptoProvider.blockCipher("AES")),
                 CryptoProvider.blockCipherPadding("PKCS7"));
-        enc.init(true, new ParametersWithIV(new KeyParameter(key), iv));
+        enc.init(true, new com.flora.crypto.core.param.ParametersWithIV(new com.flora.crypto.core.param.KeyParameter(key), iv));
         byte[] cipherText = enc.process(plain);
 
-        PaddedBufferedBlockCipher dec = new PaddedBufferedBlockCipher(
-                new CBCBlockCipher(CryptoProvider.blockCipher("AES")),
+        com.flora.crypto.core.combinator.PaddedBufferedBlockCipher dec = new com.flora.crypto.core.combinator.PaddedBufferedBlockCipher(
+                new com.flora.crypto.core.mode.CBCBlockCipher(CryptoProvider.blockCipher("AES")),
                 CryptoProvider.blockCipherPadding("PKCS7"));
-        dec.init(false, new ParametersWithIV(new KeyParameter(key), iv));
+        dec.init(false, new com.flora.crypto.core.param.ParametersWithIV(new com.flora.crypto.core.param.KeyParameter(key), iv));
         byte[] recovered = dec.process(cipherText);
 
         assertArrayEquals(plain, recovered);
@@ -76,20 +66,20 @@ class CryptoAbstractionTest {
         byte[] iv = randomBytes(12);
         byte[] plain = "authenticated encryption".getBytes();
 
-        GCMBlockCipher enc = new GCMBlockCipher(CryptoProvider.blockCipher("AES"));
-        enc.init(true, new ParametersWithIV(new KeyParameter(key), iv));
+        com.flora.crypto.core.mode.GCMBlockCipher enc = new com.flora.crypto.core.mode.GCMBlockCipher(CryptoProvider.blockCipher("AES"));
+        enc.init(true, new com.flora.crypto.core.param.ParametersWithIV(new com.flora.crypto.core.param.KeyParameter(key), iv));
         byte[] cipherText = new byte[enc.getOutputSize(plain.length)];
         int len = enc.processBytes(plain, 0, plain.length, cipherText, 0);
         len += enc.doFinal(cipherText, len);
-        byte[] fullCipher = Arrays.copyOf(cipherText, len);
+        byte[] fullCipher = java.util.Arrays.copyOf(cipherText, len);
 
-        GCMBlockCipher dec = new GCMBlockCipher(CryptoProvider.blockCipher("AES"));
-        dec.init(false, new ParametersWithIV(new KeyParameter(key), iv));
+        com.flora.crypto.core.mode.GCMBlockCipher dec = new com.flora.crypto.core.mode.GCMBlockCipher(CryptoProvider.blockCipher("AES"));
+        dec.init(false, new com.flora.crypto.core.param.ParametersWithIV(new com.flora.crypto.core.param.KeyParameter(key), iv));
         byte[] recovered = new byte[dec.getOutputSize(fullCipher.length)];
         int rlen = dec.processBytes(fullCipher, 0, fullCipher.length, recovered, 0);
         rlen += dec.doFinal(recovered, rlen);
 
-        assertArrayEquals(plain, Arrays.copyOf(recovered, rlen));
+        assertArrayEquals(plain, java.util.Arrays.copyOf(recovered, rlen));
     }
 
     // ── BufferedBlockCipher 装饰器：裸 AES 块对齐数据 ──
@@ -99,12 +89,12 @@ class CryptoAbstractionTest {
         byte[] key = randomBytes(16);
         byte[] plain = randomBytes(32); // 两块，块对齐
 
-        BufferedBlockCipher enc = new BufferedBlockCipher(CryptoProvider.blockCipher("AES"));
-        enc.init(true, new KeyParameter(key));
+        com.flora.crypto.core.combinator.BufferedBlockCipher enc = new com.flora.crypto.core.combinator.BufferedBlockCipher(CryptoProvider.blockCipher("AES"));
+        enc.init(true, new com.flora.crypto.core.param.KeyParameter(key));
         byte[] cipherText = enc.process(plain);
 
-        BufferedBlockCipher dec = new BufferedBlockCipher(CryptoProvider.blockCipher("AES"));
-        dec.init(false, new KeyParameter(key));
+        com.flora.crypto.core.combinator.BufferedBlockCipher dec = new com.flora.crypto.core.combinator.BufferedBlockCipher(CryptoProvider.blockCipher("AES"));
+        dec.init(false, new com.flora.crypto.core.param.KeyParameter(key));
         byte[] recovered = dec.process(cipherText);
 
         assertArrayEquals(plain, recovered);
@@ -119,13 +109,13 @@ class CryptoAbstractionTest {
         byte[] data = "message".getBytes();
 
         Mac m1 = CryptoProvider.mac("HmacSHA256");
-        m1.init(new KeyParameter(key));
+        m1.init(new com.flora.crypto.core.param.KeyParameter(key));
         m1.update(data, 0, data.length);
         byte[] out1 = new byte[m1.getMacSize()];
         m1.doFinal(out1, 0);
 
         Mac m2 = CryptoProvider.mac("HmacSHA256");
-        m2.init(new KeyParameter(key));
+        m2.init(new com.flora.crypto.core.param.KeyParameter(key));
         m2.update(data, 0, data.length);
         byte[] out2 = new byte[m2.getMacSize()];
         m2.doFinal(out2, 0);
@@ -138,17 +128,17 @@ class CryptoAbstractionTest {
 
     @Test
     void rsaRoundTrip() {
-        KeyPair kp = CryptoProvider.keyPairGenerator("RSA").generate(2048);
+        java.security.KeyPair kp = CryptoProvider.keyPairGenerator("RSA").generate(2048);
         byte[] plain = "hello rsa world".getBytes();
 
-        AsymmetricBlockCipher enc = new PaddedAsymmetricBlockCipher(
-                CryptoProvider.asymmetricCipher("RSA"), new PKCS1v15Padding());
-        enc.init(true, new AsymmetricKeyParameter(kp.getPublic()));
+        com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher enc = new com.flora.crypto.core.combinator.PaddedAsymmetricBlockCipher(
+                CryptoProvider.asymmetricCipher("RSA"), new com.flora.crypto.core.padding.PKCS1v15Padding());
+        enc.init(true, new com.flora.crypto.core.keypair.AsymmetricKeyParameter(kp.getPublic()));
         byte[] cipherText = enc.processBlock(plain, 0, plain.length);
 
-        AsymmetricBlockCipher dec = new PaddedAsymmetricBlockCipher(
-                CryptoProvider.asymmetricCipher("RSA"), new PKCS1v15Padding());
-        dec.init(false, new AsymmetricKeyParameter(kp.getPrivate()));
+        com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher dec = new com.flora.crypto.core.combinator.PaddedAsymmetricBlockCipher(
+                CryptoProvider.asymmetricCipher("RSA"), new com.flora.crypto.core.padding.PKCS1v15Padding());
+        dec.init(false, new com.flora.crypto.core.keypair.AsymmetricKeyParameter(kp.getPrivate()));
         byte[] recovered = dec.processBlock(cipherText, 0, cipherText.length);
 
         assertArrayEquals(plain, recovered);
@@ -234,7 +224,8 @@ class CryptoAbstractionTest {
         assertInstanceOf(JdkDigest.class, CryptoProvider.digest("SHA-256"));
 
         // 注册自定义实现
-        CryptoProvider.register(Digest.class, "MyHash", new Class[]{}, args -> new NoopDigest("MyHash", 7));
+        CryptoProvider.register(AlgorithmKind.DIGEST,
+                AlgorithmFactory.of("MyHash", args -> new NoopDigest("MyHash", 7)));
         Digest custom = CryptoProvider.digest("MyHash");
         assertEquals("MyHash", custom.getAlgorithmName());
         assertEquals(7, custom.getDigestSize());
@@ -242,7 +233,8 @@ class CryptoAbstractionTest {
 
         // 覆盖同名 JDK 算法：注册 "SHA-1"（priority 100 > JdkDigest 的 0）后优先返回自定义。
         // 注意：注册表是 JVM 全局的，此处故意避开其它测试依赖的 "SHA-256" 以免污染。
-        CryptoProvider.register(Digest.class, "SHA-1", 100, 1, new Class[]{}, args -> new NoopDigest("SHA-1", 9, 100));
+        CryptoProvider.register(AlgorithmKind.DIGEST,
+                AlgorithmFactory.of(Set.of("SHA-1"), 100, new Class<?>[0], args -> new NoopDigest("SHA-1", 9, 100)));
         Digest overridden = CryptoProvider.digest("SHA-1");
         assertInstanceOf(NoopDigest.class, overridden);
         assertEquals(9, overridden.getDigestSize());
@@ -251,9 +243,35 @@ class CryptoAbstractionTest {
     @Test
     void resolvesBySpecificity() {
         String algo = "RESOLVE-SPEC-" + System.nanoTime();
-        // 同 priority(0)：通用（3 算法）vs 专用（1 算法）→ 专用胜出
-        CryptoProvider.register(Digest.class, algo, 0, 3, new Class[]{}, args -> new NoopDigest(algo, 1));
-        CryptoProvider.register(Digest.class, algo, new Class[]{}, args -> new NoopDigest(algo, 2));
+        // 同 priority(0)：通用（specificity 3）vs 专用（specificity 1）→ 专用胜出
+        CryptoProvider.register(AlgorithmKind.DIGEST, new AlgorithmFactory() {
+            @Override
+            public Set<String> names() {
+                return Set.of(algo);
+            }
+
+            @Override
+            public int priority() {
+                return 0;
+            }
+
+            @Override
+            public int specificity() {
+                return 3;
+            }
+
+            @Override
+            public Class<?>[] paramTypes() {
+                return new Class<?>[0];
+            }
+
+            @Override
+            public Object create(Object[] args) {
+                return new NoopDigest(algo, 1);
+            }
+        });
+        CryptoProvider.register(AlgorithmKind.DIGEST,
+                AlgorithmFactory.of(algo, args -> new NoopDigest(algo, 2)));
 
         assertEquals(2, CryptoProvider.digest(algo).getDigestSize());
     }
@@ -262,8 +280,10 @@ class CryptoAbstractionTest {
     void resolvesByPriority() {
         String algo = "RESOLVE-PRI-" + System.nanoTime();
         // 同具体度（1 算法）：priority 0 vs 100 → 高者胜出
-        CryptoProvider.register(Digest.class, algo, new Class[]{}, args -> new NoopDigest(algo, 1));
-        CryptoProvider.register(Digest.class, algo, 100, 1, new Class[]{}, args -> new NoopDigest(algo, 2, 100));
+        CryptoProvider.register(AlgorithmKind.DIGEST,
+                AlgorithmFactory.of(algo, args -> new NoopDigest(algo, 1)));
+        CryptoProvider.register(AlgorithmKind.DIGEST,
+                AlgorithmFactory.of(Set.of(algo), 100, new Class<?>[0], args -> new NoopDigest(algo, 2, 100)));
 
         assertEquals(2, CryptoProvider.digest(algo).getDigestSize());
     }
@@ -272,8 +292,10 @@ class CryptoAbstractionTest {
     void duplicateRegistrationThrows() {
         String algo = "RESOLVE-DUP-" + System.nanoTime();
         // 同 priority 同具体度 → 平局报错
-        CryptoProvider.register(Digest.class, algo, new Class[]{}, args -> new NoopDigest(algo, 1));
-        CryptoProvider.register(Digest.class, algo, new Class[]{}, args -> new NoopDigest(algo, 1));
+        CryptoProvider.register(AlgorithmKind.DIGEST,
+                AlgorithmFactory.of(algo, args -> new NoopDigest(algo, 1)));
+        CryptoProvider.register(AlgorithmKind.DIGEST,
+                AlgorithmFactory.of(algo, args -> new NoopDigest(algo, 1)));
 
         assertThrows(IllegalArgumentException.class, () -> CryptoProvider.digest(algo));
     }

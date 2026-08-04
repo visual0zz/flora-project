@@ -5,21 +5,45 @@ import com.flora.crypto.core.bridge.JdkAsymmetricBlockCipher;
 import com.flora.crypto.core.bridge.JdkAsymmetricKeyPairGenerator;
 import com.flora.crypto.core.bridge.JdkBlockCipher;
 import com.flora.crypto.core.bridge.JdkDigest;
-import com.flora.crypto.core.bridge.JdkKeyPairGenerator;
 import com.flora.crypto.core.bridge.JdkKem;
+import com.flora.crypto.core.bridge.JdkKeyPairGenerator;
 import com.flora.crypto.core.bridge.JdkMac;
-import com.flora.crypto.core.bridge.SecureRandomEntropySource;
+import com.flora.crypto.core.factory.AgreementBasedKemFactory;
+import com.flora.crypto.core.factory.Argon2Factory;
+import com.flora.crypto.core.factory.Blake2b256Factory;
+import com.flora.crypto.core.factory.Blake2b512Factory;
+import com.flora.crypto.core.factory.Blake2bFactory;
+import com.flora.crypto.core.factory.BCryptFactory;
+import com.flora.crypto.core.factory.CbcFactory;
+import com.flora.crypto.core.factory.CfbFactory;
+import com.flora.crypto.core.factory.CtrFactory;
+import com.flora.crypto.core.factory.GcmFactory;
+import com.flora.crypto.core.factory.HMacFactory;
+import com.flora.crypto.core.factory.HkdfFactory;
+import com.flora.crypto.core.factory.Iso7816Factory;
+import com.flora.crypto.core.factory.JdkAgreementFactory;
+import com.flora.crypto.core.factory.JdkAsymmetricBlockCipherFactory;
+import com.flora.crypto.core.factory.JdkAsymmetricKeyPairGeneratorFactory;
+import com.flora.crypto.core.factory.JdkBlockCipherFactory;
+import com.flora.crypto.core.factory.JdkDigestFactory;
+import com.flora.crypto.core.factory.JdkKemFactory;
+import com.flora.crypto.core.factory.JdkKeyPairGeneratorFactory;
+import com.flora.crypto.core.factory.JdkMacFactory;
+import com.flora.crypto.core.factory.Kdf2Factory;
+import com.flora.crypto.core.factory.OfbFactory;
+import com.flora.crypto.core.factory.Pbkdf2Factory;
+import com.flora.crypto.core.factory.Pkcs7Factory;
+import com.flora.crypto.core.factory.Poly1305Factory;
+import com.flora.crypto.core.factory.Ripemd160Factory;
+import com.flora.crypto.core.factory.ScryptFactory;
+import com.flora.crypto.core.factory.ZeroByteFactory;
 import com.flora.crypto.core.combinator.BufferedAsymmetricBlockCipher;
 import com.flora.crypto.core.impl.AgreementBasedKem;
-import com.flora.crypto.core.impl.Argon2;
-import com.flora.crypto.core.impl.Blake2bDigest;
-import com.flora.crypto.core.impl.BCrypt;
-import com.flora.crypto.core.impl.HMac;
 import com.flora.crypto.core.impl.HMacDrbg;
-import com.flora.crypto.core.impl.Pbkdf2DerivationFunction;
-import com.flora.crypto.core.impl.Poly1305Mac;
-import com.flora.crypto.core.impl.Ripemd160Digest;
-import com.flora.crypto.core.impl.Scrypt;
+import com.flora.crypto.core.interfaces.CipherParameters;
+import com.flora.crypto.core.interfaces.Decapsulator;
+import com.flora.crypto.core.interfaces.Encapsulator;
+import com.flora.crypto.core.interfaces.provider.AEADBlockCipher;
 import com.flora.crypto.core.interfaces.provider.Agreement;
 import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;
 import com.flora.crypto.core.interfaces.provider.AsymmetricCipher;
@@ -34,11 +58,7 @@ import com.flora.crypto.core.interfaces.provider.KEM;
 import com.flora.crypto.core.interfaces.provider.Mac;
 import com.flora.crypto.core.interfaces.provider.SP80090DRBG;
 import com.flora.crypto.core.interfaces.provider.Xof;
-import com.flora.crypto.core.mode.CBCBlockCipher;
-import com.flora.crypto.core.mode.CFBBlockCipher;
-import com.flora.crypto.core.mode.GCMBlockCipher;
-import com.flora.crypto.core.mode.OFBBlockCipher;
-import com.flora.crypto.core.mode.SICBlockCipher;
+import com.flora.crypto.core.bridge.SecureRandomEntropySource;
 import com.flora.crypto.core.padding.ISO7816d4Padding;
 import com.flora.crypto.core.padding.PKCS7Padding;
 import com.flora.crypto.core.padding.ZeroBytePadding;
@@ -59,17 +79,14 @@ import java.util.function.Function;
  * 表达式 = 裸名 | 裸名(表达式, ...) | 字面量
  * 字面量 = integer:数字 | float:小数 | string:文本 | bytes:十六进制
  * </pre>
- * <p>注册时指定角色类型（如 {@link Digest}、{@link Mac}），同名算法可安全注册在不同角色下。
- * JDK 适配器与其它算法一样作为普通条目注册于对应角色，不享受特殊回退通道；类型化查询
- * （如 {@link #digest(String)}）优先在本角色查找，未命中则跨所有角色统一解析（DSL 子依赖亦跨角色搜索）。</p>
+ * <p>注册时按算法族（{@link AlgorithmKind}）分类，并指定角色类型（如 {@link Digest}、{@link Mac}）。
+ * 同名算法可安全注册在不同族下。JDK 适配器与其它算法一样作为普通条目注册于对应族，不享受特殊回退通道；
+ * 类型化查询（如 {@link #digest(String)}）优先在本族查找，未命中则跨所有族统一解析（DSL 子依赖亦跨族搜索）。</p>
  * <p><b>组合算法须以 DSL 带参形式调用</b>，例如 {@code "PBKDF2(HMac(SHA-256))"}、{@code "HMac(SHA-256)"}、
  * {@code "CBC(AES)"}。以裸名（无参）查询一个需要参数的组合算法（如 {@code "HMac"}）会抛出
  * {@link IllegalArgumentException}，而不是用空参数数组调用工厂。</p>
  * <pre>{@code
- * CryptoProvider.register(DerivationFunction.class, "PBKDF2", new Class[]{Mac.class},
- *         args -> new Pbkdf2DerivationFunction((Mac) args[0]));
- * CryptoProvider.register(Mac.class, "HMac", new Class[]{ExtendedDigest.class},
- *         args -> new HMac((ExtendedDigest) args[0]));
+ * CryptoProvider.register(AlgorithmKind.DERIVATION, new Pbkdf2Factory());
  * // 查询时 DSL 自动解析依赖：
  * DerivationFunction kdf = CryptoProvider.derivationFunction("PBKDF2(HMac(SHA-256))");
  * }</pre>
@@ -81,7 +98,7 @@ public final class CryptoProvider {
 
     private CryptoProvider() {}
 
-    // ── 按角色分类注册表 ──
+    // ── 按算法族分类注册表 ──
 
     /**
      * 注册表条目。
@@ -92,137 +109,103 @@ public final class CryptoProvider {
      * </ul>
      */
     private record Entry(int priority, int specificity, boolean takesArguments,
-                         Class<?>[] paramTypes, Function<Object[], ?> factory) {}
+                         Class<?>[] paramTypes, Function<Object[], Object> factory) {}
 
-    /** 角色类型 → (DSL 名称 → 候选条目列表)。同名算法在不同角色下互不干扰。 */
-    private static final Map<Class<?>, Map<String, List<Entry>>> ROLES = new ConcurrentHashMap<>();
+    /** 算法族 → (DSL 名称 → 候选条目列表)。同名算法在不同族下互不干扰。 */
+    private static final Map<AlgorithmKind, Map<String, List<Entry>>> ROLES = new ConcurrentHashMap<>();
 
     static {
-        // ── JDK 适配器（裸名注册，priority=0）──
-        registerJdkAdapters(Digest.class, JdkDigest.SUPPORTED, JdkDigest::of);
-        registerJdkAdapters(BlockCipher.class, JdkBlockCipher.SUPPORTED, JdkBlockCipher::of);
-        registerJdkAdapters(Mac.class, JdkMac.SUPPORTED, JdkMac::of);
-        registerJdkAdapters(AsymmetricBlockCipher.class, Set.of("RSA"), JdkAsymmetricBlockCipher::of);
-        registerJdkAdapters(Agreement.class, JdkAgreement.SUPPORTED, JdkAgreement::of);
-        registerJdkAdapters(JdkKeyPairGenerator.class, JdkKeyPairGenerator.SUPPORTED, JdkKeyPairGenerator::of);
-        registerJdkAdapters(AsymmetricCipherKeyPairGenerator.class,
-                JdkAsymmetricKeyPairGenerator.SUPPORTED, JdkAsymmetricKeyPairGenerator::of);
-        registerJdkAdapters(KEM.class, AgreementBasedKem.SUPPORTED, AgreementBasedKem::of);
+        // ── JDK 适配器（为每个支持名创建携带名字的工厂实例，priority=0）──
+        for (String n : JdkDigest.SUPPORTED) {
+            register(AlgorithmKind.DIGEST, new JdkDigestFactory(n));
+        }
+        for (String n : JdkBlockCipher.SUPPORTED) {
+            register(AlgorithmKind.BLOCK_CIPHER, new JdkBlockCipherFactory(n));
+        }
+        for (String n : JdkMac.SUPPORTED) {
+            register(AlgorithmKind.MAC, new JdkMacFactory(n));
+        }
+        for (String n : JdkAsymmetricBlockCipher.SUPPORTED) {
+            register(AlgorithmKind.ASYMMETRIC_BLOCK_CIPHER, new JdkAsymmetricBlockCipherFactory(n));
+        }
+        for (String n : JdkAgreement.SUPPORTED) {
+            register(AlgorithmKind.AGREEMENT, new JdkAgreementFactory(n));
+        }
+        for (String n : JdkKeyPairGenerator.SUPPORTED) {
+            register(AlgorithmKind.KEY_PAIR_GENERATOR, new JdkKeyPairGeneratorFactory(n));
+        }
+        for (String n : JdkAsymmetricKeyPairGenerator.SUPPORTED) {
+            register(AlgorithmKind.ASYMMETRIC_KEY_PAIR_GENERATOR, new JdkAsymmetricKeyPairGeneratorFactory(n));
+        }
+        for (String n : AgreementBasedKem.SUPPORTED) {
+            register(AlgorithmKind.KEM, new AgreementBasedKemFactory(n));
+        }
+        for (String n : JdkKem.SUPPORTED) {
+            register(AlgorithmKind.KEM, new JdkKemFactory(n));
+        }
 
         // ── KDF（依赖其他算法，DSL 自动解析）──
-        register(DerivationFunction.class, "KDF2", new Class[]{Digest.class},
-                args -> new Kdf2DerivationFunction((Digest) args[0]));
-        register(DerivationFunction.class, "PBKDF2", new Class[]{Mac.class},
-                args -> new Pbkdf2DerivationFunction((Mac) args[0]));
-        register(DerivationFunction.class, "HKDF", new Class[]{Mac.class},
-                args -> new HkdfDerivationFunction((Mac) args[0]));
+        register(AlgorithmKind.DERIVATION, new Kdf2Factory());
+        register(AlgorithmKind.DERIVATION, new Pbkdf2Factory());
+        register(AlgorithmKind.DERIVATION, new HkdfFactory());
 
         // ── 纯 Java 摘要实现 ──
-        register(Digest.class, "Blake2b", new Class[]{Integer.class},
-                args -> new Blake2bDigest((Integer) args[0]));
-        register(Digest.class, "BLAKE2B-256", new Class[]{}, args -> new Blake2bDigest(32));
-        register(Digest.class, "BLAKE2B-512", new Class[]{}, args -> new Blake2bDigest(64));
-        register(Digest.class, "Ripemd160", new Class[]{}, args -> new Ripemd160Digest());
-        register(Digest.class, "RIPEMD160", new Class[]{}, args -> new Ripemd160Digest());
+        register(AlgorithmKind.DIGEST, new Blake2bFactory());
+        register(AlgorithmKind.DIGEST, new Blake2b256Factory());
+        register(AlgorithmKind.DIGEST, new Blake2b512Factory());
+        register(AlgorithmKind.DIGEST, new Ripemd160Factory());
 
         // ── 纯 Java MAC ──
-        register(Mac.class, "Poly1305", new Class[]{}, args -> new Poly1305Mac());
-        register(Mac.class, "POLY1305", new Class[]{}, args -> new Poly1305Mac());
+        register(AlgorithmKind.MAC, new Poly1305Factory());
+        register(AlgorithmKind.MAC, new HMacFactory());
 
         // ── 密码哈希 / KDF（盐、迭代、内存等参数经 init 传入）──
-        register(DerivationFunction.class, "Argon2", new Class[]{}, args -> new Argon2());
-        register(DerivationFunction.class, "ARGON2", new Class[]{}, args -> new Argon2());
-        register(DerivationFunction.class, "BCrypt", new Class[]{}, args -> new BCrypt());
-        register(DerivationFunction.class, "BCRYPT", new Class[]{}, args -> new BCrypt());
-        register(DerivationFunction.class, "Scrypt", new Class[]{}, args -> new Scrypt());
-        register(DerivationFunction.class, "SCRYPT", new Class[]{}, args -> new Scrypt());
-
-        // ── JDK KEM 转发（后量子 ML-KEM）──
-        registerJdkAdapters(KEM.class, JdkKem.SUPPORTED, JdkKem::of);
-
-        // ── Mac 组合 ──
-        register(Mac.class, "HMac", new Class[]{ExtendedDigest.class},
-                args -> new HMac((ExtendedDigest) args[0]));
-
-        // ── 填充策略 ──
-        register(BlockCipherPadding.class, "PKCS7", new Class[]{}, args -> new PKCS7Padding());
-        register(BlockCipherPadding.class, "PKCS5", new Class[]{}, args -> new PKCS7Padding());
-        register(BlockCipherPadding.class, "ISO7816", new Class[]{}, args -> new ISO7816d4Padding());
-        register(BlockCipherPadding.class, "ISO7816-4", new Class[]{}, args -> new ISO7816d4Padding());
-        register(BlockCipherPadding.class, "ZeroByte", new Class[]{}, args -> new ZeroBytePadding());
+        register(AlgorithmKind.DERIVATION, new Argon2Factory());
+        register(AlgorithmKind.DERIVATION, new BCryptFactory());
+        register(AlgorithmKind.DERIVATION, new ScryptFactory());
 
         // ── 分组密码模式 ──
-        register(BlockCipher.class, "CBC", new Class[]{BlockCipher.class},
-                args -> new CBCBlockCipher((BlockCipher) args[0]));
-        register(BlockCipher.class, "CFB", new Class[]{BlockCipher.class},
-                args -> new CFBBlockCipher((BlockCipher) args[0]));
-        register(BlockCipher.class, "OFB", new Class[]{BlockCipher.class},
-                args -> new OFBBlockCipher((BlockCipher) args[0]));
-        register(BlockCipher.class, "CTR", new Class[]{BlockCipher.class},
-                args -> new SICBlockCipher((BlockCipher) args[0]));
-        register(BlockCipher.class, "GCM", new Class[]{BlockCipher.class},
-                args -> new GCMBlockCipher((BlockCipher) args[0]));
+        register(AlgorithmKind.BLOCK_CIPHER, new CbcFactory());
+        register(AlgorithmKind.BLOCK_CIPHER, new CfbFactory());
+        register(AlgorithmKind.BLOCK_CIPHER, new OfbFactory());
+        register(AlgorithmKind.BLOCK_CIPHER, new CtrFactory());
+        register(AlgorithmKind.BLOCK_CIPHER, new GcmFactory());
+
+        // ── 填充策略 ──
+        register(AlgorithmKind.BLOCK_CIPHER_PADDING, new Pkcs7Factory());
+        register(AlgorithmKind.BLOCK_CIPHER_PADDING, new Iso7816Factory());
+        register(AlgorithmKind.BLOCK_CIPHER_PADDING, new ZeroByteFactory());
     }
 
     // ── 注册 API ──
 
     /**
      * 注册一个算法工厂。
+     * <p>工厂自述 DSL 名、优先级、具体度与参数类型（见 {@link AlgorithmFactory}）；注册表会为工厂自述的
+     * 每个名字都登记同一条目。同名同优先级的多个候选按「具体度最小」裁决，平局报错。</p>
      *
-     * @param role       角色类型（如 {@code Digest.class}）
-     * @param dslName    DSL 名称（如 {@code "PBKDF2"}）
-     * @param paramTypes 参数类型列表，用于运行时类型校验
-     * @param factory    工厂函数，接收已解析的参数数组
+     * @param role    算法族（如 {@link AlgorithmKind#DIGEST}）
+     * @param factory 自述型工厂
      */
-    public static void register(Class<?> role, String dslName, Class<?>[] paramTypes,
-                                Function<Object[], ?> factory) {
-        register(role, dslName, 0, 1, paramTypes, factory);
-    }
-
-    /**
-     * 注册一个算法工厂（指定优先级和具体度）。
-     *
-     * @param role        角色类型
-     * @param dslName     DSL 名称
-     * @param priority    优先级（越大越优先）
-     * @param specificity 具体度（越小越优先，通常为支持算法数的倒数）
-     * @param paramTypes  参数类型列表，用于在调用前做运行时类型校验；
-     *                    非空数组表示工厂依赖参数（即该算法须以 {@code name(args...)} 形式调用）
-     * @param factory     工厂函数，接收已解析的参数数组
-     */
-    public static void register(Class<?> role, String dslName, int priority, int specificity,
-                                Class<?>[] paramTypes,
-                                Function<Object[], ?> factory) {
-        CheckUtil.notEmpty(dslName, "DSL name cannot be empty");
+    public static void register(AlgorithmKind role, AlgorithmFactory factory) {
+        CheckUtil.notNull(role, "算法族不能为空");
+        Set<String> names = factory.names();
+        CheckUtil.mustTrue(names != null && !names.isEmpty(), "算法名集合不能为空");
+        int priority = factory.priority();
+        int specificity = factory.specificity();
+        Class<?>[] paramTypes = factory.paramTypes();
         boolean takesArguments = paramTypes != null && paramTypes.length > 0;
-        register(role, dslName, priority, specificity, takesArguments, paramTypes, factory);
-    }
-
-    /** 内部注册入口，显式控制 {@code takesArguments}（JDK 适配器忽略参数，故为 false）。 */
-    private static void register(Class<?> role, String dslName, int priority, int specificity,
-                                 boolean takesArguments, Class<?>[] paramTypes,
-                                 Function<Object[], ?> factory) {
-        CheckUtil.notEmpty(dslName, "DSL name cannot be empty");
-        ROLES.computeIfAbsent(role, k -> new ConcurrentHashMap<>())
-                .computeIfAbsent(dslName, k -> new CopyOnWriteArrayList<>())
-                .add(new Entry(priority, specificity, takesArguments,
-                        paramTypes == null ? new Class<?>[0] : paramTypes, factory));
-    }
-
-    /** 批量注册 JDK 适配器的所有支持算法名到指定角色（作为普通算法，忽略调用方参数）。 */
-    private static void registerJdkAdapters(Class<?> role, Set<String> names,
-                                            Function<String, ?> factory) {
-        int specificity = names.size();
         for (String name : names) {
-            register(role, name, 0, specificity, false, new Class<?>[0],
-                    args -> factory.apply(name));
+            ROLES.computeIfAbsent(role, k -> new ConcurrentHashMap<>())
+                    .computeIfAbsent(name, k -> new CopyOnWriteArrayList<>())
+                    .add(new Entry(priority, specificity, takesArguments, paramTypes, factory::create));
         }
     }
 
     // ── DSL 解析与裁决 ──
 
     /**
-     * 解析 DSL 表达式并返回构造好的实例（跨所有角色搜索）。
+     * 解析 DSL 表达式并返回构造好的实例（跨所有算法族搜索）。
      *
      * @param expression DSL 表达式，如 {@code "PBKDF2(HMac(SHA-256))"}
      * @return 构造好的算法实例
@@ -236,28 +219,28 @@ public final class CryptoProvider {
     /**
      * 内部统一解析入口。
      *
-     * @param parsed   DslParser 的解析结果（String / Invocation / 字面量）
-     * @param hintRole 提示角色（可为 null），优先在该角色下查找
+     * @param parsed     DslParser 的解析结果（String / Invocation / 字面量）
+     * @param hintFamily 提示算法族（可为 null），优先在该族下查找
      */
-    private static Object resolveExpr(Object parsed, Class<?> hintRole) {
+    private static Object resolveExpr(Object parsed, AlgorithmKind hintFamily) {
         if (parsed instanceof String bareName) {
-            return resolveName(bareName, hintRole, new Object[0]);
+            return resolveName(bareName, hintFamily, new Object[0]);
         }
-        if (parsed instanceof DslParser.Invocation(String name, Object[] args1)) {
-            Object[] args = resolveArgs(args1);
-            return resolveName(name, hintRole, args);
+        if (parsed instanceof DslParser.Invocation inv) {
+            Object[] args = resolveArgs(inv.args());
+            return resolveName(inv.name(), hintFamily, args);
         }
         // 字面量直接返回
         return parsed;
     }
 
-    private static Object resolveName(String name, Class<?> hintRole, Object[] args) {
-        // 1. 提示角色优先
-        if (hintRole != null) {
-            Entry entry = findEntry(hintRole, name);
+    private static Object resolveName(String name, AlgorithmKind hintFamily, Object[] args) {
+        // 1. 提示算法族优先
+        if (hintFamily != null) {
+            Entry entry = findEntry(hintFamily, name);
             if (entry != null) return applyEntry(entry, name, args);
         }
-        // 2. 跨角色搜索（JDK 适配器与组合算法均为普通条目，统一在此解析）
+        // 2. 跨算法族搜索（JDK 适配器与组合算法均为普通条目，统一在此解析）
         Entry entry = findAcrossRoles(name);
         if (entry != null) return applyEntry(entry, name, args);
         // 3. 未注册
@@ -278,7 +261,7 @@ public final class CryptoProvider {
             if (args.length == 0) {
                 throw new IllegalArgumentException(
                         "Algorithm '" + name + "' requires parameters; call it as a DSL expression, "
-                        + "e.g. '" + name + "(...)')");
+                                + "e.g. '" + name + "(...)')");
             }
             Class<?>[] types = entry.paramTypes();
             for (int i = 0; i < types.length; i++) {
@@ -287,25 +270,25 @@ public final class CryptoProvider {
                     String actual = arg == null ? "null" : arg.getClass().getSimpleName();
                     throw new IllegalArgumentException(
                             "Argument " + i + " of '" + name + "' must be "
-                            + types[i].getSimpleName() + " but was " + actual);
+                                    + types[i].getSimpleName() + " but was " + actual);
                 }
             }
         }
         return entry.factory().apply(args);
     }
 
-    private static Entry findEntry(Class<?> role, String name) {
-        Map<String, List<Entry>> roleMap = ROLES.get(role);
-        if (roleMap == null) return null;
-        List<Entry> entries = roleMap.get(name);
+    private static Entry findEntry(AlgorithmKind family, String name) {
+        Map<String, List<Entry>> familyMap = ROLES.get(family);
+        if (familyMap == null) return null;
+        List<Entry> entries = familyMap.get(name);
         if (entries == null || entries.isEmpty()) return null;
         return select(entries, name);
     }
 
     private static Entry findAcrossRoles(String name) {
         Entry found = null;
-        for (Map<String, List<Entry>> roleMap : ROLES.values()) {
-            List<Entry> entries = roleMap.get(name);
+        for (Map<String, List<Entry>> familyMap : ROLES.values()) {
+            List<Entry> entries = familyMap.get(name);
             if (entries != null && !entries.isEmpty()) {
                 Entry candidate = select(entries, name);
                 if (found != null) {
@@ -345,14 +328,14 @@ public final class CryptoProvider {
                 + " entries with same priority=" + maxPri + " and specificity=" + minSpec);
     }
 
-    // ── 按角色解析（类型化查询内部使用） ──
+    // ── 按算法族解析（类型化查询内部使用） ──
 
-    private static Object resolveByRole(Class<?> role, String expression) {
+    private static Object resolveByRole(AlgorithmKind family, String expression) {
         CheckUtil.notEmpty(expression, "DSL expression cannot be empty");
         try {
-            return resolveExpr(DslParser.parse(expression), role);
+            return resolveExpr(DslParser.parse(expression), family);
         } catch (ClassCastException e) {
-            // 名字在其它角色存在但类型不兼容本角色：对本角色视为未注册
+            // 名字在其它族存在但类型不兼容本族：对本族视为未注册
             throw new UnregisteredAlgorithmException(expression);
         }
     }
@@ -360,41 +343,41 @@ public final class CryptoProvider {
     // ── 类型化查询 ──
 
     public static Digest digest(String expression) {
-        return (Digest) resolveByRole(Digest.class, expression);
+        return (Digest) resolveByRole(AlgorithmKind.DIGEST, expression);
     }
 
     public static ExtendedDigest extendedDigest(String expression) {
-        return (ExtendedDigest) resolveByRole(ExtendedDigest.class, expression);
+        return (ExtendedDigest) resolveByRole(AlgorithmKind.EXTENDED_DIGEST, expression);
     }
 
     public static BlockCipher blockCipher(String expression) {
-        return (BlockCipher) resolveByRole(BlockCipher.class, expression);
+        return (BlockCipher) resolveByRole(AlgorithmKind.BLOCK_CIPHER, expression);
     }
 
     public static Mac mac(String expression) {
-        return (Mac) resolveByRole(Mac.class, expression);
+        return (Mac) resolveByRole(AlgorithmKind.MAC, expression);
     }
 
     public static AsymmetricBlockCipher asymmetricCipher(String expression) {
-        return (AsymmetricBlockCipher) resolveByRole(AsymmetricBlockCipher.class, expression);
+        return (AsymmetricBlockCipher) resolveByRole(AlgorithmKind.ASYMMETRIC_BLOCK_CIPHER, expression);
     }
 
     public static Agreement agreement(String expression) {
-        return (Agreement) resolveByRole(Agreement.class, expression);
+        return (Agreement) resolveByRole(AlgorithmKind.AGREEMENT, expression);
     }
 
     public static JdkKeyPairGenerator keyPairGenerator(String expression) {
-        return (JdkKeyPairGenerator) resolveByRole(JdkKeyPairGenerator.class, expression);
+        return (JdkKeyPairGenerator) resolveByRole(AlgorithmKind.KEY_PAIR_GENERATOR, expression);
     }
 
     public static AsymmetricCipherKeyPairGenerator asymmetricKeyPairGenerator(String expression) {
         return (AsymmetricCipherKeyPairGenerator)
-                resolveByRole(AsymmetricCipherKeyPairGenerator.class, expression);
+                resolveByRole(AlgorithmKind.ASYMMETRIC_KEY_PAIR_GENERATOR, expression);
     }
 
     public static DerivationFunction derivationFunction(String expression) {
         try {
-            return (DerivationFunction) resolveByRole(DerivationFunction.class, expression);
+            return (DerivationFunction) resolveByRole(AlgorithmKind.DERIVATION, expression);
         } catch (UnregisteredAlgorithmException e) {
             return new PlaceholderDerivationFunction();
         }
@@ -402,7 +385,7 @@ public final class CryptoProvider {
 
     public static Xof xof(String expression) {
         try {
-            return (Xof) resolveByRole(Xof.class, expression);
+            return (Xof) resolveByRole(AlgorithmKind.XOF, expression);
         } catch (UnregisteredAlgorithmException e) {
             return new PlaceholderXof();
         }
@@ -410,7 +393,7 @@ public final class CryptoProvider {
 
     public static KEM kem(String expression) {
         try {
-            return (KEM) resolveByRole(KEM.class, expression);
+            return (KEM) resolveByRole(AlgorithmKind.KEM, expression);
         } catch (UnregisteredAlgorithmException e) {
             return new PlaceholderKem();
         }
@@ -418,19 +401,19 @@ public final class CryptoProvider {
 
     public static AsymmetricCipher asymmetricStreamCipher(String expression) {
         try {
-            return (AsymmetricCipher) resolveByRole(AsymmetricCipher.class, expression);
+            return (AsymmetricCipher) resolveByRole(AlgorithmKind.ASYMMETRIC_CIPHER, expression);
         } catch (UnregisteredAlgorithmException e) {
             return new BufferedAsymmetricBlockCipher(asymmetricCipher(expression));
         }
     }
 
     public static BlockCipherPadding blockCipherPadding(String expression) {
-        return (BlockCipherPadding) resolveByRole(BlockCipherPadding.class, expression);
+        return (BlockCipherPadding) resolveByRole(AlgorithmKind.BLOCK_CIPHER_PADDING, expression);
     }
 
     public static EntropySource entropySource(String expression) {
         try {
-            return (EntropySource) resolveByRole(EntropySource.class, expression);
+            return (EntropySource) resolveByRole(AlgorithmKind.ENTROPY_SOURCE, expression);
         } catch (UnregisteredAlgorithmException e) {
             return new SecureRandomEntropySource();
         }
@@ -444,19 +427,19 @@ public final class CryptoProvider {
                                         byte[] personalizationString) {
         CheckUtil.notEmpty(hmacAlgorithm, "HMAC algorithm name cannot be empty");
         // 按 HMAC 算法名构造 HMAC_DRBG（支持裸名如 "HmacSHA256" 或 DSL 形式 "HMac(SHA-256)"）。
-        // SP80090DRBG 角色本身不注册具体实现，故直接以 HMAC 算法解析，避免在类型化查询中
-        // 跨角色拾取到不兼容类型。
+        // SP80090DRBG 族本身不注册具体实现，故直接以 HMAC 算法解析，避免在类型化查询中
+        // 跨族拾取到不兼容类型。
         return new HMacDrbg(mac(hmacAlgorithm), new SecureRandomEntropySource(),
                 securityStrengthBits, personalizationString);
     }
 
     // ── 查询已注册算法名 ──
 
-    /** @return 所有已注册的 DSL 名称（不可变，跨所有角色合并） */
+    /** @return 所有已注册的 DSL 名称（不可变，跨所有算法族合并） */
     public static Set<String> registeredAlgorithms() {
         var result = new java.util.HashSet<String>();
-        for (Map<String, List<Entry>> roleMap : ROLES.values()) {
-            result.addAll(roleMap.keySet());
+        for (Map<String, List<Entry>> familyMap : ROLES.values()) {
+            result.addAll(familyMap.keySet());
         }
         return Collections.unmodifiableSet(result);
     }

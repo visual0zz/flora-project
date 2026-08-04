@@ -43,7 +43,7 @@ public final class JdkAsymmetricBlockCipher implements AsymmetricBlockCipher {
         return new JdkAsymmetricBlockCipher(algorithm);
     }
 
-    private static final java.util.Set<String> SUPPORTED = java.util.Set.of("RSA");
+    public static final java.util.Set<String> SUPPORTED = java.util.Set.of("RSA");
 
     @Override
     public java.util.Set<String> supportedAlgorithms() {

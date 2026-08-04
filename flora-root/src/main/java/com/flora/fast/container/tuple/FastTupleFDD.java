@@ -24,6 +24,7 @@ public final class FastTupleFDD implements Serializable, Cloneable, Comparable<F
     private final double v2;
     /** 第3个元素 */
     private final double v3;
+
     /**
      * 创建一个包含指定原始类型元素的快速元组。
      *
@@ -55,6 +56,7 @@ public final class FastTupleFDD implements Serializable, Cloneable, Comparable<F
      * @return 第3个元素
      */
     public double getD2() { return v3; }
+
     /**
      * 返回此快速元组的浅拷贝。
      * <p>元组不可变，直接返回自身（等价实例可安全共享）。</p>
@@ -96,7 +98,8 @@ public final class FastTupleFDD implements Serializable, Cloneable, Comparable<F
         if (!(o instanceof FastTupleFDD that)) return false;
         return Float.compare(this.v1, that.v1) == 0
             && Double.compare(this.v2, that.v2) == 0
-            && Double.compare(this.v3, that.v3) == 0;
+            && Double.compare(this.v3, that.v3) == 0
+;
     }
 
     /**

@@ -62,7 +62,6 @@ public class Object2DoubleFastHashMap
         this.minCapacity = capacity;
     }
 
-    
     // --- raw methods for Object-key + primitive-value ---
 
     /** 是否包含指定键。 */
@@ -171,7 +170,7 @@ public class Object2DoubleFastHashMap
         return removeRaw(key);
     }
 
-    
+
     /** 清空映射。 */
     public void clear() {
         Arrays.fill(keys, null);
@@ -293,7 +292,6 @@ public class Object2DoubleFastHashMap
             if (!(o instanceof Map.Entry)) return false;
             Map.Entry<Object, Double> e = (Map.Entry<Object, Double>) o;
             Object k = e.getKey();
-            
             Object kk = (Object) (Object) k;
             if (!containsKey(kk)) return false;
             double v = get(kk);
@@ -305,7 +303,6 @@ public class Object2DoubleFastHashMap
             if (!(o instanceof Map.Entry)) return false;
             Map.Entry<Object, Double> e = (Map.Entry<Object, Double>) o;
             Object k = e.getKey();
-            
             Object kk = (Object) (Object) k;
             if (!containsKey(kk)) return false;
             double v = get(kk);

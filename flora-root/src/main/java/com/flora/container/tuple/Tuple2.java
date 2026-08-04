@@ -53,6 +53,7 @@ public final class Tuple2<T1,T2> extends Tuple {
      * @return 第二个元素
      */
     public T2 getRight() { return getV2(); }
+
     /**
      * 返回此元组的浅拷贝。
      *

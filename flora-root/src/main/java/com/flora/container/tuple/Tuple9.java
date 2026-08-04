@@ -97,6 +97,7 @@ public final class Tuple9<T1,T2,T3,T4,T5,T6,T7,T8,T9> extends Tuple {
      * @return 第 9 个元素
      */
     public T9 getV9() { return (T9)getVn(9); }
+
     /**
      * 返回此元组的浅拷贝。
      *

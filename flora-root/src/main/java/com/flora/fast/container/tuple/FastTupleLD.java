@@ -22,6 +22,7 @@ public final class FastTupleLD implements Serializable, Cloneable, Comparable<Fa
     private final long v1;
     /** 第2个元素 */
     private final double v2;
+
     /**
      * 创建一个包含指定原始类型元素的快速元组。
      *
@@ -45,6 +46,7 @@ public final class FastTupleLD implements Serializable, Cloneable, Comparable<Fa
      * @return 第2个元素
      */
     public double getD1() { return v2; }
+
     /**
      * 返回此快速元组的浅拷贝。
      * <p>元组不可变，直接返回自身（等价实例可安全共享）。</p>
@@ -83,7 +85,8 @@ public final class FastTupleLD implements Serializable, Cloneable, Comparable<Fa
         if (this == o) return true;
         if (!(o instanceof FastTupleLD that)) return false;
         return this.v1 == that.v1
-            && Double.compare(this.v2, that.v2) == 0;
+            && Double.compare(this.v2, that.v2) == 0
+;
     }
 
     /**

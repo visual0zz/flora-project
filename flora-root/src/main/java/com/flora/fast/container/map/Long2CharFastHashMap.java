@@ -183,6 +183,7 @@ public class Long2CharFastHashMap
         if (!containsKey(kk)) return null;
         return remove(kk);
     }
+
     /** 清空映射。 */
     public void clear() {
         Arrays.fill(keys, 0L);
@@ -304,9 +305,7 @@ public class Long2CharFastHashMap
             if (!(o instanceof Map.Entry)) return false;
             Map.Entry<Long, Character> e = (Map.Entry<Long, Character>) o;
             Object k = e.getKey();
-            
             if (!(k instanceof Long)) return false;
-            
             long kk = (long) (Long) k;
             if (!containsKey(kk)) return false;
             char v = get(kk);
@@ -318,9 +317,7 @@ public class Long2CharFastHashMap
             if (!(o instanceof Map.Entry)) return false;
             Map.Entry<Long, Character> e = (Map.Entry<Long, Character>) o;
             Object k = e.getKey();
-            
             if (!(k instanceof Long)) return false;
-            
             long kk = (long) (Long) k;
             if (!containsKey(kk)) return false;
             char v = get(kk);

@@ -18,6 +18,7 @@
 }
 @Path{ concat(javaPackageToPath(pkg), "/FastTuple", concatField(T, "letter"), ".java") }
 </#meta>
+
 package ${pkg};
 
 import com.flora.tag.ReadOnly;
@@ -111,10 +112,12 @@ public final class FastTuple${concatField(T, "letter")} implements Serializable,
         return this.v1 == that.v1
 </#if>
 <#for i:range(2, length(T))>
-<#if T[minus(i, 1)].cmp notEquals false>
+    <#if T[minus(i, 1)].cmp notEquals false>
             && ${T[minus(i, 1)].cmp}(this.v${i}, that.v${i}) == 0
-<#else>
-            && this.v${i} == that.v${i}</#if></#for>;
+    <#else>
+            && this.v${i} == that.v${i}
+    </#if>
+</#for>;
     }
 
     /**

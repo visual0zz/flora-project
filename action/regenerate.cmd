@@ -4,8 +4,8 @@ cd "$(dirname "$0")/.." || exit 1
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
 
-printf '%b\n' "${CYAN}[1/2] Building code generator, plugin, and osmetes lib ...${NC}"
-if ./mvnw -s addition/config/settings.xml install -DskipTests -pl flora-ramet,plugins/maven-plugins/flora-ramet-plugin,flora-osmetes -am -q -P'!osmetes-check'; then
+printf '%b\n' "${CYAN}[1/2] Building code generator and plugin ...${NC}"
+if ./mvnw -s addition/config/settings.xml install -DskipTests -pl flora-ramet,plugins/maven-plugins/flora-ramet-plugin -am -q -P'!osmetes-check'; then
   printf '%b\n' "${GREEN}    \xe2\x9c\x93 done${NC}"
 else
   printf '%b\n' "${RED}    \xe2\x9c\x97 failed${NC}"
@@ -13,11 +13,6 @@ else
 fi
 
 printf '%b\n' "${CYAN}[2/2] Generating sources from templates ...${NC}"
-# Only flora-root contains ramet templates; use explicit -pl instead of
-# excluding all modules, so the flora aggregator won't try to resolve the
-# not-yet-packaged flora-garden jar during generate-sources.
-# Disable osmetes-check too: generate-sources lifecycle starts at validate, where
-# osmetes-check auto-activates and would run before codegen. Match step 1's opt-out.
 if ./mvnw -s addition/config/settings.xml generate-sources -Pregenerate -P'!osmetes-check' -pl flora-root -q; then
   printf '%b\n' "${GREEN}    \xe2\x9c\x93 All files generated successfully!${NC}"
 else
@@ -31,14 +26,9 @@ exit 0
 setlocal
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 cd /d "%~dp0.." || exit /b 1
-echo %ESC%[36m[1/2] Building code generator, plugin, and osmetes lib ...%ESC%[0m
-call mvnw -s addition/config/settings.xml install -DskipTests -pl flora-ramet,plugins/maven-plugins/flora-ramet-plugin,flora-osmetes -am -q -P!osmetes-check || (echo %ESC%[31m    FAILED: failed%ESC%[0m & exit /b 1)
+echo %ESC%[36m[1/2] Building code generator and plugin ...%ESC%[0m
+call mvnw -s addition/config/settings.xml install -DskipTests -pl flora-ramet,plugins/maven-plugins/flora-ramet-plugin -am -q -P!osmetes-check || (echo %ESC%[31m    FAILED: failed%ESC%[0m & exit /b 1)
 echo %ESC%[32m    OK: done%ESC%[0m
 echo %ESC%[36m[2/2] Generating sources from templates ...%ESC%[0m
-rem Only flora-root has ramet templates; use explicit -pl instead of excluding
-rem all modules, so the flora aggregator doesn't try to resolve the not-yet-
-rem packaged flora-garden jar during generate-sources.
-rem Disable osmetes-check too: generate-sources lifecycle starts at validate,
-rem where osmetes-check auto-activates and would run before codegen.
 call mvnw -s addition/config/settings.xml generate-sources -Pregenerate -P!osmetes-check -pl flora-root -q || (echo %ESC%[31m    FAILED: Some code generation tasks failed%ESC%[0m & exit /b 1)
 echo %ESC%[32m    OK: All files generated successfully!%ESC%[0m

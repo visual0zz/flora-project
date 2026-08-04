@@ -81,6 +81,7 @@ public final class Tuple7<T1,T2,T3,T4,T5,T6,T7> extends Tuple {
      * @return 第 7 个元素
      */
     public T7 getV7() { return (T7)getVn(7); }
+
     /**
      * 返回此元组的浅拷贝。
      *

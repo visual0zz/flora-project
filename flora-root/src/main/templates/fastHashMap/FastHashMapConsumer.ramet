@@ -16,6 +16,7 @@
 }
 @Path{ concat(javaPackageToPath(package), "/", K.name, "2", V.name, "Consumer.java") }
 </#meta>
+
 package ${package};
 
 /**

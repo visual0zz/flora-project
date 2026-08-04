@@ -65,6 +65,7 @@ public final class Tuple5<T1,T2,T3,T4,T5> extends Tuple {
      * @return 第 5 个元素
      */
     public T5 getV5() { return (T5)getVn(5); }
+
     /**
      * 返回此元组的浅拷贝。
      *

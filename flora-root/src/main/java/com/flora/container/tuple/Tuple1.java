@@ -39,6 +39,7 @@ public final class Tuple1<T1> extends Tuple {
      * @return 元素值
      */
     public T1 getValue() { return getV1(); }
+
     /**
      * 返回此元组的浅拷贝。
      *

@@ -67,6 +67,7 @@ public final class Tuple3<T1,T2,T3> extends Tuple {
      * @return 第三个元素
      */
     public T3 getRight() { return getV3(); }
+
     /**
      * 返回此元组的浅拷贝。
      *

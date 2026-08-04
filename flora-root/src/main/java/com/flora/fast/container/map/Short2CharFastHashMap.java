@@ -183,6 +183,7 @@ public class Short2CharFastHashMap
         if (!containsKey(kk)) return null;
         return remove(kk);
     }
+
     /** 清空映射。 */
     public void clear() {
         Arrays.fill(keys, (short)0);
@@ -304,9 +305,7 @@ public class Short2CharFastHashMap
             if (!(o instanceof Map.Entry)) return false;
             Map.Entry<Short, Character> e = (Map.Entry<Short, Character>) o;
             Object k = e.getKey();
-            
             if (!(k instanceof Short)) return false;
-            
             short kk = (short) (Short) k;
             if (!containsKey(kk)) return false;
             char v = get(kk);
@@ -318,9 +317,7 @@ public class Short2CharFastHashMap
             if (!(o instanceof Map.Entry)) return false;
             Map.Entry<Short, Character> e = (Map.Entry<Short, Character>) o;
             Object k = e.getKey();
-            
             if (!(k instanceof Short)) return false;
-            
             short kk = (short) (Short) k;
             if (!containsKey(kk)) return false;
             char v = get(kk);

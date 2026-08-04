@@ -121,6 +121,7 @@ public final class Tuple12<T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12> extends Tuple
      * @return 第 12 个元素
      */
     public T12 getV12() { return (T12)getVn(12); }
+
     /**
      * 返回此元组的浅拷贝。
      *

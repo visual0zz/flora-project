@@ -18,6 +18,7 @@
 }
 @Path{ concat(javaPackageToPath(pkg), "/FastTuple.java") }
 </#meta>
+
 package ${pkg};
 
 public final class FastTuple {

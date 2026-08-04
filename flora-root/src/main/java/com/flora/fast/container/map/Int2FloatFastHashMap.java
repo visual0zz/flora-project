@@ -183,6 +183,7 @@ public class Int2FloatFastHashMap
         if (!containsKey(kk)) return null;
         return remove(kk);
     }
+
     /** 清空映射。 */
     public void clear() {
         Arrays.fill(keys, 0);
@@ -304,9 +305,7 @@ public class Int2FloatFastHashMap
             if (!(o instanceof Map.Entry)) return false;
             Map.Entry<Integer, Float> e = (Map.Entry<Integer, Float>) o;
             Object k = e.getKey();
-            
             if (!(k instanceof Integer)) return false;
-            
             int kk = (int) (Integer) k;
             if (!containsKey(kk)) return false;
             float v = get(kk);
@@ -318,9 +317,7 @@ public class Int2FloatFastHashMap
             if (!(o instanceof Map.Entry)) return false;
             Map.Entry<Integer, Float> e = (Map.Entry<Integer, Float>) o;
             Object k = e.getKey();
-            
             if (!(k instanceof Integer)) return false;
-            
             int kk = (int) (Integer) k;
             if (!containsKey(kk)) return false;
             float v = get(kk);

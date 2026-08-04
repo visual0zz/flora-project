@@ -5,6 +5,7 @@
 }
 @Path{ concat(pathPrefix, "/Tuple.java") }
 </#meta>
+
 package ${pkg};
 
 import com.flora.tag.ReadOnly;

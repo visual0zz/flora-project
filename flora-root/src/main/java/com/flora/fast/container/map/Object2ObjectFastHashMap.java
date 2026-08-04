@@ -62,7 +62,6 @@ public class Object2ObjectFastHashMap
         this.minCapacity = capacity;
     }
 
-    
     // --- Object == K, Object == V: existing methods are valid Map overrides ---
 
     /** 是否包含指定键。 */
@@ -150,7 +149,7 @@ public class Object2ObjectFastHashMap
         }
         return defaultReturnValue;
     }
-    
+
     /** 清空映射。 */
     public void clear() {
         Arrays.fill(keys, null);
@@ -272,7 +271,6 @@ public class Object2ObjectFastHashMap
             if (!(o instanceof Map.Entry)) return false;
             Map.Entry<Object, Object> e = (Map.Entry<Object, Object>) o;
             Object k = e.getKey();
-            
             Object kk = (Object) (Object) k;
             if (!containsKey(kk)) return false;
             Object v = get(kk);
@@ -284,7 +282,6 @@ public class Object2ObjectFastHashMap
             if (!(o instanceof Map.Entry)) return false;
             Map.Entry<Object, Object> e = (Map.Entry<Object, Object>) o;
             Object k = e.getKey();
-            
             Object kk = (Object) (Object) k;
             if (!containsKey(kk)) return false;
             Object v = get(kk);

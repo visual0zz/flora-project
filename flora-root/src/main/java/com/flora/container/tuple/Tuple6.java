@@ -73,6 +73,7 @@ public final class Tuple6<T1,T2,T3,T4,T5,T6> extends Tuple {
      * @return 第 6 个元素
      */
     public T6 getV6() { return (T6)getVn(6); }
+
     /**
      * 返回此元组的浅拷贝。
      *

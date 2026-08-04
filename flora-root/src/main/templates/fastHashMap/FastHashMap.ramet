@@ -41,6 +41,7 @@
 }
 @Path{ concat(javaPackageToPath(package), "/", K.name, "2", V.name, "FastHashMap.java") }
 </#meta>
+
 package ${package};
 
 import com.flora.tag.ThreadFragile;

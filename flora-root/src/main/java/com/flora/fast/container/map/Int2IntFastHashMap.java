@@ -183,6 +183,7 @@ public class Int2IntFastHashMap
         if (!containsKey(kk)) return null;
         return remove(kk);
     }
+
     /** 清空映射。 */
     public void clear() {
         Arrays.fill(keys, 0);
@@ -304,9 +305,7 @@ public class Int2IntFastHashMap
             if (!(o instanceof Map.Entry)) return false;
             Map.Entry<Integer, Integer> e = (Map.Entry<Integer, Integer>) o;
             Object k = e.getKey();
-            
             if (!(k instanceof Integer)) return false;
-            
             int kk = (int) (Integer) k;
             if (!containsKey(kk)) return false;
             int v = get(kk);
@@ -318,9 +317,7 @@ public class Int2IntFastHashMap
             if (!(o instanceof Map.Entry)) return false;
             Map.Entry<Integer, Integer> e = (Map.Entry<Integer, Integer>) o;
             Object k = e.getKey();
-            
             if (!(k instanceof Integer)) return false;
-            
             int kk = (int) (Integer) k;
             if (!containsKey(kk)) return false;
             int v = get(kk);

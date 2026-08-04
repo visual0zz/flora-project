@@ -24,6 +24,7 @@ public final class FastTupleILF implements Serializable, Cloneable, Comparable<F
     private final long v2;
     /** 第3个元素 */
     private final float v3;
+
     /**
      * 创建一个包含指定原始类型元素的快速元组。
      *
@@ -55,6 +56,7 @@ public final class FastTupleILF implements Serializable, Cloneable, Comparable<F
      * @return 第3个元素
      */
     public float getF1() { return v3; }
+
     /**
      * 返回此快速元组的浅拷贝。
      * <p>元组不可变，直接返回自身（等价实例可安全共享）。</p>
@@ -96,7 +98,8 @@ public final class FastTupleILF implements Serializable, Cloneable, Comparable<F
         if (!(o instanceof FastTupleILF that)) return false;
         return this.v1 == that.v1
             && this.v2 == that.v2
-            && Float.compare(this.v3, that.v3) == 0;
+            && Float.compare(this.v3, that.v3) == 0
+;
     }
 
     /**

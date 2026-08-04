@@ -171,6 +171,15 @@ public final class SecretCheck extends LineCheck {
                             + "blowfish|rc4|chacha20|poly1305|argon2\\w*|scrypt|bcrypt|"
                             + "base64|utf|iso|pkcs|x509)"
                             + "[a-z0-9]*(?:with[a-z0-9]+)*(?:[/_-][a-z0-9]+)*"),
+            // 密码学算法名 + 尾部自然语言描述（如错误消息 "pbeWithMD2AndDES-CBC unsupported"）：
+            // 纯 crypto-algorithm 无法吞掉尾部英文单词，这里放宽允许空格分隔的后续词组，
+            // 同时增加 pbe\w+ 覆盖 PKCS#8 的 PBE 算法标识符。
+            new KnownFormat("crypto-algorithm-message",
+                    "(?i)(?:pbkdf2|hmac|aes|des|3des|rsa|dsa|ecdsa|ecdh|ec|sha\\d*|md5|"
+                            + "blowfish|rc4|chacha20|poly1305|argon2\\w*|scrypt|bcrypt|"
+                            + "base64|utf|iso|pkcs|x509|pbe\\w+)"
+                            + "[a-z0-9]*(?:with[a-z0-9]+)*(?:[/_-][a-z0-9]+)*"
+                            + "(?:\\s+\\w+)*"),
 
             // ── 其他常规结构 ──
             new KnownFormat("locale", "[a-z]{2,3}(?:[_-][A-Za-z]{2,4}){1,2}"),

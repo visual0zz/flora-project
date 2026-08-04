@@ -120,6 +120,6 @@ class RametTest {
 
         CodeGenException ex = assertThrows(CodeGenException.class,
                 () -> Ramet.run(tplDir, fs.getPath("/out"), false));
-        assertTrue(ex.getMessage().contains("大小写不敏感碰撞"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("路径已被其他模板输出占用（不区分大小写）"), ex.getMessage());
     }
 }

@@ -70,12 +70,18 @@ enum BuiltinFunc {
         String s = requireStr("capitalize", args.get(0).eval());
         return s.isEmpty() ? s : Character.toUpperCase(s.charAt(0)) + s.substring(1);
     })),
-    LOWERCASE(fn("lowercase", 1, args ->
-            requireStr("lowercase", args.get(0).eval()).toLowerCase())),
-    UPPERCASE(fn("uppercase", 1, args ->
-            requireStr("uppercase", args.get(0).eval()).toUpperCase())),
+    LOWERCASE(fn("lowercase", 1, args -> {
+        Object v = args.get(0).eval();
+        return v == null ? null : v.toString().toLowerCase();
+    })),
+    UPPERCASE(fn("uppercase", 1, args -> {
+        Object v = args.get(0).eval();
+        return v == null ? null : v.toString().toUpperCase();
+    })),
     JAVA_STRING(fn("javaString", 1, args -> {
-        String s = requireStr("javaString", args.get(0).eval());
+        Object v = args.get(0).eval();
+        if (v == null) return "null";
+        String s = v.toString();
         return "\"" + s.replace("\\", "\\\\")
                 .replace("\"", "\\\"")
                 .replace("\n", "\\n")
@@ -89,13 +95,19 @@ enum BuiltinFunc {
         }
         return sb.toString();
     })),
-    CONTAINS(fn("contains", 2, args ->
-            requireStr("contains", args.get(0).eval()).contains(requireStr("contains", args.get(1).eval())))),
+    CONTAINS(fn("contains", 2, args -> {
+        Object target = args.get(0).eval();
+        return target == null ? Boolean.FALSE
+                : target.toString().contains(requireStr("contains", args.get(1).eval()));
+    })),
     REPLACE(fn("replace", 3, args ->
             requireStr("replace", args.get(0).eval()).replace(
                     requireStr("replace", args.get(1).eval()), requireStr("replace", args.get(2).eval())))),
-    STARTS_WITH(fn("startsWith", 2, args ->
-            requireStr("startsWith", args.get(0).eval()).startsWith(requireStr("startsWith", args.get(1).eval())))),
+    STARTS_WITH(fn("startsWith", 2, args -> {
+        Object target = args.get(0).eval();
+        return target == null ? Boolean.FALSE
+                : target.toString().startsWith(requireStr("startsWith", args.get(1).eval()));
+    })),
     REPEAT(fn("repeat", 2, args ->
             requireStr("repeat", args.get(0).eval()).repeat(((Number) args.get(1).eval()).intValue()))),
     JOIN(fn("join", -1, BuiltinFunc::joinImpl)),

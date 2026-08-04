@@ -1,17 +1,25 @@
 package com.flora.crypto.core;
 import com.flora.crypto.core.combinator.PaddedAsymmetricBlockCipher;
+import com.flora.crypto.core.combinator.PaddedBufferedBlockCipher;
 import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;
+import com.flora.crypto.core.interfaces.provider.BlockCipher;
 import com.flora.crypto.core.keypair.AsymmetricKeyParameter;
 import com.flora.crypto.core.param.KeyParameter;
 import com.flora.crypto.core.param.ParametersWithIV;
 
+import com.flora.crypto.core.mode.CBCBlockCipher;
+import com.flora.crypto.core.mode.CFBBlockCipher;
 import com.flora.crypto.core.mode.GCMBlockCipher;
+import com.flora.crypto.core.mode.OFBBlockCipher;
+import com.flora.crypto.core.mode.SICBlockCipher;
 import com.flora.crypto.core.padding.OAEPPadding;
 import com.flora.crypto.core.padding.PKCS1v15Padding;
+import com.flora.crypto.core.padding.PKCS7Padding;
 import org.junit.jupiter.api.Test;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.OAEPParameterSpec;
 import javax.crypto.spec.PSource;
 import javax.crypto.spec.SecretKeySpec;
@@ -235,6 +243,198 @@ class CryptoJdkCrossTest {
                 new OAEPPadding(CryptoProvider.digest("SHA-256")));
         dec.init(false, new AsymmetricKeyParameter(kp.getPrivate()));
         byte[] recovered = dec.processBlock(cipherText, 0, cipherText.length);
+
+        assertArrayEquals(plain, recovered);
+    }
+
+    // ── CBC：自研加密 → JDK 解密 ──
+
+    @Test
+    void cbcFloraEncryptJdkDecrypt() throws Exception {
+        byte[] key = randomBytes(16);
+        byte[] iv = randomBytes(16);
+        byte[] plain = randomBytes(32); // 块对齐
+
+        CBCBlockCipher enc = new CBCBlockCipher(CryptoProvider.blockCipher("AES"));
+        enc.init(true, new ParametersWithIV(new KeyParameter(key), iv));
+        byte[] ct = enc.process(plain);
+
+        Cipher jdk = Cipher.getInstance("AES/CBC/NoPadding");
+        jdk.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
+        byte[] recovered = jdk.doFinal(ct);
+
+        assertArrayEquals(plain, recovered);
+    }
+
+    // ── CBC：JDK 加密 → 自研解密 ──
+
+    @Test
+    void cbcJdkEncryptFloraDecrypt() throws Exception {
+        byte[] key = randomBytes(16);
+        byte[] iv = randomBytes(16);
+        byte[] plain = randomBytes(48);
+
+        Cipher jdk = Cipher.getInstance("AES/CBC/NoPadding");
+        jdk.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
+        byte[] ct = jdk.doFinal(plain);
+
+        CBCBlockCipher dec = new CBCBlockCipher(CryptoProvider.blockCipher("AES"));
+        dec.init(false, new ParametersWithIV(new KeyParameter(key), iv));
+        byte[] recovered = dec.process(ct);
+
+        assertArrayEquals(plain, recovered);
+    }
+
+    // ── CFB：自研加密 → JDK 解密 ──
+
+    @Test
+    void cfbFloraEncryptJdkDecrypt() throws Exception {
+        byte[] key = randomBytes(16);
+        byte[] iv = randomBytes(16);
+        byte[] plain = randomBytes(32);
+
+        CFBBlockCipher enc = new CFBBlockCipher(CryptoProvider.blockCipher("AES"));
+        enc.init(true, new ParametersWithIV(new KeyParameter(key), iv));
+        byte[] ct = enc.process(plain);
+
+        Cipher jdk = Cipher.getInstance("AES/CFB128/NoPadding");
+        jdk.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
+        byte[] recovered = jdk.doFinal(ct);
+
+        assertArrayEquals(plain, recovered);
+    }
+
+    // ── CFB：JDK 加密 → 自研解密 ──
+
+    @Test
+    void cfbJdkEncryptFloraDecrypt() throws Exception {
+        byte[] key = randomBytes(16);
+        byte[] iv = randomBytes(16);
+        byte[] plain = randomBytes(48);
+
+        Cipher jdk = Cipher.getInstance("AES/CFB128/NoPadding");
+        jdk.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
+        byte[] ct = jdk.doFinal(plain);
+
+        CFBBlockCipher dec = new CFBBlockCipher(CryptoProvider.blockCipher("AES"));
+        dec.init(false, new ParametersWithIV(new KeyParameter(key), iv));
+        byte[] recovered = dec.process(ct);
+
+        assertArrayEquals(plain, recovered);
+    }
+
+    // ── OFB：自研加密 → JDK 解密 ──
+
+    @Test
+    void ofbFloraEncryptJdkDecrypt() throws Exception {
+        byte[] key = randomBytes(16);
+        byte[] iv = randomBytes(16);
+        byte[] plain = randomBytes(32);
+
+        OFBBlockCipher enc = new OFBBlockCipher(CryptoProvider.blockCipher("AES"));
+        enc.init(true, new ParametersWithIV(new KeyParameter(key), iv));
+        byte[] ct = enc.process(plain);
+
+        Cipher jdk = Cipher.getInstance("AES/OFB/NoPadding");
+        jdk.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
+        byte[] recovered = jdk.doFinal(ct);
+
+        assertArrayEquals(plain, recovered);
+    }
+
+    // ── OFB：JDK 加密 → 自研解密 ──
+
+    @Test
+    void ofbJdkEncryptFloraDecrypt() throws Exception {
+        byte[] key = randomBytes(16);
+        byte[] iv = randomBytes(16);
+        byte[] plain = randomBytes(48);
+
+        Cipher jdk = Cipher.getInstance("AES/OFB/NoPadding");
+        jdk.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
+        byte[] ct = jdk.doFinal(plain);
+
+        OFBBlockCipher dec = new OFBBlockCipher(CryptoProvider.blockCipher("AES"));
+        dec.init(false, new ParametersWithIV(new KeyParameter(key), iv));
+        byte[] recovered = dec.process(ct);
+
+        assertArrayEquals(plain, recovered);
+    }
+
+    // ── CTR(SIC)：自研加密 → JDK 解密 ──
+
+    @Test
+    void ctrFloraEncryptJdkDecrypt() throws Exception {
+        byte[] key = randomBytes(16);
+        byte[] iv = randomBytes(16);
+        byte[] plain = randomBytes(32);
+
+        SICBlockCipher enc = new SICBlockCipher(CryptoProvider.blockCipher("AES"));
+        enc.init(true, new ParametersWithIV(new KeyParameter(key), iv));
+        byte[] ct = enc.process(plain);
+
+        Cipher jdk = Cipher.getInstance("AES/CTR/NoPadding");
+        jdk.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
+        byte[] recovered = jdk.doFinal(ct);
+
+        assertArrayEquals(plain, recovered);
+    }
+
+    // ── CTR(SIC)：JDK 加密 → 自研解密 ──
+
+    @Test
+    void ctrJdkEncryptFloraDecrypt() throws Exception {
+        byte[] key = randomBytes(16);
+        byte[] iv = randomBytes(16);
+        byte[] plain = randomBytes(48);
+
+        Cipher jdk = Cipher.getInstance("AES/CTR/NoPadding");
+        jdk.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
+        byte[] ct = jdk.doFinal(plain);
+
+        SICBlockCipher dec = new SICBlockCipher(CryptoProvider.blockCipher("AES"));
+        dec.init(false, new ParametersWithIV(new KeyParameter(key), iv));
+        byte[] recovered = dec.process(ct);
+
+        assertArrayEquals(plain, recovered);
+    }
+
+    // ── PKCS7 + CBC：自研加密 → JDK 解密 ──
+
+    @Test
+    void pkcs7FloraEncryptJdkDecrypt() throws Exception {
+        byte[] key = randomBytes(16);
+        byte[] iv = randomBytes(16);
+        byte[] plain = randomBytes(40); // 非块对齐，触发填充
+
+        BlockCipher cbc = new CBCBlockCipher(CryptoProvider.blockCipher("AES"));
+        PaddedBufferedBlockCipher enc = new PaddedBufferedBlockCipher(cbc, new PKCS7Padding());
+        enc.init(true, new ParametersWithIV(new KeyParameter(key), iv));
+        byte[] ct = enc.process(plain);
+
+        Cipher jdk = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        jdk.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
+        byte[] recovered = jdk.doFinal(ct);
+
+        assertArrayEquals(plain, recovered);
+    }
+
+    // ── PKCS7 + CBC：JDK 加密 → 自研解密 ──
+
+    @Test
+    void pkcs7JdkEncryptFloraDecrypt() throws Exception {
+        byte[] key = randomBytes(16);
+        byte[] iv = randomBytes(16);
+        byte[] plain = randomBytes(25);
+
+        Cipher jdk = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        jdk.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
+        byte[] ct = jdk.doFinal(plain);
+
+        BlockCipher cbc = new CBCBlockCipher(CryptoProvider.blockCipher("AES"));
+        PaddedBufferedBlockCipher dec = new PaddedBufferedBlockCipher(cbc, new PKCS7Padding());
+        dec.init(false, new ParametersWithIV(new KeyParameter(key), iv));
+        byte[] recovered = dec.process(ct);
 
         assertArrayEquals(plain, recovered);
     }

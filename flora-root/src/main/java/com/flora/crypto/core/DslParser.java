@@ -26,10 +26,14 @@ final class DslParser {
             throw new IllegalArgumentException("DSL expression cannot be empty");
         }
         expr = expr.trim();
-        int paren = findTopLevelParen(expr);
-        if (paren >= 0) {
-            String name = expr.substring(0, paren).trim();
-            String inner = expr.substring(paren + 1, expr.length() - 1).trim();
+        int open = findTopLevelParen(expr);
+        if (open >= 0) {
+            int close = findMatchingCloseParen(expr, open);
+            String name = expr.substring(0, open).trim();
+            if (name.isEmpty()) {
+                throw new IllegalArgumentException("Missing algorithm name before '(' in: " + expr);
+            }
+            String inner = expr.substring(open + 1, close).trim();
             Object[] args = inner.isEmpty() ? new Object[0] : splitAndResolve(inner);
             return new Invocation(name, args);
         }
@@ -39,11 +43,26 @@ final class DslParser {
         return expr;
     }
 
+    /** 返回首个 {@code '('} 的位置（裸名不含括号，故它必为顶层调用的开括号）。 */
     private static int findTopLevelParen(String expr) {
         for (int i = 0; i < expr.length(); i++) {
             if (expr.charAt(i) == '(') return i;
         }
         return -1;
+    }
+
+    /** 从 {@code open} 处的 {@code '('} 起寻找配对的 {@code ')'}；不平衡则抛清晰错误。 */
+    private static int findMatchingCloseParen(String expr, int open) {
+        int depth = 0;
+        for (int i = open; i < expr.length(); i++) {
+            char c = expr.charAt(i);
+            if (c == '(') depth++;
+            else if (c == ')') {
+                depth--;
+                if (depth == 0) return i;
+            }
+        }
+        throw new IllegalArgumentException("Unbalanced parentheses in DSL expression: " + expr);
     }
 
     private static Object[] splitAndResolve(String s) {

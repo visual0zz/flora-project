@@ -1,7 +1,7 @@
 package com.flora.crypto.core.interfaces.provider;
 
 /**
- * 基于 {@link Mac} 的派生函数子接口（Bouncy Castle 风格）。
+ * 基于 {@link Mac} 的派生函数子接口。
  * <p>如 HKDF-Expand（以 HMAC 为原语）、基于 MAC 的口令派生等。</p>
  */
 public interface MacDerivationFunction extends DerivationFunction {

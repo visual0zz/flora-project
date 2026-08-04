@@ -8,7 +8,7 @@ import com.flora.crypto.core.param.KeyParameter;
 import com.flora.java.CheckUtil;
 
 /**
- * HKDF-Expand（RFC 5869）派生函数，纯 Java 实现，不依赖 JDK/BC。
+ * HKDF-Expand（RFC 5869）派生函数，纯 Java 实现，不依赖 JDK。
  * <p>以任意 {@link Mac}（通常 HMAC）为原语：T(0)=空，T(i)=HMAC(PRK, T(i-1) || info || i)，
  * 循环拼接直至得到所需长度。</p>
  */

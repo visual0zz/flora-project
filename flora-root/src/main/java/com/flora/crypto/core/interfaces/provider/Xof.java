@@ -1,7 +1,7 @@
 package com.flora.crypto.core.interfaces.provider;
 
 /**
- * 可变长输出函数（Extendable-Output Function，XOF）接口（Bouncy Castle 风格）。
+ * 可变长输出函数（Extendable-Output Function，XOF）接口。
  * <p>与定长 {@link Digest} 不同，XOF 可以按调用方需要吐出任意长度的字节，
  * 代表算法：SHAKE128 / SHAKE256、SHA-3 XOF、cSHAKE、KangarooTwelve 等。</p>
  * <p>JDK 的 {@code MessageDigest.doFinal()} 是定长语义，<b>没有</b>「给我 N 字节」的概念槽位，

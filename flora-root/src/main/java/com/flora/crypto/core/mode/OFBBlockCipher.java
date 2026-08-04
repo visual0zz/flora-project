@@ -7,7 +7,7 @@ import com.flora.crypto.core.param.ParametersWithIV;
 import com.flora.java.CheckUtil;
 
 /**
- * OFB 模式（整块 OFB，纯 Java 链式，Bouncy Castle 风格）。
+ * OFB 模式（整块 OFB，纯 Java 链式）。
  * <p>包裹一个原始分组密码，把分组密码变成同步流密码。加密与解密使用完全相同的操作，
  * IV 作为初始状态。{@link #process(byte[])} 要求输入块对齐。</p>
  */

@@ -3,9 +3,9 @@ import com.flora.crypto.core.keypair.AsymmetricCipherKeyPair;
 import com.flora.crypto.core.param.KeyGenerationParameters;
 
 /**
- * 轻量级非对称密钥对生成器接口（Bouncy Castle 风格）。
+ * 轻量级非对称密钥对生成器接口。
  * <p>与 JDK 的 {@code KeyPairGenerator} 解耦：返回本项目的 {@link AsymmetricCipherKeyPair}，
- * 由 {@code JdkAsymmetricKeyPairGenerator} 适配 JDK。适合在 BC 式接口体系内生成密钥。</p>
+ * 由 {@code JdkAsymmetricKeyPairGenerator} 适配 JDK。适合在统一接口体系内生成密钥。</p>
  */
 public interface AsymmetricCipherKeyPairGenerator extends AlgorithmFamily {
 

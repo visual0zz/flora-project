@@ -1,7 +1,7 @@
 package com.flora.crypto.core.interfaces.provider;
 
 /**
- * NIST SP800-90A 确定性随机比特生成器（DRBG）接口（Bouncy Castle 风格）。
+ * NIST SP800-90A 确定性随机比特生成器（DRBG）接口。
  * <p>给定熵源后，可确定性地生成任意长度随机比特，并支持周期性重播种（reseed）。
  * 常见实现：HMAC_DRBG / Hash_DRBG / CTR_DRBG。JDK 无第一等 DRBG 抽象（仅 {@code SecureRandom}），
  * 本项目用 {@code HMacDrbg} 提供纯 Java 实现。</p>

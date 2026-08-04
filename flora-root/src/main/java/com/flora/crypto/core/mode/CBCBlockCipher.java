@@ -7,7 +7,7 @@ import com.flora.crypto.core.param.ParametersWithIV;
 import com.flora.java.CheckUtil;
 
 /**
- * CBC 模式（纯 Java 链式，Bouncy Castle 风格）。
+ * CBC 模式（纯 Java 链式）。
  * <p>包裹一个原始分组密码（如 {@code AES/ECB/NoPadding}），通过 IV 实现密文块链接，
  * 不依赖 JDK 的 {@code "AES/CBC/..."} 变换字符串——这是「对象组合」优于「字符串变换」的示范。</p>
  * <p>注意：本类不做填充，{@link #process(byte[])} 要求输入为块大小整数倍；

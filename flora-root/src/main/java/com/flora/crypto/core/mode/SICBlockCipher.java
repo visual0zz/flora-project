@@ -7,7 +7,7 @@ import com.flora.crypto.core.param.ParametersWithIV;
 import com.flora.java.CheckUtil;
 
 /**
- * SIC 模式（即 CTR 计数器模式，纯 Java 链式，Bouncy Castle 风格）。
+ * SIC 模式（即 CTR 计数器模式，纯 Java 链式）。
  * <p>包裹一个原始分组密码，以 IV 为初始计数器，逐块加密计数器并异或明文。
  * 加密与解密操作相同。{@link #process(byte[])} 要求输入块对齐。</p>
  */

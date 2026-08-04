@@ -243,9 +243,9 @@ public final class CryptoProvider {
         if (parsed instanceof String bareName) {
             return resolveName(bareName, hintRole, new Object[0]);
         }
-        if (parsed instanceof DslParser.Invocation inv) {
-            Object[] args = resolveArgs(inv.args());
-            return resolveName(inv.name(), hintRole, args);
+        if (parsed instanceof DslParser.Invocation(String name, Object[] args1)) {
+            Object[] args = resolveArgs(args1);
+            return resolveName(name, hintRole, args);
         }
         // 字面量直接返回
         return parsed;

@@ -9,7 +9,7 @@ import com.flora.crypto.core.param.Pbkdf2Parameters;
 import com.flora.java.CheckUtil;
 
 /**
- * PBKDF2 口令派生函数（RFC 8018 §5.2），纯 Java 实现，不依赖 JDK/BC。
+ * PBKDF2 口令派生函数（RFC 8018 §5.2），纯 Java 实现，不依赖 JDK。
  * <p>以任意 {@link Mac}（通常 HMAC）为 PRF 迭代：
  * {@code DK = T1 ‖ T2 ‖ ... ‖ Tn}，
  * {@code Ti = U1 ⊕ U2 ⊕ ... ⊕ Uc}，

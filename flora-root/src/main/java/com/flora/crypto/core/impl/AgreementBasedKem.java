@@ -23,7 +23,7 @@ import java.security.interfaces.ECKey;
 import java.security.spec.X509EncodedKeySpec;
 
 /**
- * 基于「密钥协商 + KDF」构造的真实 KEM（Bouncy Castle 风格）。
+ * 基于「密钥协商 + KDF」构造的真实 KEM。
  * <p>封装：生成临时密钥对，用接收方公钥做密钥协商得到共享秘密 Z，再以 HKDF 派生固定长度对称密钥，
  * 把临时公钥编码作为封装密文。解封装：从封装密文重建临时公钥，做相同协商 + 派生，得到同一密钥。
  * 适用于经典曲线（ECDH / X25519 / DH 等）；后量子算法需另实现。</p>

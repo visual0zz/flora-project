@@ -3,9 +3,9 @@ package com.flora.crypto.core.keypair;
 import com.flora.java.CheckUtil;
 
 /**
- * 轻量级非对称密钥对（Bouncy Castle 风格）。
+ * 轻量级非对称密钥对。
  * <p>与 JDK 的 {@code KeyPair} 不同，这里直接持有本项目的 {@link AsymmetricKeyParameter}
- * （公钥/私钥各一份），便于在 BC 式接口体系内流转，无需依赖 {@code java.security.KeyPair}。</p>
+ * （公钥/私钥各一份），便于在接口体系内流转，无需依赖 {@code java.security.KeyPair}。</p>
  */
 public final class AsymmetricCipherKeyPair {
 

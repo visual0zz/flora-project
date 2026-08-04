@@ -2,7 +2,7 @@ package com.flora.crypto.core.interfaces.provider;
 import com.flora.crypto.core.interfaces.CipherParameters;
 
 /**
- * 关联数据认证加密（AEAD）接口（Bouncy Castle 风格）。
+ * 关联数据认证加密（AEAD）接口。
  * <p>在 {@link BlockCipher} 之外额外暴露「关联数据（AAD）」与「认证标签（MAC）」能力，
  * 代表方案：AES-GCM、AES-CCM、ChaCha20-Poly1305。与把 GCM 折叠进 {@code BlockCipher.process}
  * 不同，这里把 {@code processAADBytes} / {@code getMac} 提升为一等成员，使调用方显式控制

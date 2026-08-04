@@ -3,10 +3,10 @@ package com.flora.crypto.core.interfaces.provider;
 import java.security.SecureRandom;
 
 /**
- * 分组密码填充策略接口（Bouncy Castle 风格）。
+ * 分组密码填充策略接口。
  * <p>把「填充」从算法中抽离为可组合的策略对象，配合 {@code PaddedBufferedBlockCipher} 使用。
  * 代表实现：{@code PKCS7Padding}、{@code ISO7816d4Padding}、{@code ZeroBytePadding}。
- * 这是 BC「对象组合」风格的典型——模式、填充都作为可叠加的包装器，而非写死在算法字符串里。</p>
+ * 这是「对象组合」风格的典型——模式、填充都作为可叠加的包装器，而非写死在算法字符串里。</p>
  */
 public interface BlockCipherPadding extends AlgorithmFamily {
 

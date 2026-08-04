@@ -5,7 +5,7 @@ import com.flora.java.CheckUtil;
 import java.security.SecureRandom;
 
 /**
- * 轻量级密钥生成参数（Bouncy Castle 风格）。
+ * 轻量级密钥生成参数。
  * <p>仅描述「强度（位数/字节数）+ 随机数源」，不绑定具体算法，由
  * {@link AsymmetricCipherKeyPairGenerator} 在 {@code init} 时按算法名解析。</p>
  */

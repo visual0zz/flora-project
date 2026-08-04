@@ -7,7 +7,7 @@ import com.flora.crypto.core.param.KdfParameters;
 import com.flora.java.CheckUtil;
 
 /**
- * KDF2（ISO 18033-2）派生函数，纯 Java 实现，不依赖 JDK/BC。
+ * KDF2（ISO 18033-2）派生函数，纯 Java 实现，不依赖 JDK。
  * <p>以任意 {@link Digest} 为原语：K(i) = HASH(Z || Counter(4 字节大端) [|| sharedInfo])，
  * 计数器从 1 开始，循环拼接直至得到所需长度。</p>
  */

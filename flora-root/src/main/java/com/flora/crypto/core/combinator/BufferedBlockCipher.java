@@ -8,9 +8,9 @@ import com.flora.java.CheckUtil;
 import java.io.ByteArrayOutputStream;
 
 /**
- * 分组密码缓冲装饰器（Bouncy Castle 风格）。
+ * 分组密码缓冲装饰器。
  * <p>包装任意 {@link BlockCipher}，缓冲任意长度输入并成块吐出，使底层的「逐块」接口
- * 也能直接处理整段数据。这是 BC 组合模式的典型示范：模式、填充等变化点通过
+ * 也能直接处理整段数据。这是组合模式的典型示范：模式、填充等变化点通过
  * 可叠加的包装器表达，而非放进统一的算法接口。</p>
  * <p>本装饰器只做缓冲，不实现任何加密逻辑。对于 {@code NoPadding} 引擎，要求输入长度为
  * 块大小的整数倍；非对齐数据请改用带填充的 {@link JdkBlockCipher#process(byte[])}。</p>

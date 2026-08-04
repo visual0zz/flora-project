@@ -7,7 +7,7 @@ import com.flora.crypto.core.param.ParametersWithIV;
 import com.flora.java.CheckUtil;
 
 /**
- * CFB 模式（整块 CFB128，纯 Java 链式，Bouncy Castle 风格）。
+ * CFB 模式（整块 CFB128，纯 Java 链式）。
  * <p>包裹一个原始分组密码，把分组密码变成自同步流密码。本实现采用整块反馈，
  * IV 作为初始状态。{@link #process(byte[])} 要求输入块对齐。</p>
  */

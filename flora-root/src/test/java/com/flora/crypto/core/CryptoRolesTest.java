@@ -24,11 +24,11 @@ import com.flora.crypto.core.param.KdfParameters;
 import com.flora.crypto.core.param.KeyGenerationParameters;
 import com.flora.crypto.core.param.KeyParameter;
 import com.flora.crypto.core.param.ParametersWithIV;
+import com.flora.crypto.core.param.Pbkdf2Parameters;
 
 import org.junit.jupiter.api.Test;
 
 import com.flora.crypto.core.impl.HMacDrbg;
-import com.flora.crypto.core.impl.Pbkdf2ParametersGenerator;
 import com.flora.crypto.core.mode.CBCBlockCipher;
 import com.flora.crypto.core.mode.GCMBlockCipher;
 import com.flora.crypto.core.padding.PKCS1v15Padding;
@@ -97,9 +97,10 @@ class CryptoRolesTest {
         byte[] salt = randomBytes(16);
         int iter = 1000;
 
-        PBEParametersGenerator pbe = new Pbkdf2ParametersGenerator(CryptoProvider.mac("HmacSHA256"));
-        pbe.init(pw, salt, iter);
-        byte[] derived = ((KeyParameter) pbe.generateDerivedParameters(256)).getKey();
+        DerivationFunction pbkdf2 = CryptoProvider.derivationFunction("PBKDF2");
+        pbkdf2.init(new Pbkdf2Parameters(pw, salt, iter));
+        byte[] derived = new byte[32];
+        pbkdf2.generateBytes(derived, 0, 32);
 
         SecretKeyFactory sf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
         PBEKeySpec spec = new PBEKeySpec(new String(pw).toCharArray(), salt, iter, 256);

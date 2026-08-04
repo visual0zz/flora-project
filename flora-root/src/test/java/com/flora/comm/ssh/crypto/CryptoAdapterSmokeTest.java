@@ -1,4 +1,4 @@
-package com.flora.ssh.crypto;
+package com.flora.comm.ssh.crypto;
 
 import com.flora.comm.ssh.Buffer;
 import com.flora.comm.ssh.Cipher;
@@ -6,7 +6,6 @@ import com.flora.comm.ssh.DH;
 import com.flora.comm.ssh.HASH;
 import com.flora.comm.ssh.SignatureEdDSA;
 import com.flora.comm.ssh.SignatureRSA;
-import com.flora.comm.ssh.crypto.*;
 import com.flora.crypto.core.keypair.AsymmetricKeyParameter;
 import com.flora.crypto.core.bridge.JdkKem;
 import com.flora.crypto.core.bridge.JdkKeyPairGenerator;

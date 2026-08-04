@@ -1,10 +1,8 @@
-package com.flora.codegen.engine;
+package com.flora.codegen.engine.runtime;
 
 import com.flora.codegen.engine.ast.Node;
 import com.flora.codegen.engine.parser.Lexer;
 import com.flora.codegen.engine.parser.Parser;
-import com.flora.codegen.engine.runtime.Context;
-import com.flora.codegen.engine.runtime.TemplateBody;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

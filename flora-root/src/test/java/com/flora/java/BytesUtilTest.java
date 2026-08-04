@@ -1,6 +1,5 @@
-package com.flora.binary;
+package com.flora.java;
 
-import com.flora.java.BytesUtil;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

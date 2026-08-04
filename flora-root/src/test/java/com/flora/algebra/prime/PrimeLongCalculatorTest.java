@@ -1,6 +1,5 @@
-package com.flora.algebra;
+package com.flora.algebra.prime;
 
-import com.flora.algebra.prime.PrimeLongCalculator;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

@@ -1,6 +1,5 @@
-package com.flora.java;
+package com.flora.java.clazz;
 
-import com.flora.java.clazz.InheritTreeTraverser;
 import com.flora.java.clazz.InheritTreeTraverser.TraversalAction;
 import org.junit.jupiter.api.Test;
 

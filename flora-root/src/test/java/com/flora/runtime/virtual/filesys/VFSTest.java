@@ -1,4 +1,4 @@
-package com.flora.os.virtual;
+package com.flora.runtime.virtual.filesys;
 
 import com.flora.runtime.virtual.filesys.backend.MemoryFileSystem;
 import com.flora.runtime.virtual.filesys.backend.RealFileSystem;

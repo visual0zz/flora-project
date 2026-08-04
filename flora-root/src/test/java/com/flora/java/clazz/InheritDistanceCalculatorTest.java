@@ -1,6 +1,5 @@
-package com.flora.java;
+package com.flora.java.clazz;
 
-import com.flora.java.clazz.InheritDistanceCalculator;
 import org.junit.jupiter.api.Test;
 
 import java.io.Serializable;

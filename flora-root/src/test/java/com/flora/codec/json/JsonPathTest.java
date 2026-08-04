@@ -1,5 +1,6 @@
-package com.flora.codec;
+package com.flora.codec.json;
 
+import com.flora.codec.JsonUtil;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 

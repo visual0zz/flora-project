@@ -1,7 +1,7 @@
 package com.flora.crypto.core.impl;
 
 import com.flora.crypto.core.bridge.JdkDigest;
-import com.flora.crypto.core.param.KeyParameter;
+import com.flora.crypto.core.param.Pbkdf2Parameters;
 import com.flora.crypto.core.param.ScryptParameters;
 import com.flora.crypto.core.interfaces.DerivationParameters;
 import com.flora.crypto.core.interfaces.provider.DerivationFunction;
@@ -12,7 +12,7 @@ import java.util.Arrays;
  * scrypt 口令派生函数（RFC 7914）。
  * <p>结构：{@code B = PBKDF2(P, S, 1, p*128*r)}，对每个 r 块组做 {@code N} 次
  * {@code BlockMix}（Salsa20/8 核心）的 ROMix，再 {@code DK = PBKDF2(P, B', 1, dkLen)}。
- * PBKDF2 复用 {@link Pbkdf2ParametersGenerator}（HmacSHA256 原语）。</p>
+ * PBKDF2 复用 {@link Pbkdf2DerivationFunction}（HmacSHA256 原语）。</p>
  */
 public final class Scrypt implements DerivationFunction {
 
@@ -61,11 +61,11 @@ public final class Scrypt implements DerivationFunction {
   }
 
   private static byte[] pbkdf2(byte[] pass, byte[] salt, int iter, int dkLen) {
-    // 用自研 HMac（支持空密钥）而非委托 JDK 的 JdkMac
-    Pbkdf2ParametersGenerator gen =
-        new Pbkdf2ParametersGenerator(new HMac(JdkDigest.of("SHA-256")));
-    gen.init(pass, salt, iter);
-    return ((KeyParameter) gen.generateDerivedParameters(dkLen * 8)).getKey();
+    Pbkdf2DerivationFunction gen = new Pbkdf2DerivationFunction(new HMac(JdkDigest.of("SHA-256")));
+    gen.init(new Pbkdf2Parameters(pass, salt, iter));
+    byte[] dk = new byte[dkLen];
+    gen.generateBytes(dk, 0, dkLen);
+    return dk;
   }
 
   /** RFC 7914 §4.3 ROMix：生成 V 表，再按 Integerify 索引混合。 */

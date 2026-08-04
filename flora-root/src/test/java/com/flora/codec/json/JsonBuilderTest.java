@@ -1,7 +1,5 @@
-package com.flora.codec;
+package com.flora.codec.json;
 
-import com.flora.codec.json.JsonBuilder;
-import com.flora.codec.json.JsonIgnore;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;

@@ -11,7 +11,9 @@ import com.flora.crypto.core.bridge.JdkAgreement;
 import com.flora.crypto.core.bridge.JdkAsymmetricKeyPairGenerator;
 import com.flora.crypto.core.impl.AgreementBasedKem;
 import com.flora.crypto.core.bridge.SecureRandomEntropySource;
+import com.flora.crypto.core.impl.HMac;
 import com.flora.crypto.core.impl.HMacDrbg;
+import com.flora.crypto.core.impl.Pbkdf2DerivationFunction;
 
 import com.flora.crypto.core.interfaces.provider.Agreement;
 import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;
@@ -110,6 +112,8 @@ public final class CryptoProvider {
         // 自研组合类（单算法）
         registerDerivationFunction(new Kdf2DerivationFunction(digest("SHA-256")),
                 n -> new Kdf2DerivationFunction(digest("SHA-256")));
+        registerDerivationFunction(new Pbkdf2DerivationFunction(new HMac(extendedDigest("SHA-256"))),
+                n -> new Pbkdf2DerivationFunction(new HMac(extendedDigest("SHA-256"))));
         registerDerivationFunction(new HkdfDerivationFunction(mac("HmacSHA256")),
                 n -> new HkdfDerivationFunction(mac("HmacSHA256")));
         registerBlockCipherPadding(new PKCS7Padding(), n -> switch (n) {

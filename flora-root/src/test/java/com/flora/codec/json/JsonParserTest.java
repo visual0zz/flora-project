@@ -1,6 +1,5 @@
-package com.flora.codec;
+package com.flora.codec.json;
 
-import com.flora.codec.json.JsonParser;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

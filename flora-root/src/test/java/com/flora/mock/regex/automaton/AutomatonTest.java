@@ -1,7 +1,5 @@
-package com.flora.mock.automaton;
+package com.flora.mock.regex.automaton;
 
-import com.flora.mock.regex.automaton.Automaton;
-import com.flora.mock.regex.automaton.AutomatonException;
 import org.junit.jupiter.api.Test;
 
 import java.util.Random;

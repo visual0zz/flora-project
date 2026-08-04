@@ -41,7 +41,7 @@ public final class MessageFormatter {
         }
         sb.append(template, i, len);
 
-        
+
         return sb.toString();
     }
 }

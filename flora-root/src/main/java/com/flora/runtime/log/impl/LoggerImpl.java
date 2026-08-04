@@ -22,11 +22,11 @@ import java.util.List;
 public final class LoggerImpl implements Logger {
 
     private final String name;
-    private Level level;               
+    private Level level;
     private boolean additivity = true;
     private final List<Appender> appenders = Collections.synchronizedList(new ArrayList<>());
 
-    
+
     volatile Level effectiveLevel;
 
     public LoggerImpl(String name) {
@@ -38,7 +38,7 @@ public final class LoggerImpl implements Logger {
         return name;
     }
 
-    
+
 
     /**
      * 设置日志级别。
@@ -115,7 +115,7 @@ public final class LoggerImpl implements Logger {
         }
     }
 
-    
+
 
     @Override
     public boolean isTraceEnabled() {
@@ -142,7 +142,7 @@ public final class LoggerImpl implements Logger {
         return LoggerFactory.getEffectiveLevel(name).isEnabled(Level.ERROR);
     }
 
-    
+
 
     @Override
     public void trace(String msg) {
@@ -194,7 +194,7 @@ public final class LoggerImpl implements Logger {
         log(Level.ERROR, format, args);
     }
 
-    
+
 
     /**
      * 内部日志记录方法，检查有效级别、格式化消息并分发给所有附加器。
@@ -215,7 +215,7 @@ public final class LoggerImpl implements Logger {
         appendLoopOnAppenders(event);
     }
 
-    
+
     /**
      * 将日志事件分发到当前日志器的所有附加器，
      * 并根据 additivity 标志决定是否继续向父级日志器传递。

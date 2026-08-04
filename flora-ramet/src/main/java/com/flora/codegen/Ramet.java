@@ -123,10 +123,10 @@ public final class Ramet {
     private static void printHelp() {
         System.out.println("""
                 用法: Ramet <templatesDir> <outputDir> [--dry-run] [--help]
-                
+
                 flora-ramet 模板代码生成引擎
                 ================================
-                
+
                 基本语法:
                   ${expr}           变量插值，输出表达式值
                   ${a.b.c}          属性链访问
@@ -140,7 +140,7 @@ public final class Ramet {
                   <#include "path">          引入子模板
                   <#meta>...</#meta>         元数据块
                   <#-- comment -->           注释
-                
+
                 说明:
                   - 模板分为被动区域（普通文本）和逻辑区域（<#...> / ${...}）。
                   - 被动区域零转义，所有字符原样输出。
@@ -149,14 +149,14 @@ public final class Ramet {
                     \\" \\\\ \\n \\r \\t \\b \\f \\' \\uXXXX
                   - 中缀表达式: a greaterThan b        → greaterThan(a, b)
                   - 中缀无优先级: a greaterThan b and c greaterThan d      需用括号: (a greaterThan b) and (c greaterThan d)
-                
+
                 Meta 标签（写在 <#meta>...</#meta> 中）:
                   @Param{ ... }      模板参数定义（键: 值, ...）
                   @Cartesian{ ... }    笛卡尔积轴定义（轴名 → 值列表或函数调用）
                   @Path{ ... }       输出路径模板（支持 ${} 插值和 Lson 表达式）
                   @SkipWhen{ ... }    跳过条件（布尔表达式，为 true 时跳过本组合的生成）
                   @Config{ ... }     模板级行为配置
-                
+
                 内置函数:
                   [比较逻辑] greaterThan, lessThan, greaterThanOrEquals,
                             lessThanOrEquals, equals, notEquals, and, or, not
@@ -168,7 +168,7 @@ public final class Ramet {
                   [工具]     firstNonNull, length, now, javaPackageToPath, numberFormat
                   [组合生成] selfCartesian, permutation, combination, multiCombination,
                             cartesian, concatList, concatField, sortBy
-                
+
                 配置项（写在 @Config{ ... } 中）:
                   autoWarning  [boolean]  默认 true
                     生成文件头部自动注入"此文件由模板生成"的警告注释。

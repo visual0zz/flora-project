@@ -19,35 +19,35 @@ class PrimeIntegerCalculatorBigIntegerTest {
      */
     @Test
     void bigNumber(){
-        
-        assertEquals(1229, PrimeIntegerCalculator.primeCount(10000));              
-        assertEquals(9592, PrimeIntegerCalculator.primeCount(100000));             
-        assertEquals(78498, PrimeIntegerCalculator.primeCount(1000000));           
-        assertEquals(664579, PrimeIntegerCalculator.primeCount(10000000));         
-        assertEquals(5761455, PrimeIntegerCalculator.primeCount(100000000));       
-        assertEquals(50847534, PrimeIntegerCalculator.primeCount(1000000000));     
-        assertEquals(105097565, PrimeIntegerCalculator.primeCount(2147483647));    
 
-        
-        assertEquals(104729, PrimeIntegerCalculator.primeOf(10000));               
-        assertEquals(611953, PrimeIntegerCalculator.primeOf(50000));               
-        assertEquals(1299709, PrimeIntegerCalculator.primeOf(100000));             
-        assertEquals(2750159, PrimeIntegerCalculator.primeOf(200000));             
-        assertEquals(7368787, PrimeIntegerCalculator.primeOf(500000));             
-        assertEquals(15485863, PrimeIntegerCalculator.primeOf(1000000));           
-        assertEquals(32452843, PrimeIntegerCalculator.primeOf(2000000));           
-        assertEquals(2147483647, PrimeIntegerCalculator.primeOf(105097565));       
+        assertEquals(1229, PrimeIntegerCalculator.primeCount(10000));
+        assertEquals(9592, PrimeIntegerCalculator.primeCount(100000));
+        assertEquals(78498, PrimeIntegerCalculator.primeCount(1000000));
+        assertEquals(664579, PrimeIntegerCalculator.primeCount(10000000));
+        assertEquals(5761455, PrimeIntegerCalculator.primeCount(100000000));
+        assertEquals(50847534, PrimeIntegerCalculator.primeCount(1000000000));
+        assertEquals(105097565, PrimeIntegerCalculator.primeCount(2147483647));
 
-        
-        assertTrue(PrimeIntegerCalculator.isPrime(2147483647));                   
+
+        assertEquals(104729, PrimeIntegerCalculator.primeOf(10000));
+        assertEquals(611953, PrimeIntegerCalculator.primeOf(50000));
+        assertEquals(1299709, PrimeIntegerCalculator.primeOf(100000));
+        assertEquals(2750159, PrimeIntegerCalculator.primeOf(200000));
+        assertEquals(7368787, PrimeIntegerCalculator.primeOf(500000));
+        assertEquals(15485863, PrimeIntegerCalculator.primeOf(1000000));
+        assertEquals(32452843, PrimeIntegerCalculator.primeOf(2000000));
+        assertEquals(2147483647, PrimeIntegerCalculator.primeOf(105097565));
+
+
+        assertTrue(PrimeIntegerCalculator.isPrime(2147483647));
         assertTrue(PrimeIntegerCalculator.isPrime(2147483629));
         assertTrue(PrimeIntegerCalculator.isPrime(1000000007));
         assertTrue(PrimeIntegerCalculator.isPrime(999999937));
 
-        
+
         assertFalse(PrimeIntegerCalculator.isPrime(2147483646));
 
-        
+
         assertEquals(1000000007, PrimeIntegerCalculator.nextPrime(1000000000));
         assertEquals(2147483629, PrimeIntegerCalculator.nextPrime(2147483587));
         assertEquals(2147483647, PrimeIntegerCalculator.nextPrime(2147483629));
@@ -59,22 +59,22 @@ class PrimeIntegerCalculatorBigIntegerTest {
      */
     @Test
     void consistency(){
-        
+
         for (int i = 1; i <= 100; i++) {
             int n=i*i*i;
             int thisPrime = PrimeIntegerCalculator.primeOf(n);
             int nextPrime = PrimeIntegerCalculator.nextPrime(thisPrime);
             String errorMsg=String.format("n=%d,thisPrime=%d,nextPrime=%d", n,thisPrime,nextPrime);
 
-            assertTrue(PrimeIntegerCalculator.isPrime(thisPrime),errorMsg); 
-            assertTrue(PrimeIntegerCalculator.isPrime(nextPrime),errorMsg); 
+            assertTrue(PrimeIntegerCalculator.isPrime(thisPrime),errorMsg);
+            assertTrue(PrimeIntegerCalculator.isPrime(nextPrime),errorMsg);
             if(n>=6){
                 double v = Math.log(n) + Math.log(Math.log(n));
                 assertTrue((double) thisPrime/n > v -1);
                 assertTrue((double) thisPrime/n < v);
             }
-            assertTrue(nextPrime > thisPrime && thisPrime > n,errorMsg); 
-            assertEquals(n, PrimeIntegerCalculator.primeCount(thisPrime),errorMsg);  
+            assertTrue(nextPrime > thisPrime && thisPrime > n,errorMsg);
+            assertEquals(n, PrimeIntegerCalculator.primeCount(thisPrime),errorMsg);
             assertEquals(n+1, PrimeIntegerCalculator.primeCount(nextPrime),errorMsg);
 
             if (thisPrime > 2) {

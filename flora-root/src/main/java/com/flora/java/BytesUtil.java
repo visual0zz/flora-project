@@ -10,7 +10,7 @@ import java.security.InvalidParameterException;
  */
 public final class BytesUtil {
 
-    
+
 
     /**
      * 将 short 转换为 2 字节小端序字节数组。
@@ -46,10 +46,10 @@ public final class BytesUtil {
      */
     public static byte[] int2bytes(int value) {
         byte[] targets = new byte[4];
-        targets[0] = (byte) (value & 0xff);       
-        targets[1] = (byte) ((value >> 8) & 0xff); 
+        targets[0] = (byte) (value & 0xff);
+        targets[1] = (byte) ((value >> 8) & 0xff);
         targets[2] = (byte) ((value >> 16) & 0xff);
-        targets[3] = (byte) (value >>> 24);        
+        targets[3] = (byte) (value >>> 24);
         return targets;
     }
 
@@ -151,7 +151,7 @@ public final class BytesUtil {
         return Double.longBitsToDouble(bytes2long(bytes));
     }
 
-    
+
 
     /**
      * 将字节数组转换为十六进制字符串。
@@ -198,7 +198,7 @@ public final class BytesUtil {
         return builder.toString();
     }
 
-    
+
 
     /**
      * 拼接两个字节数组。

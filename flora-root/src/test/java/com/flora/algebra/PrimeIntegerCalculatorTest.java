@@ -10,13 +10,13 @@ import static org.junit.jupiter.api.Assertions.*;
  * 测试素数判断、下一个素数查找、素数计数和第 n 个素数查询。
  */
 class PrimeIntegerCalculatorTest {
-    
+
     /**
      * 测试 isPrime 方法：覆盖边界值、小素数、合数及强伪素数。
      */
     @Test
     void isPrime() {
-        
+
         assertFalse(PrimeIntegerCalculator.isPrime( 0));
         assertFalse(PrimeIntegerCalculator.isPrime( 1));
         assertFalse(PrimeIntegerCalculator.isPrime( -1));
@@ -25,7 +25,7 @@ class PrimeIntegerCalculatorTest {
         assertFalse(PrimeIntegerCalculator.isPrime(-2147483648));
         assertTrue(PrimeIntegerCalculator.isPrime(2147483647));
 
-        
+
         assertTrue(PrimeIntegerCalculator.isPrime( 2));
         assertTrue(PrimeIntegerCalculator.isPrime( 3));
         assertTrue(PrimeIntegerCalculator.isPrime( 5));
@@ -42,7 +42,7 @@ class PrimeIntegerCalculatorTest {
         assertTrue(PrimeIntegerCalculator.isPrime(999999937));
         assertTrue(PrimeIntegerCalculator.isPrime(100000007));
 
-        
+
         assertFalse(PrimeIntegerCalculator.isPrime( 4));
         assertFalse(PrimeIntegerCalculator.isPrime( 9));
         assertFalse(PrimeIntegerCalculator.isPrime( 15));
@@ -59,7 +59,7 @@ class PrimeIntegerCalculatorTest {
      */
     @Test
     void nextPrime() {
-        
+
         assertEquals(2, PrimeIntegerCalculator.nextPrime( 0));
         assertEquals(2, PrimeIntegerCalculator.nextPrime( 1));
         assertEquals(3, PrimeIntegerCalculator.nextPrime( 2));
@@ -88,23 +88,23 @@ class PrimeIntegerCalculatorTest {
         assertEquals(0, PrimeIntegerCalculator.primeCount( -100));
         assertEquals(0, PrimeIntegerCalculator.primeCount( -10));
         assertEquals(0, PrimeIntegerCalculator.primeCount( -1));
-        assertEquals(0, PrimeIntegerCalculator.primeCount( 0));   
-        assertEquals(0, PrimeIntegerCalculator.primeCount( 1));   
-        assertEquals(1, PrimeIntegerCalculator.primeCount( 2));   
-        assertEquals(2, PrimeIntegerCalculator.primeCount( 3));   
-        assertEquals(2, PrimeIntegerCalculator.primeCount( 4));   
-        assertEquals(3, PrimeIntegerCalculator.primeCount( 5));   
-        assertEquals(3, PrimeIntegerCalculator.primeCount( 6));   
-        assertEquals(4, PrimeIntegerCalculator.primeCount( 10));  
-        assertEquals(25, PrimeIntegerCalculator.primeCount( 100));                
-        assertEquals(168, PrimeIntegerCalculator.primeCount( 1000));              
+        assertEquals(0, PrimeIntegerCalculator.primeCount( 0));
+        assertEquals(0, PrimeIntegerCalculator.primeCount( 1));
+        assertEquals(1, PrimeIntegerCalculator.primeCount( 2));
+        assertEquals(2, PrimeIntegerCalculator.primeCount( 3));
+        assertEquals(2, PrimeIntegerCalculator.primeCount( 4));
+        assertEquals(3, PrimeIntegerCalculator.primeCount( 5));
+        assertEquals(3, PrimeIntegerCalculator.primeCount( 6));
+        assertEquals(4, PrimeIntegerCalculator.primeCount( 10));
+        assertEquals(25, PrimeIntegerCalculator.primeCount( 100));
+        assertEquals(168, PrimeIntegerCalculator.primeCount( 1000));
     }
     /**
      * 测试 primeOf 方法：验证第 n 个素数（1-indexed）的正确性及非法参数。
      */
     @Test
     void primeOf() {
-        
+
         assertThrows(IllegalArgumentException.class, () -> PrimeIntegerCalculator.primeOf( 0));
         assertThrows(IllegalArgumentException.class, () -> PrimeIntegerCalculator.primeOf( -1));
         assertThrows(IllegalArgumentException.class, () -> PrimeIntegerCalculator.primeOf( -10000));

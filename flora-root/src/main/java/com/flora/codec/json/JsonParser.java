@@ -38,7 +38,7 @@ public final class JsonParser {
      */
     public static Object parse(String src) {
         JsonParser j = new JsonParser(src);
-        
+
         if (j.i < j.s.length() && j.s.charAt(0) == '\uFEFF') j.i++;
         j.skipWs();
         if (j.i >= j.s.length()) throw j.err("空白输入或仅含 BOM");
@@ -76,7 +76,7 @@ public final class JsonParser {
         return (List<Object>) v;
     }
 
-    
+
 
     /**
      * 解析下一个 JSON 值，根据首字符分发到具体解析方法。
@@ -157,7 +157,7 @@ public final class JsonParser {
                         char ch = (char) Integer.parseInt(hex, 16);
                         i += 4;
                         if (ch >= 0xD800 && ch <= 0xDBFF) {
-                            
+
                             if (i + 1 >= s.length() || s.charAt(i) != '\\' || s.charAt(i + 1) != 'u') {
                                 throw err("不完整的代理对: \\u" + hex);
                             }
@@ -180,7 +180,7 @@ public final class JsonParser {
                     default: throw err("非法转义 \\" + e);
                 }
             } else {
-                
+
                 if (c < 0x20) throw err("字符串中包含未转义的控制字符 U+" + Integer.toHexString(c));
                 sb.append(c);
             }
@@ -193,18 +193,18 @@ public final class JsonParser {
         while (i < s.length() && "0123456789-.eE+".indexOf(s.charAt(i)) >= 0) i++;
         String num = s.substring(start, i);
         if (num.isEmpty() || num.equals("-") || num.equals(".")) throw err("期望数字");
-        
+
         if (!JSON_NUMBER.matcher(num).matches()) {
             throw err("非法数字格式: " + num);
         }
         if (num.indexOf('.') >= 0 || num.indexOf('e') >= 0 || num.indexOf('E') >= 0) {
-            
+
             return new BigDecimal(num);
         }
         try {
             return Long.parseLong(num);
         } catch (NumberFormatException ex) {
-            
+
             return new BigInteger(num);
         }
     }

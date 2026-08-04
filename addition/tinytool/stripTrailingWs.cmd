@@ -23,8 +23,9 @@ while IFS= read -r -d '' f; do
         *.class|*.jar|*.war|*.png|*.jpg|*.jpeg|*.gif|*.ico|*.bmp|*.exe|*.dll|*.so|*.o|*.zip|*.gz|*.tar|*.7z|*.rar|*.pdf|*.woff|*.woff2|*.ttf|*.eot)
             continue ;;
     esac
-    # Use sed to strip trailing whitespace in-place; skip if no change
-    if sed -i 's/[[:blank:]]*$//' "$f" 2>/dev/null; then
+    # Only process files that actually contain trailing whitespace
+    if grep -qP '[\t ]+$' "$f" 2>/dev/null; then
+        sed -i 's/[[:blank:]]*$//' "$f"
         echo "  cleaned: ${f#$PROJECT_DIR/}"
         count=$((count + 1))
     fi
@@ -42,6 +43,6 @@ cd /d "%~dp0..\.." || exit /b 1
 echo Scanning %CD% for trailing whitespace ...
 echo.
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$root=(Get-Location).Path; $count=0; $exts=@('.java','.xml','.json','.yaml','.yml','.properties','.gradle','.kts','.kt','.cmd','.bat','.sh','.ps1','.md','.txt','.cfg','.ini','.toml','.conf','.config','.css','.js','.ts','.html','.htm','.sql','.c','.h','.cpp','.hpp','.py','.rb','.go','.rs','.bnd','.gitignore','.gitattributes','.editorconfig'); Get-ChildItem -Path $root -Recurse -File | Where-Object {$exts -contains $_.Extension.ToLower()} | Where-Object {$_.FullName -notmatch '[/\\]\.git[/\\]' -and $_.FullName -notmatch '[/\\]target[/\\]' -and $_.FullName -notmatch '[/\\]\.idea[/\\]' -and $_.FullName -notmatch '[/\\]node_modules[/\\]'} | ForEach-Object {try{$content=[System.IO.File]::ReadAllText($_.FullName); $lines=$content -split '\r?\n'; $cleaned=($lines | ForEach-Object {$_.TrimEnd()}) -join \"`n\"; if($content.EndsWith(\"`r`n\") -or $content.EndsWith(\"`n\")){$cleaned+=\"`n\"}; if($content -ne $cleaned){[System.IO.File]::WriteAllText($_.FullName,$cleaned,[System.Text.UTF8Encoding]::new($false)); $rel=$_.FullName.Substring($root.Length+1); Write-Host ('  cleaned: '+$rel); $count++}}catch{}}; Write-Host ''; Write-Host %ESC%[32m('Done. '+$count+' file(s) cleaned.')%ESC%[0m"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$root=(Get-Location).Path; $count=0; $exts=@('.java','.xml','.json','.yaml','.yml','.properties','.gradle','.kts','.kt','.cmd','.bat','.sh','.ps1','.md','.txt','.cfg','.ini','.toml','.conf','.config','.css','.js','.ts','.html','.htm','.sql','.c','.h','.cpp','.hpp','.py','.rb','.go','.rs','.bnd','.gitignore','.gitattributes','.editorconfig'); Get-ChildItem -Path $root -Recurse -File | Where-Object {$exts -contains $_.Extension.ToLower()} | Where-Object {$_.FullName -notmatch '[/\\]\.git[/\\]' -and $_.FullName -notmatch '[/\\]target[/\\]' -and $_.FullName -notmatch '[/\\]\.idea[/\\]' -and $_.FullName -notmatch '[/\\]node_modules[/\\]'} | ForEach-Object {try{$bytes=[System.IO.File]::ReadAllBytes($_.FullName); $content=[System.Text.Encoding]::UTF8.GetString($bytes); $hasCrlf=$content.Contains(\"`r`n\"); $eol=if($hasCrlf){\"`r`n\"}else{\"`n\"}; $lines=$content -split '\r?\n'; $dirty=$false; for($i=0;$i -lt $lines.Length;$i++){$trimmed=$lines[$i].TrimEnd(); if($trimmed -ne $lines[$i]){$lines[$i]=$trimmed;$dirty=$true}}; if($dirty){$cleaned=$lines -join $eol; [System.IO.File]::WriteAllBytes($_.FullName,[System.Text.UTF8Encoding]::new($false).GetBytes($cleaned)); $rel=$_.FullName.Substring($root.Length+1); Write-Host ('  cleaned: '+$rel); $count++}}catch{}}; Write-Host ''; Write-Host %ESC%[32m('Done. '+$count+' file(s) cleaned.')%ESC%[0m"
 
 exit /b %ERRORLEVEL%

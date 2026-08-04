@@ -126,7 +126,7 @@ public final class Bytecode {
                 }
                 return map[pc];
             };
-            
+
             ByteArrayBuilder codeOut = new ByteArrayBuilder();
             for (int i = 0; i < n; i++) {
                 Insn in = instructions.get(i);
@@ -137,7 +137,7 @@ public final class Bytecode {
                     codeOut.write(raw);
                 }
             }
-            
+
             ByteArrayBuilder exOut = new ByteArrayBuilder();
             exOut.writeShort(exceptionTable.size());
             for (int[] e : exceptionTable) {
@@ -146,7 +146,7 @@ public final class Bytecode {
                 exOut.writeShort(trans.applyAsInt(e[2]));
                 exOut.writeShort(e[3]);
             }
-            
+
             List<ClassModel.Attribute> newAttrs = new ArrayList<>();
             for (ClassModel.Attribute a : attributes) {
                 byte[] info = a.info;
@@ -174,16 +174,16 @@ public final class Bytecode {
         }
     }
 
-    
+
     private static final int[] BASE_LEN = new int[256];
 
     static {
-        
+
         for (int i = 0; i < 256; i++) {
             BASE_LEN[i] = -1;
         }
-        
-        
+
+
         int[] fixed = {
                 0x00, 1, 0x01, 1, 0x02, 1, 0x03, 1, 0x04, 1, 0x05, 1, 0x06, 1, 0x07, 1, 0x08, 1,
                 0x09, 1, 0x0a, 1, 0x0b, 1, 0x0c, 1, 0x0d, 1, 0x0e, 1,
@@ -203,22 +203,22 @@ public final class Bytecode {
                 0x69, 1, 0x6a, 1, 0x6b, 1, 0x6c, 1, 0x6d, 1, 0x6e, 1, 0x6f, 1, 0x70, 1, 0x71, 1,
                 0x72, 1, 0x73, 1, 0x74, 1, 0x75, 1, 0x76, 1, 0x77, 1, 0x78, 1, 0x79, 1, 0x7a, 1,
                 0x7b, 1, 0x7c, 1, 0x7d, 1, 0x7e, 1, 0x7f, 1, 0x80, 1, 0x81, 1,
-                0x82, 1, 0x83, 1,             
-                0x84, 3,                      
-                0x85, 1, 0x86, 1,             
+                0x82, 1, 0x83, 1,
+                0x84, 3,
+                0x85, 1, 0x86, 1,
                 0x87, 1, 0x88, 1, 0x89, 1, 0x8a, 1, 0x8b, 1, 0x8c, 1, 0x8d, 1, 0x8e, 1, 0x8f, 1,
-                0x90, 1, 0x91, 1, 0x92, 1, 0x93, 1, 
-                0x94, 1, 0x95, 1, 0x96, 1, 0x97, 1, 0x98, 1, 
+                0x90, 1, 0x91, 1, 0x92, 1, 0x93, 1,
+                0x94, 1, 0x95, 1, 0x96, 1, 0x97, 1, 0x98, 1,
                 0x99, 3, 0x9a, 3, 0x9b, 3, 0x9c, 3, 0x9d, 3, 0x9e, 3, 0x9f, 3, 0xa0, 3, 0xa1, 3,
-                0xa2, 3, 0xa3, 3, 0xa4, 3, 0xa5, 3, 0xa6, 3, 0xa7, 3, 0xa8, 3, 
-                0xa9, 2,                      
-                0xaa, 1, 0xab, 1,             
-                0xac, 1, 0xad, 1, 0xae, 1, 0xaf, 1, 0xb0, 1, 0xb1, 1, 
+                0xa2, 3, 0xa3, 3, 0xa4, 3, 0xa5, 3, 0xa6, 3, 0xa7, 3, 0xa8, 3,
+                0xa9, 2,
+                0xaa, 1, 0xab, 1,
+                0xac, 1, 0xad, 1, 0xae, 1, 0xaf, 1, 0xb0, 1, 0xb1, 1,
                 0xb2, 3, 0xb3, 3, 0xb4, 3, 0xb5, 3, 0xb6, 3, 0xb7, 3, 0xb8, 3, 0xb9, 5, 0xba, 5,
-                0xbb, 3, 0xbc, 2, 0xbd, 3, 0xbe, 1, 0xbf, 1, 
-                0xc0, 3, 0xc1, 3, 0xc2, 1, 0xc3, 1, 
-                0xc4, 3,                      
-                0xc5, 4, 0xc6, 3, 0xc7, 3, 0xc8, 5, 0xc9, 5, 
+                0xbb, 3, 0xbc, 2, 0xbd, 3, 0xbe, 1, 0xbf, 1,
+                0xc0, 3, 0xc1, 3, 0xc2, 1, 0xc3, 1,
+                0xc4, 3,
+                0xc5, 4, 0xc6, 3, 0xc7, 3, 0xc8, 5, 0xc9, 5,
         };
         for (int i = 0; i < fixed.length; i += 2) {
             BASE_LEN[fixed[i]] = fixed[i + 1];
@@ -228,26 +228,26 @@ public final class Bytecode {
     private Bytecode() {
     }
 
-    
+
     private static int lengthOf(byte[] code, int pos) throws IOException {
         int op = code[pos] & 0xff;
         switch (op) {
-            case 0xaa: { 
+            case 0xaa: {
                 int p = pos + 1;
-                p += (4 - (p % 4)) % 4; 
+                p += (4 - (p % 4)) % 4;
                 int low = readInt(code, p + 4);
                 int high = readInt(code, p + 8);
                 return (p + 12 + (high - low + 1) * 4) - pos;
             }
-            case 0xab: { 
+            case 0xab: {
                 int p = pos + 1;
                 p += (4 - (p % 4)) % 4;
                 int npairs = readInt(code, p + 4);
                 return (p + 8 + npairs * 8) - pos;
             }
-            case 0xc4: { 
+            case 0xc4: {
                 int sub = code[pos + 1] & 0xff;
-                return sub == 0x84 ? 6 : 4; 
+                return sub == 0x84 ? 6 : 4;
             }
             default: {
                 int len = BASE_LEN[op];
@@ -265,7 +265,7 @@ public final class Bytecode {
                 | ((b[p + 2] & 0xff) << 8) | (b[p + 3] & 0xff);
     }
 
-    
+
     /**
      * 解析 Code 属性的字节数据为 {@link CodeModel}。
      * <p>自动识别每条指令的长度，包括 tableswitch ({@code 0xaa})、
@@ -288,7 +288,7 @@ public final class Bytecode {
         if (read != codeLength) {
             throw new IOException("Code 字节不足");
         }
-        
+
         int pos = 0;
         while (pos < codeLength) {
             int len = lengthOf(code, pos);
@@ -312,7 +312,7 @@ public final class Bytecode {
         return cm;
     }
 
-    
+
     private static byte[] restOf(DataInputStream in) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         byte[] buf = new byte[1024];
@@ -323,7 +323,7 @@ public final class Bytecode {
         return bos.toByteArray();
     }
 
-    
+
 
     private static boolean isBranch(int op) {
         return (op >= 0x99 && op <= 0xa8) || op == 0xaa || op == 0xab
@@ -334,7 +334,7 @@ public final class Bytecode {
         return ((b[p] & 0xff) << 8) | (b[p + 1] & 0xff);
     }
 
-    
+
     private static void emitBranch(ByteArrayBuilder out, Insn in, int newInstrOff,
                                    IntUnaryOperator trans) {
         int op = in.opcode;
@@ -354,7 +354,7 @@ public final class Bytecode {
                 out.writeInt(trans.applyAsInt(oldTarget) - newInstrOff);
                 break;
             }
-            case 0xaa: { 
+            case 0xaa: {
                 int pad = (4 - ((in.offset + 1) % 4)) % 4;
                 int low = readInt(o, pad + 4);
                 int high = readInt(o, pad + 8);
@@ -372,7 +372,7 @@ public final class Bytecode {
                 }
                 break;
             }
-            case 0xab: { 
+            case 0xab: {
                 int pad = (4 - ((in.offset + 1) % 4)) % 4;
                 int npairs = readInt(o, pad + 4);
                 for (int k = 0; k < pad; k++) {
@@ -390,7 +390,7 @@ public final class Bytecode {
                 break;
             }
             default:
-                out.write(o); 
+                out.write(o);
         }
     }
 
@@ -429,7 +429,7 @@ public final class Bytecode {
         return out.toByteArray();
     }
 
-    
+
     private static byte[] readVType(DataInputStream in, IntUnaryOperator trans, boolean[] changed)
             throws IOException {
         int tag = in.readUnsignedByte();
@@ -448,7 +448,7 @@ public final class Bytecode {
         return new byte[]{(byte) tag};
     }
 
-    
+
     private static byte[] translateStackMapTable(byte[] info, IntUnaryOperator trans)
             throws IOException {
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(info));
@@ -488,7 +488,7 @@ public final class Bytecode {
                 }
                 delta = in.readUnsignedShort();
             } else if (ft >= 251 && ft <= 254) {
-                
+
                 delta = in.readUnsignedShort();
                 int k = ft - 251;
                 for (int x = 0; x < k; x++) {
@@ -514,7 +514,7 @@ public final class Bytecode {
                 changed[0] = true;
             }
             int newDelta = newActual - prevNew - 1;
-            
+
             out.writeByte(255);
             out.writeShort(newDelta);
             out.writeShort(curLocals.size());
@@ -533,7 +533,7 @@ public final class Bytecode {
             return info;
         }
         if (!changed[0]) {
-            return info; 
+            return info;
         }
         return out.toByteArray();
     }

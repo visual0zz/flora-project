@@ -33,7 +33,7 @@ flora-project/            -- 根 POM（pom 打包类型，Java 26）
   以及 IntelliJ 插件沙箱 fixture 测试
 - `./action/produce.cmd` — 完整构建（跳过测试）
 - `./action/regenerate.cmd` — 从模板重新生成代码
-- 
+-
 - `./push.cmd "提交信息"` — 将所有修改提交并推送到 `addition/config/remoteRepoList.txt` 中列出的所有远程仓库。
 - 以上脚本都是跨平台脚本：同时适用于Windows Linux MacOS。
 

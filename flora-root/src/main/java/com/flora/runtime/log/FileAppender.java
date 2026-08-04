@@ -31,7 +31,7 @@ public class FileAppender implements Appender {
         this.filePath = Paths.get(file);
     }
 
-    
+
 
     /**
      * 设置输出文件路径（流式 API）。

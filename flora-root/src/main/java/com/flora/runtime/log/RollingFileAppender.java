@@ -27,19 +27,19 @@ public class RollingFileAppender implements Appender {
     private Level threshold = Level.TRACE;
     private Layout layout = new Layout("%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n");
 
-    
+
     private Path basePath;
-    
+
     private Path currentPath;
-    
+
     private Policy policy = Policy.SIZE_BASED;
-    
+
     private String datePattern = "yyyy-MM-dd";
-    
+
     private String lastDate;
-    
+
     private long maxSize = 10 * 1024 * 1024;
-    
+
     private int maxHistory = 7;
 
     private FileAppender delegate;
@@ -51,7 +51,7 @@ public class RollingFileAppender implements Appender {
         this.basePath = Paths.get(file);
     }
 
-    
+
 
     /**
      * 设置基础文件路径（流式 API）。
@@ -194,9 +194,9 @@ public class RollingFileAppender implements Appender {
         }
     }
 
-    
 
-    
+
+
     /**
      * 检查是否需要执行文件滚动。
      * <p>
@@ -233,7 +233,7 @@ public class RollingFileAppender implements Appender {
         }
     }
 
-    
+
     /**
      * 执行文件滚动操作。
      * <p>
@@ -249,7 +249,7 @@ public class RollingFileAppender implements Appender {
         switch (policy) {
             case TIME_BASED -> {
                 String today = new SimpleDateFormat(datePattern).format(new Date());
-                
+
                 Path archived = Paths.get(basePath + "." + lastDate);
                 try {
                     if (Files.exists(currentPath)) {
@@ -261,7 +261,7 @@ public class RollingFileAppender implements Appender {
                 lastDate = today;
             }
             case SIZE_BASED -> {
-                
+
                 for (int i = maxHistory - 1; i >= 1; i--) {
                     Path old = Paths.get(basePath + "." + i);
                     Path newer = Paths.get(basePath + "." + (i + 1));
@@ -276,7 +276,7 @@ public class RollingFileAppender implements Appender {
                         System.err.println("Log roll error: " + e.getMessage());
                     }
                 }
-                
+
                 try {
                     if (Files.exists(currentPath)) {
                         Files.move(currentPath, Paths.get(basePath + ".1"));
@@ -319,7 +319,7 @@ public class RollingFileAppender implements Appender {
         FileAppender fa = new FileAppender();
         fa.file(currentPath.toString());
         fa.setLayout(layout);
-        fa.setThreshold(Level.TRACE); 
+        fa.setThreshold(Level.TRACE);
         return fa;
     }
 }

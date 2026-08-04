@@ -19,12 +19,12 @@ import java.util.function.Consumer;
  */
 public final class LogConfig {
 
-    
+
 
     private LogConfig() {
     }
 
-    
+
     /**
      * 使用配置函数快速配置日志系统。
      *
@@ -35,9 +35,9 @@ public final class LogConfig {
         consumer.accept(config);
     }
 
-    
 
-    
+
+
     /**
      * 设置根日志器的日志级别。
      *
@@ -50,7 +50,7 @@ public final class LogConfig {
         return this;
     }
 
-    
+
     /**
      * 添加控制台输出附加器。
      *
@@ -68,7 +68,7 @@ public final class LogConfig {
         return this;
     }
 
-    
+
     /**
      * 添加文件输出附加器。
      *
@@ -87,7 +87,7 @@ public final class LogConfig {
         return this;
     }
 
-    
+
     /**
      * 添加滚动文件输出附加器。
      *
@@ -110,7 +110,7 @@ public final class LogConfig {
         return this;
     }
 
-    
+
     /**
      * 添加按级别路由的文件附加器，只有指定级别及以上的日志会输出到该文件。
      *
@@ -125,12 +125,12 @@ public final class LogConfig {
         if (c.file != null) appender.file(c.file);
         appender.setName(c.name != null ? c.name : "level-" + level.name().toLowerCase());
         if (c.pattern != null) appender.setLayout(new Layout(c.pattern));
-        appender.setThreshold(level); 
+        appender.setThreshold(level);
         ((LoggerImpl) LoggerFactory.getRootLogger()).addAppender(appender);
         return this;
     }
 
-    
+
     /**
      * 配置特定名称的日志器。
      *
@@ -152,9 +152,9 @@ public final class LogConfig {
         return this;
     }
 
-    
 
-    
+
+
     /**
      * 控制台输出配置。
      */
@@ -168,7 +168,7 @@ public final class LogConfig {
         public ConsoleConfig threshold(Level threshold) { this.threshold = threshold; return this; }
     }
 
-    
+
     public static class FileConfig {
         String name;
         String file;
@@ -181,7 +181,7 @@ public final class LogConfig {
         public FileConfig threshold(Level threshold) { this.threshold = threshold; return this; }
     }
 
-    
+
     public static class RollingConfig {
         String name;
         String file;
@@ -203,7 +203,7 @@ public final class LogConfig {
         public RollingConfig maxHistory(int maxHistory) { this.maxHistory = maxHistory; return this; }
     }
 
-    
+
     public static class LoggerConfig {
         Level level;
         boolean additivity = true;

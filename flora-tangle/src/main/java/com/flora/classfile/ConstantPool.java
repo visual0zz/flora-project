@@ -51,7 +51,7 @@ final class ConstantPool {
     /** Package 标签 */
     static final int TAG_PACKAGE = 20;
 
-    
+
     /**
      * 常量池条目，根据 tag 类型使用不同的字段存储数据。
      */
@@ -74,16 +74,16 @@ final class ConstantPool {
         }
     }
 
-    
+
     private final List<Entry> entries = new ArrayList<>();
-    
+
     private final Map<String, Integer> utf8Cache = new HashMap<>();
 
     ConstantPool() {
-        entries.add(null); 
+        entries.add(null);
     }
 
-    
+
     /**
      * @return 常量池大小（含索引 0 的空占位）
      */
@@ -91,7 +91,7 @@ final class ConstantPool {
         return entries.size();
     }
 
-    
+
     /**
      * 从 DataInputStream 读取常量池。
      *
@@ -107,15 +107,15 @@ final class ConstantPool {
             Entry e = new Entry(tag);
             switch (tag) {
                 case TAG_UTF8 -> {
-                    
+
                     e.utf8 = in.readUTF();
                 }
                 case TAG_INTEGER, TAG_FLOAT -> e.intBits = in.readInt();
                 case TAG_LONG, TAG_DOUBLE -> {
                     e.longBits = in.readLong();
                     cp.entries.add(e);
-                    cp.entries.add(null); 
-                    i++; 
+                    cp.entries.add(null);
+                    i++;
                     continue;
                 }
                 case TAG_CLASS, TAG_STRING, TAG_MODULE, TAG_PACKAGE ->
@@ -138,7 +138,7 @@ final class ConstantPool {
                     e.nameAndTypeIndex = in.readUnsignedShort();
                 }
                 default -> {
-                    
+
                     throw new IOException("不支持的常量池标签: " + tag);
                 }
             }
@@ -147,14 +147,14 @@ final class ConstantPool {
         return cp;
     }
 
-    
+
     byte[] toBytes() {
         ByteArrayBuilder out = new ByteArrayBuilder();
-        out.writeShort(entries.size()); 
+        out.writeShort(entries.size());
         for (int i = 1; i < entries.size(); i++) {
             Entry e = entries.get(i);
             if (e == null) {
-                continue; 
+                continue;
             }
             out.writeByte(e.tag);
             switch (e.tag) {
@@ -190,22 +190,22 @@ final class ConstantPool {
         return out.toByteArray();
     }
 
-    
+
     private static byte[] toModifiedUtf8(String s) {
         java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
         try (java.io.DataOutputStream dos = new java.io.DataOutputStream(bos)) {
             dos.writeUTF(s);
         } catch (IOException impossible) {
-            throw new AssertionError(impossible); 
+            throw new AssertionError(impossible);
         }
         byte[] all = bos.toByteArray();
-        
+
         byte[] body = new byte[all.length - 2];
         System.arraycopy(all, 2, body, 0, body.length);
         return body;
     }
 
-    
+
 
     /**
      * @param index 常量池索引
@@ -253,9 +253,9 @@ final class ConstantPool {
         return utf8(entries.get(natIndex).descriptorIndex);
     }
 
-    
 
-    
+
+
     /**
      * 添加一个 UTF8 字符串常量，有缓存，重复值返回相同索引。
      *

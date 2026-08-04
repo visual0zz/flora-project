@@ -4,9 +4,9 @@ import com.flora.comm.ssh.JSchException;
 import com.flora.comm.ssh.KDF;
 import com.flora.codec.asn1.ASN1;
 import com.flora.codec.asn1.ASN1Exception;
-import com.flora.crypto.core.KeyParameter;
-import com.flora.crypto.core.engine.JdkMac;
-import com.flora.crypto.core.engine.Pbkdf2ParametersGenerator;
+import com.flora.crypto.core.param.KeyParameter;
+import com.flora.crypto.core.bridge.JdkMac;
+import com.flora.crypto.core.impl.Pbkdf2ParametersGenerator;
 import java.util.Arrays;
 
 /**

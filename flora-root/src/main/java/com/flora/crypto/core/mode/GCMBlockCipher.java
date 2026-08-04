@@ -4,7 +4,7 @@ import com.flora.tag.ThreadFragile;
 import com.flora.crypto.core.interfaces.provider.AEADBlockCipher;
 import com.flora.crypto.core.interfaces.provider.BlockCipher;
 import com.flora.crypto.core.interfaces.CipherParameters;
-import com.flora.crypto.core.ParametersWithIV;
+import com.flora.crypto.core.param.ParametersWithIV;
 
 import com.flora.java.CheckUtil;
 

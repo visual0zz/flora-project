@@ -1,16 +1,17 @@
 package com.flora.crypto.core;
+import com.flora.crypto.core.combinator.BufferedAsymmetricBlockCipher;
 import com.flora.crypto.core.interfaces.provider.AlgorithmFamily;
 
-import com.flora.crypto.core.engine.JdkDigest;
-import com.flora.crypto.core.engine.JdkBlockCipher;
-import com.flora.crypto.core.engine.JdkAsymmetricBlockCipher;
-import com.flora.crypto.core.engine.JdkMac;
-import com.flora.crypto.core.engine.JdkKeyPairGenerator;
-import com.flora.crypto.core.engine.JdkAgreement;
-import com.flora.crypto.core.engine.JdkAsymmetricKeyPairGenerator;
-import com.flora.crypto.core.engine.AgreementBasedKem;
-import com.flora.crypto.core.engine.SecureRandomEntropySource;
-import com.flora.crypto.core.engine.HMacDrbg;
+import com.flora.crypto.core.bridge.JdkDigest;
+import com.flora.crypto.core.bridge.JdkBlockCipher;
+import com.flora.crypto.core.bridge.JdkAsymmetricBlockCipher;
+import com.flora.crypto.core.bridge.JdkMac;
+import com.flora.crypto.core.bridge.JdkKeyPairGenerator;
+import com.flora.crypto.core.bridge.JdkAgreement;
+import com.flora.crypto.core.bridge.JdkAsymmetricKeyPairGenerator;
+import com.flora.crypto.core.impl.AgreementBasedKem;
+import com.flora.crypto.core.bridge.SecureRandomEntropySource;
+import com.flora.crypto.core.impl.HMacDrbg;
 
 import com.flora.crypto.core.interfaces.provider.Agreement;
 import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;

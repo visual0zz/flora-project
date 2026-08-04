@@ -1,7 +1,7 @@
 package com.flora.comm.ssh.crypto;
 
 import com.flora.comm.ssh.KeyPairGenEdDSA;
-import com.flora.crypto.core.engine.JdkKeyPairGenerator;
+import com.flora.crypto.core.bridge.JdkKeyPairGenerator;
 import java.security.KeyPair;
 import java.security.interfaces.EdECPrivateKey;
 import java.security.interfaces.EdECPublicKey;

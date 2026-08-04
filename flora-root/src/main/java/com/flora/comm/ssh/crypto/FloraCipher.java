@@ -1,9 +1,9 @@
 package com.flora.comm.ssh.crypto;
 
 import com.flora.comm.ssh.Cipher;
-import com.flora.crypto.core.KeyParameter;
-import com.flora.crypto.core.ParametersWithIV;
-import com.flora.crypto.core.engine.JdkBlockCipher;
+import com.flora.crypto.core.param.KeyParameter;
+import com.flora.crypto.core.param.ParametersWithIV;
+import com.flora.crypto.core.bridge.JdkBlockCipher;
 import com.flora.crypto.core.interfaces.provider.BlockCipher;
 import com.flora.crypto.core.mode.CBCBlockCipher;
 import com.flora.crypto.core.mode.SICBlockCipher;

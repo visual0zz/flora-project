@@ -1,7 +1,7 @@
 package com.flora.comm.ssh.crypto;
 
 import com.flora.comm.ssh.Random;
-import com.flora.crypto.core.engine.SecureRandomEntropySource;
+import com.flora.crypto.core.bridge.SecureRandomEntropySource;
 
 /**
  * 随机数适配类。

@@ -9,9 +9,13 @@ import com.flora.java.Converter;
 module com.flora.root {
     exports com.flora.algebra;
     exports com.flora.crypto.core;
-    exports com.flora.crypto.core.engine;
+    exports com.flora.crypto.core.bridge;
+    exports com.flora.crypto.core.impl;
     exports com.flora.crypto.core.mode;
     exports com.flora.crypto.core.padding;
+    exports com.flora.crypto.core.param;
+    exports com.flora.crypto.core.keypair;
+    exports com.flora.crypto.core.combinator;
     exports com.flora.crypto.core.interfaces;
     exports com.flora.crypto.core.interfaces.provider;
     exports com.flora.crypto.schemes;

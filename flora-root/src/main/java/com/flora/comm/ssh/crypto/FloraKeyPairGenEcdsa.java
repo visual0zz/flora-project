@@ -2,7 +2,7 @@ package com.flora.comm.ssh.crypto;
 
 import com.flora.comm.ssh.JSchException;
 import com.flora.comm.ssh.KeyPairGenECDSA;
-import com.flora.crypto.core.engine.JdkKeyPairGenerator;
+import com.flora.crypto.core.bridge.JdkKeyPairGenerator;
 import java.security.KeyPair;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;

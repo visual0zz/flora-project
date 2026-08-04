@@ -2,9 +2,9 @@ package com.flora.comm.ssh.crypto;
 
 import com.flora.comm.ssh.KEM;
 import com.flora.comm.ssh.KeyPair;
-import com.flora.crypto.core.AsymmetricKeyParameter;
-import com.flora.crypto.core.engine.JdkKem;
-import com.flora.crypto.core.engine.JdkKeyPairGenerator;
+import com.flora.crypto.core.keypair.AsymmetricKeyParameter;
+import com.flora.crypto.core.bridge.JdkKem;
+import com.flora.crypto.core.bridge.JdkKeyPairGenerator;
 import com.flora.crypto.core.interfaces.Decapsulator;
 import java.security.spec.NamedParameterSpec;
 

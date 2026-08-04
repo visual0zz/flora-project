@@ -1,7 +1,7 @@
 package com.flora.crypto.schemes.engine.kex;
 
-import com.flora.crypto.core.AsymmetricKeyParameter;
-import com.flora.crypto.core.engine.JdkAgreement;
+import com.flora.crypto.core.keypair.AsymmetricKeyParameter;
+import com.flora.crypto.core.bridge.JdkAgreement;
 import com.flora.crypto.core.interfaces.provider.Agreement;
 import com.flora.crypto.schemes.SchemeContext;
 import com.flora.crypto.schemes.SchemeException;

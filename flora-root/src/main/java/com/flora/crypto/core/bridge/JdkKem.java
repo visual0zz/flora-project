@@ -39,7 +39,7 @@ public final class JdkKem implements com.flora.crypto.core.interfaces.provider.K
         return new JdkKem(algorithm);
     }
 
-    private static final Set<String> SUPPORTED = Set.of("ML-KEM");
+    public static final Set<String> SUPPORTED = Set.of("ML-KEM");
 
     @Override
     public Set<String> supportedAlgorithms() {

@@ -332,7 +332,7 @@ class CryptoRolesTest {
 
     @Test
     void kemPlaceholderThrows() {
-        KEM kem = CryptoProvider.kem("ML-KEM");
+        KEM kem = CryptoProvider.kem("NONEXISTENT-KEM");
         assertThrows(UnsupportedOperationException.class,
                 () -> kem.newEncapsulator(new AsymmetricKeyParameter(
                         CryptoProvider.keyPairGenerator("RSA").generate(2048).getPublic())));

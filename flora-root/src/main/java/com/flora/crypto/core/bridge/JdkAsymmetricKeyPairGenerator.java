@@ -38,7 +38,7 @@ public final class JdkAsymmetricKeyPairGenerator implements AsymmetricCipherKeyP
         return new JdkAsymmetricKeyPairGenerator(algorithm);
     }
 
-    private static final java.util.Set<String> SUPPORTED = java.util.Set.of(
+    public static final java.util.Set<String> SUPPORTED = java.util.Set.of(
             "RSA", "DSA", "DH", "EC", "X25519", "X448", "Ed25519", "Ed448");
 
     @Override

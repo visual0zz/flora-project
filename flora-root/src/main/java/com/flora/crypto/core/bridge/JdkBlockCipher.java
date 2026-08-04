@@ -42,7 +42,7 @@ public final class JdkBlockCipher implements BlockCipher {
         return new JdkBlockCipher(algorithm);
     }
 
-    private static final java.util.Set<String> SUPPORTED = java.util.Set.of(
+    public static final java.util.Set<String> SUPPORTED = java.util.Set.of(
             "AES", "DES", "DESede", "Blowfish", "RC2");
 
     @Override

@@ -113,7 +113,7 @@ public class FloraPbkdf2 implements KDF {
     // create Pbkdf2DerivationFunction directly with the appropriate Mac.
     DerivationFunction gen;
     if ("HmacSHA256".equals(hmacName)) {
-      gen = CryptoProvider.derivationFunction("PBKDF2");
+      gen = CryptoProvider.derivationFunction("PBKDF2(HMac(SHA-256))");
     } else {
       gen = new Pbkdf2DerivationFunction(JdkMac.of(hmacName));
     }

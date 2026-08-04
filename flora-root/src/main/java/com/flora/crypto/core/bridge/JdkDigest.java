@@ -32,7 +32,7 @@ public final class JdkDigest implements ExtendedDigest {
         return new JdkDigest(algorithm);
     }
 
-    private static final java.util.Set<String> SUPPORTED = java.util.Set.of(
+    public static final java.util.Set<String> SUPPORTED = java.util.Set.of(
             "MD5", "SHA-1", "SHA-224", "SHA-256", "SHA-384", "SHA-512",
             "SHA-512/224", "SHA-512/256", "SHA3-224", "SHA3-256", "SHA3-384", "SHA3-512");
 

@@ -1,20 +1,18 @@
 package com.flora.crypto.core;
-import com.flora.crypto.core.combinator.BufferedAsymmetricBlockCipher;
-import com.flora.crypto.core.interfaces.provider.AlgorithmFamily;
 
-import com.flora.crypto.core.bridge.JdkDigest;
-import com.flora.crypto.core.bridge.JdkBlockCipher;
-import com.flora.crypto.core.bridge.JdkAsymmetricBlockCipher;
-import com.flora.crypto.core.bridge.JdkMac;
-import com.flora.crypto.core.bridge.JdkKeyPairGenerator;
 import com.flora.crypto.core.bridge.JdkAgreement;
+import com.flora.crypto.core.bridge.JdkAsymmetricBlockCipher;
 import com.flora.crypto.core.bridge.JdkAsymmetricKeyPairGenerator;
-import com.flora.crypto.core.impl.AgreementBasedKem;
+import com.flora.crypto.core.bridge.JdkBlockCipher;
+import com.flora.crypto.core.bridge.JdkDigest;
+import com.flora.crypto.core.bridge.JdkKeyPairGenerator;
+import com.flora.crypto.core.bridge.JdkMac;
 import com.flora.crypto.core.bridge.SecureRandomEntropySource;
+import com.flora.crypto.core.combinator.BufferedAsymmetricBlockCipher;
+import com.flora.crypto.core.impl.AgreementBasedKem;
 import com.flora.crypto.core.impl.HMac;
 import com.flora.crypto.core.impl.HMacDrbg;
 import com.flora.crypto.core.impl.Pbkdf2DerivationFunction;
-
 import com.flora.crypto.core.interfaces.provider.Agreement;
 import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;
 import com.flora.crypto.core.interfaces.provider.AsymmetricCipher;
@@ -29,363 +27,374 @@ import com.flora.crypto.core.interfaces.provider.KEM;
 import com.flora.crypto.core.interfaces.provider.Mac;
 import com.flora.crypto.core.interfaces.provider.SP80090DRBG;
 import com.flora.crypto.core.interfaces.provider.Xof;
-
-import com.flora.crypto.core.padding.PKCS7Padding;
+import com.flora.crypto.core.mode.CBCBlockCipher;
+import com.flora.crypto.core.mode.CFBBlockCipher;
+import com.flora.crypto.core.mode.GCMBlockCipher;
+import com.flora.crypto.core.mode.OFBBlockCipher;
+import com.flora.crypto.core.mode.SICBlockCipher;
 import com.flora.crypto.core.padding.ISO7816d4Padding;
+import com.flora.crypto.core.padding.PKCS7Padding;
 import com.flora.crypto.core.padding.ZeroBytePadding;
-
 import com.flora.java.CheckUtil;
 
 import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
- * 加密组件注册表（模仿 JCA 的 {@code Provider} / BouncyCastleProvider 模式）。
- * <p>实现类通过族接口（{@code Digest} / {@code Mac} / {@code BlockCipher} 等，均继承
- * {@code AlgorithmFamily}）自述支持的算法集合与优先级。注册表按算法名索引，
- * 同一算法名可被多个实现类注册，分发时按「能实现 → 优先级（越大越优先）→ 具体度（算法数越少越优先）」
- * 裁决，仍平局则抛异常。</p>
- *
+ * 加密组件注册表（DSL 表达式驱动）。
+ * <p>算法组件通过 DSL 表达式注册和解析：</p>
+ * <pre>
+ * 表达式 = 裸名 | 裸名(表达式, ...) | 字面量
+ * 字面量 = integer:数字 | float:小数 | string:文本 | bytes:十六进制
+ * </pre>
+ * <p>注册时指定角色类型（如 {@link Digest}、{@link Mac}），同名算法可安全注册在不同角色下。
+ * 类型化查询（如 {@link #digest(String)}）优先在本角色查找，未命中则回退 JDK 适配器。
+ * DSL 子依赖解析跨所有角色搜索。</p>
  * <pre>{@code
- * Digest d = CryptoProvider.digest("SHA-256");
- * BlockCipher aes = CryptoProvider.blockCipher("AES");        // 裸块引擎
- * BlockCipher cbc = new CBCBlockCipher(aes);                   // 自研组合
+ * CryptoProvider.register(DerivationFunction.class, "PBKDF2", new Class[]{Mac.class},
+ *         args -> new Pbkdf2DerivationFunction((Mac) args[0]));
+ * CryptoProvider.register(Mac.class, "HMac", new Class[]{ExtendedDigest.class},
+ *         args -> new HMac((ExtendedDigest) args[0]));
+ * // 查询时 DSL 自动解析依赖：
+ * DerivationFunction kdf = CryptoProvider.derivationFunction("PBKDF2(HMac(SHA-256))");
  * }</pre>
- *
- * <h2>自定义算法注册</h2>
- * 以「原型实例 + 工厂」注册：原型实例通过族接口自述支持的算法与优先级。
- *
- * <pre>{@code
- * CryptoProvider.registerDigest(new MyDigest(), MyDigest::of);
- * Digest d = CryptoProvider.digest("MyHash");
- * }</pre>
- *
- * 注册发生在 JVM 全局，请尽早（如启动时）完成。
+ * <p>裸名（如 {@code "SHA-256"}）未注册时自动回退到 JDK 适配器。</p>
  */
 public final class CryptoProvider {
 
-    private CryptoProvider() {
-    }
+    private CryptoProvider() {}
 
-    // ── 注册表：算法名 → 提供者条目列表（每个条目含优先级/具体度/工厂）──
+    // ── 按角色分类注册表 ──
 
-    /** 记录每个原型类声明的算法名，用于 {@link #registeredImplementations()} 查询。 */
-    private static final Map<Class<?>, Set<String>> REGISTERED_PROTOTYPES = new LinkedHashMap<>();
+    private record Entry(int priority, int specificity, Function<Object[], ?> factory) {}
 
-    private record Entry<T>(int priority, int specificity, Supplier<? extends T> factory) {
-    }
-
-    private static final Map<String, List<Entry<Digest>>> DIGEST_REGISTRY = new ConcurrentHashMap<>();
-    private static final Map<String, List<Entry<BlockCipher>>> BLOCK_REGISTRY = new ConcurrentHashMap<>();
-    private static final Map<String, List<Entry<AsymmetricBlockCipher>>> ASYM_REGISTRY = new ConcurrentHashMap<>();
-    private static final Map<String, List<Entry<Mac>>> MAC_REGISTRY = new ConcurrentHashMap<>();
-    private static final Map<String, List<Entry<JdkKeyPairGenerator>>> KPG_REGISTRY = new ConcurrentHashMap<>();
-    private static final Map<String, List<Entry<Xof>>> XOF_REGISTRY = new ConcurrentHashMap<>();
-    private static final Map<String, List<Entry<AsymmetricCipher>>> ASYM_CIPHER_REGISTRY = new ConcurrentHashMap<>();
-    private static final Map<String, List<Entry<Agreement>>> AGREEMENT_REGISTRY = new ConcurrentHashMap<>();
-    private static final Map<String, List<Entry<DerivationFunction>>> DERIVATION_REGISTRY = new ConcurrentHashMap<>();
-    private static final Map<String, List<Entry<BlockCipherPadding>>> PADDING_REGISTRY = new ConcurrentHashMap<>();
-    private static final Map<String, List<Entry<AsymmetricCipherKeyPairGenerator>>> ASYM_KPG_REGISTRY = new ConcurrentHashMap<>();
-    private static final Map<String, List<Entry<KEM>>> KEM_REGISTRY = new ConcurrentHashMap<>();
-    private static final Map<String, List<Entry<EntropySource>>> ENTROPY_REGISTRY = new ConcurrentHashMap<>();
-    private static final Map<String, List<Entry<SP80090DRBG>>> DRBG_REGISTRY = new ConcurrentHashMap<>();
+    /** 角色类型 → (DSL 名称 → 候选条目列表)。同名算法在不同角色下互不干扰。 */
+    private static final Map<Class<?>, Map<String, List<Entry>>> ROLES = new ConcurrentHashMap<>();
 
     static {
-        // JDK 原语适配器（通用，priority 默认 0）
-        registerDigest(JdkDigest.of("SHA-256"), JdkDigest::of);
-        registerBlockCipher(JdkBlockCipher.of("AES"), JdkBlockCipher::of);
-        registerMac(JdkMac.of("HmacSHA256"), JdkMac::of);
-        registerAsymmetricCipher(JdkAsymmetricBlockCipher.of("RSA"), JdkAsymmetricBlockCipher::of);
-        registerAgreement(JdkAgreement.of("ECDH"), JdkAgreement::of);
-        registerKeyPairGenerator(JdkKeyPairGenerator.of("RSA"), JdkKeyPairGenerator::of);
-        registerAsymmetricKeyPairGenerator(JdkAsymmetricKeyPairGenerator.of("EC"), JdkAsymmetricKeyPairGenerator::of);
-        registerKem(AgreementBasedKem.of("ECDH"), AgreementBasedKem::of);
-        // 自研组合类（单算法）
-        registerDerivationFunction(new Kdf2DerivationFunction(digest("SHA-256")),
-                n -> new Kdf2DerivationFunction(digest("SHA-256")));
-        registerDerivationFunction(new Pbkdf2DerivationFunction(new HMac(extendedDigest("SHA-256"))),
-                n -> new Pbkdf2DerivationFunction(new HMac(extendedDigest("SHA-256"))));
-        registerDerivationFunction(new HkdfDerivationFunction(mac("HmacSHA256")),
-                n -> new HkdfDerivationFunction(mac("HmacSHA256")));
-        registerBlockCipherPadding(new PKCS7Padding(), n -> switch (n) {
-            case "PKCS7", "PKCS5" -> new PKCS7Padding();
-            default -> throw new IllegalArgumentException(n);
-        });
-        registerBlockCipherPadding(new ISO7816d4Padding(), n -> switch (n) {
-            case "ISO7816", "ISO7816-4" -> new ISO7816d4Padding();
-            default -> throw new IllegalArgumentException(n);
-        });
-        registerBlockCipherPadding(new ZeroBytePadding(), n -> new ZeroBytePadding());
+        // ── JDK 适配器（裸名注册，priority=0）──
+        registerJdkAdapters(Digest.class, JdkDigest.SUPPORTED, JdkDigest::of);
+        registerJdkAdapters(BlockCipher.class, JdkBlockCipher.SUPPORTED, JdkBlockCipher::of);
+        registerJdkAdapters(Mac.class, JdkMac.SUPPORTED, JdkMac::of);
+        registerJdkAdapters(AsymmetricBlockCipher.class, Set.of("RSA"), JdkAsymmetricBlockCipher::of);
+        registerJdkAdapters(Agreement.class, JdkAgreement.SUPPORTED, JdkAgreement::of);
+        registerJdkAdapters(JdkKeyPairGenerator.class, JdkKeyPairGenerator.SUPPORTED, JdkKeyPairGenerator::of);
+        registerJdkAdapters(AsymmetricCipherKeyPairGenerator.class,
+                JdkAsymmetricKeyPairGenerator.SUPPORTED, JdkAsymmetricKeyPairGenerator::of);
+        registerJdkAdapters(KEM.class, AgreementBasedKem.SUPPORTED, AgreementBasedKem::of);
+
+        // ── KDF（依赖其他算法，DSL 自动解析）──
+        register(DerivationFunction.class, "KDF2", new Class[]{Digest.class},
+                args -> new Kdf2DerivationFunction((Digest) args[0]));
+        register(DerivationFunction.class, "PBKDF2", new Class[]{Mac.class},
+                args -> new Pbkdf2DerivationFunction((Mac) args[0]));
+        register(DerivationFunction.class, "HKDF", new Class[]{Mac.class},
+                args -> new HkdfDerivationFunction((Mac) args[0]));
+
+        // ── Mac 组合 ──
+        register(Mac.class, "HMac", new Class[]{ExtendedDigest.class},
+                args -> new HMac((ExtendedDigest) args[0]));
+
+        // ── 填充策略 ──
+        register(BlockCipherPadding.class, "PKCS7", new Class[]{}, args -> new PKCS7Padding());
+        register(BlockCipherPadding.class, "PKCS5", new Class[]{}, args -> new PKCS7Padding());
+        register(BlockCipherPadding.class, "ISO7816", new Class[]{}, args -> new ISO7816d4Padding());
+        register(BlockCipherPadding.class, "ISO7816-4", new Class[]{}, args -> new ISO7816d4Padding());
+        register(BlockCipherPadding.class, "ZeroByte", new Class[]{}, args -> new ZeroBytePadding());
+
+        // ── 分组密码模式 ──
+        register(BlockCipher.class, "CBC", new Class[]{BlockCipher.class},
+                args -> new CBCBlockCipher((BlockCipher) args[0]));
+        register(BlockCipher.class, "CFB", new Class[]{BlockCipher.class},
+                args -> new CFBBlockCipher((BlockCipher) args[0]));
+        register(BlockCipher.class, "OFB", new Class[]{BlockCipher.class},
+                args -> new OFBBlockCipher((BlockCipher) args[0]));
+        register(BlockCipher.class, "CTR", new Class[]{BlockCipher.class},
+                args -> new SICBlockCipher((BlockCipher) args[0]));
+        register(BlockCipher.class, "GCM", new Class[]{BlockCipher.class},
+                args -> new GCMBlockCipher((BlockCipher) args[0]));
     }
 
-    // ── 注册入口：原型实例（经族接口自述）+ 按名工厂 ──
+    // ── 注册 API ──
 
-    public static void registerDigest(Digest prototype, Function<String, ? extends Digest> factory) {
-        register(DIGEST_REGISTRY, prototype, factory);
+    /**
+     * 注册一个算法工厂。
+     *
+     * @param role       角色类型（如 {@code Digest.class}）
+     * @param dslName    DSL 名称（如 {@code "PBKDF2"}）
+     * @param paramTypes 参数类型列表，用于运行时类型校验
+     * @param factory    工厂函数，接收已解析的参数数组
+     */
+    public static void register(Class<?> role, String dslName, Class<?>[] paramTypes,
+                                Function<Object[], ?> factory) {
+        register(role, dslName, 0, 1, paramTypes, factory);
     }
 
-    public static void registerBlockCipher(BlockCipher prototype, Function<String, ? extends BlockCipher> factory) {
-        register(BLOCK_REGISTRY, prototype, factory);
+    /**
+     * 注册一个算法工厂（指定优先级和具体度）。
+     *
+     * @param role        角色类型
+     * @param dslName     DSL 名称
+     * @param priority    优先级（越大越优先）
+     * @param specificity 具体度（越小越优先，通常为支持算法数的倒数）
+     * @param paramTypes  参数类型列表
+     * @param factory     工厂函数
+     */
+    public static void register(Class<?> role, String dslName, int priority, int specificity,
+                                Class<?>[] paramTypes,
+                                Function<Object[], ?> factory) {
+        CheckUtil.notEmpty(dslName, "DSL name cannot be empty");
+        ROLES.computeIfAbsent(role, k -> new ConcurrentHashMap<>())
+                .computeIfAbsent(dslName, k -> new CopyOnWriteArrayList<>())
+                .add(new Entry(priority, specificity, factory));
     }
 
-    public static void registerAsymmetricCipher(AsymmetricBlockCipher prototype, Function<String, ? extends AsymmetricBlockCipher> factory) {
-        register(ASYM_REGISTRY, prototype, factory);
-    }
-
-    public static void registerMac(Mac prototype, Function<String, ? extends Mac> factory) {
-        register(MAC_REGISTRY, prototype, factory);
-    }
-
-    public static void registerKeyPairGenerator(JdkKeyPairGenerator prototype, Function<String, ? extends JdkKeyPairGenerator> factory) {
-        register(KPG_REGISTRY, prototype, factory);
-    }
-
-    public static void registerXof(Xof prototype, Function<String, ? extends Xof> factory) {
-        register(XOF_REGISTRY, prototype, factory);
-    }
-
-    public static void registerAsymmetricStreamCipher(AsymmetricCipher prototype, Function<String, ? extends AsymmetricCipher> factory) {
-        register(ASYM_CIPHER_REGISTRY, prototype, factory);
-    }
-
-    public static void registerAgreement(Agreement prototype, Function<String, ? extends Agreement> factory) {
-        register(AGREEMENT_REGISTRY, prototype, factory);
-    }
-
-    public static void registerDerivationFunction(DerivationFunction prototype, Function<String, ? extends DerivationFunction> factory) {
-        register(DERIVATION_REGISTRY, prototype, factory);
-    }
-
-    public static void registerBlockCipherPadding(BlockCipherPadding prototype, Function<String, ? extends BlockCipherPadding> factory) {
-        register(PADDING_REGISTRY, prototype, factory);
-    }
-
-    public static void registerAsymmetricKeyPairGenerator(AsymmetricCipherKeyPairGenerator prototype, Function<String, ? extends AsymmetricCipherKeyPairGenerator> factory) {
-        register(ASYM_KPG_REGISTRY, prototype, factory);
-    }
-
-    public static void registerKem(KEM prototype, Function<String, ? extends KEM> factory) {
-        register(KEM_REGISTRY, prototype, factory);
-    }
-
-    public static void registerEntropySource(EntropySource prototype, Function<String, ? extends EntropySource> factory) {
-        register(ENTROPY_REGISTRY, prototype, factory);
-    }
-
-    public static void registerDrbg(SP80090DRBG prototype, Function<String, ? extends SP80090DRBG> factory) {
-        register(DRBG_REGISTRY, prototype, factory);
-    }
-
-    private static <T> void register(Map<String, List<Entry<T>>> reg,
-                                     T prototype,
-                                     Function<String, ? extends T> factory) {
-        if (!(prototype instanceof AlgorithmFamily family)) {
-            throw new IllegalArgumentException("原型实例必须实现 AlgorithmFamily: " + prototype.getClass());
-        }
-        Set<String> algorithms = family.supportedAlgorithms();
-        if (algorithms == null || algorithms.isEmpty()) {
-            throw new IllegalArgumentException("supportedAlgorithms() 不能为空: " + prototype.getClass());
-        }
-        int priority = family.priority();
-        int specificity = algorithms.size();
-        REGISTERED_PROTOTYPES.computeIfAbsent(prototype.getClass(), k -> new LinkedHashSet<>()).addAll(algorithms);
-        for (String name : algorithms) {
-            reg.computeIfAbsent(name, k -> new CopyOnWriteArrayList<>())
-                    .add(new Entry<>(priority, specificity, () -> factory.apply(name)));
+    /** 批量注册 JDK 适配器的所有支持算法名到指定角色。 */
+    private static void registerJdkAdapters(Class<?> role, Set<String> names,
+                                            Function<String, ?> factory) {
+        int specificity = names.size();
+        for (String name : names) {
+            register(role, name, 0, specificity, new Class[]{String.class},
+                    args -> factory.apply(name));
         }
     }
 
-    // ── 分发入口：按「能实现 → 优先级 → 具体度」裁决 ──
+    // ── DSL 解析与裁决 ──
 
-    public static Digest digest(String name) {
-        return resolve(DIGEST_REGISTRY, name, "摘要算法");
+    /**
+     * 解析 DSL 表达式并返回构造好的实例（跨所有角色搜索）。
+     *
+     * @param expression DSL 表达式，如 {@code "PBKDF2(HMac(SHA-256))"}
+     * @return 构造好的算法实例
+     * @throws IllegalArgumentException 表达式无效或无匹配的工厂
+     */
+    public static Object resolve(String expression) {
+        CheckUtil.notEmpty(expression, "DSL expression cannot be empty");
+        return resolveExpr(DslParser.parse(expression), null);
     }
 
-    public static BlockCipher blockCipher(String name) {
-        return resolve(BLOCK_REGISTRY, name, "分组密码");
+    /**
+     * 内部统一解析入口。
+     *
+     * @param parsed   DslParser 的解析结果（String / Invocation / 字面量）
+     * @param hintRole 提示角色（可为 null），优先在该角色下查找
+     */
+    private static Object resolveExpr(Object parsed, Class<?> hintRole) {
+        if (parsed instanceof String bareName) {
+            return resolveName(bareName, hintRole, new Object[0]);
+        }
+        if (parsed instanceof DslParser.Invocation inv) {
+            Object[] args = resolveArgs(inv.args());
+            return resolveName(inv.name(), hintRole, args);
+        }
+        // 字面量直接返回
+        return parsed;
     }
 
-    public static AsymmetricBlockCipher asymmetricCipher(String name) {
-        return resolve(ASYM_REGISTRY, name, "非对称密码");
+    private static Object resolveName(String name, Class<?> hintRole, Object[] args) {
+        // 1. 提示角色优先
+        if (hintRole != null) {
+            Entry entry = findEntry(hintRole, name);
+            if (entry != null) return entry.factory().apply(args);
+        }
+        // 2. 跨角色搜索
+        Entry entry = findAcrossRoles(name);
+        if (entry != null) return entry.factory().apply(args);
+        // 3. JDK 回退（仅对无参裸名）
+        if (args.length == 0) {
+            return jdkFallback(name);
+        }
+        throw new IllegalArgumentException("Unregistered algorithm: " + name);
     }
 
-    public static Mac mac(String name) {
-        return resolve(MAC_REGISTRY, name, "MAC 算法");
+    private static Entry findEntry(Class<?> role, String name) {
+        Map<String, List<Entry>> roleMap = ROLES.get(role);
+        if (roleMap == null) return null;
+        List<Entry> entries = roleMap.get(name);
+        if (entries == null || entries.isEmpty()) return null;
+        return select(entries, name);
     }
 
-    public static JdkKeyPairGenerator keyPairGenerator(String name) {
-        return resolve(KPG_REGISTRY, name, "密钥对生成器");
+    private static Entry findAcrossRoles(String name) {
+        Entry found = null;
+        for (Map<String, List<Entry>> roleMap : ROLES.values()) {
+            List<Entry> entries = roleMap.get(name);
+            if (entries != null && !entries.isEmpty()) {
+                Entry candidate = select(entries, name);
+                if (found != null) {
+                    throw new IllegalArgumentException(
+                            "Ambiguous algorithm '" + name + "' found in multiple roles");
+                }
+                found = candidate;
+            }
+        }
+        return found;
     }
 
-    /** @throws ClassCastException 若裁决出的实现未实现 {@link ExtendedDigest} */
-    public static ExtendedDigest extendedDigest(String name) {
-        return (ExtendedDigest) digest(name);
+    private static Object[] resolveArgs(Object[] rawArgs) {
+        Object[] resolved = new Object[rawArgs.length];
+        for (int i = 0; i < rawArgs.length; i++) {
+            resolved[i] = resolveExpr(rawArgs[i], null);
+        }
+        return resolved;
     }
 
-    /** 可变长输出函数；未注册返回占位实现。 */
-    public static Xof xof(String name) {
-        return resolveOrElse(XOF_REGISTRY, name, new PlaceholderXof());
+    private static Entry select(List<Entry> entries, String name) {
+        if (entries.size() == 1) {
+            return entries.get(0);
+        }
+        int maxPri = entries.stream().mapToInt(Entry::priority).max().orElse(0);
+        var byPri = entries.stream().filter(e -> e.priority() == maxPri).toList();
+        if (byPri.size() == 1) {
+            return byPri.get(0);
+        }
+        int minSpec = byPri.stream().mapToInt(Entry::specificity).min().orElse(0);
+        var bySpec = byPri.stream().filter(e -> e.specificity() == minSpec).toList();
+        if (bySpec.size() == 1) {
+            return bySpec.get(0);
+        }
+        throw new IllegalArgumentException(
+                "Ambiguous registration for '" + name + "': " + bySpec.size()
+                + " entries with same priority=" + maxPri + " and specificity=" + minSpec);
     }
 
-    /** 流式非对称密码；默认以 {@link BufferedAsymmetricBlockCipher} 包裹同名非对称分组密码。 */
-    public static AsymmetricCipher asymmetricStreamCipher(String name) {
-        return resolveOrElse(ASYM_CIPHER_REGISTRY, name,
-                new BufferedAsymmetricBlockCipher(asymmetricCipher(name)));
+    private static Object jdkFallback(String name) {
+        Object result;
+        result = tryCreate(() -> JdkDigest.of(name));
+        if (result != null) return result;
+        result = tryCreate(() -> JdkBlockCipher.of(name));
+        if (result != null) return result;
+        result = tryCreate(() -> JdkMac.of(name));
+        if (result != null) return result;
+        result = tryCreate(() -> JdkAgreement.of(name));
+        if (result != null) return result;
+        result = tryCreate(() -> JdkAsymmetricBlockCipher.of(name));
+        if (result != null) return result;
+        throw new IllegalArgumentException("Unregistered algorithm: " + name);
     }
 
-    public static Agreement agreement(String name) {
-        return resolve(AGREEMENT_REGISTRY, name, "密钥协商算法");
+    private static Object tryCreate(java.util.function.Supplier<?> supplier) {
+        try {
+            return supplier.get();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
-    public static DerivationFunction derivationFunction(String name) {
-        return resolveOrElse(DERIVATION_REGISTRY, name, new PlaceholderDerivationFunction());
+    // ── 按角色解析（类型化查询内部使用） ──
+
+    private static Object resolveByRole(Class<?> role, String expression) {
+        CheckUtil.notEmpty(expression, "DSL expression cannot be empty");
+        return resolveExpr(DslParser.parse(expression), role);
     }
 
-    public static BlockCipherPadding blockCipherPadding(String name) {
-        return resolve(PADDING_REGISTRY, name, "填充策略");
+    // ── 类型化查询 ──
+
+    public static Digest digest(String expression) {
+        return (Digest) resolveByRole(Digest.class, expression);
     }
 
-    public static AsymmetricCipherKeyPairGenerator asymmetricKeyPairGenerator(String name) {
-        return resolve(ASYM_KPG_REGISTRY, name, "非对称密钥对生成器");
+    public static ExtendedDigest extendedDigest(String expression) {
+        return (ExtendedDigest) resolveByRole(ExtendedDigest.class, expression);
     }
 
-    public static KEM kem(String name) {
-        return resolveOrElse(KEM_REGISTRY, name, new PlaceholderKem());
+    public static BlockCipher blockCipher(String expression) {
+        return (BlockCipher) resolveByRole(BlockCipher.class, expression);
     }
 
-    public static EntropySource entropySource(String name) {
-        return resolveOrElse(ENTROPY_REGISTRY, name, new SecureRandomEntropySource());
+    public static Mac mac(String expression) {
+        return (Mac) resolveByRole(Mac.class, expression);
+    }
+
+    public static AsymmetricBlockCipher asymmetricCipher(String expression) {
+        return (AsymmetricBlockCipher) resolveByRole(AsymmetricBlockCipher.class, expression);
+    }
+
+    public static Agreement agreement(String expression) {
+        return (Agreement) resolveByRole(Agreement.class, expression);
+    }
+
+    public static JdkKeyPairGenerator keyPairGenerator(String expression) {
+        return (JdkKeyPairGenerator) resolveByRole(JdkKeyPairGenerator.class, expression);
+    }
+
+    public static AsymmetricCipherKeyPairGenerator asymmetricKeyPairGenerator(String expression) {
+        return (AsymmetricCipherKeyPairGenerator)
+                resolveByRole(AsymmetricCipherKeyPairGenerator.class, expression);
+    }
+
+    public static DerivationFunction derivationFunction(String expression) {
+        try {
+            return (DerivationFunction) resolveByRole(DerivationFunction.class, expression);
+        } catch (Exception e) {
+            return new PlaceholderDerivationFunction();
+        }
+    }
+
+    public static Xof xof(String expression) {
+        try {
+            return (Xof) resolveByRole(Xof.class, expression);
+        } catch (Exception e) {
+            return new PlaceholderXof();
+        }
+    }
+
+    public static KEM kem(String expression) {
+        try {
+            return (KEM) resolveByRole(KEM.class, expression);
+        } catch (Exception e) {
+            return new PlaceholderKem();
+        }
+    }
+
+    public static AsymmetricCipher asymmetricStreamCipher(String expression) {
+        try {
+            return (AsymmetricCipher) resolveByRole(AsymmetricCipher.class, expression);
+        } catch (Exception e) {
+            return new BufferedAsymmetricBlockCipher(asymmetricCipher(expression));
+        }
+    }
+
+    public static BlockCipherPadding blockCipherPadding(String expression) {
+        return (BlockCipherPadding) resolveByRole(BlockCipherPadding.class, expression);
+    }
+
+    public static EntropySource entropySource(String expression) {
+        try {
+            return (EntropySource) resolveByRole(EntropySource.class, expression);
+        } catch (Exception e) {
+            return new SecureRandomEntropySource();
+        }
     }
 
     public static EntropySource entropySource() {
         return entropySource("default");
     }
 
-    public static SP80090DRBG hmacDrbg(String hmacAlgorithm, int securityStrengthBits, byte[] personalizationString) {
-        CheckUtil.notEmpty(hmacAlgorithm, "HMAC 算法名不能为空");
-        return resolveOrElse(DRBG_REGISTRY, hmacAlgorithm,
-                new HMacDrbg(mac(hmacAlgorithm), new SecureRandomEntropySource(), securityStrengthBits, personalizationString));
+    public static SP80090DRBG hmacDrbg(String hmacAlgorithm, int securityStrengthBits,
+                                        byte[] personalizationString) {
+        CheckUtil.notEmpty(hmacAlgorithm, "HMAC algorithm name cannot be empty");
+        try {
+            return (SP80090DRBG) resolveByRole(SP80090DRBG.class, hmacAlgorithm);
+        } catch (Exception e) {
+            return new HMacDrbg(mac(hmacAlgorithm), new SecureRandomEntropySource(),
+                    securityStrengthBits, personalizationString);
+        }
     }
 
-    // ── 查询：按族列出已注册算法名 ──
+    // ── 查询已注册算法名 ──
 
-    /** @return 所有已注册的摘要算法名 */
-    public static Set<String> digestAlgorithms() { return keysOf(DIGEST_REGISTRY); }
-    /** @return 所有已注册的分组密码算法名 */
-    public static Set<String> blockCipherAlgorithms() { return keysOf(BLOCK_REGISTRY); }
-    /** @return 所有已注册的非对称密码算法名 */
-    public static Set<String> asymmetricCipherAlgorithms() { return keysOf(ASYM_REGISTRY); }
-    /** @return 所有已注册的 MAC 算法名 */
-    public static Set<String> macAlgorithms() { return keysOf(MAC_REGISTRY); }
-    /** @return 所有已注册的密钥对生成器算法名 */
-    public static Set<String> keyPairGeneratorAlgorithms() { return keysOf(KPG_REGISTRY); }
-    /** @return 所有已注册的 XOF 算法名 */
-    public static Set<String> xofAlgorithms() { return keysOf(XOF_REGISTRY); }
-    /** @return 所有已注册的流式非对称密码算法名 */
-    public static Set<String> asymmetricStreamCipherAlgorithms() { return keysOf(ASYM_CIPHER_REGISTRY); }
-    /** @return 所有已注册的密钥协商算法名 */
-    public static Set<String> agreementAlgorithms() { return keysOf(AGREEMENT_REGISTRY); }
-    /** @return 所有已注册的密钥派生函数算法名 */
-    public static Set<String> derivationFunctionAlgorithms() { return keysOf(DERIVATION_REGISTRY); }
-    /** @return 所有已注册的填充策略名 */
-    public static Set<String> blockCipherPaddingAlgorithms() { return keysOf(PADDING_REGISTRY); }
-    /** @return 所有已注册的非对称密钥对生成器算法名 */
-    public static Set<String> asymmetricKeyPairGeneratorAlgorithms() { return keysOf(ASYM_KPG_REGISTRY); }
-    /** @return 所有已注册的 KEM 算法名 */
-    public static Set<String> kemAlgorithms() { return keysOf(KEM_REGISTRY); }
-    /** @return 所有已注册的熵源算法名 */
-    public static Set<String> entropySourceAlgorithms() { return keysOf(ENTROPY_REGISTRY); }
-    /** @return 所有已注册的 DRBG 算法名 */
-    public static Set<String> drbgAlgorithms() { return keysOf(DRBG_REGISTRY); }
-
-    /**
-     * 返回所有已注册的算法名（跨族汇总，不可变视图）。
-     * <p>同一算法名可能出现在多个族中，此方法做并集。</p>
-     *
-     * @return 全部算法名的不可变集合
-     */
+    /** @return 所有已注册的 DSL 名称（不可变，跨所有角色合并） */
     public static Set<String> registeredAlgorithms() {
-        Set<String> all = new HashSet<>();
-        all.addAll(DIGEST_REGISTRY.keySet());
-        all.addAll(BLOCK_REGISTRY.keySet());
-        all.addAll(ASYM_REGISTRY.keySet());
-        all.addAll(MAC_REGISTRY.keySet());
-        all.addAll(KPG_REGISTRY.keySet());
-        all.addAll(XOF_REGISTRY.keySet());
-        all.addAll(ASYM_CIPHER_REGISTRY.keySet());
-        all.addAll(AGREEMENT_REGISTRY.keySet());
-        all.addAll(DERIVATION_REGISTRY.keySet());
-        all.addAll(PADDING_REGISTRY.keySet());
-        all.addAll(ASYM_KPG_REGISTRY.keySet());
-        all.addAll(KEM_REGISTRY.keySet());
-        all.addAll(ENTROPY_REGISTRY.keySet());
-        all.addAll(DRBG_REGISTRY.keySet());
-        return Collections.unmodifiableSet(all);
-    }
-
-    private static <T> Set<String> keysOf(Map<String, List<Entry<T>>> reg) {
-        return Collections.unmodifiableSet(reg.keySet());
-    }
-
-    /**
-     * 按注册原型类列出每个实现类所支持的算法名（跨族汇总）。
-     * <p>返回的 Map 键为注册时传入的原型实例的 {@code Class}，
-     * 值为该实现声明的算法名集合（不可变视图）。</p>
-     *
-     * @return 实现类 → 算法名的不可变映射
-     */
-    public static Map<Class<?>, Set<String>> registeredImplementations() {
-        Map<Class<?>, Set<String>> result = new LinkedHashMap<>();
-        for (var entry : REGISTERED_PROTOTYPES.entrySet()) {
-            result.put(entry.getKey(), Collections.unmodifiableSet(entry.getValue()));
+        var result = new java.util.HashSet<String>();
+        for (Map<String, List<Entry>> roleMap : ROLES.values()) {
+            result.addAll(roleMap.keySet());
         }
-        return Collections.unmodifiableMap(result);
-    }
-
-    private static <T> T resolve(Map<String, List<Entry<T>>> reg, String name, String role) {
-        CheckUtil.notEmpty(name, "算法名不能为空");
-        List<Entry<T>> list = reg.get(name);
-        if (list == null || list.isEmpty()) {
-            throw new IllegalArgumentException("未注册的" + role + ": " + name);
-        }
-        T result = pick(list, name);
-        if (result == null) {
-            throw new IllegalArgumentException("算法重复注册: " + name + " 存在多个同优先级同具体度的提供者");
-        }
-        return result;
-    }
-
-    private static <T> T resolveOrElse(Map<String, List<Entry<T>>> reg, String name, T fallback) {
-        CheckUtil.notEmpty(name, "算法名不能为空");
-        List<Entry<T>> list = reg.get(name);
-        if (list == null || list.isEmpty()) {
-            return fallback;
-        }
-        T result = pick(list, name);
-        return result != null ? result : fallback;
-    }
-
-    /** 按「优先级最大 → 具体度最小」裁决，多个并列返回 null。 */
-    private static <T> T pick(List<Entry<T>> list, String name) {
-        int maxPri = list.stream().mapToInt(Entry::priority).max().orElse(0);
-        var byPri = list.stream().filter(e -> e.priority() == maxPri).toList();
-        if (byPri.size() == 1) {
-            return byPri.get(0).factory().get();
-        }
-        int minSpec = byPri.stream().mapToInt(Entry::specificity).min().orElse(0);
-        var bySpec = byPri.stream().filter(e -> e.specificity() == minSpec).toList();
-        if (bySpec.size() == 1) {
-            return bySpec.get(0).factory().get();
-        }
-        return null;
+        return Collections.unmodifiableSet(result);
     }
 }

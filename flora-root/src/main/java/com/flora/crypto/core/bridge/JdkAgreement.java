@@ -34,7 +34,7 @@ public final class JdkAgreement implements Agreement {
         return new JdkAgreement(algorithm);
     }
 
-    private static final java.util.Set<String> SUPPORTED = java.util.Set.of("ECDH", "X25519", "X448", "DH");
+    public static final java.util.Set<String> SUPPORTED = java.util.Set.of("ECDH", "X25519", "X448", "DH");
 
     @Override
     public java.util.Set<String> supportedAlgorithms() {

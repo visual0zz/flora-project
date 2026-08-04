@@ -45,7 +45,7 @@ public final class AgreementBasedKem implements KEM {
         return new AgreementBasedKem(agreementAlgorithm);
     }
 
-    private static final java.util.Set<String> SUPPORTED = java.util.Set.of("ECDH", "X25519", "X448", "DH");
+    public static final java.util.Set<String> SUPPORTED = java.util.Set.of("ECDH", "X25519", "X448", "DH");
 
     @Override
     public java.util.Set<String> supportedAlgorithms() {
@@ -68,7 +68,7 @@ public final class AgreementBasedKem implements KEM {
     }
 
     private byte[] deriveSecret(byte[] z) {
-        DerivationFunction kdf = CryptoProvider.derivationFunction("HKDF");
+        DerivationFunction kdf = CryptoProvider.derivationFunction("HKDF(HmacSHA256)");
         kdf.init(new HkdfParameters(z, KEM_INFO));
         byte[] out = new byte[SECRET_LEN];
         kdf.generateBytes(out, 0, SECRET_LEN);

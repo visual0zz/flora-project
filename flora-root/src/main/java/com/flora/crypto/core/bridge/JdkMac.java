@@ -33,7 +33,7 @@ public final class JdkMac implements Mac {
         return new JdkMac(algorithm);
     }
 
-    private static final java.util.Set<String> SUPPORTED = java.util.Set.of(
+    public static final java.util.Set<String> SUPPORTED = java.util.Set.of(
             "HmacMD5", "HmacSHA1", "HmacSHA224", "HmacSHA256", "HmacSHA384", "HmacSHA512");
 
     @Override

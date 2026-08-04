@@ -97,7 +97,7 @@ class CryptoRolesTest {
         byte[] salt = randomBytes(16);
         int iter = 1000;
 
-        DerivationFunction pbkdf2 = CryptoProvider.derivationFunction("PBKDF2");
+        DerivationFunction pbkdf2 = CryptoProvider.derivationFunction("PBKDF2(HMac(SHA-256))");
         pbkdf2.init(new Pbkdf2Parameters(pw, salt, iter));
         byte[] derived = new byte[32];
         pbkdf2.generateBytes(derived, 0, 32);
@@ -115,12 +115,12 @@ class CryptoRolesTest {
     void kdf2Deterministic() {
         byte[] secret = randomBytes(32);
         byte[] info = "ctx".getBytes();
-        DerivationFunction f1 = CryptoProvider.derivationFunction("KDF2");
+        DerivationFunction f1 = CryptoProvider.derivationFunction("KDF2(SHA-256)");
         f1.init(new KdfParameters(secret, info));
         byte[] out1 = new byte[32];
         f1.generateBytes(out1, 0, 32);
 
-        DerivationFunction f2 = CryptoProvider.derivationFunction("KDF2");
+        DerivationFunction f2 = CryptoProvider.derivationFunction("KDF2(SHA-256)");
         f2.init(new KdfParameters(secret, info));
         byte[] out2 = new byte[32];
         f2.generateBytes(out2, 0, 32);
@@ -132,12 +132,12 @@ class CryptoRolesTest {
     void hkdfDeterministic() {
         byte[] prk = randomBytes(32);
         byte[] info = "ctx".getBytes();
-        DerivationFunction f1 = CryptoProvider.derivationFunction("HKDF");
+        DerivationFunction f1 = CryptoProvider.derivationFunction("HKDF(HmacSHA256)");
         f1.init(new HkdfParameters(prk, info));
         byte[] out1 = new byte[32];
         f1.generateBytes(out1, 0, 32);
 
-        DerivationFunction f2 = CryptoProvider.derivationFunction("HKDF");
+        DerivationFunction f2 = CryptoProvider.derivationFunction("HKDF(HmacSHA256)");
         f2.init(new HkdfParameters(prk, info));
         byte[] out2 = new byte[32];
         f2.generateBytes(out2, 0, 32);

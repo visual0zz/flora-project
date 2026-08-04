@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>注释标签 → {@code COMMENT} 类型（含元数据注释）</li>
  *   <li>宏调用 {@code <@name args/>} → {@code MACRO_CALL} 类型及 Lson 参数解析</li>
  *   <li>转义美元符 {@code \$} → 字面量输出</li>
- *   <li>换行符 → 被后续 token 吸收为 {@code leadingNewline} 标记，连续多余换行产生 NEWLINE</li>
+ *   <li>换行符 → 作为 {@code NEW_LINE} token 输出，并吸收其后的连续水平空白（行首缩进）</li>
  *   <li>结束标签 {@code </#xxx>} → {@code END} 类型</li>
  *   <li>错误分支：未闭合插值/注释、缺失 {@code >}、未知指令名、空标签名</li>
  * </ul>
@@ -80,15 +80,32 @@ class TokenTest {
     }
 
     @Test
-    void newlineSetsLeadingNewlineOnNextToken() {
-        List<Token> toks = lex("a\nb");
-        assertEquals(2, toks.size());
+    void newlineBecomesNewLineTokenWithFollowingIndent() {
+        List<Token> toks = lex("a\n    b");
+        assertEquals(3, toks.size());
         assertEquals(Token.Type.PASSIVE, toks.get(0).type());
         assertEquals("a", toks.get(0).text());
-        assertFalse(toks.get(0).leadingNewline());
-        assertEquals(Token.Type.PASSIVE, toks.get(1).type());
-        assertEquals("b", toks.get(1).text());
-        assertTrue(toks.get(1).leadingNewline());
+        assertEquals(Token.Type.NEW_LINE, toks.get(1).type());
+        assertEquals("\n    ", toks.get(1).text());
+        assertEquals(Token.Type.PASSIVE, toks.get(2).type());
+        assertEquals("b", toks.get(2).text());
+    }
+
+    @Test
+    void crlfIsSingleNewLineToken() {
+        List<Token> toks = lex("a\r\nb");
+        assertEquals(Token.Type.NEW_LINE, toks.get(1).type());
+        assertEquals("\r\n", toks.get(1).text());
+    }
+
+    @Test
+    void multipleBlankLinesStaySeparate() {
+        List<Token> toks = lex("a\n\nb");
+        assertEquals(4, toks.size());
+        assertEquals(Token.Type.NEW_LINE, toks.get(1).type());
+        assertEquals("\n", toks.get(1).text());
+        assertEquals(Token.Type.NEW_LINE, toks.get(2).type());
+        assertEquals("\n", toks.get(2).text());
     }
 
     @Test

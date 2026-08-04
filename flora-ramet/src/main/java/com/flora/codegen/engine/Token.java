@@ -8,6 +8,10 @@ import java.util.List;
  * <p>每个 Token 包含类型、原始文本、所在行号和可选的 Lson 参数列表。
  * Token 类型由 {@link Type} 枚举定义，涵盖指令关键字（IF、FOR 等）、
  * 变量引用（VAR）、纯文本（PASSIVE）和注释（COMMENT）等。
+ *
+ * <p>换行以独立的 {@link Type#NEW_LINE} token 表示，其文本为「换行符 + 其后的连续水平空白」，
+ * 由 {@link com.flora.codegen.engine.parser.WhitespaceTrimmer} 在语法分析前统一规整。
+ * 因此本类不再携带任何前导换行 / 抑制标记。
  */
 public final class Token {
 
@@ -40,8 +44,8 @@ public final class Token {
         MACRO,
         /** 宏调用：{@code <@宏名 参数.../>}。 */
         MACRO_CALL,
-        /** 换行符：{@code \n}，渲染时保持模板的换行结构。 */
-        NEWLINE
+        /** 换行符：{@code \n}（或 {@code \r\n}）及其后的连续水平空白，规整前保留模板换行结构。 */
+        NEW_LINE
     }
 
     private final Token.Type type;
@@ -50,46 +54,33 @@ public final class Token {
     private final int line;
     /** 列号（从 1 开始），-1 表示未知。 */
     private final int col;
-    /** 此 token 前���否有一个换行符（由 Lexer 的 pendingNewline 机制标记）。 */
-    private final boolean leadingNewline;
-    /** 此 token 的输出是否被抑制（后处理标记，由 Lexer 对指令后的 NEWLINE 设置）。 */
-    private boolean suppressed;
 
     public Token(Token.Type type, String text, int line) {
-        this(type, text, line, -1, null, false);
+        this(type, text, line, -1, null);
     }
 
-    public Token(Token.Type type, String text, int line, boolean leadingNewline) {
-        this(type, text, line, -1, null, leadingNewline);
-    }
-
-    public Token(Token.Type type, String text, int line, int col, boolean leadingNewline) {
-        this(type, text, line, col, null, leadingNewline);
+    public Token(Token.Type type, String text, int line, int col) {
+        this(type, text, line, col, null);
     }
 
     public Token(Token.Type type, String text, int line, List<Object> lsonArgs) {
-        this(type, text, line, -1, lsonArgs, false);
+        this(type, text, line, -1, lsonArgs);
     }
 
-    public Token(Token.Type type, String text, int line, int col, List<Object> lsonArgs, boolean leadingNewline) {
+    public Token(Token.Type type, String text, int line, int col, List<Object> lsonArgs) {
         this.type = type;
         this.text = text;
         this.line = line;
         this.col = col;
         this.lsonArgs = lsonArgs;
-        this.leadingNewline = leadingNewline;
     }
 
-    // ---- getter / setter ----
+    // ---- getter ----
 
     public Token.Type type() { return type; }
     public String text() { return text; }
     public List<Object> lsonArgs() { return lsonArgs; }
     public int line() { return line; }
     public int col() { return col; }
-    public boolean leadingNewline() { return leadingNewline; }
-    /** 标记此 token 为被抑制（不输出）。 */
-    public void suppress() { this.suppressed = true; }
-    public boolean suppressed() { return suppressed; }
 
 }

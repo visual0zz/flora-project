@@ -18,8 +18,8 @@ import java.util.List;
  *     <li>{@code <@...>} 宏调用 → {@link Token.Type#MACRO_CALL}</li>
  *     <li>{@code <#-- -->} 注释 → {@link Token.Type#COMMENT}</li>
  *     <li>{@code </#>} 结束标签 → {@link Token.Type#END}</li>
- *     <li>{@code \r}, {@code \n}, {@code \r\n} 换行符 → 首个设置 {@code pendingNewline} 状态，
- *         后续连续换行符产生独立 {@link Token.Type#NEWLINE} Token</li>
+ *     <li>{@code \r}, {@code \n}, {@code \r\n} 换行符 → 作为一个 {@link Token.Type#NEW_LINE}
+ *         Token 输出，并吸收其后的连续水平空白（行首缩进）一并打包</li>
  *     <li>其余文本 → {@link Token.Type#PASSIVE}</li>
  *   </ul>
  *   <li>支持 {@code \$} 转义序列，反斜杠取消变量插值</li>
@@ -40,7 +40,6 @@ public class Lexer {
     StringBuilder buf = new StringBuilder();
     int bufLine = 1;
     int bufCol = 1;
-    boolean pendingNewline = false;
 
     public Lexer(String src, String source) {
         this.src = src;
@@ -53,10 +52,6 @@ public class Lexer {
             step();
         }
         flush();
-        if (pendingNewline) {
-            toks.add(new Token(Token.Type.NEWLINE, "\n", line, colAt(src.length()), false));
-        }
-        suppressDirectiveNewlines();
         return toks;
     }
 
@@ -78,8 +73,7 @@ public class Lexer {
 
     private void flush() {
         if (!buf.isEmpty()) {
-            toks.add(new Token(Token.Type.PASSIVE, buf.toString(), bufLine, bufCol, pendingNewline));
-            pendingNewline = false;
+            toks.add(new Token(Token.Type.PASSIVE, buf.toString(), bufLine, bufCol));
             buf.setLength(0);
         }
     }
@@ -88,18 +82,24 @@ public class Lexer {
         char c = src.charAt(i);
         if (c == '\r' || c == '\n') {
             // \r\n 视为一个换行符
+            int col = colAt(i);
+            String nl;
             if (c == '\r' && i + 1 < len && src.charAt(i + 1) == '\n') {
-                i++; // 跳过紧跟的 \n
+                nl = "\r\n";
+                i += 2; // 跳过紧跟的 \n
+            } else {
+                nl = "\n";
+                i++;
             }
             flush();
-            if (pendingNewline) {
-                toks.add(new Token(Token.Type.NEWLINE, "\n", line, colAt(i), false));
-                // 保持 pendingNewline = true，后续 token 吸收
-            } else {
-                pendingNewline = true;
+            // 吸收换行后的连续水平空白（行首缩进），整体并入 NEW_LINE token
+            StringBuilder indent = new StringBuilder();
+            while (i < len && (src.charAt(i) == ' ' || src.charAt(i) == '\t')) {
+                indent.append(src.charAt(i));
+                i++;
             }
+            toks.add(new Token(Token.Type.NEW_LINE, nl + indent, line, col, null));
             line++;
-            i++;
             return;
         }
         if (c == '$') {
@@ -107,9 +107,8 @@ public class Lexer {
                 flush();
                 int col = colAt(i);
                 int end = matchBrace(i + 2);
-                toks.add(new Token(Token.Type.VAR, src.substring(i + 2, end), line, col, pendingNewline));
-                pendingNewline = false;
-                i = end + 1;
+                toks.add(new Token(Token.Type.VAR, src.substring(i + 2, end), line, col, null));
+                    i = end + 1;
             } else {
                 buf.append('$');
                 i++;
@@ -166,8 +165,7 @@ public class Lexer {
             int end = src.indexOf("-->", i);
             if (end < 0) throw TemplateUtils.err(line, colAt(i), source, "未闭合的 <#-- 注释");
             String commentBody = src.substring(i, end);
-            toks.add(new Token(Token.Type.COMMENT, commentBody, line, col, pendingNewline));
-            pendingNewline = false;
+            toks.add(new Token(Token.Type.COMMENT, commentBody, line, col, null));
             i = end + 3;
             return;
         }
@@ -184,9 +182,8 @@ public class Lexer {
                 if (i >= len || src.charAt(i) != '>')
                     throw TemplateUtils.err(line, colAt(i), source, "<#else> 不接受任何参数，条件分支请使用 <#elseif>");
                 i++;   // 跳过 >
-                toks.add(new Token(Token.Type.ELSE, "", line, col, pendingNewline));
-                pendingNewline = false;
-                return;
+                toks.add(new Token(Token.Type.ELSE, "", line, col, null));
+                    return;
             }
             case "if":
             case "for":
@@ -198,9 +195,8 @@ public class Lexer {
                 int end = findGt(i);
                 String inner = src.substring(i, end).trim();
                 Token.Type ty = keywordType(kw);
-                toks.add(new Token(ty, inner, line, col, pendingNewline));
-                pendingNewline = false;
-                i = end + 1;
+                toks.add(new Token(ty, inner, line, col, null));
+                    i = end + 1;
                 return;
             }
             case "meta": {
@@ -213,9 +209,8 @@ public class Lexer {
                 int end = src.indexOf("</#meta>", i);
                 if (end < 0) throw TemplateUtils.err(line, colAt(i), source, "未闭合的 <#meta>");
                 String metaBody = src.substring(i, end);
-                toks.add(new Token(Token.Type.META, metaBody, line, col, pendingNewline));
-                pendingNewline = false;
-                i = end + 8; // 跳过 </#meta>
+                toks.add(new Token(Token.Type.META, metaBody, line, col, null));
+                    i = end + 8; // 跳过 </#meta>
                 return;
             }
             default:
@@ -237,15 +232,13 @@ public class Lexer {
         argsStr = argsStr.trim();
         i = end < len ? end + 1 : len;
         toks.add(new Token(Token.Type.MACRO_CALL, name, line, col,
-                argsStr.isEmpty() ? List.of() : parseArgExprs(argsStr, line), pendingNewline));
-        pendingNewline = false;
+                argsStr.isEmpty() ? List.of() : parseArgExprs(argsStr, line)));
     }
 
     private void skipEndTag(int col) {
         while (i < len && Character.isJavaIdentifierPart(src.charAt(i))) i++;
         if (i < len && src.charAt(i) == '>') i++;
-        toks.add(new Token(Token.Type.END, "", line, col, pendingNewline));
-        pendingNewline = false;
+        toks.add(new Token(Token.Type.END, "", line, col, null));
     }
 
     /**
@@ -384,27 +377,4 @@ public class Lexer {
         return out;
     }
 
-    /**
-     * 后处理：对每个前导换行的指令 token，抑制其后第一个 NEWLINE token 的输出。
-     * 避免模板中出现连续两个换行（指令吸收前导换行后，指令后的正文换行又独立输出）。
-     */
-    private void suppressDirectiveNewlines() {
-        boolean pending = false;
-        for (Token t : toks) {
-            if (pending && t.type() == Token.Type.NEWLINE && !t.suppressed()) {
-                t.suppress();
-                pending = false;
-            } else if (t.suppressed()) {
-                // 已被抑制的 token 不改变状态
-            } else if (t.type() != Token.Type.PASSIVE && t.type() != Token.Type.VAR
-                    && t.type() != Token.Type.NEWLINE) {
-                // 指令 token：若带前导换行，则准备抑制后续 NEWLINE
-                if (t.leadingNewline()) {
-                    pending = true;
-                }
-            } else {
-                pending = false;
-            }
-        }
-    }
 }

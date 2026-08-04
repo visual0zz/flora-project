@@ -8,6 +8,7 @@ import com.flora.codegen.engine.ast.Node;
 import com.flora.codegen.engine.parser.Lexer;
 import com.flora.codegen.engine.parser.MetaParser;
 import com.flora.codegen.engine.parser.Parser;
+import com.flora.codegen.engine.parser.WhitespaceTrimmer;
 import com.flora.codegen.engine.runtime.Context;
 import com.flora.codegen.engine.runtime.TemplateBody;
 
@@ -62,7 +63,7 @@ public final class CodeGenUtil {
 
     public static List<Generated> generate(String tplContent, Map<String, CompiledTemplate> includes,
                                             String source, String templatesRoot) {
-        List<Token> toks = Lexer.lex(tplContent);
+        List<Token> toks = WhitespaceTrimmer.trim(Lexer.lex(tplContent));
         List<Node> nodes = Parser.parse(toks);
 
         // 只允许一个 meta 块
@@ -324,7 +325,7 @@ public final class CodeGenUtil {
     }
 
     public static CompiledTemplate precompile(String tplContent, String source) {
-        List<Token> toks = Lexer.lex(tplContent);
+        List<Token> toks = WhitespaceTrimmer.trim(Lexer.lex(tplContent));
         List<Node> nodes = Parser.parse(toks);
         return new CompiledTemplate(nodes);
     }

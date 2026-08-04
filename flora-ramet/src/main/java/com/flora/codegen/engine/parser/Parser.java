@@ -76,14 +76,9 @@ public class Parser {
 
     private Node parseOne(Token t) {
         return switch (t.type()) {
-            case PASSIVE -> { p++; yield new TextNode(t.text(), t.leadingNewline()); }
-            case NEWLINE -> {
-                p++;
-                // 被抑制的换行不生成节点
-                if (t.suppressed()) yield new TextNode("", false);
-                yield new TextNode("\n", false);
-            }
-            case VAR -> { p++; yield new VarNode(t.text(), t.line(), t.leadingNewline()); }
+            case PASSIVE -> { p++; yield new TextNode(t.text()); }
+            case NEW_LINE -> { p++; yield new TextNode(t.text()); }
+            case VAR -> { p++; yield new VarNode(t.text(), t.line()); }
             case COMMENT -> { p++; yield new CommentNode(t.text(), t.line()); }
             case META -> {
                 p++;

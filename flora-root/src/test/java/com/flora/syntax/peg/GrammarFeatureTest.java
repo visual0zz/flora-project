@@ -100,18 +100,23 @@ class GrammarFeatureTest {
     }
 
     @Test
-    void skipRuleOption() {
-        String def = """
+    void skipOnlyViaKindInGrammar() {
+        // 无 skipRule 选项、无命名约定猜测：跳过必须显式 -> kind(SKIP)
+        String blocked = """
                 @start r;
                 r : ID ID ;
                 ID : [a-z]+ ;
                 GAP : [ \\t]+ ;
                 """;
-        // 未标 skip：GAP 无约定无标注 → Custom，parser 不跳过 → 第二个 ID 前遇到 GAP → 失败
-        assertFalse(Grammar.compile(def).tryParse("abc  def").success());
-        // skipRule("GAP")：等价于 kind(SKIP)，被自动跳过 → 成功
-        Grammar g = Grammar.compile(def, new GrammarOptions().skipRule("GAP"));
-        ParseOutput out = g.parse("abc  def");
+        // 未标注 → Custom，parser 不跳过 → 第二个 ID 前遇到 GAP → 失败
+        assertFalse(Grammar.compile(blocked).tryParse("abc  def").success());
+        String skipped = """
+                @start r;
+                r : ID ID ;
+                ID : [a-z]+ ;
+                GAP : [ \\t]+ -> kind(SKIP) ;
+                """;
+        ParseOutput out = Grammar.compile(skipped).parse("abc  def");
         assertTrue(out.success());
         assertEquals("abcdef", out.tree().text());
         assertTrue(out.tokens().stream().anyMatch(tk -> tk.kind() instanceof TokenKind.Skip));

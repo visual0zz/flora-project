@@ -110,19 +110,19 @@ class GrammarTest {
     }
 
     @Test
-    void kindConventionAndCustom() {
-        // 命名约定回退：ID → Identifier；MYSTUFF → Custom
+    void explicitKindAndCustom() {
+        // kind 只能显式 -> kind(...) 指定；未标注一律 CUSTOM（无命名约定猜测）
         Grammar g = Grammar.compile("""
                 @start r;
                 r : ID MYSTUFF ;
-                ID : [a-z]+ ;
+                ID : [a-z]+ -> kind(IDENTIFIER) ;
                 MYSTUFF : [0-9]+ ;
                 WS : [ \\t]+ -> kind(SKIP) ;
                 """);
         List<Token> toks = g.parse("abc 123").tokens();
-        assertInstanceOf(TokenKind.Identifier.class, toks.get(0).kind()); // ID → Identifier（命名约定）
-        assertInstanceOf(TokenKind.Skip.class, toks.get(1).kind());       // 中间空白 → SKIP 仍保留在列表
-        assertInstanceOf(TokenKind.Custom.class, toks.get(2).kind());     // MYSTUFF → Custom（未标注且无约定）
+        assertInstanceOf(TokenKind.Identifier.class, toks.get(0).kind()); // 显式标注
+        assertInstanceOf(TokenKind.Skip.class, toks.get(1).kind());       // 显式 kind(SKIP) 保留在列表
+        assertInstanceOf(TokenKind.Custom.class, toks.get(2).kind());     // 未标注 → CUSTOM
     }
 
     @Test

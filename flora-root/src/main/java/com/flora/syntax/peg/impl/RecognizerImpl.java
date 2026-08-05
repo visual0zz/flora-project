@@ -88,8 +88,8 @@ public final class RecognizerImpl implements Recognizer {
         for (Token t : allTokens) {
             if (!TokenKind.autoSkipped(t.kind())) sig.add(t);
         }
-        Matchers.Run r = new Matchers.Run(sig);
-        Matchers.Matched m = cg.entryMatcher().run(r, 0);
+        Parser.Run r = new Parser.Run(sig);
+        Parser.Matched m = cg.parser().parse(r, 0);
         if (m == null) {
             matched = false;
             lastTree = null;
@@ -109,7 +109,7 @@ public final class RecognizerImpl implements Recognizer {
         return true;
     }
 
-    private ParseException buildError(Matchers.Run r) {
+    private ParseException buildError(Parser.Run r) {
         int fi = Math.max(0, Math.min(r.furthest, sig.size() - 1));
         Token t = sig.get(fi);
         String expected = r.expected.isEmpty() ? "<输入结束>" : r.expectedText();

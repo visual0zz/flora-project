@@ -8,10 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class GrammarTest {
 
@@ -64,8 +61,8 @@ class GrammarTest {
         Grammar g = Grammar.compile(JSON);
         assertEquals("{\"a\":[1,2.5],\"b\":null}",
                 Grammar.compile(JSON).parse("{\"a\":[1,2.5],\"b\":null}").tree().text());
-        List<Token> toks = Grammar.compile(JSON).parse("{\"a\":[1,2.5],\"b\":null}").tokens();
-        assertEquals(TokenKind.EOF, toks.get(toks.size() - 1).kind());
+        List<Token> tokens = Grammar.compile(JSON).parse("{\"a\":[1,2.5],\"b\":null}").tokens();
+        assertEquals(TokenKind.EOF, tokens.getLast().kind());
     }
 
     @Test
@@ -100,17 +97,17 @@ class GrammarTest {
         ParseException ex = assertThrows(ParseException.class, () -> g.parse("{\"a\":}"));
         assertTrue(ex.line() >= 1);
         assertTrue(ex.offset() >= 0);
-        assertTrue(!ex.expected().isEmpty());
+        assertFalse(ex.expected().isEmpty());
     }
 
     @Test
     void tryParseDoesNotThrow() {
         Grammar g = Grammar.compile(JSON);
         ParseOutput bad = g.tryParse("{\"a\":}");
-        assertTrue(!bad.success());
-        assertTrue(bad.error() != null);
+        assertFalse(bad.success());
+        assertNotNull(bad.error());
         // 失败时 tokens() 仍给出词法产物
-        assertTrue(!bad.tokens().isEmpty());
+        assertFalse(bad.tokens().isEmpty());
     }
 
     @Test
@@ -123,10 +120,10 @@ class GrammarTest {
                 MYSTUFF : [0-9]+ ;
                 WS : [ \\t]+ -> kind(SKIP) ;
                 """);
-        List<Token> toks = g.parse("abc 123").tokens();
-        assertEquals(TokenKind.IDENTIFIER, toks.get(0).kind()); // 显式标注
-        assertEquals(TokenKind.SKIP, toks.get(1).kind());        // 显式 kind(SKIP) 保留在列表
-        assertEquals(TokenKind.CUSTOM, toks.get(2).kind());      // 未标注 → CUSTOM
+        List<Token> tokens = g.parse("abc 123").tokens();
+        assertEquals(TokenKind.IDENTIFIER, tokens.get(0).kind()); // 显式标注
+        assertEquals(TokenKind.SKIP, tokens.get(1).kind());        // 显式 kind(SKIP) 保留在列表
+        assertEquals(TokenKind.CUSTOM, tokens.get(2).kind());      // 未标注 → CUSTOM
     }
 
     @Test
@@ -185,7 +182,7 @@ class GrammarTest {
         // 空字符串 ""：开/闭引号均被 SKIP 并切换模式，内容为空也能匹配
         assertTrue(g.tryParse("\"\"").success());
         // 模式切换真实生效：输入不含引号时，IN_STRING 模式的 StrChar 在默认模式下不可用 → 无法识别
-        assertTrue(!g.tryParse("abc").success());
+        assertFalse(g.tryParse("abc").success());
     }
 
     @Test

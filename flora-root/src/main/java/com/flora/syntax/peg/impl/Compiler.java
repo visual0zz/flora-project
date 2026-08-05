@@ -35,8 +35,6 @@ public final class Compiler {
 
     private final GrammarOptions opts;
     private List<RuleDef> rules;
-    private Map<String, Integer> lexerMap;
-    private Map<String, Integer> parserMap;
 
     private final List<Lexer.TokenRule> tokenRules = new ArrayList<>();
     private final Map<String, Integer> tokenIndex = new LinkedHashMap<>();
@@ -47,8 +45,7 @@ public final class Compiler {
 
     public CompiledGrammar compile(GrammarDef def, Validator.Validation v) {
         this.rules = def.rules();
-        this.lexerMap = v.lexerMap();
-        this.parserMap = v.parserMap();
+        Map<String, Integer> parserMap = v.parserMap();
 
         // 1. 词法规则体（含 fragment），供词法器 ERef 引用与 TokenRule 使用
         Map<String, Elem> lexerBodies = new HashMap<>();
@@ -121,8 +118,8 @@ public final class Compiler {
     private boolean altRecursive(List<Elem> elems, String ruleName) {
         for (Elem e : elems) {
             switch (e) {
-                case EAnd a -> { /* 零宽，继续 */ }
-                case ENot n -> { /* 零宽，继续 */ }
+                case EAnd _ -> { /* 零宽，继续 */ }
+                case ENot _ -> { /* 零宽，继续 */ }
                 case ERepeat rep -> {
                     if (altRecursive(List.of(rep.elem()), ruleName)) return true;
                     if (rep.min() != 0) return false;

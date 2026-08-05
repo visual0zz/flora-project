@@ -25,7 +25,6 @@ public final class RecognizerImpl implements Recognizer {
     private List<Token> sig;
     private ParseTree lastTree;
     private ParseException lastFailure;
-    private boolean matched;
 
     public RecognizerImpl(Compiler.CompiledGrammar cg, CharSequence base) {
         this.cg = cg;
@@ -71,7 +70,6 @@ public final class RecognizerImpl implements Recognizer {
         this.sig = null;
         this.lastTree = null;
         this.lastFailure = null;
-        this.matched = false;
         return this;
     }
 
@@ -92,26 +90,23 @@ public final class RecognizerImpl implements Recognizer {
         Parser.Run r = new Parser.Run(sig);
         Parser.Matched m = cg.parser().parse(r, 0);
         if (m == null) {
-            matched = false;
             lastTree = null;
             lastFailure = buildError(r);
             return false;
         }
         if (fullMatch && m.consumed() != sig.size() - 1) {
-            matched = false;
             lastTree = null;
             r.fail(m.consumed(), "<EOF>");
             lastFailure = buildError(r);
             return false;
         }
-        matched = true;
-        lastTree = m.children().get(0);
+        lastTree = m.children().getFirst();
         lastFailure = null;
         return true;
     }
 
     private ParseException buildError(Parser.Run r) {
-        int fi = Math.max(0, Math.min(r.furthest, sig.size() - 1));
+        int fi = Math.clamp(r.furthest, 0, sig.size() - 1);
         Token t = sig.get(fi);
         String expected = r.expected.isEmpty() ? "<输入结束>" : r.expectedText();
         String got = t.kind() == TokenKind.EOF ? "<EOF>" : "'" + t.text() + "'";

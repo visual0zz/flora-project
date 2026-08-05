@@ -72,6 +72,7 @@ public final class ExprParser {
     }
 
     /** 通用二元解析：按给定优先级下限循环左结合。 */
+    @SuppressWarnings("InfiniteRecursion")
     private Expr parseBinary(int minLevel) {
         Expr left = parseUnary();
         while (true) {
@@ -135,12 +136,11 @@ public final class ExprParser {
                     yield new Expr.Call(t.text(), args, callPos);
                 }
                 // 布尔字面量
-                Expr literal = switch (t.text()) {
+                yield switch (t.text()) {
                     case "true" -> new Expr.Bool(true, t.start());
                     case "false" -> new Expr.Bool(false, t.start());
                     default -> new Expr.Ident(t.text(), t.start());
                 };
-                yield literal;
             }
             case STRING_LITERAL -> {
                 advance();

@@ -32,7 +32,7 @@ class BracketAnalyzerTest {
         BracketAnalyzer a = new BracketAnalyzer("(", ")");
         List<BracketNode> nodes = a.analyze("(a(b)c)");
         assertEquals(1, nodes.size());
-        BracketNode.Group outer = (BracketNode.Group) nodes.get(0);
+        BracketNode.Group outer = (BracketNode.Group) nodes.getFirst();
         assertEquals("(", outer.open());
         assertEquals(")", outer.close());
         // children: a + (b) + c
@@ -46,7 +46,7 @@ class BracketAnalyzerTest {
         BracketAnalyzer a = new BracketAnalyzer("<%", "%>");
         List<BracketNode> nodes = a.analyze("<%a <%b%> c%>");
         assertEquals(1, nodes.size());
-        BracketNode.Group outer = (BracketNode.Group) nodes.get(0);
+        BracketNode.Group outer = (BracketNode.Group) nodes.getFirst();
         assertEquals("<%", outer.open());
         assertEquals("%>", outer.close());
         assertEquals(3, outer.children().size());
@@ -58,7 +58,7 @@ class BracketAnalyzerTest {
         List<BracketNode> nodes = a.analyze("x(ab)y");
         assertEquals(3, nodes.size());
         assertTrue(nodes.get(0) instanceof BracketNode.Text && ((BracketNode.Text) nodes.get(0)).text().equals("x"));
-        assertTrue(nodes.get(1) instanceof BracketNode.Group);
+        assertInstanceOf(BracketNode.Group.class, nodes.get(1));
         assertTrue(nodes.get(2) instanceof BracketNode.Text && ((BracketNode.Text) nodes.get(2)).text().equals("y"));
     }
 
@@ -67,7 +67,7 @@ class BracketAnalyzerTest {
         BracketAnalyzer a = new BracketAnalyzer("(", ")");
         List<BracketNode> nodes = a.analyze("plain text");
         assertEquals(1, nodes.size());
-        assertTrue(nodes.get(0) instanceof BracketNode.Text);
+        assertInstanceOf(BracketNode.Text.class, nodes.getFirst());
         assertTrue(a.isBalanced("plain text"));
     }
 

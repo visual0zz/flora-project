@@ -130,8 +130,8 @@ class ExprParserTest {
     @Test
     void positionTracked() {
         Expr e = ExprParser.parse("1+2");
-        assertEquals(0, ((Expr.Number) ((Expr.Binary) e).left()).pos());
-        assertEquals(1, ((Expr.Binary) e).pos()); // '+' 位置
+        assertEquals(0, ((Expr.Binary) e).left().pos());
+        assertEquals(1, e.pos()); // '+' 位置
     }
 
     // ── 默认数值语义 ──
@@ -211,8 +211,8 @@ class ExprParserTest {
         Semantics<Integer> s = Semantics.<Integer>builder()
                 .onNumber(Integer::parseInt)
                 .onCall((name, args) -> "max".equals(name)
-                        ? Math.max(args.get(0), args.get(1))
-                        : args.get(0) + args.get(1))
+                        ? Math.max(args.getFirst(), args.get(1))
+                        : args.getFirst() + args.get(1))
                 .build();
         assertEquals(5, ExprParser.evaluate("max(3,5)", s));
         assertEquals(8, ExprParser.evaluate("sum(3,5)", s));

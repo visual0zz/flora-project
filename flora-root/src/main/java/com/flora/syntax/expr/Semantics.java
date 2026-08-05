@@ -99,22 +99,22 @@ public interface Semantics<T> {
     final class Builder<T> {
         private final Map<String, UnaryOp<T>> unaryOps = new HashMap<>();
         private final Map<String, LazyBinaryOp<T>> binaryOps = new HashMap<>();
-        private TernaryOp<T> ternaryOp = (cond, t, f) -> {
+        private TernaryOp<T> ternaryOp = (_, _, _) -> {
             throw missing("三元运算");
         };
-        private Function<String, T> numberFn = value -> {
+        private Function<String, T> numberFn = _ -> {
             throw missing("数字字面量");
         };
-        private Function<String, T> identFn = name -> {
+        private Function<String, T> identFn = _ -> {
             throw missing("标识符");
         };
-        private Function<String, T> stringFn = value -> {
+        private Function<String, T> stringFn = _ -> {
             throw missing("字符串字面量");
         };
-        private Function<Boolean, T> boolFn = value -> {
+        private Function<Boolean, T> boolFn = _ -> {
             throw missing("布尔字面量");
         };
-        private CallOp<T> callOp = (name, args) -> {
+        private CallOp<T> callOp = (_, _) -> {
             throw missing("函数调用");
         };
 

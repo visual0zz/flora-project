@@ -11,7 +11,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -71,9 +70,9 @@ class GrammarFeatureTest {
                 ID : [a-z]+ ;
                 """);
         // "if"：两个规则都匹配 2 字符，平局按声明顺序 → KW
-        assertEquals("KW", g.parse("if").tokens().get(0).typeName());
+        assertEquals("KW", g.parse("if").tokens().getFirst().typeName());
         // "iff"：ID 最长匹配 3 字符 → ID
-        assertEquals("ID", g.parse("iff").tokens().get(0).typeName());
+        assertEquals("ID", g.parse("iff").tokens().getFirst().typeName());
     }
 
     @Test
@@ -135,8 +134,8 @@ class GrammarFeatureTest {
         ParseOutput out = g.parse("true");
         assertTrue(out.success());
         assertEquals("true", out.tree().text());
-        assertEquals(TokenKind.TERMINAL, out.tokens().get(0).kind());
-        assertEquals("true", out.tokens().get(0).typeName());
+        assertEquals(TokenKind.TERMINAL, out.tokens().getFirst().kind());
+        assertEquals("true", out.tokens().getFirst().typeName());
         assertFalse(g.tryParse("truex").success());
     }
 
@@ -297,7 +296,7 @@ class GrammarFeatureTest {
         ParseTree t = Grammar.compile(PAREN).parse("((1))").tree();
         assertEquals(3, t.children().size()); // '('、s、')'
         assertEquals("(", t.children().get(0).name());
-        assertTrue(t.children().get(1).isLeaf() == false);
+        assertFalse(t.children().get(1).isLeaf());
         assertTrue(t.children().get(0).isLeaf());
     }
 
@@ -323,10 +322,10 @@ class GrammarFeatureTest {
                 WS : [\\n]+ -> kind(SKIP) ;
                 """);
         List<Token> toks = g.parse("ab\ncd").tokens();
-        assertEquals(1, toks.get(0).line());
-        assertEquals(1, toks.get(0).column());
-        assertEquals(0, toks.get(0).start());
-        assertEquals(2, toks.get(0).end());
+        assertEquals(1, toks.getFirst().line());
+        assertEquals(1, toks.getFirst().column());
+        assertEquals(0, toks.getFirst().start());
+        assertEquals(2, toks.getFirst().end());
         // 换行后的 ID 在第 2 行第 1 列
         assertEquals(2, toks.get(2).line());
         assertEquals(1, toks.get(2).column());

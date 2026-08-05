@@ -21,9 +21,6 @@ import java.util.List;
  */
 public final class Tokenizer {
 
-    /** 默认符号集合（空）：仅数字/标识符/字符串/括号。 */
-    public static final Tokenizer PLAIN = Tokenizer.of();
-
     private final String[] symbols; // 按长度降序
 
     private Tokenizer(String[] symbols) {

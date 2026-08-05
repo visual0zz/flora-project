@@ -92,8 +92,8 @@
 | 类别标注 `-> kind(KIND)` | ✅ 支持 | 将词法规则归入引擎内置的通用 `TokenKind` 体系（从内置词汇表选取，非文法自定义类型）。**引擎不校验模式与该类别语义是否相符**，归类由作者自担（类比 ANTLR `-> channel(HIDDEN)` 亦不校验 token 真是空白）。词汇表含特殊值 `SKIP`（词法期丢弃，永不在存活 token 上出现），故"丢弃"也经 `kind` 表达 |
 | 入口 `@start name;` | ✅ 支持 | 或首个文法规则 |
 | 句法前瞻 `&e` / `!e` | ✅ 支持 | PEG 扩展（g4 无对应），前瞻/负前瞻不消费 |
-| 左递归 `expr : expr '+' term` | 🔧 需引擎扩展 | PEG 原死循环；用 Warth 种子生长算法支持（计划，优先级最高，见 §7 阶段 10） |
-| 词法模式 `mode` / `pushMode` / `popMode` | 🔧 需引擎扩展 | 词法器加模式栈，处理上下文敏感词法（如字符串 / 注释内部）（计划，见 §7 阶段 11） |
+| 左递归 `expr : expr '+' term` | ✅ 已实现 | Warth 种子生长，直接左递归可解析且天然左结合；间接左递归编译期拒绝（见 §7 阶段 10） |
+| 词法模式 `mode` / `pushMode` / `popMode` | ✅ 已实现 | 词法器模式栈；`->` 支持逗号多命令；隐式字面量 token 任意模式可匹配（见 §7 阶段 11） |
 | 嵌入动作 `{...}` | ❌ 刻意不做 | 需执行用户代码，违零依赖/纯声明/基础层目标；用 `ParseTree` + visitor 替代 |
 | 语义谓词 `{...}?` | ❌ 刻意不做 | 同上；常见情形可用 `&` / `!` 句法前瞻近似 |
 | 多通道 `channels` 及 `-> channel` | ❌ 刻意不做 | 隐藏通道由 `kind ∈ Trivia` 覆盖、`-> skip` 由 `kind(SKIP)` 覆盖；任意自定义通道无需求 |
@@ -105,7 +105,7 @@
 
 **关键结论**
 - 除"刻意不做"的多类（动作 / 语义谓词 / 多通道 / `-> type` / `import` / `returns` 等）与"语义差异"的 `|`，**其余 g4 记法全部对齐，无兼容问题**。
-- "需引擎扩展"仅剩**左递归（Warth）与词法模式**两类，均不换引擎类别即可补齐（计划）。
+- 左递归（Warth）与词法模式两类**已实现**（见 §7 阶段 10 / 11），引擎扩展面已清空：其余 g4 特性要么已对齐、要么被 `kind` / visitor 模型刻意覆盖。
 - 多通道 / `import` / `returns` 等因已被 `kind` / visitor 模型覆盖或无需求而**刻意不做**；`|` 为**刻意的有序选择**，非能力缺失。
 - 词法注解统一为 `-> kind` 一种：g4 的 `-> skip` 以 `-> kind(SKIP)` 取代（见上表），属刻意收敛，非能力缺失。
 
@@ -130,7 +130,9 @@
 
 ## 4. 公共 API（与 scannerless 版一致）
 
-置于 `com.flora.syntax`（已导出）；内部 `com.flora.syntax.impl` 不导出。
+置于 `com.flora.syntax.peg`（公开 API，已导出）；内部 `com.flora.syntax.peg.impl` 不导出。
+（因 `com.flora.syntax` 已存在旧 `Token` / `Tokenizer` / `TokenType` 等类型，新引擎以独立子包与其
+并存、互不耦合，类名仍按本文档：`Grammar` / `Token` / `ParseTree` / `TokenKind` 等。）
 引擎完全自包含：自带 `ParseTree`、`Lexer` 及自有异常 `ParseException` / `GrammarException`，
 **不依赖** `com.flora.syntax` 中任何既有类型（`SyntaxException` / `Tokenizer` / `Token` / `TokenType`）。
 它是本包最基础的层，目标作为既有解析器（expr/bracket）底层结构的可替换基座。
@@ -351,6 +353,12 @@ MVP（核心可用）：
 引擎扩展（本次计划，对应 §2.4 🔧）：
 10. **左递归支持（Warth 种子生长）**：将直接左递归改写为种子生长循环，使 `expr : expr '+' term` 等自然左结合文法可解析；阶段 2 的"检测报错"随之转为"支持"。
 11. **词法模式（mode / pushMode / popMode）**：词法器加模式栈，按上下文切换启用的词法规则集，处理字符串 / 注释内部等上下文敏感词法。
+
+**实现状态（2026-08-05）**：阶段 1–11 已全部实现并测试通过（`flora-root` 模块，`com.flora.syntax.peg`，
+`GrammarTest` 13 项：JSON / 计算器 / 嵌套括号 / `#Label` / 错误定位 / 链式 `ParseOutput` / kind 约定与
+`SKIP` / 空串拒绝 / 直接左递归种子生长 / 间接左递归拒绝 / 词法模式）。`->` 支持 `kind` / `mode` /
+`pushMode` / `popMode` 逗号多命令；`kind` 词汇表 12 项 + `TERMINAL`（隐式字面量）；命名约定回退到
+`Whitespace` / `Identifier` / `NumberLiteral` 等。
 
 ## 8. 完整示例（JSON 子集，g4 对齐记法）
 

@@ -46,4 +46,32 @@ public final class RuleDefs {
      */
     public record RuleDef(String name, boolean lexer, boolean fragment,
                           List<Alt> alts, String kindName, String mode, String modeAction) {}
+
+    /** 该元素能否在"首位置"匹配空（零宽）。ERef 保守视为不可空，避免递归。 */
+    public static boolean nullableFirst(Elem e) {
+        return switch (e) {
+            case EAnd a -> true;
+            case ENot n -> true;
+            case ERepeat rep -> rep.min() == 0 || nullableFirst(rep.elem());
+            case EGroup g -> {
+                boolean any = false;
+                for (Alt a : g.alts()) {
+                    boolean all = true;
+                    for (Elem ee : a.elems()) {
+                        if (!nullableFirst(ee)) {
+                            all = false;
+                            break;
+                        }
+                    }
+                    if (all) {
+                        any = true;
+                        break;
+                    }
+                }
+                yield any;
+            }
+            case ERef ref -> false;
+            default -> false;
+        };
+    }
 }

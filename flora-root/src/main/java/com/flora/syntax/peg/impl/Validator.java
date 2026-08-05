@@ -250,7 +250,7 @@ public final class Validator {
                 }
                 case EGroup g -> {
                     if (groupStartsWithSelf(g, ruleName)) return true;
-                    return false;
+                    if (!RuleDefs.nullableFirst(g)) return false; // 分组可空则继续看下一个元素
                 }
                 case ERef ref -> { return ref.name().equals(ruleName); }
                 default -> { return false; }
@@ -282,15 +282,14 @@ public final class Validator {
                     }
                 }
                 case EGroup g -> {
-                    boolean allNullable = true;
-                    boolean any = false;
+                    boolean groupNullable = false;
                     for (Alt a : g.alts()) {
                         collectFirst(a.elems(), rules, parserMap, self, first);
-                        boolean nul = a.elems().stream().allMatch(x -> elemNullableForFirst(x, rules, parserMap));
-                        any |= nul;
-                        allNullable &= nul;
+                        if (a.elems().stream().allMatch(x -> elemNullableForFirst(x, rules, parserMap))) {
+                            groupNullable = true; // 任一候选可空 → 分组可空 → 后续元素仍在首位置
+                        }
                     }
-                    if (!allNullable) return;
+                    if (!groupNullable) return;
                 }
                 case ERef ref -> {
                     Integer t = parserMap.get(ref.name());
@@ -333,7 +332,8 @@ public final class Validator {
             case EAnd a -> true;
             case ENot n -> true;
             case ERepeat rep -> rep.min() == 0 || elemNullableForFirst(rep.elem(), rules, parserMap);
-            case EGroup g -> g.alts().stream().allMatch(a -> a.elems().stream().allMatch(x -> elemNullableForFirst(x, rules, parserMap)));
+            case EGroup g -> g.alts().stream()
+                    .anyMatch(a -> a.elems().stream().allMatch(x -> elemNullableForFirst(x, rules, parserMap)));
             case ERef ref -> parserMap.containsKey(ref.name()) && parserRuleNullable(rules.get(parserMap.get(ref.name())), rules, parserMap);
             default -> false;
         };

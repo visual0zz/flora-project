@@ -128,7 +128,7 @@ public final class Compiler {
                 }
                 case EGroup g -> {
                     if (groupStartsWith(g, ruleName)) return true;
-                    return false;
+                    if (!RuleDefs.nullableFirst(g)) return false; // 分组可空则继续看下一个元素
                 }
                 case ERef ref -> { return ref.name().equals(ruleName); }
                 default -> { return false; }

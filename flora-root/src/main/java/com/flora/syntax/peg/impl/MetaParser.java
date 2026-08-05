@@ -267,6 +267,7 @@ public final class MetaParser {
         while (p < src.length() && src.charAt(p) != '\'') {
             char c = src.charAt(p);
             if (c == '\\') {
+                if (!Esc.isKnown(src, p)) throw err("未知的转义序列");
                 int len = Esc.escapeLength(src, p);
                 sb.appendCodePoint(Esc.decode(src, p));
                 p += len;
@@ -286,6 +287,7 @@ public final class MetaParser {
         while (p < src.length() && src.charAt(p) != ']') {
             char c = src.charAt(p);
             if (c == '\\') {
+                if (!Esc.isKnown(src, p)) throw err("未知的转义序列");
                 int len = Esc.escapeLength(src, p);
                 sb.append(src, p, p + len);
                 p += len;

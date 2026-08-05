@@ -294,6 +294,34 @@ class GrammarFeatureTest {
         assertEquals("1-2-3", sub.text());
     }
 
+    @Test
+    void unknownEscapeRejected() {
+        // 未知转义（如 \q）在编译期拒绝，不再静默当作字面字符
+        assertThrows(GrammarException.class, () -> Grammar.compile("""
+                @start r;
+                r : Q ;
+                Q : '\\q' ;
+                """));
+    }
+
+    @Test
+    void nullableLeadingLeftRecursion() {
+        // 可空引导（(x|)）后的自身引用：带种子候选是合法的直接左递归，Warth 生长可解析
+        Grammar g = Grammar.compile("""
+                @start a;
+                a : (x|) a | 'z' ;
+                x : 'x' ;
+                """);
+        assertTrue(g.tryParse("z").success());
+        assertFalse(g.tryParse("xz").success());
+        // 无种子候选的左递归：编译期拒绝（曾导致运行期栈溢出）
+        assertThrows(GrammarException.class, () -> Grammar.compile("""
+                @start a;
+                a : (x|) a ;
+                x : 'x' ;
+                """));
+    }
+
     private static boolean hasChild(ParseTree node, String name) {
         return node.children().stream().anyMatch(c -> c.name().equals(name));
     }

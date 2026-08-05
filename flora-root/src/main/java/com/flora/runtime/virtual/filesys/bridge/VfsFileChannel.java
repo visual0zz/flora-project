@@ -1,4 +1,4 @@
-package com.flora.runtime.virtual.filesys.nio;
+package com.flora.runtime.virtual.filesys.bridge;
 
 import com.flora.tag.ThreadFragile;
 

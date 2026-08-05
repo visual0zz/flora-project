@@ -1,10 +1,10 @@
-package com.flora.runtime.virtual.filesys.nio;
+package com.flora.runtime.virtual.filesys.bridge;
 
 import com.flora.runtime.virtual.filesys.FileAttributes;
-import com.flora.runtime.virtual.filesys.FileOpResult;
 import com.flora.runtime.virtual.filesys.FSBackend;
 import com.flora.runtime.virtual.filesys.SymlinkFSBackend;
 import com.flora.runtime.virtual.filesys.VfsFileSystem;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.*;
 import java.net.URI;
@@ -33,7 +33,7 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
     @Override public FileSystem getFileSystem(URI uri) { return fs; }
 
     @Override
-    public Path getPath(URI uri) {
+    public @NotNull Path getPath(URI uri) {
         return new VfsPath(uri.getPath(), fs);
     }
 

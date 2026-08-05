@@ -1,9 +1,9 @@
 package com.flora.runtime.virtual.filesys;
 
 import com.flora.os.UnixPathUtil;
-import com.flora.runtime.virtual.filesys.nio.FSBackendMatch;
-import com.flora.runtime.virtual.filesys.nio.VfsFileSystemProvider;
-import com.flora.runtime.virtual.filesys.nio.VfsPath;
+import com.flora.runtime.virtual.filesys.bridge.FSBackendMatch;
+import com.flora.runtime.virtual.filesys.bridge.VfsFileSystemProvider;
+import com.flora.runtime.virtual.filesys.bridge.VfsPath;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;

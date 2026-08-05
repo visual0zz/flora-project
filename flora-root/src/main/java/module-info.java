@@ -33,8 +33,6 @@ module com.flora.root {
     exports com.flora.codec;
     exports com.flora.java;
     exports com.flora.os;
-    exports com.flora.os.secret;
-    exports com.flora.os.natives.ffm;
     exports com.flora.runtime.log;
     exports com.flora.runtime.config;
     exports com.flora.runtime.config.source;
@@ -59,7 +57,6 @@ module com.flora.root {
     exports com.flora.entropy.compress.zlib;
     exports com.flora.comm.ssh.logging;
 
-    exports com.flora.syntax;
     exports com.flora.syntax.common.exceptions;
     exports com.flora.syntax.common.definition;
     exports com.flora.syntax.bracket;

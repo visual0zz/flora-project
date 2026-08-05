@@ -1,8 +1,12 @@
 package com.flora.syntax.bracket;
 
+import com.flora.syntax.common.definition.Token;
+import com.flora.syntax.common.definition.TokenKind;
 import com.flora.syntax.common.exceptions.SyntaxException;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 
 import static com.flora.syntax.bracket.BracketNode.Group;
@@ -10,7 +14,9 @@ import static com.flora.syntax.bracket.BracketNode.Group;
 /**
  * 括号结构分析器：按自定义左右定界符把输入切分为嵌套括号结构与被动文本。
  * <p>定界符可为任意非空字符串（如 {@code "("}/{@code ")"}、{@code "<%"}/{@code "%>"}），
- * 构造时校验非空且互不相同。嵌套通过递归匹配实现。</p>
+ * 构造时校验非空且互不相同。内部先用共享词法基元（{@link Token}）把输入扫描为
+ * 「开/闭定界符 + 被动文本」的 token 流（保留原文与空白，不丢弃任何字符），再据此递归
+ * 组装嵌套结构；与 {@code com.flora.syntax.expr}/{@code peg} 共用同一套词法词汇。</p>
  *
  * <pre>{@code
  * BracketAnalyzer a = new BracketAnalyzer("<%", "%>");
@@ -42,25 +48,42 @@ public final class BracketAnalyzer {
      * 未闭合的括号不抛异常——用 {@link #isBalanced(String)} 或 {@link #validate(String)} 判定。
      */
     public List<BracketNode> analyze(String input) {
-        Cursor c = new Cursor(input);
-        List<BracketNode> nodes = new ArrayList<>();
-        while (!c.atEnd()) {
-            if (c.startsWith(open)) {
-                flushText(nodes, c);
-                c.consume(open.length());
-                nodes.add(parseGroup(c));
+        List<Token> tokens = tokenize(input);
+        Deque<List<BracketNode>> stack = new ArrayDeque<>();
+        stack.push(new ArrayList<>());
+        StringBuilder passive = new StringBuilder();
+        int openPos = -1;
+        for (Token t : tokens) {
+            if (t.kind() == TokenKind.EOF) {
+                break;
+            }
+            String text = t.text();
+            if (text.equals(open)) {
+                flush(passive, stack.peek());
+                stack.push(new ArrayList<>());
+                openPos = t.start();
+            } else if (text.equals(close)) {
+                flush(passive, stack.peek());
+                if (stack.size() <= 1) {
+                    throw SyntaxException.at(t.start(), "多余的闭定界符 " + close);
+                }
+                List<BracketNode> children = stack.pop();
+                stack.peek().add(new Group(open, children, close));
             } else {
-                c.advance();
+                passive.append(text);
             }
         }
-        flushText(nodes, c);
-        return nodes;
+        flush(passive, stack.peek());
+        if (stack.size() > 1) {
+            throw SyntaxException.at(openPos, "缺少闭定界符 " + close);
+        }
+        return stack.peek();
     }
 
     /** 括号是否闭合：无顶层未闭合 open，且无孤立的 close。 */
     public boolean isBalanced(String input) {
         try {
-            validate(input);
+            analyze(input);
             return true;
         } catch (SyntaxException e) {
             return false;
@@ -69,94 +92,84 @@ public final class BracketAnalyzer {
 
     /** 校验闭合；不闭合抛 {@link SyntaxException}（带位置）。 */
     public String validate(String input) {
-        Cursor c = new Cursor(input);
-        int depth = 0;
-        while (!c.atEnd()) {
-            if (c.startsWith(open)) {
-                c.consume(open.length());
-                depth++;
-            } else if (c.startsWith(close)) {
-                if (depth == 0) {
-                    throw SyntaxException.at(c.pos, "多余的闭定界符 " + close);
-                }
-                c.consume(close.length());
-                depth--;
-            } else {
-                c.advance();
-            }
-        }
-        if (depth > 0) {
-            throw SyntaxException.at(c.openPos, "缺少 " + depth + " 个闭定界符 " + close);
-        }
+        analyze(input);
         return input;
     }
 
-    /** 解析括号组内容，直到匹配的闭定界符；未闭合抛异常。 */
-    private Group parseGroup(Cursor c) {
-        List<BracketNode> children = new ArrayList<>();
-        while (!c.atEnd()) {
-            if (c.startsWith(close)) {
-                flushText(children, c);
-                c.consume(close.length());
-                return new Group(open, children, close);
-            }
-            if (c.startsWith(open)) {
-                flushText(children, c);
-                c.consume(open.length());
-                children.add(parseGroup(c));
+    /** 扫描为 token 流：开/闭定界符为 {@link TokenKind#OPERATOR}，其余原文累积为被动文本 token。 */
+    private List<Token> tokenize(String input) {
+        List<Token> tokens = new ArrayList<>();
+        int n = input.length();
+        int pos = 0;
+        int line = 1;
+        int col = 1;
+        StringBuilder buf = new StringBuilder();
+        int bufStart = 0;
+        int bufLine = 1;
+        int bufCol = 1;
+        while (pos < n) {
+            if (input.startsWith(open, pos)) {
+                emitPassive(tokens, buf, bufStart, bufLine, bufCol);
+                tokens.add(new Token(TokenKind.OPERATOR, open, open, pos, pos + open.length(), line, col));
+                pos = advance(line, col, open, pos, open.length());
+                bufStart = pos;
+                bufLine = line;
+                bufCol = col;
+            } else if (input.startsWith(close, pos)) {
+                emitPassive(tokens, buf, bufStart, bufLine, bufCol);
+                tokens.add(new Token(TokenKind.OPERATOR, close, close, pos, pos + close.length(), line, col));
+                pos = advance(line, col, close, pos, close.length());
+                bufStart = pos;
+                bufLine = line;
+                bufCol = col;
             } else {
-                c.advance();
+                if (buf.isEmpty()) {
+                    bufStart = pos;
+                    bufLine = line;
+                    bufCol = col;
+                }
+                char c = input.charAt(pos);
+                buf.append(c);
+                if (c == '\n') {
+                    line++;
+                    col = 1;
+                } else {
+                    col++;
+                }
+                pos++;
             }
         }
-        throw SyntaxException.at(c.openPos, "缺少闭定界符 " + close);
+        emitPassive(tokens, buf, bufStart, bufLine, bufCol);
+        tokens.add(new Token(TokenKind.EOF, "EOF", "", n, n, line, col));
+        return tokens;
     }
 
-    /** 把 Cursor 中累积的文本提交为 Text 节点。 */
-    private static void flushText(List<BracketNode> nodes, Cursor c) {
-        String text = c.takeText();
-        if (!text.isEmpty()) {
-            nodes.add(new BracketNode.Text(text));
-        }
-    }
-
-    /** 输入游标：累积定界符之间的被动文本。 */
-    private final class Cursor {
-        private final String input;
-        private int pos;
-        private int textStart = 0;
-        private int openPos = -1;
-
-        Cursor(String input) {
-            this.input = input;
-        }
-
-        boolean atEnd() {
-            return pos >= input.length();
-        }
-
-        boolean startsWith(String s) {
-            return input.startsWith(s, pos);
-        }
-
-        /** 消耗定界符并推进；记录最近一次 open 的位置（用于错误定位）。 */
-        void consume(int len) {
-            if (len == open.length()) {
-                openPos = pos;
+    /** 推进 line/col 跨过一段文本（用于定界符）。 */
+    private int advance(int line, int col, String s, int pos, int len) {
+        for (int k = 0; k < len; k++) {
+            if (s.charAt(k) == '\n') {
+                line++;
+                col = 1;
+            } else {
+                col++;
             }
-            pos += len;
-            textStart = pos;
         }
+        return pos + len;
+    }
 
-        /** 推进一个字符（成为被动文本的一部分）。 */
-        void advance() {
-            pos++;
+    /** 把累积的被动文本提交为一个 TEXT token。 */
+    private static void emitPassive(List<Token> tokens, StringBuilder buf, int start, int line, int col) {
+        if (buf.length() > 0) {
+            tokens.add(new Token(TokenKind.CUSTOM, "TEXT", buf.toString(), start, start + buf.length(), line, col));
+            buf.setLength(0);
         }
+    }
 
-        /** 提交自 textStart 起累积的文本并复位。 */
-        String takeText() {
-            String text = input.substring(textStart, pos);
-            textStart = pos;
-            return text;
+    /** 把被动文本提交为 Text 节点（若有内容）。 */
+    private static void flush(StringBuilder passive, List<BracketNode> nodes) {
+        if (passive.length() > 0) {
+            nodes.add(new BracketNode.Text(passive.toString()));
+            passive.setLength(0);
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.flora.syntax.peg;
 
+import com.flora.syntax.exceptions.ParseException;
+import com.flora.syntax.exceptions.SyntaxException;
 import com.flora.syntax.peg.impl.Compiler;
 import com.flora.syntax.peg.impl.MetaParser;
 import com.flora.syntax.peg.impl.RecognizerImpl;
@@ -20,7 +22,7 @@ public final class Grammar {
         this.cg = cg;
     }
 
-    /** 编译语法定义字符串；非法 g4 子集（未定义引用、词法规则可空串、左递归等）抛 {@link GrammarException}。 */
+    /** 编译语法定义字符串；非法 g4 子集（未定义引用、词法规则可空串、左递归等）抛 {@link SyntaxException}。 */
     public static Grammar compile(String definition) {
         return compile(definition, new GrammarOptions());
     }

@@ -1,9 +1,9 @@
 package com.flora.syntax.expr;
 
-import com.flora.syntax.SyntaxException;
-import com.flora.syntax.Token;
-import com.flora.syntax.TokenType;
 import com.flora.syntax.Tokenizer;
+import com.flora.syntax.definition.Token;
+import com.flora.syntax.definition.TokenKind;
+import com.flora.syntax.exceptions.SyntaxException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -348,22 +348,22 @@ class ExprParserTest {
     void sharedTokenizer() {
         Tokenizer t = Tokenizer.of(">>>", "<<", "&&", "+");
         List<Token> tokens = t.tokenize("a<<b");
-        assertEquals(TokenType.IDENT, tokens.get(0).type());
-        assertEquals("a", tokens.get(0).value());
-        assertEquals(TokenType.SYMBOL, tokens.get(1).type());
-        assertEquals("<<", tokens.get(1).value());
-        assertEquals(TokenType.IDENT, tokens.get(2).type());
-        assertEquals(TokenType.EOF, tokens.get(3).type());
+        assertEquals(new TokenKind.Identifier(), tokens.get(0).kind());
+        assertEquals("a", tokens.get(0).text());
+        assertEquals(new TokenKind.Operator(), tokens.get(1).kind());
+        assertEquals("<<", tokens.get(1).text());
+        assertEquals(new TokenKind.Identifier(), tokens.get(2).kind());
+        assertEquals(new TokenKind.Eof(), tokens.get(3).kind());
     }
 
     @Test
     void tokenizerStringLiteral() {
         List<Token> tokens = Tokenizer.of("+").tokenize("\"hi\" + x");
-        assertEquals(TokenType.TEXT, tokens.get(0).type());
-        assertEquals("hi", tokens.get(0).value());
-        assertEquals(TokenType.SYMBOL, tokens.get(1).type());
-        assertEquals("+", tokens.get(1).value());
-        assertEquals(TokenType.IDENT, tokens.get(2).type()); // x
+        assertEquals(new TokenKind.StringLiteral(), tokens.get(0).kind());
+        assertEquals("\"hi\"", tokens.get(0).text());
+        assertEquals(new TokenKind.Operator(), tokens.get(1).kind());
+        assertEquals("+", tokens.get(1).text());
+        assertEquals(new TokenKind.Identifier(), tokens.get(2).kind()); // x
     }
 
     // ── 非法输入 ──

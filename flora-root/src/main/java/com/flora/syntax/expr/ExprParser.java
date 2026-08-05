@@ -1,9 +1,9 @@
 package com.flora.syntax.expr;
 
-import com.flora.syntax.SyntaxException;
-import com.flora.syntax.Token;
-import com.flora.syntax.TokenType;
 import com.flora.syntax.Tokenizer;
+import com.flora.syntax.definition.Token;
+import com.flora.syntax.definition.TokenKind;
+import com.flora.syntax.exceptions.SyntaxException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,8 +46,8 @@ public final class ExprParser {
         ExprParser p = new ExprParser(TOKENIZER.tokenize(expression));
         Expr e = p.parseExpression();
         Token t = p.peek();
-        if (t.type() != TokenType.EOF) {
-            throw SyntaxException.at(t.pos(), "表达式后有未消费的内容: " + t.value());
+        if (!(t.kind() instanceof TokenKind.Eof)) {
+            throw SyntaxException.at(t.start(), "表达式后有未消费的内容: " + t.text());
         }
         return e;
     }
@@ -56,11 +56,11 @@ public final class ExprParser {
 
     private Expr parseExpression() {
         Expr cond = parseBinary(1);
-        if (peek().type() == TokenType.SYMBOL && peek().value().equals("?")) {
+        if (isOp(peek(), "?")) {
             int pos = advance();
             Expr whenTrue = parseExpression();
             Token colon = peek();
-            if (colon.type() != TokenType.SYMBOL || !colon.value().equals(":")) {
+            if (!isOp(colon, ":")) {
                 throw SyntaxException.at(pos, "三元表达式期望 ':'");
             }
             advance();
@@ -75,10 +75,10 @@ public final class ExprParser {
         Expr left = parseUnary();
         while (true) {
             Token t = peek();
-            if (t.type() != TokenType.SYMBOL) {
+            if (!(t.kind() instanceof TokenKind.Operator)) {
                 break;
             }
-            String op = t.value();
+            String op = t.text();
             if (!OpPrecedence.isBinary(op)) {
                 break;
             }
@@ -95,31 +95,31 @@ public final class ExprParser {
 
     private Expr parseUnary() {
         Token t = peek();
-        if (t.type() == TokenType.SYMBOL && OpPrecedence.isUnary(t.value())) {
+        if (t.kind() instanceof TokenKind.Operator && OpPrecedence.isUnary(t.text())) {
             int opPos = advance();
-            return new Expr.Unary(t.value(), parseUnary(), opPos);
+            return new Expr.Unary(t.text(), parseUnary(), opPos);
         }
         return parsePrimary();
     }
 
     private Expr parsePrimary() {
         Token t = peek();
-        return switch (t.type()) {
-            case NUMBER -> {
+        return switch (t.kind()) {
+            case TokenKind.NumberLiteral _ -> {
                 advance();
-                yield new Expr.Number(t.value(), t.pos());
+                yield new Expr.Number(t.text(), t.start());
             }
-            case IDENT -> {
+            case TokenKind.Identifier _ -> {
                 advance();
                 // 函数调用：标识符后跟 '('
-                if (peek().type() == TokenType.OPEN) {
-                    int callPos = t.pos();
+                if (isTerminal(peek(), "(")) {
+                    int callPos = t.start();
                     advance();
                     List<Expr> args = new ArrayList<>();
-                    if (peek().type() != TokenType.CLOSE) {
+                    if (!isTerminal(peek(), ")")) {
                         while (true) {
                             args.add(parseExpression());
-                            if (peek().type() == TokenType.SYMBOL && peek().value().equals(",")) {
+                            if (isOp(peek(), ",")) {
                                 advance();
                             } else {
                                 break;
@@ -127,35 +127,38 @@ public final class ExprParser {
                         }
                     }
                     Token close = peek();
-                    if (close.type() != TokenType.CLOSE) {
+                    if (!isTerminal(close, ")")) {
                         throw SyntaxException.at(callPos, "函数调用期望 ')'");
                     }
                     advance();
-                    yield new Expr.Call(t.value(), args, callPos);
+                    yield new Expr.Call(t.text(), args, callPos);
                 }
                 // 布尔字面量
-                Expr literal = switch (t.value()) {
-                    case "true" -> new Expr.Bool(true, t.pos());
-                    case "false" -> new Expr.Bool(false, t.pos());
-                    default -> new Expr.Ident(t.value(), t.pos());
+                Expr literal = switch (t.text()) {
+                    case "true" -> new Expr.Bool(true, t.start());
+                    case "false" -> new Expr.Bool(false, t.start());
+                    default -> new Expr.Ident(t.text(), t.start());
                 };
                 yield literal;
             }
-            case TEXT -> {
+            case TokenKind.StringLiteral _ -> {
                 advance();
-                yield new Expr.Str(t.value(), t.pos());
+                yield new Expr.Str(decodeString(t.text()), t.start());
             }
-            case OPEN -> {
+            case TokenKind.Terminal _ -> {
+                if (!t.text().equals("(")) {
+                    throw SyntaxException.at(t.start(), "期望操作数，得到 " + t);
+                }
                 int openPos = advance();
                 Expr inner = parseExpression();
                 Token close = peek();
-                if (close.type() != TokenType.CLOSE) {
+                if (!isTerminal(close, ")")) {
                     throw SyntaxException.at(openPos, "期望 ')'");
                 }
                 advance();
                 yield inner;
             }
-            default -> throw SyntaxException.at(t.pos(), "期望操作数，得到 " + t);
+            default -> throw SyntaxException.at(t.start(), "期望操作数，得到 " + t);
         };
     }
 
@@ -170,6 +173,38 @@ public final class ExprParser {
         if (pos < tokens.size() - 1) {
             pos++;
         }
-        return tokens.get(p).pos();
+        return tokens.get(p).start();
+    }
+
+    /** token 是否为指定文本的运算符。 */
+    private static boolean isOp(Token t, String text) {
+        return t.kind() instanceof TokenKind.Operator && t.text().equals(text);
+    }
+
+    /** token 是否为指定文本的括号终端。 */
+    private static boolean isTerminal(Token t, String text) {
+        return t.kind() instanceof TokenKind.Terminal && t.text().equals(text);
+    }
+
+    /** 解码字符串字面量原文：剥外层引号并处理转义（与共享词法器的字符串规则一致）。 */
+    private static String decodeString(String raw) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 1; i < raw.length() - 1; i++) {
+            char c = raw.charAt(i);
+            if (c == '\\' && i + 1 < raw.length() - 1) {
+                char next = raw.charAt(i + 1);
+                i++;
+                switch (next) {
+                    case 'n' -> sb.append('\n');
+                    case 't' -> sb.append('\t');
+                    case 'r' -> sb.append('\r');
+                    case '\\' -> sb.append('\\');
+                    default -> sb.append(next);
+                }
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 }

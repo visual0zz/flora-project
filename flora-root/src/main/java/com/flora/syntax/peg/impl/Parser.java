@@ -1,9 +1,10 @@
 package com.flora.syntax.peg.impl;
 
+import com.flora.syntax.definition.Token;
+import com.flora.syntax.exceptions.SyntaxException;
 import com.flora.syntax.peg.ParseTree;
 import com.flora.syntax.peg.ParseTree.RuleNode;
 import com.flora.syntax.peg.ParseTree.TokenNode;
-import com.flora.syntax.peg.Token;
 import com.flora.syntax.peg.impl.RuleDefs.Alt;
 import com.flora.syntax.peg.impl.RuleDefs.EAnd;
 import com.flora.syntax.peg.impl.RuleDefs.EAny;
@@ -174,9 +175,9 @@ final class Parser {
             case EAnd a -> matchParser(r, a.elem(), pos) != null ? new Matched(List.of(), null, 0) : null;
             case ENot n -> matchParser(r, n.elem(), pos) == null ? new Matched(List.of(), null, 0) : null;
             case EClass c ->
-                    throw new com.flora.syntax.peg.GrammarException("文法层不允许字符类（仅词法层可用）");
+                    throw new SyntaxException("文法层不允许字符类（仅词法层可用）");
             case EAny any ->
-                    throw new com.flora.syntax.peg.GrammarException("文法层不允许任意字符 '.'（仅词法层可用）");
+                    throw new SyntaxException("文法层不允许任意字符 '.'（仅词法层可用）");
         };
     }
 

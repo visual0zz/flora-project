@@ -1,7 +1,7 @@
 package com.flora.syntax.peg.impl;
 
-import com.flora.syntax.peg.GrammarException;
-import com.flora.syntax.peg.TokenKind;
+import com.flora.syntax.definition.TokenKind;
+import com.flora.syntax.exceptions.SyntaxException;
 import com.flora.syntax.peg.impl.MetaParser.GrammarDef;
 import com.flora.syntax.peg.impl.RuleDefs.Alt;
 import com.flora.syntax.peg.impl.RuleDefs.EAnd;
@@ -46,16 +46,16 @@ public final class Validator {
             }
         }
         if (!parserMap.containsKey(def.entry())) {
-            throw new GrammarException("入口规则 '" + def.entry() + "' 未定义或不是文法规则（小写开头）");
+            throw new SyntaxException("入口规则 '" + def.entry() + "' 未定义或不是文法规则（小写开头）");
         }
 
         for (RuleDef r : rules) {
             checkRefs(r, rules, lexerMap, parserMap);
             if (r.kindName() != null) {
                 TokenKind k = TokenKind.of(r.kindName());
-                if (k == null) throw new GrammarException("未知的 kind '" + r.kindName() + "'");
+                if (k == null) throw new SyntaxException("未知的 kind '" + r.kindName() + "'");
                 if (k instanceof TokenKind.Eof) {
-                    throw new GrammarException("kind(EOF) 为引擎结束哨兵，作者不可选");
+                    throw new SyntaxException("kind(EOF) 为引擎结束哨兵，作者不可选");
                 }
             }
         }
@@ -86,17 +86,17 @@ public final class Validator {
                 if (upper) {
                     Integer idx = lexerMap.get(name);
                     if (idx == null) {
-                        throw new GrammarException("规则 '" + owner.name() + "' 引用了未定义的 token '" + name + "'");
+                        throw new SyntaxException("规则 '" + owner.name() + "' 引用了未定义的 token '" + name + "'");
                     }
                     if (!lexerCtx && rules.get(idx).fragment()) {
-                        throw new GrammarException("文法规则 '" + owner.name() + "' 不能引用 fragment '" + name + "'");
+                        throw new SyntaxException("文法规则 '" + owner.name() + "' 不能引用 fragment '" + name + "'");
                     }
                 } else {
                     if (lexerCtx) {
-                        throw new GrammarException("词法规则 '" + owner.name() + "' 不能引用文法规则 '" + name + "'");
+                        throw new SyntaxException("词法规则 '" + owner.name() + "' 不能引用文法规则 '" + name + "'");
                     }
                     if (!parserMap.containsKey(name)) {
-                        throw new GrammarException("规则 '" + owner.name() + "' 引用了未定义的文法规则 '" + name + "'");
+                        throw new SyntaxException("规则 '" + owner.name() + "' 引用了未定义的文法规则 '" + name + "'");
                     }
                 }
             }
@@ -124,7 +124,7 @@ public final class Validator {
                           int[] state, ArrayDeque<String> stack) {
         if (state[idx] == 2) return;
         if (state[idx] == 1) {
-            throw new GrammarException("词法规则引用成环: " + stack.peekLast() + " → " + rules.get(idx).name());
+            throw new SyntaxException("词法规则引用成环: " + stack.peekLast() + " → " + rules.get(idx).name());
         }
         state[idx] = 1;
         stack.addLast(rules.get(idx).name());
@@ -160,7 +160,7 @@ public final class Validator {
         for (Map.Entry<String, Integer> e : lexerMap.entrySet()) {
             RuleDef r = rules.get(e.getValue());
             if (!r.fragment() && isNullable(r, rules, lexerMap, memo)) {
-                throw new GrammarException("词法规则 '" + r.name() + "' 可匹配空串（会导致零宽 token 使词法器死循环）");
+                throw new SyntaxException("词法规则 '" + r.name() + "' 可匹配空串（会导致零宽 token 使词法器死循环）");
             }
         }
     }
@@ -223,7 +223,7 @@ public final class Validator {
             for (int j = 0; j < n; j++) indirect[i][j] = first[i][j] && i != j;
         }
         if (anyCycle(indirect)) {
-            throw new GrammarException("间接左递归（PEG 死循环）不受支持，请改写为直接左递归或引入优先级分层");
+            throw new SyntaxException("间接左递归（PEG 死循环）不受支持，请改写为直接左递归或引入优先级分层");
         }
         // 2) 直接左递归规则必须有非左递归的种子候选（Warth 种子生长所需）
         for (Map.Entry<String, Integer> e : parserMap.entrySet()) {
@@ -232,7 +232,7 @@ public final class Validator {
                 RuleDef r = rules.get(i);
                 boolean hasSeed = r.alts().stream().anyMatch(a -> !altStartsWithSelf(a.elems(), r.name()));
                 if (!hasSeed) {
-                    throw new GrammarException("左递归规则 '" + r.name() + "' 缺少非左递归的种子候选（如 term 之于 expr : expr '+' term | term）");
+                    throw new SyntaxException("左递归规则 '" + r.name() + "' 缺少非左递归的种子候选（如 term 之于 expr : expr '+' term | term）");
                 }
             }
         }
@@ -371,15 +371,15 @@ public final class Validator {
             if (a == null) continue;
             if (a.startsWith("mode:")) {
                 String m = a.substring(5);
-                if (!modes.contains(m)) throw new GrammarException("未定义的模式 '" + m + "'");
+                if (!modes.contains(m)) throw new SyntaxException("未定义的模式 '" + m + "'");
             } else if (a.startsWith("pushMode:")) {
                 String m = a.substring(9);
-                if (!modes.contains(m)) throw new GrammarException("未定义的模式 '" + m + "'");
+                if (!modes.contains(m)) throw new SyntaxException("未定义的模式 '" + m + "'");
             }
         }
     }
 
-    private static GrammarException dup(String name) {
-        return new GrammarException("重复定义的规则 '" + name + "'");
+    private static SyntaxException dup(String name) {
+        return new SyntaxException("重复定义的规则 '" + name + "'");
     }
 }

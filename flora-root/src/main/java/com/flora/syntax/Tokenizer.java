@@ -1,14 +1,18 @@
 package com.flora.syntax;
 
+import com.flora.syntax.definition.Token;
+import com.flora.syntax.definition.TokenKind;
+import com.flora.syntax.exceptions.SyntaxException;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 /**
  * 共享通用词法器：把输入字符串扫描为 {@link Token} 流。
- * <p>通用扫描数字（含小数/科学计数）、标识符、字符串字面量（含转义）、
- * 空白跳过；符号/运算符由构造参数指定（按长度从长到短匹配，最长优先），
- * 括号 {@code (}/{@code )} 固定产出 OPEN/CLOSE。实例可复用（线程安全，无内部状态）。</p>
+ * <p>通用扫描数字（含小数/科学计数）、标识符、字符串字面量、空白跳过；符号/运算符由构造参数指定
+ * （按长度从长到短匹配，最长优先），括号 {@code (}/{@code )} 固定产出 {@code kind=Terminal} 的 token。
+ * token 的 {@code text} 为输入原文（字符串字面量含引号与转义，不解码）。实例可复用（线程安全，无内部状态）。</p>
  *
  * <pre>{@code
  * Tokenizer t = Tokenizer.of("+", "-", "<<", "&&");
@@ -38,48 +42,75 @@ public final class Tokenizer {
     public List<Token> tokenize(String input) {
         List<Token> tokens = new ArrayList<>();
         int pos = 0;
+        int line = 1;
+        int col = 1;
         while (pos < input.length()) {
             char c = input.charAt(pos);
             if (Character.isWhitespace(c)) {
+                if (c == '\n') {
+                    line++;
+                    col = 1;
+                } else {
+                    col++;
+                }
                 pos++;
                 continue;
             }
             int start = pos;
             if (Character.isDigit(c)) {
-                tokens.add(new Token(TokenType.NUMBER, readNumber(input, pos), start));
-                pos = advanceNumber(input, pos);
+                int end = advanceNumber(input, pos);
+                tokens.add(new Token(new TokenKind.NumberLiteral(), "NUMBER",
+                        input.substring(start, end), start, end, line, col));
+                pos = end;
             } else if (Character.isLetter(c) || c == '_') {
-                tokens.add(new Token(TokenType.IDENT, readIdent(input, pos), start));
-                pos = advanceIdent(input, pos);
+                int end = advanceIdent(input, pos);
+                tokens.add(new Token(new TokenKind.Identifier(), "IDENT",
+                        input.substring(start, end), start, end, line, col));
+                pos = end;
             } else if (c == '"' || c == '\'') {
-                tokens.add(new Token(TokenType.TEXT, readString(input, pos), start));
-                pos = advanceString(input, pos);
+                int end = advanceString(input, pos);
+                tokens.add(new Token(new TokenKind.StringLiteral(), "TEXT",
+                        input.substring(start, end), start, end, line, col));
+                pos = end;
             } else {
                 String sym = matchSymbol(input, pos);
                 if (sym != null) {
-                    TokenType type = switch (sym) {
-                        case "(" -> TokenType.OPEN;
-                        case ")" -> TokenType.CLOSE;
-                        default -> TokenType.SYMBOL;
-                    };
-                    tokens.add(new Token(type, sym, start));
+                    boolean paren = sym.equals("(") || sym.equals(")");
+                    tokens.add(new Token(paren ? new TokenKind.Terminal() : new TokenKind.Operator(),
+                            paren ? sym : "SYMBOL", sym, start, start + sym.length(), line, col));
                     pos += sym.length();
                 } else if (c == '(') {
+                    tokens.add(new Token(new TokenKind.Terminal(), "(", "(", start, start + 1, line, col));
                     pos++;
-                    tokens.add(new Token(TokenType.OPEN, "(", start));
                 } else if (c == ')') {
+                    tokens.add(new Token(new TokenKind.Terminal(), ")", ")", start, start + 1, line, col));
                     pos++;
-                    tokens.add(new Token(TokenType.CLOSE, ")", start));
                 } else {
                     throw SyntaxException.at(start, "无法识别的字符: " + c);
                 }
             }
+            int[] lc = advanceLineCol(input, start, pos, line, col);
+            line = lc[0];
+            col = lc[1];
         }
-        tokens.add(new Token(TokenType.EOF, "", input.length()));
+        tokens.add(new Token(new TokenKind.Eof(), "EOF", "", pos, pos, line, col));
         return tokens;
     }
 
-    // ── 读取辅助（返回字符串或推进后的位置）──
+    // ── 读取辅助（返回推进后的位置）──
+
+    /** 推进 line/col：统计子串中的换行与字符数。 */
+    private static int[] advanceLineCol(String input, int from, int to, int line, int col) {
+        for (int k = from; k < to; k++) {
+            if (input.charAt(k) == '\n') {
+                line++;
+                col = 1;
+            } else {
+                col++;
+            }
+        }
+        return new int[]{line, col};
+    }
 
     private String matchSymbol(String input, int pos) {
         for (String sym : symbols) {
@@ -88,11 +119,6 @@ public final class Tokenizer {
             }
         }
         return null;
-    }
-
-    private static String readNumber(String input, int pos) {
-        int end = advanceNumber(input, pos);
-        return input.substring(pos, end);
     }
 
     private static int advanceNumber(String input, int pos) {
@@ -121,11 +147,6 @@ public final class Tokenizer {
         return pos;
     }
 
-    private static String readIdent(String input, int pos) {
-        int end = advanceIdent(input, pos);
-        return input.substring(pos, end);
-    }
-
     private static int advanceIdent(String input, int pos) {
         while (pos < input.length()
                 && (Character.isLetterOrDigit(input.charAt(pos)) || input.charAt(pos) == '_')) {
@@ -134,34 +155,7 @@ public final class Tokenizer {
         return pos;
     }
 
-    /** 读字符串字面量并返回解码后的值（不含引号，处理 \\ 与转义）。 */
-    private static String readString(String input, int pos) {
-        char quote = input.charAt(pos);
-        pos++;
-        StringBuilder sb = new StringBuilder();
-        while (pos < input.length() && input.charAt(pos) != quote) {
-            char c = input.charAt(pos);
-            if (c == '\\' && pos + 1 < input.length()) {
-                char next = input.charAt(pos + 1);
-                pos += 2;
-                switch (next) {
-                    case 'n' -> sb.append('\n');
-                    case 't' -> sb.append('\t');
-                    case 'r' -> sb.append('\r');
-                    case '\\' -> sb.append('\\');
-                    default -> sb.append(next);
-                }
-            } else {
-                sb.append(c);
-                pos++;
-            }
-        }
-        if (pos >= input.length()) {
-            throw SyntaxException.at(pos, "字符串字面量未闭合");
-        }
-        return sb.toString();
-    }
-
+    /** 推进到字符串字面量的闭合引号之后；未闭合抛 {@link SyntaxException}。 */
     private static int advanceString(String input, int pos) {
         char quote = input.charAt(pos);
         pos++;

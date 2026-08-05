@@ -1,7 +1,7 @@
-package com.flora.syntax.peg;
+package com.flora.syntax.exceptions;
 
 /** 识别期错误（输入不匹配），由 parse 抛出；携带失败位置与期望项。 */
-public final class ParseException extends RuntimeException {
+public final class ParseException extends SyntaxException {
     private final int line;
     private final int column;
     private final int offset;

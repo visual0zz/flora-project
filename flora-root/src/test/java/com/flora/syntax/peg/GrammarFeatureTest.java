@@ -1,5 +1,9 @@
 package com.flora.syntax.peg;
 
+import com.flora.syntax.definition.Token;
+import com.flora.syntax.definition.TokenKind;
+import com.flora.syntax.exceptions.ParseException;
+import com.flora.syntax.exceptions.SyntaxException;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -297,7 +301,7 @@ class GrammarFeatureTest {
     @Test
     void unknownEscapeRejected() {
         // 未知转义（如 \q）在编译期拒绝，不再静默当作字面字符
-        assertThrows(GrammarException.class, () -> Grammar.compile("""
+        assertThrows(SyntaxException.class, () -> Grammar.compile("""
                 @start r;
                 r : Q ;
                 Q : '\\q' ;
@@ -315,7 +319,7 @@ class GrammarFeatureTest {
         assertTrue(g.tryParse("z").success());
         assertFalse(g.tryParse("xz").success());
         // 无种子候选的左递归：编译期拒绝（曾导致运行期栈溢出）
-        assertThrows(GrammarException.class, () -> Grammar.compile("""
+        assertThrows(SyntaxException.class, () -> Grammar.compile("""
                 @start a;
                 a : (x|) a ;
                 x : 'x' ;

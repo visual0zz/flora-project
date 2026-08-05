@@ -1,5 +1,7 @@
 package com.flora.syntax.peg;
 
+import com.flora.syntax.exceptions.ParseException;
+
 /**
  * 有状态的识别器，类比 {@link java.util.regex.Matcher}：在给定输入上做一次或多次匹配。
  *

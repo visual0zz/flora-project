@@ -1,6 +1,6 @@
 package com.flora.syntax.peg.impl;
 
-import com.flora.syntax.peg.GrammarException;
+import com.flora.syntax.exceptions.SyntaxException;
 import com.flora.syntax.peg.impl.RuleDefs.Alt;
 import com.flora.syntax.peg.impl.RuleDefs.EAnd;
 import com.flora.syntax.peg.impl.RuleDefs.EAny;
@@ -80,7 +80,7 @@ public final class MetaParser {
             rules.add(r);
         }
         if (entry == null) entry = firstParser;
-        if (entry == null) throw new GrammarException("文法未包含任何文法规则（小写开头）");
+        if (entry == null) throw new SyntaxException("文法未包含任何文法规则（小写开头）");
         return new GrammarDef(entry, rules);
     }
 
@@ -361,8 +361,8 @@ public final class MetaParser {
         }
     }
 
-    private GrammarException err(String msg) {
+    private SyntaxException err(String msg) {
         int col = p - lineStart + 1;
-        return new GrammarException("第 " + line + " 行第 " + col + " 列: " + msg);
+        return new SyntaxException("第 " + line + " 行第 " + col + " 列: " + msg);
     }
 }

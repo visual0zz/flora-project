@@ -1,10 +1,11 @@
-package com.flora.syntax.peg;
+package com.flora.syntax.definition;
 
 /**
- * 词法层输出（公开 API）：一个 token。
+ * 词法层输出：一个 token。
  *
  * <p>{@code kind} 为引擎内置通用类别（跨文法通用判断）；{@code typeName} 为匹配到的文法规则名
- * （文法内特指）。两者并存：通用归类走 {@code kind}，文法特指走 {@code typeName}。
+ * （文法内特指，简单词法器产出的 token 用类别名）。两者并存：通用归类走 {@code kind}，
+ * 文法特指走 {@code typeName}。{@code text} 为输入原文（含定界符/引号，不解码）。</p>
  */
 public final class Token {
     private final TokenKind kind;

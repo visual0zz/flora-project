@@ -1,10 +1,10 @@
 package com.flora.syntax.peg.impl;
 
-import com.flora.syntax.peg.ParseException;
+import com.flora.syntax.definition.Token;
+import com.flora.syntax.definition.TokenKind;
+import com.flora.syntax.exceptions.ParseException;
 import com.flora.syntax.peg.ParseTree;
 import com.flora.syntax.peg.Recognizer;
-import com.flora.syntax.peg.Token;
-import com.flora.syntax.peg.TokenKind;
 
 import java.util.ArrayList;
 import java.util.List;

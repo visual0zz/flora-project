@@ -1,6 +1,6 @@
 package com.flora.syntax.bracket;
 
-import com.flora.syntax.SyntaxException;
+import com.flora.syntax.exceptions.SyntaxException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

@@ -1,6 +1,6 @@
 package com.flora.syntax.expr;
 
-import com.flora.syntax.SyntaxException;
+import com.flora.syntax.exceptions.SyntaxException;
 
 import java.util.HashMap;
 import java.util.Map;

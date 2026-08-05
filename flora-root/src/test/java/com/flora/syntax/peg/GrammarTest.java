@@ -1,5 +1,9 @@
 package com.flora.syntax.peg;
 
+import com.flora.syntax.definition.Token;
+import com.flora.syntax.definition.TokenKind;
+import com.flora.syntax.exceptions.ParseException;
+import com.flora.syntax.exceptions.SyntaxException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -127,7 +131,7 @@ class GrammarTest {
 
     @Test
     void lexerEmptyMatchRejected() {
-        assertThrows(GrammarException.class, () -> Grammar.compile("""
+        assertThrows(SyntaxException.class, () -> Grammar.compile("""
                 @start r;
                 r : A ;
                 A : [a-z]* ;
@@ -154,7 +158,7 @@ class GrammarTest {
 
     @Test
     void indirectLeftRecursionRejected() {
-        assertThrows(GrammarException.class, () -> Grammar.compile("""
+        assertThrows(SyntaxException.class, () -> Grammar.compile("""
                 @start a;
                 a : b 'x' | 'a' ;
                 b : a 'y' ;

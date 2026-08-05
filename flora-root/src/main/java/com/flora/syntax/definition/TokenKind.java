@@ -1,11 +1,11 @@
-package com.flora.syntax.peg;
+package com.flora.syntax.definition;
 
 /**
  * 引擎内置的通用词法类型继承树（密封，固定词汇表）。
  *
  * <p>语法文件通过 {@code -> kind(KIND)} 从该词汇表选取一个类别标注词法规则；类别由引擎一次性
  * 定义，文法不可自定义新类型。未标注的具名词法规则兜底为 {@link Custom}，文法内联字符串字面量
- * 终端兜底为 {@link Terminal}。
+ * 终端兜底为 {@link Terminal}。简单词法器（{@code com.flora.syntax.Tokenizer}）也复用此词汇表。</p>
  */
 public sealed interface TokenKind {
 

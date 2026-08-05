@@ -60,6 +60,8 @@ module com.flora.root {
     exports com.flora.comm.ssh.logging;
 
     exports com.flora.syntax;
+    exports com.flora.syntax.exceptions;
+    exports com.flora.syntax.definition;
     exports com.flora.syntax.bracket;
     exports com.flora.syntax.expr;
     exports com.flora.syntax.peg;

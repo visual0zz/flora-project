@@ -11,7 +11,8 @@ import java.util.List;
  *
  * <p>{@code parse()} 失败即在取对象前抛 {@link ParseException}；{@code tryParse()} 不抛，借
  * {@code success()} / {@code error()} 判断。{@code tokens()} 返回词法器产出的全部 token（含
- * {@code kind=SKIP} 的），parser 对 trivia 组别（{@link TokenKind#isTrivia()}）与 {@link TokenKind#SKIP} 自动跳过。
+ * {@code kind=SKIP} 的），parser 默认自动跳过 trivia 组别（{@link TokenKind.Category#TRIVIA}）与
+ * {@link TokenKind#SKIP}，可用 {@code GrammarOptions.autoSkip(false)} 关闭该跳过。
  */
 public final class ParseOutput {
     private final boolean success;

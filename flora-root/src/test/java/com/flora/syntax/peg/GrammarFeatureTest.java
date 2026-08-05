@@ -406,6 +406,27 @@ class GrammarFeatureTest {
                 """));
     }
 
+    @Test
+    void autoSkipOption() {
+        String def = """
+                @start r;
+                r : 'a' 'b' ;
+                WS : [ ]+ -> kind(SKIP) ;
+                """;
+        // 默认：WS(SKIP) 被自动跳过，'a' 'b' 可跨空格匹配
+        assertTrue(Grammar.compile(def).tryParse("a b").success());
+        // 关闭 autoSkip：WS 保留在 parser 流，'a' 'b' 遇 WS 失败
+        assertFalse(Grammar.compile(def, new GrammarOptions().autoSkip(false)).tryParse("a b").success());
+        // 关闭 autoSkip 且文法显式引用 WS：可匹配带空格输入
+        String explicit = """
+                @start r;
+                r : 'a' WS 'b' ;
+                WS : [ ]+ ;
+                """;
+        assertTrue(Grammar.compile(explicit, new GrammarOptions().autoSkip(false))
+                .tryParse("a  b").success());
+    }
+
     private static boolean hasChild(ParseTree node, String name) {
         return node.children().stream().anyMatch(c -> c.name().equals(name));
     }

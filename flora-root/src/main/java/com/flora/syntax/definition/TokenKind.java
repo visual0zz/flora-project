@@ -53,7 +53,7 @@ public enum TokenKind {
     }
 
     /** 是否被 parser 自动跳过（trivia 或 SKIP）。 */
-    public boolean autoSkipped() {
+    public boolean autoSkip() {
         return category == Category.TRIVIA || this == SKIP;
     }
 

@@ -26,11 +26,12 @@ import java.util.Map;
  */
 public final class Compiler {
 
-    /** 编译产物（静态、不可变）：词法器规格 + 文法规则表 + 两个解释器。 */
+    /** 编译产物（静态、不可变）：词法器规格 + 文法规则表 + 两个解释器 + 是否自动跳过 trivia/SKIP。 */
     public record CompiledGrammar(String entry,
                                   List<Lexer.TokenRule> tokenRules,
                                   Lexer lexer,
-                                  Parser parser) {}
+                                  Parser parser,
+                                  boolean autoSkip) {}
 
     private final GrammarOptions opts;
     private List<RuleDef> rules;
@@ -80,7 +81,7 @@ public final class Compiler {
         int entryIdx = parserMap.get(def.entry());
         Parser parser = new Parser(parserRules, entryIdx, parserMap);
         Lexer lexer = new Lexer(tokenRules, opts.lexerLongestMatch(), opts.caseInsensitive(), lexerBodies);
-        return new CompiledGrammar(def.entry(), tokenRules, lexer, parser);
+        return new CompiledGrammar(def.entry(), tokenRules, lexer, parser, opts.autoSkip());
     }
 
     private void collectImplicitLiterals() {

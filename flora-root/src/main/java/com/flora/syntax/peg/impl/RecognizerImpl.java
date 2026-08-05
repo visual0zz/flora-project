@@ -10,8 +10,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 识别器运行时：先 lex 得全部 token（含 SKIP），过滤出显著 token（跳过 Trivia / SKIP），再在显著流上
- * 跑 token 级 PEG（packrat），建 {@link ParseTree} 并回填字符偏移。失败收集最远失败位置 + 期望项。
+ * 识别器运行时：先 lex 得全部 token（含 SKIP），按 {@code autoSkip} 选项过滤出显著 token
+ * （默认跳过 Trivia / SKIP，关闭则全部保留供文法显式引用），再在显著流上跑 token 级 PEG
+ * （packrat），建 {@link ParseTree} 并回填字符偏移。失败收集最远失败位置 + 期望项。
  */
 public final class RecognizerImpl implements Recognizer {
 
@@ -86,7 +87,7 @@ public final class RecognizerImpl implements Recognizer {
         allTokens = cg.lexer().lex(slice);
         sig = new ArrayList<>();
         for (Token t : allTokens) {
-            if (!t.kind().autoSkipped()) sig.add(t);
+            if (!cg.autoSkip() || !t.kind().autoSkip()) sig.add(t);
         }
         Parser.Run r = new Parser.Run(sig);
         Parser.Matched m = cg.parser().parse(r, 0);

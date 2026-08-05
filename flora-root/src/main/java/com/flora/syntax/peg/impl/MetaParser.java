@@ -21,7 +21,7 @@ import java.util.List;
  *
  * <p>支持的记法：{@code @start}、{@code fragment}、大写词法规则 / 小写文法规则、{@code |} 候选、
  * {@code '...'} 字面量、{@code [...]}/{@code ~[...]} 字符类、{@code .}、{@code ( )} 分组、
- * {@code * + ?} 重复、{@code &}/{@code !} 前瞻、{@code # Label} 备选标签、{@code -> kind(KIND)}、
+ * {@code * + ?} 重复、{@code &> !>} 前瞻与 {@code &< !<} 后顾（不消费）、{@code # Label} 备选标签、{@code -> kind(KIND)}、
  * {@code //} 与 {@code /* *}{@code /} 注释。不支持的 g4 特性（动作 / 谓词 / skip / channel / type / import 等）在此即报错。
  */
 public final class MetaParser {
@@ -241,13 +241,16 @@ public final class MetaParser {
                 yield charClass(true);
             }
             case '[' -> charClass(false);
-            case '&' -> {
+            case '&', '!' -> {
+                boolean positive = c == '&';
                 p++;
-                yield new EAnd(parseElement());
-            }
-            case '!' -> {
+                if (p >= src.length() || (src.charAt(p) != '>' && src.charAt(p) != '<')) {
+                    throw err("前瞻/后顾必须带方向: &> / !> / &< / !<");
+                }
+                boolean backward = src.charAt(p) == '<';
                 p++;
-                yield new ENot(parseElement());
+                Elem operand = parseElement();
+                yield positive ? new EAnd(operand, backward) : new ENot(operand, backward);
             }
             case '{' -> throw err("嵌入动作 '{...}' 不受支持（本引擎为纯声明，语义请用 visitor 实现）");
             case '}' -> throw err("意外字符 '}'");

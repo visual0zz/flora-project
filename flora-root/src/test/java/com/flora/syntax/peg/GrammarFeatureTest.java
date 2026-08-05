@@ -168,14 +168,94 @@ class GrammarFeatureTest {
         Grammar g = Grammar.compile("""
                 @start word;
                 word : ident ;
-                ident : &(!Keyword) ID ;
+                ident : &>(!>Keyword) ID ;
                 Keyword : 'if' | 'else' ;
                 ID : [a-z]+ ;
                 WS : [ \\t]+ -> kind(SKIP) ;
                 """);
         assertTrue(g.tryParse("name").success());
-        // "if" 是 Keyword，&(!Keyword) 前瞻失败 → ident 不匹配
+        // "if" 是 Keyword，&>(!>Keyword) 前瞻失败 → ident 不匹配
         assertFalse(g.tryParse("if").success());
+    }
+
+    // ── 后顾 &< / !< ──
+
+    @Test
+    void lexerLookbehindPositive() {
+        Grammar g = Grammar.compile("""
+                @start prog;
+                prog : '-' WORD ;
+                WORD : &<'-' [a-z]+ -> kind(IDENTIFIER) ;
+                """);
+        assertTrue(g.parse("-abc").success());
+        // 前面不是 '-'，后顾失败 → WORD 不匹配
+        assertFalse(g.tryParse("xabc").success());
+    }
+
+    @Test
+    void lexerLookbehindNegative() {
+        Grammar g = Grammar.compile("""
+                @start prog;
+                prog : WORD ;
+                WORD : !<[0-9] [a-z]+ -> kind(IDENTIFIER) ;
+                """);
+        // 开头无前序 → !< 成功
+        assertTrue(g.parse("abc").success());
+        // 前面是数字 → !< 失败
+        assertFalse(g.tryParse("1abc").success());
+    }
+
+    @Test
+    void lexerLookbehindUnboundedRejected() {
+        assertThrows(SyntaxException.class, () -> Grammar.compile("""
+                @start prog;
+                prog : WORD ;
+                WORD : &<[a-z]* 'x' -> kind(IDENTIFIER) ;
+                """));
+    }
+
+    @Test
+    void parserLookbehindPositive() {
+        Grammar g = Grammar.compile("""
+                @start prog;
+                prog : (NUM | ID) &<NUM ID ;
+                ID : [a-z]+ -> kind(IDENTIFIER) ;
+                NUM : [0-9]+ -> kind(NUMBER_LITERAL) ;
+                WS : [ \\t]+ -> kind(SKIP) ;
+                """);
+        // 紧邻前一 token 是 NUM → &<NUM 成功
+        assertTrue(g.parse("1 a").success());
+        // 紧邻前一 token 是 ID → &<NUM 后顾失败
+        assertFalse(g.tryParse("x a").success());
+    }
+
+    @Test
+    void parserLookbehindRuleRef() {
+        Grammar g = Grammar.compile("""
+                @start prog;
+                prog : ID &<word NUM ;
+                word : ID ;
+                ID : [a-z]+ -> kind(IDENTIFIER) ;
+                NUM : [0-9]+ -> kind(NUMBER_LITERAL) ;
+                WS : [ \\t]+ -> kind(SKIP) ;
+                """);
+        // 后顾引用文法规则 word（无界允许）→ &<word 成功
+        assertTrue(g.parse("a 1").success());
+    }
+
+    @Test
+    void parserLookbehindNegative() {
+        Grammar g = Grammar.compile("""
+                @start prog;
+                prog : (NUM | ID) !<ID ID ;
+                ID : [a-z]+ -> kind(IDENTIFIER) ;
+                NUM : [0-9]+ -> kind(NUMBER_LITERAL) ;
+                WS : [ \\t]+ -> kind(SKIP) ;
+                """);
+        // 紧邻前一 token 是 NUM（非 ID）→ !<ID 成功
+        assertTrue(g.parse("1 a").success());
+        // 紧邻前一 token 是 ID → !<ID 后顾失败
+        assertFalse(g.tryParse("x a").success());
     }
 
     @Test

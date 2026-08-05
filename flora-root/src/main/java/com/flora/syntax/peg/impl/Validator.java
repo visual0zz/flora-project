@@ -62,9 +62,57 @@ public final class Validator {
 
         checkLexerAcyclic(rules, lexerMap);
         checkLexerNotNullable(rules, lexerMap);
+        checkLexerLookbehind(rules);
         checkLeftRecursion(rules, parserMap);
         checkModes(rules);
         return new Validation(lexerMap, parserMap);
+    }
+
+    /**
+     * 词法层后顾校验：{@code &<}/{@code !<} 的操作数必须长度有界（不含 {@code *}/{@code +}）
+     * 且至少匹配一个字符——无界会令回退扫描失去边界，零宽则使后顾恒失败。
+     */
+    private void checkLexerLookbehind(List<RuleDef> rules) {
+        Map<String, Elem> lexerBodies = new HashMap<>();
+        for (RuleDef r : rules) {
+            if (r.lexer() || r.fragment()) lexerBodies.put(r.name(), new EGroup(r.alts()));
+        }
+        for (RuleDef r : rules) {
+            if (!(r.lexer() || r.fragment())) continue;
+            for (Alt alt : r.alts()) {
+                for (Elem e : alt.elems()) checkBehindOperand(r, e, lexerBodies);
+            }
+        }
+    }
+
+    private void checkBehindOperand(RuleDef owner, Elem e, Map<String, Elem> lexerBodies) {
+        switch (e) {
+            case EAnd a -> {
+                if (a.backward()) validateBehind(owner, a.elem(), lexerBodies);
+                checkBehindOperand(owner, a.elem(), lexerBodies);
+            }
+            case ENot n -> {
+                if (n.backward()) validateBehind(owner, n.elem(), lexerBodies);
+                checkBehindOperand(owner, n.elem(), lexerBodies);
+            }
+            case EGroup g -> {
+                for (Alt alt : g.alts()) {
+                    for (Elem ee : alt.elems()) checkBehindOperand(owner, ee, lexerBodies);
+                }
+            }
+            case ERepeat rep -> checkBehindOperand(owner, rep.elem(), lexerBodies);
+            default -> { /* ELit / EClass / EAny / ERef 无需检查 */ }
+        }
+    }
+
+    private void validateBehind(RuleDef owner, Elem operand, Map<String, Elem> lexerBodies) {
+        int m = RuleDefs.maxLen(operand, lexerBodies);
+        if (m == RuleDefs.INF) {
+            throw new SyntaxException("规则 '" + owner.name() + "' 的后顾模式无上界（含 * 或 +），不支持");
+        }
+        if (m == 0) {
+            throw new SyntaxException("规则 '" + owner.name() + "' 的后顾模式必须至少匹配一个字符");
+        }
     }
 
     private void checkRefs(RuleDef r, List<RuleDef> rules,

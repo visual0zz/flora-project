@@ -172,13 +172,30 @@ final class Parser {
             }
             case EGroup g -> groupMatch(r, g, pos);
             case ERepeat rep -> repeatMatch(r, rep, pos);
-            case EAnd a -> matchParser(r, a.elem(), pos) != null ? new Matched(List.of(), null, 0) : null;
-            case ENot n -> matchParser(r, n.elem(), pos) == null ? new Matched(List.of(), null, 0) : null;
+            case EAnd a -> a.backward()
+                    ? (behind(r, a.elem(), pos) ? new Matched(List.of(), null, 0) : null)
+                    : (matchParser(r, a.elem(), pos) != null ? new Matched(List.of(), null, 0) : null);
+            case ENot n -> n.backward()
+                    ? (behind(r, n.elem(), pos) ? null : new Matched(List.of(), null, 0))
+                    : (matchParser(r, n.elem(), pos) == null ? new Matched(List.of(), null, 0) : null);
             case EClass c ->
                     throw new SyntaxException("文法层不允许字符类（仅词法层可用）");
             case EAny any ->
                     throw new SyntaxException("文法层不允许任意字符 '.'（仅词法层可用）");
         };
+    }
+
+    /**
+     * 后顾匹配（token 级）：是否存在 s &lt; pos 使 e 从 s 匹配且恰好消费到 pos。
+     * 直接对已消费的 token 流 {@code r.sig[0..pos)} 反向扫描；规则引用走 packrat 记忆化，每候选 O(1)。
+     * 无界模式允许（最坏 O(pos) 每检查，由调用频率决定实际成本）。
+     */
+    private boolean behind(Run r, Elem e, int pos) {
+        for (int s = 0; s < pos; s++) {
+            Matched m = matchParser(r, e, s);
+            if (m != null && m.consumed() == pos - s) return true;
+        }
+        return false;
     }
 
     private Matched seqMatch(Run r, List<Elem> elems, int pos) {

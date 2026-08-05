@@ -113,9 +113,26 @@ final class Lexer {
             case ERef ref -> matchLexer(lexerBodies.get(ref.name()), s, pos);
             case EGroup g -> groupMatch(g, s, pos);
             case ERepeat rep -> repeatMatch(rep, s, pos);
-            case EAnd a -> matchLexer(a.elem(), s, pos) >= 0 ? 0 : -1;
-            case ENot n -> matchLexer(n.elem(), s, pos) < 0 ? 0 : -1;
+            case EAnd a -> a.backward()
+                    ? (behind(a.elem(), s, pos) ? 0 : -1)
+                    : (matchLexer(a.elem(), s, pos) >= 0 ? 0 : -1);
+            case ENot n -> n.backward()
+                    ? (behind(n.elem(), s, pos) ? -1 : 0)
+                    : (matchLexer(n.elem(), s, pos) < 0 ? 0 : -1);
         };
+    }
+
+    /**
+     * 后顾匹配（字符级）：是否存在 s &lt; pos 使 e 从 s 匹配且恰好结束于 pos。
+     * 有界回退：只扫描 {@code [pos-maxLen, pos)}；无界模式已被校验器拒绝。
+     */
+    private boolean behind(Elem e, CharSequence in, int pos) {
+        int max = RuleDefs.maxLen(e, lexerBodies);
+        for (int s = Math.max(0, pos - max); s < pos; s++) {
+            int len = matchLexer(e, in, s);
+            if (len > 0 && s + len == pos) return true;
+        }
+        return false;
     }
 
     private int litMatch(String text, CharSequence s, int pos) {

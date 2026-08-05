@@ -66,7 +66,6 @@
 ### 2.3 选项（GrammarOptions）
 
 - `caseInsensitive(boolean)`：字面量与字符类大小写不敏感。
-- `skipRule(String name)`：等价于 `-> kind(SKIP)`（将该规则标为丢弃）。
 - `lexerLongestMatch(boolean)`：分词最长匹配（默认开，lex 语义）；关则为 PEG 有序（首匹配）。
 
 ### 2.4 支持 / 不支持的 g4 语法（明确清单）
@@ -260,8 +259,7 @@ public final class ParseException extends RuntimeException {
   **可选词汇表（语法文件 `-> kind(X)` 的 X）**：`WHITESPACE` / `LINE_BREAK` / `COMMENT` /
   `IDENTIFIER` / `KEYWORD` / `NUMBER_LITERAL` / `STRING_LITERAL` / `BOOLEAN_LITERAL` / `OPERATOR` /
   `PUNCTUATION` / `TERMINAL` / `SKIP` / `CUSTOM`。其中 `Trivia` 是**组别（密封接口）而非可选值**——语法文件
-  只写其叶子常量（`WHITESPACE` / `LINE_BREAK` / `COMMENT`）或靠规则命名约定回退（如 `WS`→`Whitespace`、
-  `COMMENT`→`Comment`、`NL`/`Line`→`LineBreak`）；引擎以 `kind instanceof TokenKind.Trivia` 判定
+  只写其叶子常量（`WHITESPACE` / `LINE_BREAK` / `COMMENT`）；引擎以 `kind instanceof TokenKind.Trivia` 判定
   "保留 + parser 自动跳过"（隐藏通道语义）。`SKIP` 与 `Trivia` 同由 parser 自动跳过，但**均保留在 token 列表中**（`tokens()` 返回全部 token，消费方按需按 `kind` 过滤）。`EOF` 为引擎输入的结束哨兵，作者不可选。
   ```
   消费方可按 `instanceof TokenKind.LineBreak` 等做类型匹配，得到"少量抽象"而非扁平一团。
@@ -272,8 +270,7 @@ public final class ParseException extends RuntimeException {
   两者并存：通用归类走 `kind`，文法特指走 `typeName`；引擎未覆盖的类别可仅靠 `typeName` 区分。
 
 - **文法如何归入 `kind`（不定义新类型）**：词法规则通过内置 `-> kind(KIND)` 命令从引擎词汇表
-  **选取**一个已有类别（非自定义）；也可靠命名约定回退（`WS`→Whitespace、`NL`/`Line`→LineBreak、
-  `COMMENT`→Comment、`ID`→Identifier、`KW`→Keyword、`INT`/`NUMBER`→NumberLiteral 等）。
+  **选取**一个已有类别（非自定义）；未标注一律 `TokenKind.CUSTOM`，**不做任何命名约定猜测**。
   例如用户示例——把换行及其前后空白合为一个 `LineBreakToken`：
 
   ```
@@ -355,10 +352,12 @@ MVP（核心可用）：
 11. **词法模式（mode / pushMode / popMode）**：词法器加模式栈，按上下文切换启用的词法规则集，处理字符串 / 注释内部等上下文敏感词法。
 
 **实现状态（2026-08-05）**：阶段 1–11 已全部实现并测试通过（`flora-root` 模块，`com.flora.syntax.peg`，
-`GrammarTest` 13 项：JSON / 计算器 / 嵌套括号 / `#Label` / 错误定位 / 链式 `ParseOutput` / kind 约定与
-`SKIP` / 空串拒绝 / 直接左递归种子生长 / 间接左递归拒绝 / 词法模式）。`->` 支持 `kind` / `mode` /
-`pushMode` / `popMode` 逗号多命令；`kind` 词汇表 12 项 + `TERMINAL`（隐式字面量）；命名约定回退到
-`Whitespace` / `Identifier` / `NumberLiteral` 等。
+`GrammarTest` 13 项 + `GrammarFeatureTest` 19 项，共 32 项：JSON / 计算器 / 嵌套括号 / `#Label` /
+错误定位 / 链式 `ParseOutput` / 显式 `kind` 与 `SKIP` / 空串拒绝 / 直接左递归种子生长 / 间接左递归拒绝 /
+词法模式 / 字符类转义取反 / 最长匹配平局 / 有序模式 / caseInsensitive / 谓词 / Recognizer / Visitor /
+token 位置 / 片段 / 优先级结合性）。`->` 支持 `kind` / `mode` / `pushMode` / `popMode` 逗号多命令；
+`kind` 词汇表 12 项 + `TERMINAL`（隐式字面量）。**不做命名约定猜测**：kind 只能显式 `-> kind(...)`
+指定，未标注一律 `CUSTOM`；跳过仅经 `-> kind(SKIP)`，无 skipRule 选项。
 
 ## 8. 完整示例（JSON 子集，g4 对齐记法）
 

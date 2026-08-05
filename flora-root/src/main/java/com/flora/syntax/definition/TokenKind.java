@@ -10,51 +10,58 @@ package com.flora.syntax.definition;
 public enum TokenKind {
 
     /** 空边角料（trivia）：保留在 token 列表中，parser 匹配时自动跳过。 */
-    WHITESPACE, LINE_BREAK, COMMENT,
+    WHITESPACE(Category.TRIVIA), LINE_BREAK(Category.TRIVIA), COMMENT(Category.TRIVIA),
     /** 词类。 */
-    IDENTIFIER, KEYWORD,
+    IDENTIFIER(Category.WORD), KEYWORD(Category.WORD),
     /** 字面量类。 */
-    NUMBER_LITERAL, STRING_LITERAL, BOOLEAN_LITERAL,
+    NUMBER_LITERAL(Category.LITERAL), STRING_LITERAL(Category.LITERAL), BOOLEAN_LITERAL(Category.LITERAL),
     /** 符号类。 */
-    OPERATOR, PUNCTUATION,
+    OPERATOR(Category.SYMBOL), PUNCTUATION(Category.SYMBOL),
 
     /** 输入结束哨兵，由引擎自动追加，作者不可选。 */
-    EOF,
+    EOF(Category.NONE),
     /** parser 自动跳过（取代 g4 的 {@code -> skip}），但仍保留在 token 列表中。 */
-    SKIP,
+    SKIP(Category.NONE),
     /** 文法内联字符串字面量终端（如 {@code '{'}、{@code 'true'}），非具名词法规则。 */
-    TERMINAL,
+    TERMINAL(Category.NONE),
     /** 未标注 {@code -> kind} 的具名词法规则兜底（文法自定义类别）。 */
-    CUSTOM;
+    CUSTOM(Category.NONE);
 
-    /** 按语法文件中的名字（如 {@code WHITESPACE}、{@code SKIP}）取类别；未知返回 {@code null}。 */
-    public static TokenKind of(String name) {
-        return switch (name) {
-            case "WHITESPACE" -> WHITESPACE;
-            case "LINE_BREAK" -> LINE_BREAK;
-            case "COMMENT" -> COMMENT;
-            case "IDENTIFIER" -> IDENTIFIER;
-            case "KEYWORD" -> KEYWORD;
-            case "NUMBER_LITERAL" -> NUMBER_LITERAL;
-            case "STRING_LITERAL" -> STRING_LITERAL;
-            case "BOOLEAN_LITERAL" -> BOOLEAN_LITERAL;
-            case "OPERATOR" -> OPERATOR;
-            case "PUNCTUATION" -> PUNCTUATION;
-            case "EOF" -> EOF;
-            case "SKIP" -> SKIP;
-            case "TERMINAL" -> TERMINAL;
-            case "CUSTOM" -> CUSTOM;
-            default -> null;
-        };
+    /** 词法类别分组：按用途归组的语义集合。 */
+    public enum Category {
+        /** 空边角料：保留在 token 列表中，parser 自动跳过。 */
+        TRIVIA,
+        /** 词类。 */
+        WORD,
+        /** 字面量类。 */
+        LITERAL,
+        /** 符号类。 */
+        SYMBOL,
+        /** 不归入上述任何组别（EOF / SKIP / TERMINAL / CUSTOM）。 */
+        NONE
     }
 
-    /** 是否为 trivia 组别（保留 + parser 自动跳过）。 */
-    public boolean isTrivia() {
-        return this == WHITESPACE || this == LINE_BREAK || this == COMMENT;
+    private final Category category;
+
+    TokenKind(Category category) {
+        this.category = category;
+    }
+
+    /** 该类别所属的分组。 */
+    public Category category() {
+        return category;
     }
 
     /** 是否被 parser 自动跳过（trivia 或 SKIP）。 */
     public boolean autoSkipped() {
-        return isTrivia() || this == SKIP;
+        return category == Category.TRIVIA || this == SKIP;
+    }
+
+    /** 按枚举名（即语法文件 {@code -> kind(...)} 中的名字）取类别；未知返回 {@code null}。 */
+    public static TokenKind of(String name) {
+        for (TokenKind k : values()) {
+            if (k.name().equals(name)) return k;
+        }
+        return null;
     }
 }

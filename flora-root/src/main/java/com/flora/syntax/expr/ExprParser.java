@@ -4,6 +4,7 @@ import com.flora.syntax.Tokenizer;
 import com.flora.syntax.definition.Token;
 import com.flora.syntax.definition.TokenKind;
 import com.flora.syntax.exceptions.SyntaxException;
+import com.flora.syntax.expr.impl.OpPrecedence;
 
 import java.util.ArrayList;
 import java.util.List;

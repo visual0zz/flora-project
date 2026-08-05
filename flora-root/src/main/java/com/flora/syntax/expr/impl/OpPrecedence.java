@@ -1,4 +1,4 @@
-package com.flora.syntax.expr;
+package com.flora.syntax.expr.impl;
 
 import com.flora.syntax.exceptions.SyntaxException;
 
@@ -12,7 +12,7 @@ import java.util.Map;
  * &lt; {@code == !=} &lt; {@code < <= > >=} &lt; {@code << >> >>>}
  * &lt; {@code + -} &lt; {@code * / %} &lt; 一元 &lt; 括号 &lt; 三元（最低，见 parser）。</p>
  */
-final class OpPrecedence {
+public final class OpPrecedence {
 
     /** 一元运算符集合。 */
     static final String[] UNARY = {"!", "~", "-"};
@@ -46,12 +46,12 @@ final class OpPrecedence {
     }
 
     /** 是否二元运算符。 */
-    static boolean isBinary(String op) {
+    public static boolean isBinary(String op) {
         return PRECEDENCE.containsKey(op);
     }
 
     /** 是否一元运算符。 */
-    static boolean isUnary(String op) {
+    public static boolean isUnary(String op) {
         for (String u : UNARY) {
             if (u.equals(op)) {
                 return true;
@@ -61,7 +61,7 @@ final class OpPrecedence {
     }
 
     /** 运算符优先级；非二元运算符抛异常。 */
-    static int level(String op) {
+    public static int level(String op) {
         Integer level = PRECEDENCE.get(op);
         if (level == null) {
             throw SyntaxException.at(-1, "未知运算符: " + op);

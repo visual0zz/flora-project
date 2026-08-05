@@ -1,5 +1,7 @@
 package com.flora.syntax.expr;
 
+import com.flora.syntax.expr.impl.OpPrecedence;
+
 import java.util.List;
 
 /**

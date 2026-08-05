@@ -76,6 +76,9 @@ module com.flora.root {
     uses Converter;
     uses AiProvider;
 
+    provides java.nio.file.spi.FileSystemProvider
+            with com.flora.runtime.virtual.filesys.bridge.VfsFileSystemProvider;
+
     requires java.net.http;
     requires static org.jetbrains.annotations;
 }

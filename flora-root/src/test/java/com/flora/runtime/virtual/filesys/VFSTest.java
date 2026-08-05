@@ -6,11 +6,16 @@ import com.flora.runtime.virtual.filesys.VfsFileSystem;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.net.URI;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystemNotFoundException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -358,5 +363,24 @@ class VFSTest {
 
         assertEquals("/dir/target.txt", Files.readSymbolicLink(fs.getPath("/dir/link.txt")).toString());
         assertEquals("data", Files.readString(fs.getPath("/dir/link.txt")));
+    }
+
+    // ===================== ServiceLoader =====================
+
+    @Test
+    void serviceLoaderDiscoversVfsProvider() throws IOException {
+        URI uri = URI.create("vfs:/data");
+        try (FileSystem fs = FileSystems.newFileSystem(uri, Map.of())) {
+            assertTrue(fs instanceof VfsFileSystem);
+            VfsFileSystem vfs = (VfsFileSystem) fs;
+            vfs.mount("/data", new MemoryFileSystem());
+
+            Path p = fs.getPath("/data/hello.txt");
+            Files.writeString(p, "via-service-loader");
+            assertEquals("via-service-loader", Files.readString(p));
+        }
+        // 关闭后应取消 URI 注册
+        assertThrows(FileSystemNotFoundException.class,
+                () -> FileSystems.getFileSystem(uri));
     }
 }

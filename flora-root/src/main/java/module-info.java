@@ -35,11 +35,8 @@ module com.flora.root {
     exports com.flora.os;
     exports com.flora.runtime.log;
     exports com.flora.runtime.config;
-    exports com.flora.runtime.config.source;
     exports com.flora.runtime.virtual.filesys;
     exports com.flora.runtime.virtual.filesys.backend;
-
-    exports com.flora.runtime;
 
     exports com.flora.codec.jsonl;
     exports com.flora.codec.jsonschema;
@@ -74,6 +71,7 @@ module com.flora.root {
     exports com.flora.entropy.mesure;
     exports com.flora.entropy.mesure.engine;
     exports com.flora.syntax.common;
+    exports com.flora.runtime.config.impl;
 
     uses Converter;
     uses AiProvider;

@@ -37,7 +37,7 @@ import java.util.Map;
 import java.util.Vector;
 
 import com.flora.comm.ssh.logging.FloraLogBridge;
-import com.flora.runtime.LoggerFactory;
+import com.flora.runtime.log.LoggerFactory;
 
 
 public class JSch {

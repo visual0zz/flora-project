@@ -1,10 +1,12 @@
-package com.flora.runtime.config;
+package com.flora.runtime.config.impl;
 
-import com.flora.runtime.config.source.ConfigSource;
+import com.flora.runtime.config.Config;
+import com.flora.runtime.config.ConfigException;
+import com.flora.runtime.config.ConfigPriority;
+import com.flora.runtime.config.ConfigSource;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.stream.Collectors;
 
 /**
  * 配置加载器，支持从多种来源加载并合并配置。
@@ -79,7 +81,7 @@ public final class ConfigLoader {
     }
 
     /** 移除所有来源。 */
-    void clearSources() {
+    public void clearSources() {
         entries.clear();
     }
 

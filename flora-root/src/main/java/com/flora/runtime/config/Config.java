@@ -202,7 +202,7 @@ public class Config {
     /**
      * 合并多个 Config（后者的值覆盖前者）。
      */
-    static Config merge(Config base, Config overlay) {
+    public static Config merge(Config base, Config overlay) {
         if (base.isEmpty()) return overlay;
         if (overlay.isEmpty()) return base;
         Map<String, Object> merged = new LinkedHashMap<>(copyDeep(base.raw));

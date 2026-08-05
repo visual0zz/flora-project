@@ -1,7 +1,5 @@
-package com.flora.runtime;
+package com.flora.runtime.log;
 
-import com.flora.runtime.log.Level;
-import com.flora.runtime.log.Logger;
 import com.flora.runtime.log.impl.LoggerImpl;
 
 import java.util.Map;

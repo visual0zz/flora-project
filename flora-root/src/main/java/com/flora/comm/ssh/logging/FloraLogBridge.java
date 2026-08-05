@@ -1,7 +1,7 @@
 package com.flora.comm.ssh.logging;
 
 import com.flora.comm.ssh.Logger;
-import com.flora.runtime.LoggerFactory;
+import com.flora.runtime.log.LoggerFactory;
 
 /**
  * 将 {@link Logger}（通信层日志接口）桥接到 {@code com.flora.runtime.log} 的统一日志门面。

@@ -11,7 +11,6 @@ import java.nio.file.*;
 import java.nio.file.attribute.UserPrincipalLookupService;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 虚拟文件系统的 {@link FileSystem} 实现。
@@ -85,7 +84,7 @@ public final class VfsFileSystem extends FileSystem {
     }
 
     @Override @NotNull
-    public Path getPath(String first, String... more) {
+    public Path getPath(@NotNull String first, String... more) {
         StringBuilder sb = new StringBuilder(first);
         for (String m : more) sb.append('/').append(m);
         String raw = sb.toString();

@@ -54,7 +54,7 @@ public final class Validator {
             if (r.kindName() != null) {
                 TokenKind k = TokenKind.of(r.kindName());
                 if (k == null) throw new SyntaxException("未知的 kind '" + r.kindName() + "'");
-                if (k instanceof TokenKind.Eof) {
+                if (k == TokenKind.EOF) {
                     throw new SyntaxException("kind(EOF) 为引擎结束哨兵，作者不可选");
                 }
             }

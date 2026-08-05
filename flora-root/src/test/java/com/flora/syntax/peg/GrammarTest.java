@@ -53,10 +53,10 @@ class GrammarTest {
         assertEquals("{\"a\":[1,2.5],\"b\":null}", t.text());
         // tokens() 返回全部 token（含 SKIP 的空白），供链式分别取出
         List<Token> toks = out.tokens();
-        assertTrue(toks.stream().anyMatch(tk -> tk.kind() instanceof TokenKind.Skip));
-        assertTrue(toks.stream().anyMatch(tk -> tk.kind() instanceof TokenKind.Terminal));
-        assertTrue(toks.stream().anyMatch(tk -> tk.kind() instanceof TokenKind.StringLiteral));
-        assertTrue(toks.stream().anyMatch(tk -> tk.kind() instanceof TokenKind.NumberLiteral));
+        assertTrue(toks.stream().anyMatch(tk -> tk.kind() == TokenKind.SKIP));
+        assertTrue(toks.stream().anyMatch(tk -> tk.kind() == TokenKind.TERMINAL));
+        assertTrue(toks.stream().anyMatch(tk -> tk.kind() == TokenKind.STRING_LITERAL));
+        assertTrue(toks.stream().anyMatch(tk -> tk.kind() == TokenKind.NUMBER_LITERAL));
     }
 
     @Test
@@ -65,7 +65,7 @@ class GrammarTest {
         assertEquals("{\"a\":[1,2.5],\"b\":null}",
                 Grammar.compile(JSON).parse("{\"a\":[1,2.5],\"b\":null}").tree().text());
         List<Token> toks = Grammar.compile(JSON).parse("{\"a\":[1,2.5],\"b\":null}").tokens();
-        assertEquals(TokenKind.Eof.class, toks.get(toks.size() - 1).kind().getClass());
+        assertEquals(TokenKind.EOF, toks.get(toks.size() - 1).kind());
     }
 
     @Test
@@ -124,9 +124,9 @@ class GrammarTest {
                 WS : [ \\t]+ -> kind(SKIP) ;
                 """);
         List<Token> toks = g.parse("abc 123").tokens();
-        assertInstanceOf(TokenKind.Identifier.class, toks.get(0).kind()); // 显式标注
-        assertInstanceOf(TokenKind.Skip.class, toks.get(1).kind());       // 显式 kind(SKIP) 保留在列表
-        assertInstanceOf(TokenKind.Custom.class, toks.get(2).kind());     // 未标注 → CUSTOM
+        assertEquals(TokenKind.IDENTIFIER, toks.get(0).kind()); // 显式标注
+        assertEquals(TokenKind.SKIP, toks.get(1).kind());        // 显式 kind(SKIP) 保留在列表
+        assertEquals(TokenKind.CUSTOM, toks.get(2).kind());      // 未标注 → CUSTOM
     }
 
     @Test
@@ -180,7 +180,7 @@ class GrammarTest {
         assertTrue(out.success());
         assertEquals("hello", out.tree().text());
         // 引号被 SKIP（保留在 tokens），字符串内容为 StrChar token
-        assertTrue(out.tokens().stream().anyMatch(tk -> tk.kind() instanceof TokenKind.Skip));
+        assertTrue(out.tokens().stream().anyMatch(tk -> tk.kind() == TokenKind.SKIP));
         assertTrue(out.tokens().stream().anyMatch(tk -> tk.typeName().equals("StrChar")));
         // 空字符串 ""：开/闭引号均被 SKIP 并切换模式，内容为空也能匹配
         assertTrue(g.tryParse("\"\"").success());

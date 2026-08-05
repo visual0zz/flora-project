@@ -123,7 +123,7 @@ class GrammarFeatureTest {
         ParseOutput out = Grammar.compile(skipped).parse("abc  def");
         assertTrue(out.success());
         assertEquals("abcdef", out.tree().text());
-        assertTrue(out.tokens().stream().anyMatch(tk -> tk.kind() instanceof TokenKind.Skip));
+        assertTrue(out.tokens().stream().anyMatch(tk -> tk.kind() == TokenKind.SKIP));
     }
 
     @Test
@@ -135,7 +135,7 @@ class GrammarFeatureTest {
         ParseOutput out = g.parse("true");
         assertTrue(out.success());
         assertEquals("true", out.tree().text());
-        assertInstanceOf(TokenKind.Terminal.class, out.tokens().get(0).kind());
+        assertEquals(TokenKind.TERMINAL, out.tokens().get(0).kind());
         assertEquals("true", out.tokens().get(0).typeName());
         assertFalse(g.tryParse("truex").success());
     }

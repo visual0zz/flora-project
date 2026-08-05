@@ -59,31 +59,31 @@ public final class Tokenizer {
             int start = pos;
             if (Character.isDigit(c)) {
                 int end = advanceNumber(input, pos);
-                tokens.add(new Token(new TokenKind.NumberLiteral(), "NUMBER",
+                tokens.add(new Token(TokenKind.NUMBER_LITERAL, "NUMBER",
                         input.substring(start, end), start, end, line, col));
                 pos = end;
             } else if (Character.isLetter(c) || c == '_') {
                 int end = advanceIdent(input, pos);
-                tokens.add(new Token(new TokenKind.Identifier(), "IDENT",
+                tokens.add(new Token(TokenKind.IDENTIFIER, "IDENT",
                         input.substring(start, end), start, end, line, col));
                 pos = end;
             } else if (c == '"' || c == '\'') {
                 int end = advanceString(input, pos);
-                tokens.add(new Token(new TokenKind.StringLiteral(), "TEXT",
+                tokens.add(new Token(TokenKind.STRING_LITERAL, "TEXT",
                         input.substring(start, end), start, end, line, col));
                 pos = end;
             } else {
                 String sym = matchSymbol(input, pos);
                 if (sym != null) {
                     boolean paren = sym.equals("(") || sym.equals(")");
-                    tokens.add(new Token(paren ? new TokenKind.Terminal() : new TokenKind.Operator(),
+                    tokens.add(new Token(paren ? TokenKind.TERMINAL : TokenKind.OPERATOR,
                             paren ? sym : "SYMBOL", sym, start, start + sym.length(), line, col));
                     pos += sym.length();
                 } else if (c == '(') {
-                    tokens.add(new Token(new TokenKind.Terminal(), "(", "(", start, start + 1, line, col));
+                    tokens.add(new Token(TokenKind.TERMINAL, "(", "(", start, start + 1, line, col));
                     pos++;
                 } else if (c == ')') {
-                    tokens.add(new Token(new TokenKind.Terminal(), ")", ")", start, start + 1, line, col));
+                    tokens.add(new Token(TokenKind.TERMINAL, ")", ")", start, start + 1, line, col));
                     pos++;
                 } else {
                     throw SyntaxException.at(start, "无法识别的字符: " + c);
@@ -93,7 +93,7 @@ public final class Tokenizer {
             line = lc[0];
             col = lc[1];
         }
-        tokens.add(new Token(new TokenKind.Eof(), "EOF", "", pos, pos, line, col));
+        tokens.add(new Token(TokenKind.EOF, "EOF", "", pos, pos, line, col));
         return tokens;
     }
 

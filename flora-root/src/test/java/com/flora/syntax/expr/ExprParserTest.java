@@ -348,22 +348,22 @@ class ExprParserTest {
     void sharedTokenizer() {
         Tokenizer t = Tokenizer.of(">>>", "<<", "&&", "+");
         List<Token> tokens = t.tokenize("a<<b");
-        assertEquals(new TokenKind.Identifier(), tokens.get(0).kind());
+        assertEquals(TokenKind.IDENTIFIER, tokens.get(0).kind());
         assertEquals("a", tokens.get(0).text());
-        assertEquals(new TokenKind.Operator(), tokens.get(1).kind());
+        assertEquals(TokenKind.OPERATOR, tokens.get(1).kind());
         assertEquals("<<", tokens.get(1).text());
-        assertEquals(new TokenKind.Identifier(), tokens.get(2).kind());
-        assertEquals(new TokenKind.Eof(), tokens.get(3).kind());
+        assertEquals(TokenKind.IDENTIFIER, tokens.get(2).kind());
+        assertEquals(TokenKind.EOF, tokens.get(3).kind());
     }
 
     @Test
     void tokenizerStringLiteral() {
         List<Token> tokens = Tokenizer.of("+").tokenize("\"hi\" + x");
-        assertEquals(new TokenKind.StringLiteral(), tokens.get(0).kind());
+        assertEquals(TokenKind.STRING_LITERAL, tokens.get(0).kind());
         assertEquals("\"hi\"", tokens.get(0).text());
-        assertEquals(new TokenKind.Operator(), tokens.get(1).kind());
+        assertEquals(TokenKind.OPERATOR, tokens.get(1).kind());
         assertEquals("+", tokens.get(1).text());
-        assertEquals(new TokenKind.Identifier(), tokens.get(2).kind()); // x
+        assertEquals(TokenKind.IDENTIFIER, tokens.get(2).kind()); // x
     }
 
     // ── 非法输入 ──

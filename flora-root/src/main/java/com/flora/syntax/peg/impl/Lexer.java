@@ -100,7 +100,7 @@ final class Lexer {
             }
             pos += bestLen;
         }
-        out.add(new Token(new TokenKind.Eof(), "EOF", "", pos, pos, line, col));
+        out.add(new Token(TokenKind.EOF, "EOF", "", pos, pos, line, col));
         return out;
     }
 

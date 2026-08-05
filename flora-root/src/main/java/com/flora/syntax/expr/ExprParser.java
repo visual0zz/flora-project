@@ -46,7 +46,7 @@ public final class ExprParser {
         ExprParser p = new ExprParser(TOKENIZER.tokenize(expression));
         Expr e = p.parseExpression();
         Token t = p.peek();
-        if (!(t.kind() instanceof TokenKind.Eof)) {
+        if (t.kind() != TokenKind.EOF) {
             throw SyntaxException.at(t.start(), "表达式后有未消费的内容: " + t.text());
         }
         return e;
@@ -75,7 +75,7 @@ public final class ExprParser {
         Expr left = parseUnary();
         while (true) {
             Token t = peek();
-            if (!(t.kind() instanceof TokenKind.Operator)) {
+            if (t.kind() != TokenKind.OPERATOR) {
                 break;
             }
             String op = t.text();
@@ -95,7 +95,7 @@ public final class ExprParser {
 
     private Expr parseUnary() {
         Token t = peek();
-        if (t.kind() instanceof TokenKind.Operator && OpPrecedence.isUnary(t.text())) {
+        if (t.kind() == TokenKind.OPERATOR && OpPrecedence.isUnary(t.text())) {
             int opPos = advance();
             return new Expr.Unary(t.text(), parseUnary(), opPos);
         }
@@ -105,11 +105,11 @@ public final class ExprParser {
     private Expr parsePrimary() {
         Token t = peek();
         return switch (t.kind()) {
-            case TokenKind.NumberLiteral _ -> {
+            case NUMBER_LITERAL -> {
                 advance();
                 yield new Expr.Number(t.text(), t.start());
             }
-            case TokenKind.Identifier _ -> {
+            case IDENTIFIER -> {
                 advance();
                 // 函数调用：标识符后跟 '('
                 if (isTerminal(peek(), "(")) {
@@ -141,11 +141,11 @@ public final class ExprParser {
                 };
                 yield literal;
             }
-            case TokenKind.StringLiteral _ -> {
+            case STRING_LITERAL -> {
                 advance();
                 yield new Expr.Str(decodeString(t.text()), t.start());
             }
-            case TokenKind.Terminal _ -> {
+            case TERMINAL -> {
                 if (!t.text().equals("(")) {
                     throw SyntaxException.at(t.start(), "期望操作数，得到 " + t);
                 }
@@ -178,12 +178,12 @@ public final class ExprParser {
 
     /** token 是否为指定文本的运算符。 */
     private static boolean isOp(Token t, String text) {
-        return t.kind() instanceof TokenKind.Operator && t.text().equals(text);
+        return t.kind() == TokenKind.OPERATOR && t.text().equals(text);
     }
 
     /** token 是否为指定文本的括号终端。 */
     private static boolean isTerminal(Token t, String text) {
-        return t.kind() instanceof TokenKind.Terminal && t.text().equals(text);
+        return t.kind() == TokenKind.TERMINAL && t.text().equals(text);
     }
 
     /** 解码字符串字面量原文：剥外层引号并处理转义（与共享词法器的字符串规则一致）。 */

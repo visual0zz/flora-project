@@ -95,7 +95,7 @@ public final class Compiler {
             if (!tokenIndex.containsKey(e.getKey())) {
                 tokenIndex.put(e.getKey(), tokenRules.size());
                 tokenRules.add(new Lexer.TokenRule(e.getKey(),
-                        new TokenKind.Terminal(), null, null, new ELit(e.getKey())));
+                        TokenKind.TERMINAL, null, null, new ELit(e.getKey())));
             }
         }
     }
@@ -113,7 +113,7 @@ public final class Compiler {
 
     /** 解析规则上的 {@code -> kind(KIND)}；未标注一律 CUSTOM（无猜测）。 */
     private TokenKind resolveKind(RuleDef r) {
-        return r.kindName() != null ? TokenKind.of(r.kindName()) : new TokenKind.Custom();
+        return r.kindName() != null ? TokenKind.of(r.kindName()) : TokenKind.CUSTOM;
     }
 
     /** 该候选是否在首位置引用自身（直接左递归）。 */

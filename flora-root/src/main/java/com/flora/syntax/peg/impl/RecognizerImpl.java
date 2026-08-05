@@ -86,7 +86,7 @@ public final class RecognizerImpl implements Recognizer {
         allTokens = cg.lexer().lex(slice);
         sig = new ArrayList<>();
         for (Token t : allTokens) {
-            if (!TokenKind.autoSkipped(t.kind())) sig.add(t);
+            if (!t.kind().autoSkipped()) sig.add(t);
         }
         Parser.Run r = new Parser.Run(sig);
         Parser.Matched m = cg.parser().parse(r, 0);
@@ -113,7 +113,7 @@ public final class RecognizerImpl implements Recognizer {
         int fi = Math.max(0, Math.min(r.furthest, sig.size() - 1));
         Token t = sig.get(fi);
         String expected = r.expected.isEmpty() ? "<输入结束>" : r.expectedText();
-        String got = t.kind() instanceof TokenKind.Eof ? "<EOF>" : "'" + t.text() + "'";
+        String got = t.kind() == TokenKind.EOF ? "<EOF>" : "'" + t.text() + "'";
         return new ParseException("期望 " + expected + " 但遇到 " + got, t.line(), t.column(), t.start(), expected);
     }
 }

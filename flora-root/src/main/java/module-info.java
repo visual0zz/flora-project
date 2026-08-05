@@ -62,6 +62,7 @@ module com.flora.root {
     exports com.flora.syntax;
     exports com.flora.syntax.bracket;
     exports com.flora.syntax.expr;
+    exports com.flora.syntax.peg;
 
     exports com.flora.ai;
     exports com.flora.ai.api;

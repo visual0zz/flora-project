@@ -13,7 +13,11 @@ import java.util.List;
  * 通用语法解析器门面，类比 {@link java.util.regex.Pattern}：输入一份 g4 记法语法定义字符串，编译为
  * 内存中的高效识别器，再去识别其它字符串得到 token 列表与语法树。
  *
- * <p>典型链式用法：{@code Grammar.compile(def).parse(input).tokens()} / {@code ...tree()}。
+ * <p>典型链式用法：{@code Grammar.compile(def).parse(input).tokens()} / {@code ...tree()}。</p>
+ *
+ * <p>线程安全：实例（编译产物）不可变、可被多线程共享，{@link #parse(CharSequence)} /
+ * {@link #tryParse(CharSequence)} 每次匹配都使用独立的状态。但 {@link #recognizer(CharSequence)}
+ * 返回的有状态识别器不是线程安全的（见 {@link Recognizer}），每个线程应持有自己的实例。</p>
  */
 public final class Grammar {
     private final Compiler.CompiledGrammar cg;
@@ -54,6 +58,11 @@ public final class Grammar {
             // 词法 / 文法错误一律转为失败结果，不抛
             return new ParseOutput(false, List.of(), null, e);
         }
+    }
+
+    /** 输入字符串是否构成一个完整可解析的结构（全量匹配成功）；等价于 {@code tryParse(input).success()}。 */
+    public boolean matches(String input) {
+        return tryParse(input).success();
     }
 
     /** 有状态识别器（类比 {@link java.util.regex.Matcher}）。 */

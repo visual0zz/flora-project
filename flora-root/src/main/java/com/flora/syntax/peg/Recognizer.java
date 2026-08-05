@@ -1,13 +1,18 @@
 package com.flora.syntax.peg;
 
 import com.flora.syntax.common.exceptions.ParseException;
+import com.flora.tag.ThreadFragile;
 
 /**
  * 有状态的识别器，类比 {@link java.util.regex.Matcher}：在给定输入上做一次或多次匹配。
  *
  * <p>由 {@link Grammar#recognizer(CharSequence)} 创建。匹配前可用 {@link #region(int, int)}
- * 限定子区间，匹配后可取 {@link #tree()} / {@link #end()} / {@link #failure()}。
+ * 限定子区间，匹配后可取 {@link #tree()} / {@link #end()} / {@link #failure()}。</p>
+ *
+ * <p><b>非线程安全</b>：实例保存最近一次匹配的结果（{@link #tree()} / {@link #failure()} 等），
+ * 同一实例并发调用匹配方法会互相覆盖状态；与 {@code Matcher} 一样，每个线程应持有自己的实例。</p>
  */
+@ThreadFragile("同一实例跨线程并发匹配会互相覆盖最近结果；与 Matcher 一样每个线程应持有自己的实例")
 public interface Recognizer {
     /** 从当前位置匹配到末尾（全量匹配）。 */
     boolean matches();

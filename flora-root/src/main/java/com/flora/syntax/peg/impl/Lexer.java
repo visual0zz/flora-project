@@ -16,9 +16,9 @@ import com.flora.syntax.peg.impl.RuleDefs.ERepeat;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 词法器：解释器风格——直接对 {@link Elem} AST 做字符级解释，不编译成独立 matcher 类族。
@@ -39,7 +39,8 @@ final class Lexer {
     private final boolean longestMatch;
     private final boolean ci;
     private final Map<String, Elem> lexerBodies;
-    private final Map<EClass, int[][]> classCache = new HashMap<>();
+    /** 字符类范围缓存（惰性填充）：共享 Grammar 并发 parse 时也安全，故用并发映射。 */
+    private final Map<EClass, int[][]> classCache = new ConcurrentHashMap<>();
 
     Lexer(List<TokenRule> rules, boolean longestMatch, boolean caseInsensitive, Map<String, Elem> lexerBodies) {
         this.rules = rules;

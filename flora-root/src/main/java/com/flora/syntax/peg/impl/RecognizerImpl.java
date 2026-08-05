@@ -5,6 +5,7 @@ import com.flora.syntax.common.definition.TokenKind;
 import com.flora.syntax.common.exceptions.ParseException;
 import com.flora.syntax.peg.ParseTree;
 import com.flora.syntax.peg.Recognizer;
+import com.flora.tag.ThreadFragile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,7 +14,11 @@ import java.util.List;
  * 识别器运行时：先 lex 得全部 token（含 SKIP），按 {@code autoSkip} 选项过滤出显著 token
  * （默认跳过 Trivia / SKIP，关闭则全部保留供文法显式引用），再在显著流上跑 token 级 PEG
  * （packrat），建 {@link ParseTree} 并回填字符偏移。失败收集最远失败位置 + 期望项。
+ *
+ * <p>非线程安全：实例保存最近一次匹配的状态（{@code lastTree}/{@code lastFailure}/{@code sig}），
+ * 同一实例不能跨线程并发使用；每个线程应持有各自实例（见 {@link Recognizer}）。</p>
  */
+@ThreadFragile("持有 lastTree/lastFailure/sig 等可变状态，同一实例不能跨线程并发使用")
 public final class RecognizerImpl implements Recognizer {
 
     private final Compiler.CompiledGrammar cg;

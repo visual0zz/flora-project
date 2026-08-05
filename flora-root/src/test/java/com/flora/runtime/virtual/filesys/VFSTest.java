@@ -6,16 +6,11 @@ import com.flora.runtime.virtual.filesys.VfsFileSystem;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.net.URI;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystemNotFoundException;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -185,7 +180,7 @@ class VFSTest {
     @Test
     void noMountThrows() {
         VfsFileSystem fs = new VfsFileSystem();
-        // 未挂载任何后端，通过 Provider 访问会触发 resolveInternal 的 ISE
+        // 未挂载任何后端，通过 Provider 访问会触发挂载解析的 ISE
         Path p = fs.getPath("/unknown/path");
         assertThrows(IllegalStateException.class,
                 () -> java.nio.file.Files.readAttributes(p, BasicFileAttributes.class));
@@ -365,22 +360,25 @@ class VFSTest {
         assertEquals("data", Files.readString(fs.getPath("/dir/link.txt")));
     }
 
-    // ===================== ServiceLoader =====================
+    // ===================== 核心类独立运行 =====================
 
     @Test
-    void serviceLoaderDiscoversVfsProvider() throws IOException {
-        URI uri = URI.create("vfs:/data");
-        try (FileSystem fs = FileSystems.newFileSystem(uri, Map.of())) {
-            assertTrue(fs instanceof VfsFileSystem);
-            VfsFileSystem vfs = (VfsFileSystem) fs;
-            vfs.mount("/data", new MemoryFileSystem());
+    void coreVfsFileSystemRunsStandalone() throws IOException {
+        // 挂载 + 路径运算 + 生命周期
+        VfsFileSystem fs = new VfsFileSystem();
+        fs.mount("/data", new MemoryFileSystem());
+        fs.unmount("/data");
+        fs.mount("/data", new MemoryFileSystem());
 
-            Path p = fs.getPath("/data/hello.txt");
-            Files.writeString(p, "via-service-loader");
-            assertEquals("via-service-loader", Files.readString(p));
-        }
-        // 关闭后应取消 URI 注册
-        assertThrows(FileSystemNotFoundException.class,
-                () -> FileSystems.getFileSystem(uri));
+        Path p = fs.getPath("/data/hello.txt");
+        assertEquals("/data/hello.txt", p.toString());
+        assertEquals("/data", p.getParent().toString());
+        assertEquals("hello.txt", p.getFileName().toString());
+        assertEquals("/data/world.txt", p.resolveSibling("world.txt").toString());
+        assertTrue(p.startsWith("/data"));
+
+        assertTrue(fs.isOpen());
+        fs.close();
+        assertFalse(fs.isOpen());
     }
 }

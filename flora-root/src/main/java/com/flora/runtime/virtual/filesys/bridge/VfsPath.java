@@ -5,11 +5,16 @@ import com.flora.runtime.virtual.filesys.VfsFileSystem;
 import java.io.File;
 import java.net.URI;
 import java.nio.file.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 
 /**
  * 虚拟文件系统的 {@link Path} 实现。
- * <p>路径为绝对、归一化、UNIX 风格。所有字符串操作委托给底层路径字符串。</p>
+ * <p>路径为绝对、归一化、UNIX 风格，所有字符串操作委托给底层路径字符串。
+ * 配合 {@link VfsFileSystem} 使用，其他代码仅通过 {@code Path} + {@code Files.*}
+ * 透明操作 VFS，无需感知其存在。</p>
  */
 public final class VfsPath implements Path {
 
@@ -100,10 +105,7 @@ public final class VfsPath implements Path {
 
     @Override
     public Path resolve(Path other) {
-        String o = other.toString();
-        if (o.startsWith("/")) return new VfsPath(o, fs);
-        if (path.equals("/")) return new VfsPath("/" + o, fs);
-        return new VfsPath(path + "/" + o, fs);
+        return resolve(other.toString());
     }
 
     @Override
@@ -115,13 +117,13 @@ public final class VfsPath implements Path {
 
     @Override
     public Path resolveSibling(Path other) {
-        Path parent = getParent();
-        return parent != null ? parent.resolve(other) : other;
+        return resolveSibling(other.toString());
     }
 
     @Override
     public Path resolveSibling(String other) {
-        return resolveSibling(new VfsPath(other.startsWith("/") ? other : "/" + other, fs));
+        Path parent = getParent();
+        return parent != null ? parent.resolve(other) : new VfsPath(other.startsWith("/") ? other : "/" + other, fs);
     }
 
     @Override

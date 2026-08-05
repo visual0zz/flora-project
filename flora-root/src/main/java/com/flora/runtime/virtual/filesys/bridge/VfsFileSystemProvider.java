@@ -2,8 +2,8 @@ package com.flora.runtime.virtual.filesys.bridge;
 
 import com.flora.runtime.virtual.filesys.FileAttributes;
 import com.flora.runtime.virtual.filesys.FSBackend;
-import com.flora.runtime.virtual.filesys.SymlinkFSBackend;
 import com.flora.runtime.virtual.filesys.VfsFileSystem;
+import com.flora.runtime.virtual.filesys.SymlinkFSBackend;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.*;
@@ -13,59 +13,40 @@ import java.nio.file.*;
 import java.nio.file.attribute.*;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 虚拟文件系统的 {@link FileSystemProvider} 实现。
- * <p>NIO 操作通过 {@link FSBackend#openChannel} 委托给后端，
+ * 虚拟文件系统的私有 {@link FileSystemProvider} 实现。
+ * <p>由 {@code VfsFileSystem} 构造时创建，只服务该文件系统：NIO 操作通过
+ * {@link FSBackend#openChannel} 委托给挂载表解析到的后端，
  * {@code InputStream}/{@code OutputStream} 由 {@link Channels} 适配。</p>
- * <p>同时作为 {@code "vfs"} scheme 的提供者注册到 {@link ServiceLoader}：
- * 通过 {@link java.nio.file.FileSystems#newFileSystem} 可按 URI 发现和创建 VFS 实例。
- * 每个 {@link VfsFileSystem} 构造时创建自己的 {@link MountTable} 并注册到其 provider。</p>
+ * <p>不参与 ServiceLoader 注册，也不支持按 URI 创建/查找文件系统——文件系统实例由
+ * {@code new VfsFileSystem()} 直接构建，其他代码仅通过 {@code Path} + {@code Files.*}
+ * 透明使用。</p>
  */
 public final class VfsFileSystemProvider extends FileSystemProvider {
 
-    /** 文件系统 → 挂载表 关联（由 {@link VfsFileSystem} 构造时注册）。 */
-    private final Map<VfsFileSystem, MountTable> tables = new ConcurrentHashMap<>();
-    /** URI 路径 → 文件系统，供 {@link #getFileSystem} 查找。 */
-    private final Map<String, VfsFileSystem> byUri = new ConcurrentHashMap<>();
+    private final MountTable mountTable;
 
-    /** ServiceLoader 实例化使用的无参构造。 */
-    public VfsFileSystemProvider() {}
-
-    /** 由 {@link VfsFileSystem} 构造时调用，注册该文件系统与其挂载表。 */
-    public VfsFileSystemProvider(VfsFileSystem fs, MountTable mountTable) {
-        tables.put(fs, mountTable);
+    /** 由 {@code VfsFileSystem} 构造时调用。 */
+    public VfsFileSystemProvider(MountTable mountTable) {
+        this.mountTable = mountTable;
     }
 
     @Override public String getScheme() { return "vfs"; }
 
     @Override
     public FileSystem newFileSystem(URI uri, Map<String, ?> env) {
-        String key = uriKey(uri);
-        VfsFileSystem fs = new VfsFileSystem();
-        VfsFileSystem prev = byUri.putIfAbsent(key, fs);
-        if (prev != null) throw new FileSystemAlreadyExistsException(uri.toString());
-        fs.onClose(() -> byUri.remove(key, fs));
-        return fs;
+        throw new UnsupportedOperationException("VFS 不支持按 URI 创建文件系统，请直接 new VfsFileSystem()");
     }
 
     @Override
     public FileSystem getFileSystem(URI uri) {
-        VfsFileSystem fs = byUri.get(uriKey(uri));
-        if (fs == null) throw new FileSystemNotFoundException(uri.toString());
-        return fs;
-    }
-
-    /** 文件系统关闭时移除其注册。 */
-    public void deregister(VfsFileSystem fs) {
-        byUri.values().removeIf(f -> f == fs);
-        tables.remove(fs);
+        throw new UnsupportedOperationException("VFS 不参与 URI 发现");
     }
 
     @Override
     public @NotNull Path getPath(URI uri) {
-        return new VfsPath(uri.getPath(), (VfsFileSystem) getFileSystem(uri));
+        throw new UnsupportedOperationException("VFS 不参与 URI 发现");
     }
 
     @Override public FileSystem newFileSystem(Path path, Map<String, ?> env) { throw new UnsupportedOperationException(); }
@@ -257,7 +238,8 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
         if (!(backend instanceof SymlinkFSBackend s)) {
             throw new UnsupportedOperationException("后端不支持符号链接: " + backend.getClass().getSimpleName());
         }
-        return new VfsPath(s.readSymbolicLink(ref.relative), (VfsFileSystem) link.getFileSystem());
+        return new VfsPath(s.readSymbolicLink(ref.relative),
+                (VfsFileSystem) link.getFileSystem());
     }
 
     @Override
@@ -271,13 +253,10 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
     /** 单次解析的结果缓存，消除同一个方法内多次挂载解析的 TOCTOU。 */
     private record BackendRef(FSBackend backend, String relative) {}
 
-    /** 从路径取得其文件系统对应的挂载表，并校验文件系统已打开。 */
+    /** 返回本 provider 服务的挂载表，并校验文件系统已打开。 */
     private MountTable tableOf(Path path) {
-        VfsFileSystem fs = (VfsFileSystem) path.getFileSystem();
-        if (!fs.isOpen()) throw new ClosedFileSystemException();
-        MountTable t = tables.get(fs);
-        if (t == null) throw new IllegalStateException("文件系统未关联挂载表: " + fs);
-        return t;
+        if (!path.getFileSystem().isOpen()) throw new ClosedFileSystemException();
+        return mountTable;
     }
 
     private BackendRef resolveOne(Path path) {
@@ -288,14 +267,6 @@ public final class VfsFileSystemProvider extends FileSystemProvider {
     private FileAttributes resolveAttr(Path path, boolean followLinks) {
         FSBackendMatch m = tableOf(path).resolve(path.toString());
         return m.backend().getAttributes(m.path(), followLinks);
-    }
-
-    private static String uriKey(URI uri) {
-        if (uri == null || !"vfs".equalsIgnoreCase(uri.getScheme())) {
-            throw new IllegalArgumentException("非法 vfs URI: " + uri);
-        }
-        String path = uri.getPath();
-        return path == null || path.isEmpty() ? "/" : path;
     }
 
     // ===================== NIO BasicFileAttributes 桥接 =====================

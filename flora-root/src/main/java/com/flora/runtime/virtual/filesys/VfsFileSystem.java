@@ -10,13 +10,14 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.UserPrincipalLookupService;
 import java.nio.file.spi.FileSystemProvider;
-import java.util.*;
+import java.util.List;
+import java.util.Set;
 
 /**
  * 虚拟文件系统的 {@link FileSystem} 实现。
- * <p>同时管理挂载表：将虚拟路径路由到对应的 {@link FSBackend}。
- * 路径统一为 UNIX 风格绝对路径，与 {@link VfsFileSystemProvider} 配合
- * 使 {@code Files.readString()} / {@code Files.walk()} 等 NIO API 可直接操作 VFS。</p>
+ * <p>管理挂载表：将虚拟路径路由到对应的 {@link FSBackend}。路径统一为 UNIX 风格绝对路径。
+ * 通过实现 JDK {@link FileSystem} 契约，使 {@code Files.*} 等 NIO API 可直接操作 VFS；
+ * 其他代码仅通过 {@code Path} + {@code Files.*} 透明使用，无需感知 VFS 的存在。</p>
  *
  * <h3>用法</h3>
  * <pre>{@code
@@ -32,17 +33,11 @@ public final class VfsFileSystem extends FileSystem {
     private final MountTable mountTable;
     private final VfsFileSystemProvider provider;
     private volatile boolean closed;
-    private volatile Runnable onClose;
 
     /** 创建空的 VFS 实例，后续通过 {@link #mount} 添加后端。 */
     public VfsFileSystem() {
         this.mountTable = new MountTable();
-        this.provider = new VfsFileSystemProvider(this, mountTable);
-    }
-
-    /** 注册关闭回调（由创建者注入，用于清理 URI 等外部注册）。 */
-    public void onClose(Runnable action) {
-        this.onClose = action;
+        this.provider = new VfsFileSystemProvider(mountTable);
     }
 
     @Override @NotNull
@@ -76,9 +71,6 @@ public final class VfsFileSystem extends FileSystem {
                 else ex.addSuppressed(e);
             }
         }
-        Runnable action = onClose;
-        if (action != null) action.run();
-        provider.deregister(this);
         if (ex != null) throw ex;
     }
 

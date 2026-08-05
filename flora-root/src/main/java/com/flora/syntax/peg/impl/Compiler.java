@@ -42,6 +42,7 @@ public final class Compiler {
     private final Map<String, CharMatcher> lexerCompiled = new HashMap<>();
     private final List<Lexer.TokenRule> tokenRules = new ArrayList<>();
     private final Map<String, Integer> tokenIndex = new LinkedHashMap<>();
+    private java.util.Set<String> referencedTokens = new java.util.HashSet<>();
 
     private Matchers.RuleBody[] ruleBodies;
     private boolean[] leftRec;
@@ -54,6 +55,15 @@ public final class Compiler {
         this.rules = def.rules();
         this.lexerMap = v.lexerMap();
         this.parserMap = v.parserMap();
+
+        // 收集被文法规则引用的 token 名：被引用即"有意义"，不套命名约定回退（避免 NL→LineBreak 等被误判为可跳过）
+        referencedTokens = new java.util.HashSet<>();
+        for (RuleDef r : rules) {
+            if (r.lexer() || r.fragment()) continue;
+            for (Alt alt : r.alts()) {
+                for (Elem e : alt.elems()) collectTokenRefs(e);
+            }
+        }
 
         // 1. 编译词法规则 / fragment（惰性，图无环）
         for (RuleDef r : rules) {
@@ -253,12 +263,33 @@ public final class Compiler {
         return false;
     }
 
+    private void collectTokenRefs(Elem e) {
+        switch (e) {
+            case ERef ref -> {
+                if (Character.isUpperCase(ref.name().charAt(0))) referencedTokens.add(ref.name());
+            }
+            case EGroup g -> g.alts().forEach(a -> a.elems().forEach(x -> collectTokenRefs(x)));
+            case ERepeat rep -> collectTokenRefs(rep.elem());
+            case EAnd a -> collectTokenRefs(a.elem());
+            case ENot n -> collectTokenRefs(n.elem());
+            default -> { }
+        }
+    }
+
     /** 解析规则上 {@code -> kind(KIND)}；缺省时先按命名约定回退，再兜底 CUSTOM。 */
     private TokenKind resolveKind(RuleDef r) {
         if (r.kindName() != null) return TokenKind.of(r.kindName());
         if (opts.skipRules().contains(r.name())) return new TokenKind.Skip();
         TokenKind byName = conventionKind(r.name());
-        return byName != null ? byName : new TokenKind.Custom();
+        if (byName != null) {
+            // Trivia 类约定（空白/换行/注释）只对未被文法引用的 token 生效：
+            // 被引用的 NL/WS 是"有意义"的 token，不能被自动跳过；非 Trivia 约定（Identifier 等）照常
+            if (TokenKind.isTrivia(byName) && referencedTokens.contains(r.name())) {
+                return new TokenKind.Custom();
+            }
+            return byName;
+        }
+        return new TokenKind.Custom();
     }
 
     /** 命名约定回退（仅便捷，显式 {@code -> kind} 始终优先）。 */

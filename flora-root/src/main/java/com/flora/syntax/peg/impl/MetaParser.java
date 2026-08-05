@@ -1,6 +1,6 @@
 package com.flora.syntax.peg.impl;
 
-import com.flora.syntax.exceptions.SyntaxException;
+import com.flora.syntax.common.exceptions.SyntaxException;
 import com.flora.syntax.peg.impl.RuleDefs.Alt;
 import com.flora.syntax.peg.impl.RuleDefs.EAnd;
 import com.flora.syntax.peg.impl.RuleDefs.EAny;

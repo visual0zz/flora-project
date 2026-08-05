@@ -1,4 +1,4 @@
-package com.flora.syntax.exceptions;
+package com.flora.syntax.common.exceptions;
 
 /** 识别期错误（输入不匹配），由 parse 抛出；携带失败位置与期望项。 */
 public final class ParseException extends SyntaxException {

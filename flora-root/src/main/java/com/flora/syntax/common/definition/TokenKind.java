@@ -1,4 +1,4 @@
-package com.flora.syntax.definition;
+package com.flora.syntax.common.definition;
 
 /**
  * 引擎内置的通用词法类别（固定词汇表）。

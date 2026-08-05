@@ -1,8 +1,8 @@
 package com.flora.syntax.peg;
 
-import com.flora.syntax.definition.Token;
-import com.flora.syntax.definition.TokenKind;
-import com.flora.syntax.exceptions.ParseException;
+import com.flora.syntax.common.definition.Token;
+import com.flora.syntax.common.definition.TokenKind;
+import com.flora.syntax.common.exceptions.ParseException;
 
 import java.util.List;
 

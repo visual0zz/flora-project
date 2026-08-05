@@ -1,7 +1,7 @@
 package com.flora.syntax.peg;
 
-import com.flora.syntax.exceptions.ParseException;
-import com.flora.syntax.exceptions.SyntaxException;
+import com.flora.syntax.common.exceptions.ParseException;
+import com.flora.syntax.common.exceptions.SyntaxException;
 import com.flora.syntax.peg.impl.Compiler;
 import com.flora.syntax.peg.impl.MetaParser;
 import com.flora.syntax.peg.impl.RecognizerImpl;

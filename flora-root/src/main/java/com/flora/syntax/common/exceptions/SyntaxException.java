@@ -1,4 +1,4 @@
-package com.flora.syntax.exceptions;
+package com.flora.syntax.common.exceptions;
 
 /**
  * 词法/语法错误：包含发生位置的错误信息。

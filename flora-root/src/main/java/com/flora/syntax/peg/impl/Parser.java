@@ -1,7 +1,7 @@
 package com.flora.syntax.peg.impl;
 
-import com.flora.syntax.definition.Token;
-import com.flora.syntax.exceptions.SyntaxException;
+import com.flora.syntax.common.definition.Token;
+import com.flora.syntax.common.exceptions.SyntaxException;
 import com.flora.syntax.peg.ParseTree;
 import com.flora.syntax.peg.ParseTree.RuleNode;
 import com.flora.syntax.peg.ParseTree.TokenNode;

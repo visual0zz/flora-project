@@ -1,6 +1,6 @@
 package com.flora.syntax.bracket;
 
-import com.flora.syntax.exceptions.SyntaxException;
+import com.flora.syntax.common.exceptions.SyntaxException;
 
 import java.util.ArrayList;
 import java.util.List;

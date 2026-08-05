@@ -1,9 +1,9 @@
 package com.flora.syntax.expr;
 
-import com.flora.syntax.Tokenizer;
-import com.flora.syntax.definition.Token;
-import com.flora.syntax.definition.TokenKind;
-import com.flora.syntax.exceptions.SyntaxException;
+import com.flora.syntax.common.Tokenizer;
+import com.flora.syntax.common.definition.Token;
+import com.flora.syntax.common.definition.TokenKind;
+import com.flora.syntax.common.exceptions.SyntaxException;
 import com.flora.syntax.expr.impl.OpPrecedence;
 
 import java.util.ArrayList;

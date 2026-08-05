@@ -60,8 +60,8 @@ module com.flora.root {
     exports com.flora.comm.ssh.logging;
 
     exports com.flora.syntax;
-    exports com.flora.syntax.exceptions;
-    exports com.flora.syntax.definition;
+    exports com.flora.syntax.common.exceptions;
+    exports com.flora.syntax.common.definition;
     exports com.flora.syntax.bracket;
     exports com.flora.syntax.expr;
     exports com.flora.syntax.peg;
@@ -76,6 +76,7 @@ module com.flora.root {
     exports com.flora.ai.orchestration;
     exports com.flora.entropy.mesure;
     exports com.flora.entropy.mesure.engine;
+    exports com.flora.syntax.common;
 
     uses Converter;
     uses AiProvider;

@@ -1,4 +1,4 @@
-package com.flora.syntax.definition;
+package com.flora.syntax.common.definition;
 
 /**
  * 词法层输出：一个 token。

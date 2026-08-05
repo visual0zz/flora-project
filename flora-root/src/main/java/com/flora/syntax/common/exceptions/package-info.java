@@ -5,4 +5,4 @@
  * 由 PEG 识别器在输入不匹配时抛出。文法定义错误（原 GrammarException）统一并入
  * {@code SyntaxException}。</p>
  */
-package com.flora.syntax.exceptions;
+package com.flora.syntax.common.exceptions;

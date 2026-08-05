@@ -1,8 +1,8 @@
-package com.flora.syntax;
+package com.flora.syntax.common;
 
-import com.flora.syntax.definition.Token;
-import com.flora.syntax.definition.TokenKind;
-import com.flora.syntax.exceptions.SyntaxException;
+import com.flora.syntax.common.definition.Token;
+import com.flora.syntax.common.definition.TokenKind;
+import com.flora.syntax.common.exceptions.SyntaxException;
 
 import java.util.ArrayList;
 import java.util.Arrays;

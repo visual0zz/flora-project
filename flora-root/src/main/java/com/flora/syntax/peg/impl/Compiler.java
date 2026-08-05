@@ -1,6 +1,6 @@
 package com.flora.syntax.peg.impl;
 
-import com.flora.syntax.definition.TokenKind;
+import com.flora.syntax.common.definition.TokenKind;
 import com.flora.syntax.peg.GrammarOptions;
 import com.flora.syntax.peg.impl.MetaParser.GrammarDef;
 import com.flora.syntax.peg.impl.RuleDefs.Alt;

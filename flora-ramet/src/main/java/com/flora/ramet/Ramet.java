@@ -183,8 +183,8 @@ public final class Ramet {
 
     /**
      * 基于文件系统的子模板仓库：按 key 读取并解析，带缓存。
-     * 路径解析：'/' 开头为操作系统绝对路径，原样作为 key（相对 OS 根）；
-     * 无 '/' 开头则相对于发起 include 的文件所在目录。
+     * 路径解析：操作系统绝对路径（平台相关：Unix 以 '/' 开头，Windows 以盘符开头）
+     * 原样作为 key（相对 OS 根）；否则为相对于发起 include 的文件所在目录的相对路径。
      */
     private static final class FileSystemTemplateRepository implements TemplateRepository {
         private final Path root;
@@ -215,8 +215,9 @@ public final class Ramet {
 
         @Override
         public String resolve(String fromKey, String path) throws CodeGenException {
-            if (path.startsWith("/")) {
-                // '/' 开头：操作系统绝对路径，原样作为 key（相对 OS 根，不受模板根限制）
+            if (Paths.get(path).isAbsolute()) {
+                // 操作系统绝对路径（平台相关：Unix 以 '/' 开头，Windows 以盘符开头），
+                // 原样作为 key（相对 OS 根，不受模板根限制）
                 return Paths.get(path).normalize().toString().replace('\\', '/');
             }
             // 相对：以发起 include 的文件所在目录为基准

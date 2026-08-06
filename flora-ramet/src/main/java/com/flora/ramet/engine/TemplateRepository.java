@@ -1,5 +1,7 @@
 package com.flora.ramet.engine;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 
 /**
@@ -20,8 +22,9 @@ public interface TemplateRepository {
      * 将 include 路径解析为仓库 key。
      *
      * @param fromKey 发起 include 的模板 key（可为 {@code null}，按根目录解析）
-     * @param path    include 路径：以 {@code '/'} 开头视为操作系统绝对路径；
-     *                否则为相对于 {@code fromKey} 所在目录的相对路径
+     * @param path    include 路径：操作系统绝对路径（平台相关：Unix 以 {@code '/'}
+     *                开头，Windows 以盘符开头）原样作为 key；否则为相对于
+     *                {@code fromKey} 所在目录的相对路径
      * @return 目标模板的 key
      */
     String resolve(String fromKey, String path) throws CodeGenException;
@@ -45,7 +48,7 @@ public interface TemplateRepository {
 
     /**
      * 内存仓库：从固定的 key→Template 映射构建，不可变。用于测试与纯内存场景。
-     * 此处 key 即直接用作定位标识，不做路径换算。
+     * 此处 key 即直接用作定位标识，不做真实文件换算。
      */
     static TemplateRepository from(Map<String, Template> map) {
         return new TemplateRepository() {
@@ -58,10 +61,18 @@ public interface TemplateRepository {
 
             @Override
             public String resolve(String fromKey, String path) {
-                // 内存仓库以 Map 自身为根：'/' 开头视为相对于该根的绝对路径，
-                // 去掉前导 '/' 后作为 key；相对路径原样作为 key。
-                String key = path.startsWith("/") ? path.substring(1) : path;
-                return key.replace('\\', '/');
+                // 内存仓库以 Map 自身为根。操作系统绝对路径（平台相关）去掉根
+                // （盘符或前导 '/'）后作为相对于该根的 key；前导 '/' 属测试约定，
+                // 同样视为相对于 Map 根；其余相对路径原样作为 key。
+                Path p = Paths.get(path);
+                if (p.isAbsolute()) {
+                    String root = p.getRoot() != null ? p.getRoot().toString() : "";
+                    return p.toString().substring(root.length()).replace('\\', '/');
+                }
+                if (path.startsWith("/")) {
+                    return path.substring(1).replace('\\', '/');
+                }
+                return path.replace('\\', '/');
             }
         };
     }

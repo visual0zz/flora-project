@@ -10,6 +10,7 @@ import com.flora.ai.api.spi.AiProvider;
 import com.flora.ai.api.spi.Router;
 import com.flora.ai.api.spi.TaskContext;
 import com.flora.codec.json.JsonBuilder;
+import com.flora.tag.ModuleEntry;
 import com.flora.tag.ThreadFragile;
 
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ import java.util.ServiceLoader;
  * StreamingClient stream = AiApi.getByName("my-gpt:STREAM", StreamingClient.class);
  * }</pre>
  */
+@ModuleEntry
 public final class AiApi {
 
     private static final List<AiProvider> PROVIDERS = new ArrayList<>();

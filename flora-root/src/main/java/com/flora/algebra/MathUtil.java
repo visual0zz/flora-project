@@ -2,6 +2,7 @@ package com.flora.algebra;
 
 import com.flora.algebra.prime.PrimeIntegerCalculator;
 import com.flora.algebra.prime.PrimeLongCalculator;
+import com.flora.tag.ModuleEntry;
 import com.flora.tag.SlowFunction;
 
 /**
@@ -9,6 +10,7 @@ import com.flora.tag.SlowFunction;
  * <p>内部委托给 {@link PrimeIntegerCalculator} 和 {@link PrimeLongCalculator}
  * 分别处理 int 和 long 范围的运算。</p>
  */
+@ModuleEntry
 public final class MathUtil {
 
     private MathUtil() {

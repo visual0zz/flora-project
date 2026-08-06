@@ -4,6 +4,7 @@ import com.flora.crypto.schemes.engine.kex.DhGroup14;
 import com.flora.crypto.schemes.keyexchange.KeyExchange;
 
 import com.flora.java.CheckUtil;
+import com.flora.tag.ModuleEntry;
 
 import java.util.List;
 import java.util.Map;
@@ -18,6 +19,7 @@ import java.util.function.Function;
  * <p>仿照 {@code com.flora.crypto.core.CryptoProvider} 的「能实现 → 优先级 → 具体度」裁决语义，
  * 但独立实现、不改动 core 的注册机制。协议名与原语名属不同命名空间，分族持有注册表。</p>
  */
+@ModuleEntry
 public final class SchemeProvider {
 
     private SchemeProvider() {

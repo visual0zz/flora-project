@@ -2,6 +2,7 @@ package com.flora.mock.regex;
 
 import com.flora.mock.regex.automaton.Automaton;
 import com.flora.mock.regex.automaton.AutomatonException;
+import com.flora.tag.ModuleEntry;
 import com.flora.tag.ThreadFragile;
 
 import java.util.Random;
@@ -35,6 +36,7 @@ import java.util.random.RandomGenerator;
  * String value = RegexStringGenerator.of("[a-z]{2,4}").generate();
  * }</pre>
  */
+@ModuleEntry
 @ThreadFragile("持有注入的共享 RandomGenerator，其线程安全性取决于实现，多线程并发 generate() 需自行同步")
 public final class RegexStringGenerator {
 

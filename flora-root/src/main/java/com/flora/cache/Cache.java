@@ -1,5 +1,7 @@
 package com.flora.cache;
 
+import com.flora.tag.ModuleEntry;
+
 import java.time.Duration;
 
 /**
@@ -8,6 +10,7 @@ import java.time.Duration;
  * @param <K> 键类型
  * @param <V> 值类型
  */
+@ModuleEntry
 public interface Cache<K, V> {
 
     // ---- 写入 ----

@@ -3,6 +3,7 @@ package com.flora.codec;
 import com.flora.codec.json.JsonBuilder;
 import com.flora.codec.json.JsonParser;
 import com.flora.codec.json.JsonPath;
+import com.flora.tag.ModuleEntry;
 
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,7 @@ import java.util.Map;
  * JSON 工具门面类，整合解析、序列化和路径查询功能。
  * <p>所有方法均委托给 {@link JsonParser}、{@link JsonBuilder} 和 {@link JsonPath}。</p>
  */
+@ModuleEntry
 public final class JsonUtil {
 
     private JsonUtil() {}

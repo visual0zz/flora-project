@@ -3,6 +3,7 @@ package com.flora.entropy;
 import com.flora.entropy.id.RandomNumericIdGenerator;
 import com.flora.entropy.id.Snowflake64Generator;
 import com.flora.entropy.id.Snowflake128Generator;
+import com.flora.tag.ModuleEntry;
 
 /**
  * ID 生成工具类。
@@ -13,6 +14,7 @@ import com.flora.entropy.id.Snowflake128Generator;
  * </pre>
  * </p>
  */
+@ModuleEntry
 public final class IdUtil {
     private IdUtil() {}
 

@@ -1,5 +1,7 @@
 package com.flora.os;
 
+import com.flora.tag.ModuleEntry;
+
 import java.util.ArrayDeque;
 import java.util.Deque;
 
@@ -7,6 +9,7 @@ import java.util.Deque;
  * UNIX 风格绝对路径的归一化与操作工具。
  * <p>处理 {@code ..} / {@code .} / 重复 {@code /} / 尾部 {@code /}。</p>
  */
+@ModuleEntry
 public final class UnixPathUtil {
 
     private UnixPathUtil() {}

@@ -6,6 +6,7 @@ import com.flora.mock.jsonschema.impl.GenerationContext;
 import com.flora.mock.jsonschema.impl.GenerationNode;
 import com.flora.mock.jsonschema.impl.GeneratorCompiler;
 import com.flora.mock.jsonschema.impl.RandomSupport;
+import com.flora.tag.ModuleEntry;
 import com.flora.tag.ThreadFragile;
 
 import java.util.Random;
@@ -44,6 +45,7 @@ import java.util.random.RandomGenerator;
  * String json = generator.generateStr();       // JSON 字符串
  * }</pre>
  */
+@ModuleEntry
 @ThreadFragile("内部缓存 IdentityHashMap 在惰性编译时写入，共享熵源非线程安全，多线程并发 generate() 需外部同步")
 public final class JsonGenerator {
 

@@ -34,6 +34,7 @@ module com.flora.root {
     exports com.flora.java;
     exports com.flora.os;
     exports com.flora.runtime.log;
+    exports com.flora.runtime.log.spi;
     exports com.flora.runtime.config;
     exports com.flora.runtime.virtual.filesys;
     exports com.flora.runtime.virtual.filesys.backend;
@@ -52,7 +53,6 @@ module com.flora.root {
     exports com.flora.comm.ssh.juz;
     exports com.flora.comm.ssh.compress;
     exports com.flora.entropy.compress.zlib;
-    exports com.flora.comm.ssh.logging;
 
     exports com.flora.syntax.common.exceptions;
     exports com.flora.syntax.common.definition;

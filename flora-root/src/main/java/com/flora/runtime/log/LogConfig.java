@@ -1,6 +1,12 @@
 package com.flora.runtime.log;
 
+import com.flora.runtime.log.impl.ConsoleAppender;
+import com.flora.runtime.log.impl.FileAppender;
 import com.flora.runtime.log.impl.LoggerImpl;
+import com.flora.runtime.log.impl.RollingFileAppender;
+import com.flora.runtime.log.spi.Appender;
+import com.flora.runtime.log.spi.Layout;
+import com.flora.runtime.log.spi.RollingPolicy;
 
 import java.util.function.Consumer;
 
@@ -186,7 +192,7 @@ public final class LogConfig {
         String file;
         String pattern;
         Level threshold;
-        RollingFileAppender.Policy policy;
+        RollingPolicy policy;
         String datePattern;
         long maxSize;
         int maxHistory;
@@ -195,7 +201,7 @@ public final class LogConfig {
         public RollingConfig file(String file) { this.file = file; return this; }
         public RollingConfig pattern(String pattern) { this.pattern = pattern; return this; }
         public RollingConfig threshold(Level threshold) { this.threshold = threshold; return this; }
-        public RollingConfig rolling(RollingFileAppender.Policy policy, String datePattern) {
+        public RollingConfig rolling(RollingPolicy policy, String datePattern) {
             this.policy = policy; this.datePattern = datePattern; return this;
         }
         public RollingConfig maxSize(long maxSize) { this.maxSize = maxSize; return this; }

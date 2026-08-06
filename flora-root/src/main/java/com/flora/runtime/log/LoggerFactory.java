@@ -132,7 +132,7 @@ public final class LoggerFactory {
     /**
      * 获取所有已注册的日志器映射表。
      *
-     * @return 名称到 LoggerImpl 的映射（只读视图）
+     * @return 名称到 Logger 的映射（只读视图）
      */
     public static Map<String, Logger> getLoggerMap() {
         return LOGGER_MAP;

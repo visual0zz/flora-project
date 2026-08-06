@@ -1,5 +1,6 @@
 package com.flora.syntax.peg;
 
+import com.flora.tag.ModuleEntry;
 import com.flora.syntax.common.exceptions.ParseException;
 import com.flora.syntax.common.exceptions.SyntaxException;
 import com.flora.syntax.peg.impl.Compiler;
@@ -19,6 +20,7 @@ import java.util.List;
  * {@link #tryParse(CharSequence)} 每次匹配都使用独立的状态。但 {@link #recognizer(CharSequence)}
  * 返回的有状态识别器不是线程安全的（见 {@link Recognizer}），每个线程应持有自己的实例。</p>
  */
+@ModuleEntry
 public final class Grammar {
     private final Compiler.CompiledGrammar cg;
 

@@ -1,5 +1,6 @@
 package com.flora.runtime.virtual.filesys;
 
+import com.flora.tag.ModuleEntry;
 import com.flora.os.UnixPathUtil;
 import com.flora.runtime.virtual.filesys.bridge.MountTable;
 import com.flora.runtime.virtual.filesys.bridge.VfsFileSystemProvider;
@@ -28,6 +29,7 @@ import java.util.Set;
  * String text = Files.readString(p);
  * }</pre>
  */
+@ModuleEntry
 public final class VfsFileSystem extends FileSystem {
 
     private final MountTable mountTable;

@@ -25,6 +25,7 @@ module com.flora.root {
     exports com.flora.entropy.compress;
     exports com.flora.entropy.compress.engine;
     exports com.flora.tag;
+    exports com.flora.module;
     exports com.flora.cache;
     exports com.flora.fast.container.consumer;
     exports com.flora.fast.container.map;

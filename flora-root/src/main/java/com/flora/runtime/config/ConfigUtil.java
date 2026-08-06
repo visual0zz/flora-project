@@ -1,5 +1,6 @@
 package com.flora.runtime.config;
 
+import com.flora.tag.ModuleEntry;
 import com.flora.runtime.config.impl.ConfigLoader;
 import com.flora.runtime.config.impl.ClasspathConfigSource;
 import com.flora.runtime.config.impl.FileConfigSource;
@@ -18,6 +19,7 @@ import java.nio.file.Paths;
  *     .getMap("database");
  * }</pre>
  */
+@ModuleEntry
 public final class ConfigUtil {
 
     private ConfigUtil() {}

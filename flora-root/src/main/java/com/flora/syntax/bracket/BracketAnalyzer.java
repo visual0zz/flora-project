@@ -1,5 +1,6 @@
 package com.flora.syntax.bracket;
 
+import com.flora.tag.ModuleEntry;
 import com.flora.syntax.common.definition.Token;
 import com.flora.syntax.common.definition.TokenKind;
 import com.flora.syntax.common.exceptions.SyntaxException;
@@ -24,6 +25,7 @@ import static com.flora.syntax.bracket.BracketNode.Group;
  * boolean ok = a.isBalanced("(a(b)c)");                    // true
  * }</pre>
  */
+@ModuleEntry
 public final class BracketAnalyzer {
 
     private final String open;

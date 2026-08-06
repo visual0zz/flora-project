@@ -1,5 +1,6 @@
 package com.flora.syntax.expr;
 
+import com.flora.tag.ModuleEntry;
 import com.flora.syntax.common.Tokenizer;
 import com.flora.syntax.common.definition.Token;
 import com.flora.syntax.common.definition.TokenKind;
@@ -18,6 +19,7 @@ import java.util.List;
  * <p>支持：数字/标识符/字符串/布尔字面量、一元 {@code ! ~ -}、
  * 二元（四则/位运算/比较/逻辑/移位）、三元 {@code ?:}、函数调用 {@code f(args)}、括号。</p>
  */
+@ModuleEntry
 public final class ExprParser {
 
     private static final Tokenizer TOKENIZER = Tokenizer.of(

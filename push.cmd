@@ -19,11 +19,6 @@
 #      ./push.cmd                # use the default commit message
 #      ./push.cmd "commit msg"   # use a custom commit message
 #
-#  Before running, make sure you have:
-#      - maintained the tag prefixes in addition/config/tagPrefixes.txt
-#        (one prefix per line, lines starting with # are comments).
-#      - created the matching git tag(s), e.g.
-#        git tag ramet-idea-plugin-v0.8.2
 # ============================================================
 script_path="$(cd "$(dirname "$0")" && pwd)"
 cd "$script_path" || exit
@@ -83,14 +78,6 @@ exit 0
 :windows
 @echo off
 setlocal
-REM ============================================================
-REM  push.cmd - Windows cmd section (executed by cmd.exe)
-REM  See the bash section above for the full description.
-REM  Tag pushing uses a refspec wildcard:
-REM      git push <remote> "refs/tags/<prefix>*:refs/tags/<prefix>*"
-REM  This needs only a single for /f to read the prefix file and
-REM  avoids the fragile nested command-style for /f entirely.
-REM ============================================================
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 
 set "script_path=%~dp0"

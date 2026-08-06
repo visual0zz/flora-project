@@ -1,5 +1,6 @@
 package com.flora.runtime.log;
 
+import com.flora.tag.ModuleEntry;
 import com.flora.runtime.log.impl.LoggerImpl;
 
 import java.util.Map;
@@ -12,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 默认创建一个名为 "root" 的根日志器。
  * 日志器名称按层级组织（以点分隔），支持父子级别联。
  */
+@ModuleEntry
 public final class LoggerFactory {
 
     private LoggerFactory() {

@@ -11,15 +11,22 @@ import java.util.Set;
  */
 public final class JdkAsymmetricBlockCipherFactory implements AlgorithmFactory {
 
-    private final String name;
+    private String name;
+
+    public JdkAsymmetricBlockCipherFactory() {}
 
     public JdkAsymmetricBlockCipherFactory(String name) {
         this.name = name;
     }
 
     @Override
+    public void setAlgorithm(String name) {
+        this.name = name;
+    }
+
+    @Override
     public Set<String> names() {
-        return Set.of(name);
+        return name == null ? JdkAsymmetricBlockCipher.SUPPORTED : Set.of(name);
     }
 
     @Override

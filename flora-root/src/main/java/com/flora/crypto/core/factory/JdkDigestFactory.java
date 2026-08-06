@@ -12,15 +12,22 @@ import java.util.Set;
  */
 public final class JdkDigestFactory implements AlgorithmFactory {
 
-    private final String name;
+    private String name;
+
+    public JdkDigestFactory() {}
 
     public JdkDigestFactory(String name) {
         this.name = name;
     }
 
     @Override
+    public void setAlgorithm(String name) {
+        this.name = name;
+    }
+
+    @Override
     public Set<String> names() {
-        return Set.of(name);
+        return name == null ? JdkDigest.SUPPORTED : Set.of(name);
     }
 
     @Override

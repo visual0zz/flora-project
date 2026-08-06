@@ -1,13 +1,6 @@
 package com.flora.crypto.core;
 
-import com.flora.crypto.core.bridge.JdkAgreement;
-import com.flora.crypto.core.bridge.JdkAsymmetricBlockCipher;
-import com.flora.crypto.core.bridge.JdkAsymmetricKeyPairGenerator;
-import com.flora.crypto.core.bridge.JdkBlockCipher;
-import com.flora.crypto.core.bridge.JdkDigest;
-import com.flora.crypto.core.bridge.JdkKem;
 import com.flora.crypto.core.bridge.JdkKeyPairGenerator;
-import com.flora.crypto.core.bridge.JdkMac;
 import com.flora.crypto.core.factory.AgreementBasedKemFactory;
 import com.flora.crypto.core.factory.Argon2Factory;
 import com.flora.crypto.core.factory.Blake2b256Factory;
@@ -38,7 +31,6 @@ import com.flora.crypto.core.factory.Ripemd160Factory;
 import com.flora.crypto.core.factory.ScryptFactory;
 import com.flora.crypto.core.factory.ZeroByteFactory;
 import com.flora.crypto.core.combinator.BufferedAsymmetricBlockCipher;
-import com.flora.crypto.core.impl.AgreementBasedKem;
 import com.flora.crypto.core.impl.HMacDrbg;
 import com.flora.crypto.core.interfaces.CipherParameters;
 import com.flora.crypto.core.interfaces.Decapsulator;
@@ -63,6 +55,7 @@ import com.flora.crypto.core.padding.ISO7816d4Padding;
 import com.flora.crypto.core.padding.PKCS7Padding;
 import com.flora.crypto.core.padding.ZeroBytePadding;
 import com.flora.java.CheckUtil;
+import com.flora.tag.ModuleEntry;
 
 import java.util.Collections;
 import java.util.List;
@@ -94,6 +87,7 @@ import java.util.function.Function;
  * 需要「未注册即兜底」语义的查询方法（如 {@link #derivationFunction(String)}）仅捕获该异常以返回占位实现，
  * 不会掩盖参数缺失 / 类型错误等真正的配置问题。</p>
  */
+@ModuleEntry
 public final class CryptoProvider {
 
     private CryptoProvider() {}
@@ -115,34 +109,16 @@ public final class CryptoProvider {
     private static final Map<AlgorithmKind, Map<String, List<Entry>>> ROLES = new ConcurrentHashMap<>();
 
     static {
-        // ── JDK 适配器（为每个支持名创建携带名字的工厂实例，priority=0）──
-        for (String n : JdkDigest.SUPPORTED) {
-            register(AlgorithmKind.DIGEST, new JdkDigestFactory(n));
-        }
-        for (String n : JdkBlockCipher.SUPPORTED) {
-            register(AlgorithmKind.BLOCK_CIPHER, new JdkBlockCipherFactory(n));
-        }
-        for (String n : JdkMac.SUPPORTED) {
-            register(AlgorithmKind.MAC, new JdkMacFactory(n));
-        }
-        for (String n : JdkAsymmetricBlockCipher.SUPPORTED) {
-            register(AlgorithmKind.ASYMMETRIC_BLOCK_CIPHER, new JdkAsymmetricBlockCipherFactory(n));
-        }
-        for (String n : JdkAgreement.SUPPORTED) {
-            register(AlgorithmKind.AGREEMENT, new JdkAgreementFactory(n));
-        }
-        for (String n : JdkKeyPairGenerator.SUPPORTED) {
-            register(AlgorithmKind.KEY_PAIR_GENERATOR, new JdkKeyPairGeneratorFactory(n));
-        }
-        for (String n : JdkAsymmetricKeyPairGenerator.SUPPORTED) {
-            register(AlgorithmKind.ASYMMETRIC_KEY_PAIR_GENERATOR, new JdkAsymmetricKeyPairGeneratorFactory(n));
-        }
-        for (String n : AgreementBasedKem.SUPPORTED) {
-            register(AlgorithmKind.KEM, new AgreementBasedKemFactory(n));
-        }
-        for (String n : JdkKem.SUPPORTED) {
-            register(AlgorithmKind.KEM, new JdkKemFactory(n));
-        }
+        // ── JDK 适配器（每条语句按类批量注册其支持的全部算法名，priority=0）──
+        register(AlgorithmKind.DIGEST, JdkDigestFactory.class);
+        register(AlgorithmKind.BLOCK_CIPHER, JdkBlockCipherFactory.class);
+        register(AlgorithmKind.MAC, JdkMacFactory.class);
+        register(AlgorithmKind.ASYMMETRIC_BLOCK_CIPHER, JdkAsymmetricBlockCipherFactory.class);
+        register(AlgorithmKind.AGREEMENT, JdkAgreementFactory.class);
+        register(AlgorithmKind.KEY_PAIR_GENERATOR, JdkKeyPairGeneratorFactory.class);
+        register(AlgorithmKind.ASYMMETRIC_KEY_PAIR_GENERATOR, JdkAsymmetricKeyPairGeneratorFactory.class);
+        register(AlgorithmKind.KEM, AgreementBasedKemFactory.class);
+        register(AlgorithmKind.KEM, JdkKemFactory.class);
 
         // ── KDF（依赖其他算法，DSL 自动解析）──
         register(AlgorithmKind.DERIVATION, new Kdf2Factory());
@@ -199,6 +175,42 @@ public final class CryptoProvider {
             ROLES.computeIfAbsent(role, k -> new ConcurrentHashMap<>())
                     .computeIfAbsent(name, k -> new CopyOnWriteArrayList<>())
                     .add(new Entry(priority, specificity, takesArguments, paramTypes, factory::create));
+        }
+    }
+
+    /**
+     * 按类注册一个算法工厂（一条语句完成多重注册）。
+     * <p>工厂类须提供可访问的无参构造与实例方法 {@link AlgorithmFactory#setAlgorithm(String)}，
+     * 且未注入算法名时 {@link AlgorithmFactory#names()} 返回该类支持的全部 DSL 名。
+     * 注册表先以无参构造创建一个原型实例取其全集，再为每个名字创建独立实例并注入算法名，
+     * 最终委托 {@link #register(AlgorithmKind, AlgorithmFactory)}。</p>
+     *
+     * @param role  算法族（如 {@link AlgorithmKind#DIGEST}）
+     * @param clazz 工厂类（实现 {@link AlgorithmFactory}）
+     */
+    public static void register(AlgorithmKind role, Class<? extends AlgorithmFactory> clazz) {
+        CheckUtil.notNull(role, "算法族不能为空");
+        CheckUtil.notNull(clazz, "工厂类不能为空");
+        AlgorithmFactory prototype;
+        try {
+            prototype = clazz.getDeclaredConstructor().newInstance();
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(
+                    clazz.getSimpleName() + " 缺少可访问的无参构造器", e);
+        }
+        Set<String> names = prototype.names();
+        CheckUtil.mustTrue(names != null && !names.isEmpty(),
+                clazz.getSimpleName() + " 未注入算法名时 names() 返回空集合");
+        for (String name : names) {
+            AlgorithmFactory factory;
+            try {
+                factory = clazz.getDeclaredConstructor().newInstance();
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(
+                        clazz.getSimpleName() + " 缺少可访问的无参构造器", e);
+            }
+            factory.setAlgorithm(name);
+            register(role, factory);
         }
     }
 

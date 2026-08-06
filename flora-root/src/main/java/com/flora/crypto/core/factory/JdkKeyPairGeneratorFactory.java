@@ -11,15 +11,22 @@ import java.util.Set;
  */
 public final class JdkKeyPairGeneratorFactory implements AlgorithmFactory {
 
-    private final String name;
+    private String name;
+
+    public JdkKeyPairGeneratorFactory() {}
 
     public JdkKeyPairGeneratorFactory(String name) {
         this.name = name;
     }
 
     @Override
+    public void setAlgorithm(String name) {
+        this.name = name;
+    }
+
+    @Override
     public Set<String> names() {
-        return Set.of(name);
+        return name == null ? JdkKeyPairGenerator.SUPPORTED : Set.of(name);
     }
 
     @Override

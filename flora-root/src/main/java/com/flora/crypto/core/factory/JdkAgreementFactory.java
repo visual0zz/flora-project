@@ -11,15 +11,22 @@ import java.util.Set;
  */
 public final class JdkAgreementFactory implements AlgorithmFactory {
 
-    private final String name;
+    private String name;
+
+    public JdkAgreementFactory() {}
 
     public JdkAgreementFactory(String name) {
         this.name = name;
     }
 
     @Override
+    public void setAlgorithm(String name) {
+        this.name = name;
+    }
+
+    @Override
     public Set<String> names() {
-        return Set.of(name);
+        return name == null ? JdkAgreement.SUPPORTED : Set.of(name);
     }
 
     @Override

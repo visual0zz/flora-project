@@ -17,6 +17,18 @@ public interface AlgorithmFactory {
     /** @return 自述的 DSL 名集合（支持大小写别名等多名注册） */
     Set<String> names();
 
+    /**
+     * 设定本工厂实例当前工作的算法名。
+     * <p>类级批量注册（{@code CryptoProvider.register(AlgorithmKind, Class)}）会先以无参构造创建实例，
+     * 再于注册每个名字前调用本方法注入算法名；之后 {@link #names()} 返回被注入的名字。</p>
+     *
+     * @param name 算法 DSL 名
+     */
+    default void setAlgorithm(String name) {
+        throw new UnsupportedOperationException(
+                getClass().getSimpleName() + " 不支持算法名注入");
+    }
+
     /** @return 自述优先级，越大越优先 */
     int priority();
 

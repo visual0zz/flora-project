@@ -67,6 +67,7 @@ module com.flora.root {
     exports com.flora.entropy.mesure.engine;
     exports com.flora.syntax.common;
     exports com.flora.runtime.config.impl;
+    exports com.flora.concurrent.retry;
 
     uses Converter;
     uses AiProvider;

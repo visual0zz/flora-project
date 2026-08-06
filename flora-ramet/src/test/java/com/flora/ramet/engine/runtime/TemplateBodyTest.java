@@ -1,5 +1,6 @@
 package com.flora.ramet.engine.runtime;
 
+import com.flora.ramet.engine.TemplateRepository;
 import com.flora.ramet.engine.ast.Node;
 import com.flora.ramet.engine.lexer.Lexer;
 import com.flora.ramet.engine.parser.Parser;
@@ -23,7 +24,7 @@ class TemplateBodyTest {
     void removedDirectiveLeavesSurroundingNewlines() throws IOException {
         String tpl = "line1\n<#if false>x</#if>\nline2";
         List<Node> nodes = Parser.parse(Lexer.lex(tpl));
-        String out = TemplateBody.of(nodes).render(Context.of(Map.of(), Map.of()));
+        String out = TemplateBody.of(nodes).render(Context.of(Map.of(), TemplateRepository.none()));
         assertTrue(out.contains("line1"), out);
         assertTrue(out.contains("line2"), out);
     }

@@ -1,6 +1,6 @@
 package com.flora.ramet.engine.runtime;
 
-import com.flora.ramet.CompiledTemplate;
+import com.flora.ramet.engine.TemplateRepository;
 import com.flora.ramet.engine.TemplateUtils;
 import com.flora.ramet.engine.ast.MacroDefNode;
 
@@ -15,33 +15,28 @@ import java.util.*;
  *       变量查找沿父链向上回溯（先查 params 再查局部变量）</li>
  *   <li>参数存储：{@code params} 存放宿主提供的参数（如笛卡尔积展开后的变量），优先级最高</li>
  *   <li>宏注册：{@code macros} 存放当前模板中定义的宏定义，可供子作用域共享</li>
- *   <li>包含管理：{@code includes} 存放已编译的子模板，供 include 指令引用</li>
+ *   <li>模板仓库：{@code repo} 提供 {@code <#include>} 引用的子模板，路径解析亦由其负责</li>
  *   <li>函数注册表：{@link FunctionRegistry}，提供内置函数和 SPI 扩展的函数调用能力</li>
  *   <li>循环引用检测：{@code includeChain} 追踪当前 include 调用链，防止无限递归</li>
  * </ul>
  *
- * <p>使用 {@link #of(Map, Map)} 工厂方法创建实例。
+ * <p>使用 {@link #of(Map, TemplateRepository)} 系列工厂方法创建实例。</p>
  */
 public final class Context {
     private final Map<String, Object> vars = new HashMap<>();
     public final Map<String, Object> params;
     private Map<String, MacroDefNode> macros;
-    public final Map<String, CompiledTemplate> includes;
+    public final TemplateRepository repo;
     /**
      * 当前正在渲染的模板相对路径（相对模板根目录，正斜杠）。
      * 用于 include 路径以「发起 include 的文件所在文件夹」为基准做相对解析。
-     * 顶层模板由 {@code CodeGenUtil.generate} 传入；被 include 的模板由
+     * 顶层模板由 {@code TemplateEngine.generate} 传入；被 include 的模板由
      * {@link com.flora.ramet.engine.ast.IncludeNode} 在解析出目标 key 后更新为对应的相对路径。可能为 null
      * （如纯内存接口触发的渲染），此时回退为相对模板根目录解析。
      */
     public final String source;
     /** 函数注册表（策略模式），用于解析函数调用。 */
     public final FunctionRegistry functions;
-    /**
-     * 模板根目录（绝对路径）。用于 include 以 {@code '/'} 开头的路径时，
-     * 将其作为操作系统绝对路径并 relativize 为此目录下的相对 key 查找。
-     */
-    public final String templatesRoot;
     public Context parent;
     /**
      * 当前 include 调用链，用于检测循环依赖。
@@ -54,34 +49,25 @@ public final class Context {
      */
     private Deque<String> macroCallChain;
 
-    private Context(Map<String, Object> params, Map<String, CompiledTemplate> includes, String source, String templatesRoot) {
+    private Context(Map<String, Object> params, TemplateRepository repo, String source) {
         this.params = params;
-        this.includes = (includes != null) ? includes : Map.of();
+        this.repo = (repo != null) ? repo : TemplateRepository.none();
         this.macros = new HashMap<>();
         this.functions = new FunctionRegistry();
         this.parent = null;
         this.includeChain = new LinkedHashSet<>();
         this.macroCallChain = new LinkedList<>();
         this.source = source;
-        this.templatesRoot = templatesRoot;
     }
 
     /** 构造一个渲染上下文（顶层模板，source 未知）。 */
-    public static Context of(Map<String, Object> params,
-                              Map<String, CompiledTemplate> includes) {
-        return new Context(params, includes, null, null);
+    public static Context of(Map<String, Object> params, TemplateRepository repo) {
+        return new Context(params, repo, null);
     }
 
     /** 构造一个渲染上下文，并指定当前模板的相对路径 source。 */
-    public static Context of(Map<String, Object> params,
-                              Map<String, CompiledTemplate> includes, String source) {
-        return new Context(params, includes, source, null);
-    }
-
-    /** 构造一个渲染上下文，指定 source 和模板根目录。 */
-    public static Context of(Map<String, Object> params,
-                              Map<String, CompiledTemplate> includes, String source, String templatesRoot) {
-        return new Context(params, includes, source, templatesRoot);
+    public static Context of(Map<String, Object> params, TemplateRepository repo, String source) {
+        return new Context(params, repo, source);
     }
 
     public Context child() {
@@ -90,7 +76,7 @@ public final class Context {
 
     /** 创建子作用域，并把当前模板相对路径更新为 {@code source}（include 解析时使用）。 */
     public Context child(String source) {
-        Context c = new Context(params, includes, source, this.templatesRoot);
+        Context c = new Context(params, repo, source);
         c.parent = this;
         c.macros = this.macros;
         c.includeChain = this.includeChain; // 共享引用，保证跨层检测
@@ -161,7 +147,7 @@ public final class Context {
     }
 
     public void setVar(String name, Object value) {
-        this.vars.put(name, value);
+        vars.put(name, value);
     }
 
     public Object lookup(String name) {

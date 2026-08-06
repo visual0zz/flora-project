@@ -1,5 +1,6 @@
 package com.flora.ramet.engine.runtime;
-import com.flora.ramet.engine.CodeGenUtil;
+import com.flora.ramet.engine.TemplateEngine;
+import com.flora.ramet.engine.TemplateRepository;
 
 import com.flora.ramet.engine.LazyArg;
 import com.flora.ramet.TemplateFunction;
@@ -8,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -63,9 +63,9 @@ class FunctionRegistryTest {
     @Test
     void registryIsWiredIntoContextViaParse() throws IOException {
         // 通过完整解析路径验证注册表在渲染期可用
-        com.flora.ramet.engine.CodeGenUtil.Generated g = com.flora.ramet.engine.CodeGenUtil.generate(
+        TemplateEngine.Generated g = TemplateEngine.generate(
                 "<#meta>@Param{ name: \"bo\" } @Path{ \"C.java\" }</#meta>${capitalize(name)}",
-                Map.of()).get(0);
+                TemplateRepository.none()).get(0);
         assertTrue(g.content().contains("Bo"), g.content());
     }
 }

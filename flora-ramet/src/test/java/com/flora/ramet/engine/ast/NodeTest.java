@@ -1,8 +1,9 @@
 package com.flora.ramet.engine.ast;
-
 import com.flora.ramet.engine.CodeGenException;
-import com.flora.ramet.engine.CodeGenUtil;
-import com.flora.ramet.CompiledTemplate;
+import com.flora.ramet.engine.Template;
+import com.flora.ramet.engine.TemplateEngine;
+import com.flora.ramet.engine.TemplateRepository;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -15,12 +16,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 覆盖语法分析 Node（ParserImpl 与各 Node 渲染分支）以及解析期错误分支。
- * 全部通过内存接口 CodeGenUtil.generate / precompile 触发，无文件 I/O。
+ * 全部通过内存接口 TemplateEngine.generate / precompile 触发，无文件 I/O。
  */
 class NodeTest {
 
-    private static List<CodeGenUtil.Generated> gen(String tpl) throws IOException {
-        return CodeGenUtil.generate(tpl, Map.of());
+    private static List<TemplateEngine.Generated> gen(String tpl) throws IOException {
+        return TemplateEngine.generate(tpl, TemplateRepository.none());
     }
 
     @Test
@@ -138,7 +139,7 @@ class NodeTest {
     void includeResolvesViaLeadingSlash() throws IOException {
         String included = "[${v}]";
         String host = "<#meta>@Param{ v: \"Z\" } @Path{ \"C.java\" }</#meta><#include \"/inc.ftl\">";
-        String content = CodeGenUtil.generate(host, Map.of("inc.ftl", CodeGenUtil.precompile(included)))
+        String content = TemplateEngine.generate(host, TemplateRepository.from(Map.of("inc.ftl", TemplateEngine.precompile(included))))
                 .get(0).content();
         assertTrue(content.contains("[Z]"), content);
     }
@@ -161,11 +162,11 @@ class NodeTest {
     void includeCycleThrows() {
         String a = "<#meta>@Path{ \"A.java\" }</#meta><#include \"b.ftl\">";
         String b = "<#meta>@Path{ \"B.java\" }</#meta><#include \"a.ftl\">";
-        Map<String, CompiledTemplate> includes = Map.of(
-                "a.ftl", CodeGenUtil.precompile(a),
-                "b.ftl", CodeGenUtil.precompile(b));
+        Map<String, Template> includes = Map.of(
+                "a.ftl", TemplateEngine.precompile(a),
+                "b.ftl", TemplateEngine.precompile(b));
         CodeGenException ex = assertThrows(CodeGenException.class,
-                () -> CodeGenUtil.generate(a, includes));
+                () -> TemplateEngine.generate(a, TemplateRepository.from(includes)));
         assertTrue(ex.getMessage().contains("循环"), ex.getMessage());
     }
 
@@ -198,7 +199,7 @@ class NodeTest {
     @Test
     void forLoopWithRange() throws IOException {
         String tpl = """
-                <#meta>@Param{ n: 3 } @Path{ \"C.txt\" }</#meta>
+                <#meta>@Param{ n: 3 } @Path{ "C.txt" }</#meta>
                 <#for i:range(1, n)>${i}</#for>
                 """;
         String content = gen(tpl).get(0).content().trim();
@@ -208,7 +209,7 @@ class NodeTest {
     @Test
     void forLoopWithRangeAndVariableRight() throws IOException {
         String tpl = """
-                <#meta>@Param{ from: 2, to: 4 } @Path{ \"C.txt\" }</#meta>
+                <#meta>@Param{ from: 2, to: 4 } @Path{ "C.txt" }</#meta>
                 <#for i:range(from, to)>${i}</#for>
                 """;
         String content = gen(tpl).get(0).content().trim();
@@ -218,7 +219,7 @@ class NodeTest {
     @Test
     void forLoopWithRangeEmptyElse() throws IOException {
         String tpl = """
-                <#meta>@Path{ \"C.txt\" }</#meta>
+                <#meta>@Path{ "C.txt" }</#meta>
                 <#for i:range(3, 1)>x</#for>
                 """;
         assertTrue(gen(tpl).get(0).content().trim().isEmpty());

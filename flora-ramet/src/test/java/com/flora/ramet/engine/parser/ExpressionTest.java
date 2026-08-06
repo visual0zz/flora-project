@@ -3,6 +3,7 @@ package com.flora.ramet.engine.parser;
 import com.flora.ramet.engine.CodeGenException;
 import com.flora.ramet.engine.model.Lson;
 import com.flora.ramet.engine.model.LsonNumber;
+import com.flora.ramet.engine.TemplateRepository;
 import com.flora.ramet.engine.runtime.Context;
 import com.flora.ramet.engine.runtime.RefResolver;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ExpressionTest {
 
     private Context ctx(Map<String, Object> params) {
-        return Context.of(params, Map.of());
+        return Context.of(params, TemplateRepository.none());
     }
 
     /** 模拟 ${expr} 上下文求值。 */

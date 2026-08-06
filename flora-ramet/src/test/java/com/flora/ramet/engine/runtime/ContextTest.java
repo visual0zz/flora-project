@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import com.flora.ramet.engine.TemplateRepository;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -23,15 +25,15 @@ class ContextTest {
 
     @Test
     void childSharesStateAndRecordsParent() {
-        Context root = Context.of(Map.of("p", 1), Map.of());
+        Context root = Context.of(Map.of("p", 1), TemplateRepository.none());
         Context child = root.child();
         assertSame(root, child.parent);
-        assertSame(root.includes, child.includes);
+        assertSame(root.repo, child.repo);
     }
 
     @Test
     void macrosSharedViaChild() {
-        Context root = Context.of(Map.of(), Map.of());
+        Context root = Context.of(Map.of(), TemplateRepository.none());
         Context child = root.child();
         // 通过 root 注册宏，子上下文可查看到
         assertNull(child.getMacro("test"));
@@ -39,7 +41,7 @@ class ContextTest {
 
     @Test
     void includeChainSharedBetweenParentAndChild() {
-        Context root = Context.of(Map.of(), Map.of());
+        Context root = Context.of(Map.of(), TemplateRepository.none());
         Context child = root.child();
         assertTrue(root.addIncludeChain("k"));
         // 子上下文共享同一 includeChain，重复添加返回 false
@@ -50,7 +52,7 @@ class ContextTest {
 
     @Test
     void variableScopeResolvesUpParentChain() {
-        Context root = Context.of(Map.of(), Map.of());
+        Context root = Context.of(Map.of(), TemplateRepository.none());
         Context child = root.child();
         child.setVar("x", 2);
         assertEquals(2, child.getVar("x"));
@@ -61,20 +63,20 @@ class ContextTest {
 
     @Test
     void lookupFollowsPropertyChain() {
-        Context ctx = Context.of(Map.of("m", Map.of("v", 9)), Map.of());
+        Context ctx = Context.of(Map.of("m", Map.of("v", 9)), TemplateRepository.none());
         assertEquals(9, ctx.lookup("m.v"));
     }
 
     @Test
     void lookupFirstPrioritizesParamsOverLocal() {
-        Context ctx = Context.of(Map.of("q", 1), Map.of());
+        Context ctx = Context.of(Map.of("q", 1), TemplateRepository.none());
         ctx.setVar("q", 3);
         assertEquals(1, ctx.lookupFirst("q"));
     }
 
     @Test
     void lookupFirstFallsBackToLocal() {
-        Context ctx = Context.of(Map.of(), Map.of());
+        Context ctx = Context.of(Map.of(), TemplateRepository.none());
         ctx.setVar("q", 3);
         assertEquals(3, ctx.lookupFirst("q"));
     }

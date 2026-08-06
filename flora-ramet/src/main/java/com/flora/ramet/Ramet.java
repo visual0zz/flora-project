@@ -1,8 +1,10 @@
 package com.flora.ramet;
-import com.flora.ramet.engine.CodeGenUtil;
-import com.flora.ramet.engine.model.Lson;
-
 import com.flora.ramet.engine.CodeGenException;
+import com.flora.ramet.engine.Template;
+import com.flora.ramet.engine.TemplateEngine;
+import com.flora.ramet.engine.TemplateRepository;
+import com.flora.ramet.engine.TemplateSource;
+
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -21,7 +23,7 @@ import java.util.stream.Stream;
  * flora-ramet 的命令行入口：递归扫描模板文件夹，按模板自声明的元数据生成源码。
  *
  * <p>Ramet 负责文件系统相关操作：扫描模板目录、读取模板文件、拼接输出路径、写入结果文件。
- * 模板解析与渲染委托给 {@link CodeGenUtil}。</p>
+ * 模板解析与渲染委托给 {@link TemplateEngine}，子模板通过 {@link TemplateRepository} 按需加载。</p>
  *
  * <p>文件系统操作通过 {@code java.nio.file.FileSystem} 抽象，
  * 默认使用 {@code FileSystems.getDefault()}（真实文件系统），
@@ -69,8 +71,8 @@ public final class Ramet {
             throw new IllegalArgumentException("模板目录不存在: " + templatesDir);
         }
 
-        // 构建 include Map：相对路径 → 模板文本（带缓存）
-        IncludeCache includeCache = new IncludeCache(templatesDir);
+        // 子模板仓库：按需读取并缓存解析结果
+        FileSystemTemplateRepository repo = new FileSystemTemplateRepository(templatesDir);
 
         int count = 0;
         try (Stream<Path> stream = Files.walk(templatesDir)) {
@@ -83,18 +85,17 @@ public final class Ramet {
 
             for (Path templatePath : templateFiles) {
                 String tplContent = Files.readString(templatePath, StandardCharsets.UTF_8);
-                Map<String, CompiledTemplate> includes = includeCache.asCompiledMap();
                 String source = templatesDir.relativize(templatePath).toString().replace('\\', '/');
+                TemplateSource src = TemplateSource.of(source, tplContent);
 
-                List<CodeGenUtil.Generated> results;
+                List<TemplateEngine.Generated> results;
                 try {
-                    results = CodeGenUtil.generate(tplContent, includes, source,
-                            templatesDir.toAbsolutePath().normalize().toString().replace('\\', '/'));
+                    results = TemplateEngine.generate(src, repo);
                 } catch (CodeGenException e) {
                     throw new CodeGenException("模板 " + templatePath + ": " + e.getMessage(), e);
                 }
 
-                for (CodeGenUtil.Generated g : results) {
+                for (TemplateEngine.Generated g : results) {
                     if (!seenLowerPaths.add(g.relativePath().toLowerCase())) {
                         throw new CodeGenException(
                                 "路径已被其他模板输出占用（不区分大小写）: " + g.relativePath());
@@ -179,38 +180,56 @@ public final class Ramet {
     }
 
     /**
-     * include 模板缓存：接受相对路径，读取文件并预编译后缓存。
+     * 基于文件系统的子模板仓库：按 key（相对路径）读取并解析，带缓存。
+     * 路径解析：相对路径以发起 include 的文件所在目录为基准，'/' 开头以仓库根为基准。
      */
-    private static final class IncludeCache {
-        private final Path templatesDir;
-        private final Map<String, CompiledTemplate> cache = new HashMap<>();
+    private static final class FileSystemTemplateRepository implements TemplateRepository {
+        private final Path root;
+        private final Map<String, Template> cache = new HashMap<>();
 
-        IncludeCache(Path templatesDir) {
-            this.templatesDir = templatesDir;
+        FileSystemTemplateRepository(Path templatesDir) {
+            this.root = templatesDir.toAbsolutePath().normalize();
         }
 
-        /** 获取所有已缓存的 include 模板（只读视图），
-         * 自动加载并预编译当前目录下所有 .ramet 文件（不区分大小写）。 */
-        Map<String, CompiledTemplate> asCompiledMap() throws IOException {
-            if (cache.isEmpty()) {
-                try (Stream<Path> stream = Files.walk(templatesDir)) {
-                    stream.filter(Files::isRegularFile)
-                            .filter(p -> p.toString().toLowerCase().endsWith(".ramet"))
-                            .forEach(p -> {
-                                String key = templatesDir.relativize(p).toString().replace('\\', '/');
-                                if (!cache.containsKey(key)) {
-                                    try {
-                                        String content = Files.readString(p, StandardCharsets.UTF_8);
-                                        cache.put(key, CodeGenUtil.precompile(content, key));
-                                    } catch (IOException ignored) {
-                                    } catch (CodeGenException e) {
-                                        throw new CodeGenException("模板 " + key + ": " + e.getMessage(), e);
-                                    }
-                                }
-                            });
+        @Override
+        public Template load(String key) throws CodeGenException {
+            Template t = cache.get(key);
+            if (t == null) {
+                Path file = root.resolve(key);
+                if (!Files.isRegularFile(file)) {
+                    throw new CodeGenException("#include 未找到模板: " + key);
+                }
+                try {
+                    String text = Files.readString(file, StandardCharsets.UTF_8);
+                    t = Template.parse(TemplateSource.of(key, text));
+                } catch (IOException e) {
+                    throw new CodeGenException("读取模板失败: " + key, e);
+                }
+                cache.put(key, t);
+            }
+            return t;
+        }
+
+        @Override
+        public String resolve(String fromKey, String path) throws CodeGenException {
+            if (path.startsWith("/")) {
+                // 绝对：作为 OS 绝对路径，relativize 为相对仓库根的路径
+                Path abs = Paths.get(path).normalize();
+                try {
+                    return root.relativize(abs).toString().replace('\\', '/');
+                } catch (IllegalArgumentException e) {
+                    throw new CodeGenException("#include 路径不在模板根目录下: " + path);
                 }
             }
-            return cache;
+            // 相对：以发起 include 的文件所在目录为基准
+            String base = (fromKey != null) ? parentOf(fromKey) : "";
+            Path resolved = Paths.get(base).resolve(path).normalize();
+            return resolved.toString().replace('\\', '/');
+        }
+
+        private static String parentOf(String key) {
+            Path p = Paths.get(key).getParent();
+            return p != null ? p.toString() : "";
         }
     }
 

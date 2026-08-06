@@ -144,8 +144,8 @@ class TemplateMetaTest {
     }
 
     @Test
-    void expandDuplicatePathMergesInCodeGenUtil() throws IOException {
-        // 同路径不再在 expand() 层面抛异常，而是允许通过并在 CodeGenUtil 中合并
+    void expandDuplicatePathMergesInTemplateEngine() throws IOException {
+        // 同路径不再在 expand() 层面抛异常，而是允许通过并在 TemplateEngine 中合并
         TemplateMeta meta = metaOf("""
                 <#meta>
                 @Cartesian{ K: ["A", "B"] }

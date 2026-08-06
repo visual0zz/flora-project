@@ -1,18 +1,14 @@
 package com.flora.ramet.engine.model;
 import com.flora.ramet.engine.CodeGenException;
-import com.flora.ramet.engine.TemplateUtils;
 import com.flora.ramet.engine.LazyArg;
+import com.flora.ramet.engine.Template;
+import com.flora.ramet.engine.TemplateUtils;
 
 import com.flora.ramet.TemplateFunction;
-import com.flora.ramet.engine.ast.Node;
-import com.flora.ramet.engine.lexer.Lexer;
 import com.flora.ramet.engine.model.Lson;
 import com.flora.ramet.engine.parser.MetaParser;
-import com.flora.ramet.engine.parser.Parser;
-import com.flora.ramet.engine.runtime.Context;
 import com.flora.ramet.engine.runtime.FunctionRegistry;
 import com.flora.ramet.engine.runtime.RefResolver;
-import com.flora.ramet.engine.runtime.TemplateBody;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -246,13 +242,7 @@ public final class TemplateMeta {
         if (outputPath == null || !outputPath.contains("${")) {
             return outputPath;
         }
-        List<Token> toks = Lexer.lex(outputPath);
-        List<Node> nodes = Parser.parse(toks);
-        try {
-            return TemplateBody.of(nodes).render(Context.of(params, Map.of()));
-        } catch (IOException e) {
-            throw new CodeGenException("路径表达式渲染失?: " + e.getMessage(), e);
-        }
+        return Template.render(outputPath, params);
     }
 
     /**

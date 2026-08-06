@@ -1,5 +1,6 @@
 package com.flora.ramet.engine.lexer;
 
+import com.flora.ramet.engine.TemplateRepository;
 import com.flora.ramet.engine.ast.Node;
 import com.flora.ramet.engine.parser.Parser;
 import com.flora.ramet.engine.runtime.Context;
@@ -25,7 +26,7 @@ class WhitespaceTrimmerTest {
 
     private static String render(String tpl, Map<String, Object> params) throws IOException {
         List<Node> nodes = Parser.parse(WhitespaceTrimmer.trim(Lexer.lex(tpl)));
-        return TemplateBody.of(nodes).render(Context.of(params, Map.of()));
+        return TemplateBody.of(nodes).render(Context.of(params, TemplateRepository.none()));
     }
 
     @Test

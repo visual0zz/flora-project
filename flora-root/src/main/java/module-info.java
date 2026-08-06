@@ -46,12 +46,7 @@ module com.flora.root {
     exports com.flora.mock.regex;
     exports com.flora.mock.regex.automaton;
 
-    exports com.flora.comm.ssh;
-    exports com.flora.comm.ssh.annotations;
     exports com.flora.codec.asn1;
-    exports com.flora.comm.ssh.jbcrypt;
-    exports com.flora.comm.ssh.juz;
-    exports com.flora.comm.ssh.compress;
     exports com.flora.entropy.compress.zlib;
 
     exports com.flora.syntax.common.exceptions;

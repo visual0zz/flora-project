@@ -17,7 +17,7 @@ import java.util.Set;
  * 把 JDK 自带的 {@link Signature} 接入 flora 的算法族接口。
  * <p>覆盖 SSH 所需签名套件：RSA（SHA-1/224/256/384/512）、DSA、ECDSA（P-256/384/521）
  * 与 EdDSA（Ed25519/Ed448）。当前 flora 尚无「签名/验签」引擎接口，本类作为 JDK 原生能力的
- * 转发实现存在，供 {@code com.flora.comm.ssh.crypto} 适配层调用。</p>
+ * 转发实现作为 JDK 原生签名能力的统一入口，供上层协议适配层调用。</p>
  */
 @ThreadFragile
 public final class JdkSignature implements AlgorithmFamily {

@@ -9,6 +9,8 @@ import com.flora.runtime.log.spi.Layout;
 import com.flora.runtime.log.spi.Masker;
 import com.flora.runtime.log.spi.RollingPolicy;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.function.Consumer;
 
 
@@ -110,6 +112,7 @@ public final class LogConfig {
         if (c.threshold != null) appender.setThreshold(c.threshold);
         if (c.policy != null) appender.policy(c.policy);
         if (c.datePattern != null) appender.datePattern(c.datePattern);
+        if (c.filePattern != null) appender.filePattern(c.filePattern);
         if (c.maxSize > 0) appender.maxSize(c.maxSize);
         if (c.maxHistory > 0) appender.maxHistory(c.maxHistory);
         ((LoggerImpl) LoggerFactory.getRootLogger()).addAppender(appender);
@@ -190,12 +193,13 @@ public final class LogConfig {
 
     public static class FileConfig {
         String name;
-        String file;
+        Path file;
         String pattern;
         Level threshold;
 
         public FileConfig name(String name) { this.name = name; return this; }
-        public FileConfig file(String file) { this.file = file; return this; }
+        public FileConfig file(String file) { this.file = Paths.get(file); return this; }
+        public FileConfig file(Path file) { this.file = file; return this; }
         public FileConfig pattern(String pattern) { this.pattern = pattern; return this; }
         public FileConfig threshold(Level threshold) { this.threshold = threshold; return this; }
     }
@@ -208,6 +212,7 @@ public final class LogConfig {
         Level threshold;
         RollingPolicy policy;
         String datePattern;
+        String filePattern;
         long maxSize;
         int maxHistory;
 
@@ -218,6 +223,7 @@ public final class LogConfig {
         public RollingConfig rolling(RollingPolicy policy, String datePattern) {
             this.policy = policy; this.datePattern = datePattern; return this;
         }
+        public RollingConfig filePattern(String filePattern) { this.filePattern = filePattern; return this; }
         public RollingConfig maxSize(long maxSize) { this.maxSize = maxSize; return this; }
         public RollingConfig maxHistory(int maxHistory) { this.maxHistory = maxHistory; return this; }
     }

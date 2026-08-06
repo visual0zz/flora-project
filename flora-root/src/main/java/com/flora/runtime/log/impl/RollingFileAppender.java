@@ -7,6 +7,7 @@ import com.flora.runtime.log.spi.LogEvent;
 import com.flora.runtime.log.spi.RollingPolicy;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -30,6 +31,8 @@ public class RollingFileAppender implements Appender {
 
     private Path currentPath;
 
+    private String filePattern;
+
     private RollingPolicy policy = RollingPolicy.SIZE_BASED;
 
     private String datePattern = "yyyy-MM-dd";
@@ -40,6 +43,8 @@ public class RollingFileAppender implements Appender {
 
     private int maxHistory = 7;
 
+    private long currentSize;
+
     private FileAppender delegate;
 
     public RollingFileAppender() {
@@ -47,6 +52,26 @@ public class RollingFileAppender implements Appender {
 
     public RollingFileAppender(String file) {
         this.basePath = Paths.get(file);
+    }
+
+    /**
+     * 设置基础文件路径（文件系统无关）。
+     *
+     * @param file 基础文件路径
+     */
+    public RollingFileAppender(Path file) {
+        this.basePath = file;
+    }
+
+    /**
+     * 设置基础文件路径（文件系统无关，流式 API）。
+     *
+     * @param file 基础文件路径
+     * @return 当前 RollingFileAppender 实例
+     */
+    public RollingFileAppender file(Path file) {
+        this.basePath = file;
+        return this;
     }
 
 
@@ -81,6 +106,23 @@ public class RollingFileAppender implements Appender {
      */
     public RollingFileAppender policy(RollingPolicy policy) {
         this.policy = policy;
+        return this;
+    }
+
+    /**
+     * 设置归档文件命名模式（log4j 风格，流式 API）。
+     * <p>
+     * 模式中的 {@code %d{日期格式}}（或 {@code %d}）替换为滚动日期，
+     * {@code %i} 替换为序号（大小滚动时 1 为最新归档）。
+     * 例如 {@code app-%d{yyyy-MM-dd}.log} 或 {@code app-%i.log}。
+     * 未设置时回退到 {@code base.log.日期} / {@code base.log.N} 的默认命名。
+     * 注意：本实现仅使用模式决定文件名，不执行 {@code .gz} 等压缩。
+     *
+     * @param filePattern 归档文件命名模式
+     * @return 当前 RollingFileAppender 实例
+     */
+    public RollingFileAppender filePattern(String filePattern) {
+        this.filePattern = filePattern;
         return this;
     }
 
@@ -151,6 +193,10 @@ public class RollingFileAppender implements Appender {
         return policy;
     }
 
+    public String getFilePattern() {
+        return filePattern;
+    }
+
     public long getMaxSize() {
         return maxSize;
     }
@@ -179,6 +225,21 @@ public class RollingFileAppender implements Appender {
         }
 
         delegate.append(event);
+        // 自行累计已写入字节数：缓冲写入（含内存文件系统）下 Files.size 不能可靠反映
+        // 当前文件大小，故由附加器跟踪，而非依赖文件系统查询。
+        currentSize += layout.format(event).getBytes(StandardCharsets.UTF_8).length;
+    }
+
+
+    /**
+     * 解析与 {@code basePath} 同目录、以 {@code suffix} 为扩展名的归档文件路径，
+     * 使用 basePath 所在文件系统的路径构造，避免硬编码默认文件系统。
+     *
+     * @param suffix 追加在基础文件名之后的后缀（含点号）
+     * @return 归档文件路径
+     */
+    private Path siblingWithSuffix(String suffix) {
+        return basePath.resolveSibling(basePath.getFileName() + suffix);
     }
 
     /**
@@ -218,12 +279,7 @@ public class RollingFileAppender implements Appender {
                 return !today.equals(lastDate);
             }
             case RollingPolicy.SIZE_BASED -> {
-                try {
-                    return delegate != null && Files.exists(currentPath)
-                            && Files.size(currentPath) >= maxSize;
-                } catch (IOException e) {
-                    return false;
-                }
+                return delegate != null && currentSize >= maxSize;
             }
             default -> {
                 return false;
@@ -235,8 +291,9 @@ public class RollingFileAppender implements Appender {
     /**
      * 执行文件滚动操作。
      * <p>
-     * 基于时间策略：将当前文件重命名为带日期后缀的归档文件。
-     * 基于大小策略：将历史文件依次重命名（.1 → .2, .2 → .3 ...），然后将当前文件重命名为 .1。
+     * 基于时间策略：将当前文件重命名为带日期后缀的归档文件（或按 filePattern 命名）。
+     * 基于大小策略：将历史文件依次重命名（.1 → .2, .2 → .3 ...），然后将当前文件重命名为 .1；
+     * 设置了 filePattern 时则按 {@code %i} 序号归档。
      */
     private void roll() {
         if (delegate != null) {
@@ -248,7 +305,9 @@ public class RollingFileAppender implements Appender {
             case RollingPolicy.TIME_BASED -> {
                 String today = new SimpleDateFormat(datePattern).format(new Date());
 
-                Path archived = Paths.get(basePath + "." + lastDate);
+                Path archived = filePattern != null
+                        ? resolveArchivePath(0)
+                        : siblingWithSuffix("." + lastDate);
                 try {
                     if (Files.exists(currentPath)) {
                         Files.move(currentPath, archived);
@@ -261,8 +320,12 @@ public class RollingFileAppender implements Appender {
             case RollingPolicy.SIZE_BASED -> {
 
                 for (int i = maxHistory - 1; i >= 1; i--) {
-                    Path old = Paths.get(basePath + "." + i);
-                    Path newer = Paths.get(basePath + "." + (i + 1));
+                    Path old = filePattern != null
+                            ? resolveArchivePath(i)
+                            : siblingWithSuffix("." + i);
+                    Path newer = filePattern != null
+                            ? resolveArchivePath(i + 1)
+                            : siblingWithSuffix("." + (i + 1));
                     try {
                         if (Files.exists(old)) {
                             if (i == maxHistory - 1) {
@@ -277,7 +340,10 @@ public class RollingFileAppender implements Appender {
 
                 try {
                     if (Files.exists(currentPath)) {
-                        Files.move(currentPath, Paths.get(basePath + ".1"));
+                        Path archived = filePattern != null
+                                ? resolveArchivePath(1)
+                                : siblingWithSuffix(".1");
+                        Files.move(currentPath, archived);
                     }
                 } catch (IOException e) {
                     System.err.println("Log roll error: " + e.getMessage());
@@ -287,6 +353,24 @@ public class RollingFileAppender implements Appender {
 
         currentPath = resolveCurrentPath();
         delegate = createDelegate();
+        currentSize = 0;
+    }
+
+    /**
+     * 根据 filePattern 解析归档文件路径，替换 {@code %d{...}}/{@code %d} 为日期、{@code %i} 为序号。
+     *
+     * @param index 序号（大小滚动时 1 表示最新归档）
+     * @return 解析后的归档文件路径
+     */
+    private Path resolveArchivePath(int index) {
+        String date = new SimpleDateFormat(datePattern).format(new Date());
+        String name = filePattern
+                .replace("%d{" + datePattern + "}", date)
+                .replace("%d", date)
+                .replace("%i", Integer.toString(index));
+        // 使用 basePath 所在文件系统构造归档路径，避免硬编码默认文件系统，
+        // 使 filePattern 在任意文件系统（含内存虚拟文件系统）下都能正确解析。
+        return basePath.getFileSystem().getPath(name);
     }
 
     /**
@@ -300,7 +384,8 @@ public class RollingFileAppender implements Appender {
     private Path resolveCurrentPath() {
         if (policy == RollingPolicy.TIME_BASED) {
             String today = new SimpleDateFormat(datePattern).format(new Date());
-            return Paths.get(basePath + "." + today);
+            // 与 basePath 同目录、同文件系统，避免硬编码默认文件系统
+            return basePath.resolveSibling(basePath.getFileName() + "." + today);
         }
         return basePath;
     }
@@ -315,7 +400,7 @@ public class RollingFileAppender implements Appender {
             currentPath = resolveCurrentPath();
         }
         FileAppender fa = new FileAppender();
-        fa.file(currentPath.toString());
+        fa.file(currentPath);
         fa.setLayout(layout);
         fa.setThreshold(Level.TRACE);
         return fa;

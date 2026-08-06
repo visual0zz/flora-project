@@ -1,7 +1,10 @@
 package com.flora.runtime.log.spi;
 
+import com.flora.runtime.log.Level;
 import com.flora.runtime.log.MDC;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -11,10 +14,17 @@ import java.util.Map;
 /**
  * 日志布局格式器，根据模式字符串格式化日志事件输出。
  * <p>
- * 支持的转换符：%d（日期）、%t/%thread（线程）、%p/%level（级别）、
- * %c/%logger（日志器名称）、%m/%msg/%message（消息）、
- * %mdc{key}（MDC 上下文）、%n（换行）、%%（百分号）。
- * 支持宽度和左对齐（如 %-5level）。
+ * 支持的转换符：
+ * <ul>
+ *   <li>%d/%date（日期，{yyyy-MM-dd} 指定格式）、%t/%thread（线程）、%p/%level（级别）、</li>
+ *   <li>%c/%logger（日志器名称）、%m/%msg/%message（消息）、%mdc{key}（MDC 上下文）、</li>
+ *   <li>%r（相对时间，自 JVM 启动起的毫秒数）、</li>
+ *   <li>%ex/%throwable/%exception（关联异常的堆栈，{short} 仅输出首行）、</li>
+ *   <li>%C/%class（调用类）、%M/%method（调用方法）、%L/%line（调用行号）、%F/%file（调用文件），</li>
+ *   <li>%highlight{...}（按级别 ANSI 着色包裹内部模式）、%n（换行）、%%（百分号）。</li>
+ * </ul>
+ * 支持宽度和左对齐（如 %-5level）。调用位置类转换符（%C/%M/%L/%F）仅在日志器显式捕获调用位置时才有值，
+ * 否则输出 "?"；出于性能考虑，调用位置的捕获是按需开启的。
  */
 public class Layout {
 
@@ -22,6 +32,11 @@ public class Layout {
     private static final Map<String, Converter> CONVERTERS = new HashMap<>();
 
     private static final Map<Character, String> ALIASES = new HashMap<>();
+
+    private static final long JVM_START = System.currentTimeMillis();
+
+    private static final java.util.Set<String> LOCATION_WORDS = java.util.Set.of(
+            "C", "class", "M", "method", "L", "line", "F", "file");
 
     static {
         CONVERTERS.put("d", Layout::appendDate);
@@ -38,6 +53,19 @@ public class Layout {
         CONVERTERS.put("msg", Layout::appendMessage);
         CONVERTERS.put("message", Layout::appendMessage);
         CONVERTERS.put("mdc", Layout::appendMdc);
+        CONVERTERS.put("r", Layout::appendRelativeTime);
+        CONVERTERS.put("ex", Layout::appendThrowable);
+        CONVERTERS.put("throwable", Layout::appendThrowable);
+        CONVERTERS.put("exception", Layout::appendThrowable);
+        CONVERTERS.put("C", Layout::appendClass);
+        CONVERTERS.put("class", Layout::appendClass);
+        CONVERTERS.put("M", Layout::appendMethod);
+        CONVERTERS.put("method", Layout::appendMethod);
+        CONVERTERS.put("L", Layout::appendLine);
+        CONVERTERS.put("line", Layout::appendLine);
+        CONVERTERS.put("F", Layout::appendFile);
+        CONVERTERS.put("file", Layout::appendFile);
+        CONVERTERS.put("highlight", Layout::appendHighlight);
         CONVERTERS.put("n", Layout::appendNewline);
         CONVERTERS.put("%", Layout::appendPercent);
     }
@@ -47,6 +75,7 @@ public class Layout {
     private final boolean[] leftAligns;
     private final int[] widths;
     private final String[] optionTexts;
+    private final boolean requiresLocation;
 
     /**
      * 构造一个布局格式器。
@@ -61,6 +90,17 @@ public class Layout {
         this.leftAligns = parsed.leftAligns;
         this.widths = parsed.widths;
         this.optionTexts = parsed.optionTexts;
+        this.requiresLocation = patternUsesLocation(pattern);
+    }
+
+    /**
+     * 判断该布局的模式是否包含调用位置类转换符（%C/%M/%L/%F 及其长名）。
+     * <p>若包含，则日志记录时须捕获调用点堆栈帧，否则这些转换符只能输出 "?"。</p>
+     *
+     * @return 需要调用位置信息则返回 true
+     */
+    public boolean requiresCallerLocation() {
+        return requiresLocation;
     }
 
     /**
@@ -138,7 +178,7 @@ public class Layout {
 
                 String option = "";
                 if (i < len && pattern.charAt(i) == '{') {
-                    int end = pattern.indexOf('}', i);
+                    int end = findMatchingBrace(pattern, i);
                     if (end > i) {
                         option = pattern.substring(i + 1, end);
                         i = end + 1;
@@ -323,6 +363,158 @@ public class Layout {
      */
     private static void appendPercent(StringBuilder sb, LogEvent event, boolean left, int width, String option) {
         sb.append('%');
+    }
+
+    /**
+     * 追加相对时间（自 JVM 启动起的毫秒数）到缓冲区。
+     */
+    private static void appendRelativeTime(StringBuilder sb, LogEvent event, boolean left, int width, String option) {
+        sb.append(event.getTimestamp() - JVM_START);
+    }
+
+    /**
+     * 追加关联异常的堆栈信息到缓冲区。
+     * <p>{@code short} 选项仅输出异常首行（类名+消息），否则输出完整堆栈。</p>
+     */
+    private static void appendThrowable(StringBuilder sb, LogEvent event, boolean left, int width, String option) {
+        Throwable t = event.getThrowable();
+        if (t == null) {
+            return;
+        }
+        if ("short".equals(option)) {
+            sb.append(t.toString());
+            return;
+        }
+        StringWriter sw = new StringWriter();
+        try (PrintWriter pw = new PrintWriter(sw)) {
+            t.printStackTrace(pw);
+        }
+        sb.append(sw);
+    }
+
+    /**
+     * 追加调用位置所在的简单类名（%C/%class）。未捕获调用位置时输出 "?"。
+     */
+    private static void appendClass(StringBuilder sb, LogEvent event, boolean left, int width, String option) {
+        StackTraceElement loc = event.getCallerLocation();
+        if (loc == null) {
+            sb.append('?');
+            return;
+        }
+        String fqcn = loc.getClassName();
+        int dot = fqcn.lastIndexOf('.');
+        sb.append(dot >= 0 ? fqcn.substring(dot + 1) : fqcn);
+    }
+
+    /**
+     * 追加调用位置所在的方法名（%M/%method）。未捕获调用位置时输出 "?"。
+     */
+    private static void appendMethod(StringBuilder sb, LogEvent event, boolean left, int width, String option) {
+        StackTraceElement loc = event.getCallerLocation();
+        sb.append(loc != null ? loc.getMethodName() : "?");
+    }
+
+    /**
+     * 追加调用位置所在的行号（%L/%line）。未捕获调用位置时输出 "?"。
+     */
+    private static void appendLine(StringBuilder sb, LogEvent event, boolean left, int width, String option) {
+        StackTraceElement loc = event.getCallerLocation();
+        sb.append(loc != null ? Integer.toString(loc.getLineNumber()) : "?");
+    }
+
+    /**
+     * 追加调用位置所在的文件名（%F/%file）。未捕获调用位置时输出 "?"。
+     */
+    private static void appendFile(StringBuilder sb, LogEvent event, boolean left, int width, String option) {
+        StackTraceElement loc = event.getCallerLocation();
+        sb.append(loc != null ? loc.getFileName() : "?");
+    }
+
+    /**
+     * 追加按日志级别着色的内部模式文本（%highlight{...}）。
+     * <p>内部模式按事件重新格式化后，整体以对应级别的 ANSI 颜色包裹。</p>
+     */
+    private static void appendHighlight(StringBuilder sb, LogEvent event, boolean left, int width, String option) {
+        if (option == null || option.isEmpty()) {
+            return;
+        }
+        String inner = new Layout(option).format(event);
+        sb.append(highlight(event.getLevel())).append(inner).append(ANSI_RESET);
+    }
+
+    /**
+     * 返回指定级别对应的 ANSI 前景色转义序列。
+     */
+    private static String highlight(Level level) {
+        return switch (level) {
+            case TRACE -> ANSI_CYAN;
+            case DEBUG -> ANSI_CYAN;
+            case INFO -> ANSI_GREEN;
+            case WARN -> ANSI_YELLOW;
+            case ERROR -> ANSI_RED;
+            case FATAL -> ANSI_BOLD_RED;
+        };
+    }
+
+    private static final String ANSI_RESET = "\u001B[0m";
+    private static final String ANSI_CYAN = "\u001B[36m";
+    private static final String ANSI_GREEN = "\u001B[32m";
+    private static final String ANSI_YELLOW = "\u001B[33m";
+    private static final String ANSI_RED = "\u001B[31m";
+    private static final String ANSI_BOLD_RED = "\u001B[1;31m";
+
+    /**
+     * 在模式字符串中，从 {@code open}（指向 '{'）开始寻找与之匹配的 '}'，支持嵌套花括号。
+     *
+     * @param pattern 模式字符串
+     * @param open    左花括号的位置
+     * @return 匹配的右花括号位置；未找到则返回 -1
+     */
+    private static int findMatchingBrace(String pattern, int open) {
+        int depth = 0;
+        int i = open;
+        int len = pattern.length();
+        while (i < len) {
+            char c = pattern.charAt(i);
+            if (c == '{') {
+                depth++;
+            } else if (c == '}') {
+                depth--;
+                if (depth == 0) {
+                    return i;
+                }
+            }
+            i++;
+        }
+        return -1;
+    }
+
+    /**
+     * 扫描模式字符串，判断其中是否包含调用位置类转换符。
+     *
+     * @param pattern 模式字符串
+     * @return 包含调用位置转换符则返回 true
+     */
+    private static boolean patternUsesLocation(String pattern) {
+        int i = 0;
+        int len = pattern.length();
+        while (i < len) {
+            if (pattern.charAt(i) == '%') {
+                i++;
+                if (i >= len) break;
+                if (pattern.charAt(i) == '-') i++;
+                while (i < len && Character.isDigit(pattern.charAt(i))) i++;
+                int start = i;
+                while (i < len && Character.isLetter(pattern.charAt(i))) i++;
+                String word = pattern.substring(start, i);
+                if (LOCATION_WORDS.contains(word)) {
+                    return true;
+                }
+            } else {
+                i++;
+            }
+        }
+        return false;
     }
 
 

@@ -36,6 +36,26 @@ public class FileAppender implements Appender {
         this.filePath = Paths.get(file);
     }
 
+    /**
+     * 设置输出文件路径（文件系统无关）。
+     *
+     * @param file 文件路径
+     */
+    public FileAppender(Path file) {
+        this.filePath = file;
+    }
+
+    /**
+     * 设置输出文件路径（文件系统无关，流式 API）。
+     *
+     * @param file 文件路径
+     * @return 当前 FileAppender 实例
+     */
+    public FileAppender file(Path file) {
+        this.filePath = file;
+        return this;
+    }
+
 
 
     /**

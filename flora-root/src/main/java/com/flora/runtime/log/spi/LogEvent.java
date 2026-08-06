@@ -12,7 +12,7 @@ public class LogEvent {
     private final String loggerName;
     private final Level level;
     private final String message;
-    private final String formattedMessage;
+    private final String formattedMessage; // 可能已被 Masker 脱敏；程序化消费敏感字段请改用 getMessage()
     private final Object[] args;
     private final long timestamp;
     private final Thread thread;

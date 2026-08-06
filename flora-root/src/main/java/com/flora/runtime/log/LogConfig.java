@@ -6,6 +6,7 @@ import com.flora.runtime.log.impl.LoggerImpl;
 import com.flora.runtime.log.impl.RollingFileAppender;
 import com.flora.runtime.log.spi.Appender;
 import com.flora.runtime.log.spi.Layout;
+import com.flora.runtime.log.spi.Masker;
 import com.flora.runtime.log.spi.RollingPolicy;
 
 import java.util.function.Consumer;
@@ -132,6 +133,19 @@ public final class LogConfig {
         if (c.pattern != null) appender.setLayout(new Layout(c.pattern));
         appender.setThreshold(level);
         ((LoggerImpl) LoggerFactory.getRootLogger()).addAppender(appender);
+        return this;
+    }
+
+
+    /**
+     * 开启全局日志脱敏：组合多个脱敏器并应用到所有日志器。
+     * <p>按入参顺序从左至右依次作用；不调用此方法时默认不脱敏，日志行为与未接入一致。</p>
+     *
+     * @param maskers 脱敏器列表，如 {@code mask(LogMaskers.DEFAULT, customMasker)}
+     * @return 当前 LogConfig 实例（流式 API）
+     */
+    public LogConfig mask(Masker... maskers) {
+        LoggerFactory.setDefaultMasker(Masker.compose(maskers));
         return this;
     }
 

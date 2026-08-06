@@ -6,6 +6,7 @@ import com.flora.runtime.log.Logger;
 import com.flora.runtime.log.LoggerFactory;
 import com.flora.runtime.log.spi.Appender;
 import com.flora.runtime.log.spi.LogEvent;
+import com.flora.runtime.log.spi.Masker;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,6 +26,7 @@ public final class LoggerImpl implements Logger {
     private Level level;
     private boolean additivity = true;
     private final List<Appender> appenders = Collections.synchronizedList(new ArrayList<>());
+    private Masker masker = LoggerFactory.defaultMasker();
 
 
     volatile Level effectiveLevel;
@@ -84,6 +86,16 @@ public final class LoggerImpl implements Logger {
      */
     public void addAppender(Appender appender) {
         appenders.add(appender);
+    }
+
+    /**
+     * 设置脱敏器，作用于本日志器输出的消息文本。
+     * 传入 {@link Masker#NONE} 可关闭脱敏。
+     *
+     * @param masker 脱敏器，不允许为 null
+     */
+    public void setMasker(Masker masker) {
+        this.masker = masker != null ? masker : Masker.NONE;
     }
 
     /**
@@ -211,6 +223,9 @@ public final class LoggerImpl implements Logger {
         String formatted = args != null && args.length > 0
                 ? MessageFormatter.format(msg, args)
                 : msg;
+        if (masker != Masker.NONE) {
+            formatted = masker.mask(formatted);
+        }
         LogEvent event = new LogEvent(name, level, msg, args, formatted);
         appendLoopOnAppenders(event);
     }

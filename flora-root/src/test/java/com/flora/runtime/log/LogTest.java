@@ -2,11 +2,13 @@ package com.flora.runtime.log;
 
 import com.flora.runtime.log.impl.ConsoleAppender;
 import com.flora.runtime.log.impl.FileAppender;
+import com.flora.runtime.log.impl.LogMasker;
 import com.flora.runtime.log.impl.LoggerImpl;
 import com.flora.runtime.log.impl.MessageFormatter;
 import com.flora.runtime.log.spi.Appender;
 import com.flora.runtime.log.spi.Layout;
 import com.flora.runtime.log.spi.LogEvent;
+import com.flora.runtime.log.spi.Masker;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +29,7 @@ class LogTest {
     @AfterEach
     void tearDown() {
         LoggerFactory.reset();
+        LoggerFactory.setDefaultMasker(Masker.NONE);
     }
 
     // ==================== 获取 Logger ====================
@@ -391,6 +394,106 @@ class LogTest {
         log.info("this should not throw");
         log.debug("also fine");
         log.error("still fine");
+    }
+
+    // ==================== 日志脱敏 ====================
+
+    /**
+     * 测试 Masker.NONE 原样返回，且不抛 null 指针。
+     */
+    @Test
+    void testMaskerNoneReturnsOriginal() {
+        assertEquals("secret=abc123", Masker.NONE.mask("secret=abc123"));
+        assertNull(Masker.NONE.mask(null));
+    }
+
+    /**
+     * 测试 LogMasker.DEFAULT 覆盖常见敏感片段。
+     */
+    @Test
+    void testLogMaskerDefaults() {
+        LogMasker m = LogMasker.DEFAULT;
+        assertEquals("Bearer ********", m.mask("Bearer eyJhbGciOiJIUzI1NiJ9"));
+        assertEquals("api_key=********", m.mask("api_key=abcdef12345678"));
+        assertTrue(m.mask("http://user:pwd@example.com/path").contains("********@"));
+        assertTrue(m.mask("contact alice@example.com").contains("****@****"));
+        assertEquals("id ******** ok", m.mask("id 11010119900307123X ok"));
+        assertEquals("card ******** ok", m.mask("card 4111111111111111 ok"));
+    }
+
+    /**
+     * 测试 withRule 扩展规则时不会改动 DEFAULT 常量。
+     */
+    @Test
+    void testLogMaskerWithRuleDoesNotMutateDefault() {
+        LogMasker custom = LogMasker.DEFAULT.withRule("inner", "OUTER");
+        assertTrue(custom.mask("inner").contains("OUTER"));
+        assertEquals("inner", LogMasker.DEFAULT.mask("inner"));
+    }
+
+    /**
+     * 测试日志器在格式化消息时应用脱敏器，敏感字段不会落到输出。
+     */
+    @Test
+    void testLoggerAppliesMaskerToFileOutput() throws IOException {
+        LoggerFactory.reset();
+        Path tmpFile = Files.createTempFile("log-mask-", ".log");
+        tmpFile.toFile().deleteOnExit();
+        ((LoggerImpl) LoggerFactory.getRootLogger()).setLevel(Level.INFO);
+        FileAppender appender = new FileAppender(tmpFile.toString());
+        appender.setLayout(new Layout("%msg%n"));
+        ((LoggerImpl) LoggerFactory.getRootLogger()).addAppender(appender);
+        LoggerFactory.setDefaultMasker(LogMaskers.DEFAULT);
+
+        Logger log = LoggerFactory.getLogger("maskTest");
+        log.info("login token=abcdef12345678 success");
+        appender.close();
+        String content = Files.readString(tmpFile);
+        assertFalse(content.contains("abcdef12345678"), "secret must be masked: " + content);
+        assertTrue(content.contains("token=********"), content);
+    }
+
+    /**
+     * 测试 LogConfig.mask 开启后，全局（含配置后新建的日志器）均生效。
+     */
+    @Test
+    void testLogConfigMaskAppliesGlobally() throws IOException {
+        LoggerFactory.reset();
+        Path tmpFile = Files.createTempFile("log-config-mask-", ".log");
+        tmpFile.toFile().deleteOnExit();
+        LogConfig.configure(cfg -> cfg
+                .rootLevel(Level.INFO)
+                .fileAppender(f -> f.file(tmpFile.toString()).pattern("%msg%n"))
+                .mask(LogMaskers.DEFAULT));
+
+        Logger later = LoggerFactory.getLogger("createdAfterMask");
+        later.info("password=hunter2abcdefghij");
+        ((LoggerImpl) LoggerFactory.getRootLogger()).getAppenders().forEach(Appender::close);
+        String content = Files.readString(tmpFile);
+        assertFalse(content.contains("hunter2abcdefghij"), content);
+    }
+
+    /**
+     * 测试 mask(masker1, masker2...) 可同时应用默认规则与自定义规则。
+     */
+    @Test
+    void testLogConfigMaskMultiple() throws IOException {
+        LoggerFactory.reset();
+        Path tmpFile = Files.createTempFile("log-config-mask-multi-", ".log");
+        tmpFile.toFile().deleteOnExit();
+        Masker custom = text -> text.replace("TOPSECRET", "******");
+        LogConfig.configure(cfg -> cfg
+                .rootLevel(Level.INFO)
+                .fileAppender(f -> f.file(tmpFile.toString()).pattern("%msg%n"))
+                .mask(LogMaskers.DEFAULT, custom));
+
+        Logger later = LoggerFactory.getLogger("multiMask");
+        later.info("password=hunter2abcdefghij and TOPSECRET here");
+        ((LoggerImpl) LoggerFactory.getRootLogger()).getAppenders().forEach(Appender::close);
+        String content = Files.readString(tmpFile);
+        assertFalse(content.contains("hunter2abcdefghij"), content);
+        assertFalse(content.contains("TOPSECRET"), content);
+        assertTrue(content.contains("password=********"), content);
     }
 
     // ==================== 辅助类 ====================

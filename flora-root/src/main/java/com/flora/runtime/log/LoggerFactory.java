@@ -2,6 +2,7 @@ package com.flora.runtime.log;
 
 import com.flora.tag.ModuleEntry;
 import com.flora.runtime.log.impl.LoggerImpl;
+import com.flora.runtime.log.spi.Masker;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,6 +21,12 @@ public final class LoggerFactory {
     }
 
     private static final Map<String, Logger> LOGGER_MAP = new ConcurrentHashMap<>();
+
+    /**
+     * 全局默认脱敏器，新建日志器与 {@link #setDefaultMasker(Masker)} 都会应用它。
+     * 默认 {@link Masker#NONE}，即不脱敏。
+     */
+    private static volatile Masker defaultMasker = Masker.NONE;
 
     static {
 
@@ -145,5 +152,27 @@ public final class LoggerFactory {
     public static void reset() {
         LOGGER_MAP.clear();
         LOGGER_MAP.put("root", new LoggerImpl("root"));
+    }
+
+    /**
+     * 获取全局默认脱敏器。
+     *
+     * @return 当前默认脱敏器，不会为 null
+     */
+    public static Masker defaultMasker() {
+        return defaultMasker;
+    }
+
+    /**
+     * 设置全局默认脱敏器，并立即应用到所有已注册的日志器。
+     * 后续新建的日志器也会继承该默认值。
+     *
+     * @param masker 脱敏器，不允许为 null
+     */
+    public static void setDefaultMasker(Masker masker) {
+        defaultMasker = masker != null ? masker : Masker.NONE;
+        for (Logger logger : LOGGER_MAP.values()) {
+            ((LoggerImpl) logger).setMasker(defaultMasker);
+        }
     }
 }

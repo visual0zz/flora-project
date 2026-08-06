@@ -108,13 +108,30 @@ public class Parser {
             case FOR -> {
                 p++;
                 int idx = t.text().indexOf(':');
-                if (idx < 0) throw TemplateUtils.err(t.line(), t.col(), source, "<#for 语法应为 'var:expr'");
-                String var = t.text().substring(0, idx).trim();
+                if (idx < 0) throw TemplateUtils.err(t.line(), t.col(), source, "<#for 语法应为 'var:expr' 或 'index,var:expr'");
+                String head = t.text().substring(0, idx).trim();
                 String iterExpr = t.text().substring(idx + 1).trim();
+                String var;
+                String index = null;
+                int comma = head.indexOf(',');
+                if (comma >= 0) {
+                    index = head.substring(0, comma).trim();
+                    var = head.substring(comma + 1).trim();
+                    if (index.isEmpty())
+                        throw TemplateUtils.err(t.line(), t.col(), source, "<#for 的 index 变量名不能为空");
+                    if (var.indexOf(',') >= 0)
+                        throw TemplateUtils.err(t.line(), t.col(), source, "<#for 仅允许 'index,var' 两个名字");
+                    if (var.isEmpty())
+                        throw TemplateUtils.err(t.line(), t.col(), source, "<#for 的 var 变量名不能为空");
+                } else {
+                    var = head;
+                    if (var.isEmpty())
+                        throw TemplateUtils.err(t.line(), t.col(), source, "<#for 的 var 变量名不能为空");
+                }
                 Object iter = Lson.parse(iterExpr, t.line());
                 List<Node> body = parseBlock();
                 List<Node> elseB = consumeElseEnd(t.line(), "<#for");
-                yield new ForNode(var, iter, body, elseB);
+                yield new ForNode(var, index, iter, body, elseB);
             }
             case CONTINUE -> { p++; yield parseContinueBreak(t, true); }
             case BREAK -> { p++; yield parseContinueBreak(t, false); }

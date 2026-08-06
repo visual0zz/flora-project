@@ -82,6 +82,46 @@ class NodeTest {
     }
 
     @Test
+    void forWithIndexVarExposesZeroBasedCounter() throws IOException {
+        String tpl = """
+                <#meta>@Param{ items: ["a", "b", "c"] } @Path{ "C.txt" }</#meta>
+                <#for i,v:items>${i}:${v};</#for>
+                """;
+        String content = gen(tpl).get(0).content().replace("\n", "");
+        assertEquals("0:a;1:b;2:c;", content);
+    }
+
+    @Test
+    void forWithoutIndexStillSupported() throws IOException {
+        String tpl = """
+                <#meta>@Param{ items: ["a", "b"] } @Path{ "C.txt" }</#meta>
+                <#for v:items>[${v}]</#for>
+                """;
+        String content = gen(tpl).get(0).content().replace("\n", "");
+        assertEquals("[a][b]", content);
+    }
+
+    @Test
+    void forIndexAcceptsCustomName() throws IOException {
+        String tpl = """
+                <#meta>@Param{ items: ["x"] } @Path{ "C.txt" }</#meta>
+                <#for n,el:items>${n}${el}</#for>
+                """;
+        String content = gen(tpl).get(0).content().replace("\n", "");
+        assertEquals("0x", content);
+    }
+
+    @Test
+    void forIndexExposesLongForArithmetic() throws IOException {
+        String tpl = """
+                <#meta>@Param{ items: ["a", "b"] } @Path{ "C.txt" }</#meta>
+                <#for i,v:items>${i}+1=${i greaterThanOrEquals 1}</#for>
+                """;
+        String content = gen(tpl).get(0).content().replace("\n", "");
+        assertEquals("0+1=false1+1=true", content);
+    }
+
+    @Test
     void macroDefinitionAndCallWithArgs() throws IOException {
         String tpl = """
                 <#meta>@Path{ "C.java" }</#meta>

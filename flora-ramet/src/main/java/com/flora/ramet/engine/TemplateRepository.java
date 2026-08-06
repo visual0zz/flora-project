@@ -20,8 +20,8 @@ public interface TemplateRepository {
      * 将 include 路径解析为仓库 key。
      *
      * @param fromKey 发起 include 的模板 key（可为 {@code null}，按根目录解析）
-     * @param path    include 路径：相对路径以 {@code fromKey} 所在目录为基准，
-     *                以 {@code '/'} 开头视为相对于仓库根的绝对路径
+     * @param path    include 路径：以 {@code '/'} 开头视为操作系统绝对路径；
+     *                否则为相对于 {@code fromKey} 所在目录的相对路径
      * @return 目标模板的 key
      */
     String resolve(String fromKey, String path) throws CodeGenException;
@@ -58,8 +58,8 @@ public interface TemplateRepository {
 
             @Override
             public String resolve(String fromKey, String path) {
-                // 内存仓库无真实根目录：绝对路径（以 '/' 开头）去掉前导 '/'
-                // 后直接作为 key，相对路径原样作为 key。
+                // 内存仓库以 Map 自身为根：'/' 开头视为相对于该根的绝对路径，
+                // 去掉前导 '/' 后作为 key；相对路径原样作为 key。
                 String key = path.startsWith("/") ? path.substring(1) : path;
                 return key.replace('\\', '/');
             }

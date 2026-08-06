@@ -26,8 +26,9 @@ import java.util.stream.Stream;
  * 模板解析与渲染委托给 {@link TemplateEngine}，子模板通过 {@link TemplateRepository} 按需加载。</p>
  *
  * <p>文件系统操作通过 {@code java.nio.file.FileSystem} 抽象，
- * 默认使用 {@code FileSystems.getDefault()}（真实文件系统），
- * 也可传入 {@code VfsFileSystem} 使用内存虚拟文件系统。</p>
+ * 默认使用 {@code FileSystems.getDefault()}（真实文件系统）；
+ * 亦可传入任意 {@code FileSystem} 实现（如内存文件系统）创建的 Path，
+ * 使整个生成过程运行于该虚拟文件系统之上。</p>
  */
 public final class Ramet {
     private Ramet() {
@@ -63,8 +64,9 @@ public final class Ramet {
     /**
      * 递归扫描 templatesDir 下所有 .ramet 文件（不区分大小写），
      * 按模板元数据生成源码到 outputDir。
-     * <p>文件系统通过 {@code templatesDir.getFileSystem()} 确定 ——
-     * 传入 {@code VfsFileSystem} 创建的 Path 即运行在虚拟文件系统上。</p>
+     * <p>文件系统由 {@code templatesDir} 所属的 {@code FileSystem} 决定 ——
+     * 传入任意 {@code FileSystem} 实现（如内存文件系统）创建的 Path，
+     * 即运行于该虚拟文件系统上。</p>
      */
     public static void run(Path templatesDir, Path outputDir, boolean dryRun) throws IOException {
         if (!Files.isDirectory(templatesDir)) {
@@ -180,8 +182,9 @@ public final class Ramet {
     }
 
     /**
-     * 基于文件系统的子模板仓库：按 key（相对路径）读取并解析，带缓存。
-     * 路径解析：相对路径以发起 include 的文件所在目录为基准，'/' 开头以仓库根为基准。
+     * 基于文件系统的子模板仓库：按 key 读取并解析，带缓存。
+     * 路径解析：'/' 开头为操作系统绝对路径，原样作为 key（相对 OS 根）；
+     * 无 '/' 开头则相对于发起 include 的文件所在目录。
      */
     private static final class FileSystemTemplateRepository implements TemplateRepository {
         private final Path root;
@@ -213,13 +216,8 @@ public final class Ramet {
         @Override
         public String resolve(String fromKey, String path) throws CodeGenException {
             if (path.startsWith("/")) {
-                // 绝对：作为 OS 绝对路径，relativize 为相对仓库根的路径
-                Path abs = Paths.get(path).normalize();
-                try {
-                    return root.relativize(abs).toString().replace('\\', '/');
-                } catch (IllegalArgumentException e) {
-                    throw new CodeGenException("#include 路径不在模板根目录下: " + path);
-                }
+                // '/' 开头：操作系统绝对路径，原样作为 key（相对 OS 根，不受模板根限制）
+                return Paths.get(path).normalize().toString().replace('\\', '/');
             }
             // 相对：以发起 include 的文件所在目录为基准
             String base = (fromKey != null) ? parentOf(fromKey) : "";

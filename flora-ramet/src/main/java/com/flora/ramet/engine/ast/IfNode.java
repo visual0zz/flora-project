@@ -8,11 +8,16 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * 条件分支节点：模板中 {@code <#if cond>...<#else>...</#if>} 语法对应的 AST 节点。
+ * 条件分支节点：模板中 {@code <#if cond>...<#elseif cond>...<#else>...</#if>} 语法对应的 AST 节点。
  *
  * <p>持有预解析的条件表达式 {@link #condLson}、真分支子节点列表 {@link #thenB}
  * 和可选的假分支子节点列表 {@link #elseB}。render 时先对条件求值，
  * 若为真值则渲染 thenB，否则渲染 elseB（若存在）。
+ *
+ * <h2>语法示例</h2>
+ * <pre>
+ * &lt;#if n greaterThan 3&gt;${n}大&lt;#elseif n equals 0&gt;零&lt;#else&gt;小&lt;/#if&gt;
+ * </pre>
  */
 public class IfNode extends Node {
     Object condLson;

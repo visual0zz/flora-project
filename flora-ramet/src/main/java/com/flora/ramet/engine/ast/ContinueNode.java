@@ -8,11 +8,23 @@ import com.flora.ramet.engine.runtime.RefResolver;
 import java.io.IOException;
 
 /**
- * <#continue> 节点——支持层数和条件。
- * <#continue>            → 跳过当前迭代
- * <#continue 2>          → 跳过两层迭代
- * <#continue cond>       → 条件成立时跳过
- * <#continue 2:cond>     → 条件成立时跳过两层
+ * 循环跳过节点：模板中 {@code <#continue[depth][:cond]>} 语法对应的 AST 节点。
+ *
+ * <p>render 时抛出 {@link com.flora.ramet.engine.runtime.ContinueSignal}，
+ * 由最近的循环节点捕获以跳过一层或多层循环的当前迭代；可带层数 {@code [depth]} 与条件 {@code [:cond]}。支持以下形式：
+ * <ul>
+ *   <li>{@code <#continue>} - 跳过当前迭代</li>
+ *   <li>{@code <#continue 2>} - 跳过两层迭代</li>
+ *   <li>{@code <#continue cond>} - 条件成立时跳过</li>
+ *   <li>{@code <#continue 2:cond>} - 条件成立时跳过两层</li>
+ * </ul>
+ *
+ * <h2>语法示例</h2>
+ * <pre>
+ * &lt;#for x:xs&gt;
+ * &lt;#if x == 0&gt;&lt;#continue&gt;&lt;/#if&gt;${x}
+ * &lt;/#for&gt;
+ * </pre>
  */
 public class ContinueNode extends Node {
     final int depth;

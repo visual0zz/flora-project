@@ -14,6 +14,12 @@ import java.util.List;
  * <p>持有宏名 {@link #name}、实参表达式列表 {@link #lsonArgs} 和所在行号 {@link #line}。
  * render 时从上下文查找已定义的宏，创建子上下文并绑定实参后递归渲染宏体。
  * 若宏未定义则抛出异常。
+ *
+ * <h2>语法示例</h2>
+ * <pre>
+ * &lt; "Bob"/&gt;
+ * &lt; who="Alice"/&gt;
+ * </pre>
  */
 public class MacroCallNode extends Node {
     String name;

@@ -23,6 +23,12 @@ import java.nio.file.Paths;
  * 解析出的 key 用于在 {@link Context#includes} 中查找已编译模板，随后创建子上下文
  * （其 {@code source} 更新为该目标模板的相对路径）递归渲染。包含循环检测通过
  * {@link Context#includeChain} 实现。
+ *
+ * <h2>语法示例</h2>
+ * <pre>
+ * &lt;#include "header.ftl"/&gt;
+ * &lt;#include "/abs/path.ftl"/&gt;
+ * </pre>
  */
 public class IncludeNode extends Node {
     Object pathLson;

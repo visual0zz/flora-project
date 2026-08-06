@@ -10,6 +10,11 @@ import java.util.Objects;
  *
  * <p>持有宏名 {@link #name}、参数列表 {@link #params}（含可选默认值）和宏体子节点列表 {@link #body}。
  * render 时将自身注册到当前上下文的宏表中，供后续 {@link MacroCallNode} 调用，不产生输出。
+ *
+ * <h2>语法示例</h2>
+ * <pre>
+ * &lt;#macro greet:who="Guest"&gt;Hi ${who}&lt;/#macro&gt;
+ * </pre>
  */
 public class MacroDefNode extends Node {
     /** 宏参数：参数名 + 可选的默认值表达式（Lson AST，为 null 表示无默认值）。 */

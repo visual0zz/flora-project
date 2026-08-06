@@ -18,6 +18,13 @@ import java.util.List;
  * 自定义的 {@code index} 变量名，可在循环体内通过 {@code ${index}} 访问。
  *
  * <p>支持 {@code <#continue[depth][:cond]>} 和 {@code <#break[depth][:cond]>}。
+ *
+ * <h2>语法示例</h2>
+ * <pre>
+ * &lt;#for i,it:items&gt;
+ * ${i}:${it}&lt;#if i greaterThan 0&gt;,&lt;/#if&gt;
+ * &lt;#else&gt;空列表&lt;/#for&gt;
+ * </pre>
  */
 public class ForNode extends Node {
     String var;

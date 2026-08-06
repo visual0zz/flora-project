@@ -1,6 +1,6 @@
 package com.flora.codegen.plugin;
 
-import com.flora.codegen.Ramet;
+import com.flora.ramet.Ramet;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;

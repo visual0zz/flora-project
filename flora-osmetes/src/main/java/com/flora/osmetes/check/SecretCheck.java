@@ -367,10 +367,31 @@ public final class SecretCheck extends LineCheck {
             return entropyDensity(bytes) >= minEntropyDensity
                     && printableRatio(bytes) < 0.8;
         }
-        if (Entropy.alnumClasses(value) < minClasses) {
+        if (alnumClasses(value) < minClasses) {
             return false;
         }
         return Entropy.normalized(value) >= minEntropy;
+    }
+
+    /**
+     * 字母数字类别数（小写 / 大写 / 数字），范围 {@code [0,3]}。
+     * <p>刻意忽略符号、分隔符（{@code - _ / + = .} 等）、空白与控制字符，因为这些在日期、
+     * 路径、ID 等非密钥串里极常见，不应算作"多样性"。这是密钥判定特有的启发式信号，
+     * 熵模块不提供该算法，故内联保留。</p>
+     */
+    private static int alnumClasses(String s) {
+        int mask = 0;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c >= 'a' && c <= 'z') {
+                mask |= 1;
+            } else if (c >= 'A' && c <= 'Z') {
+                mask |= 2;
+            } else if (c >= '0' && c <= '9') {
+                mask |= 4;
+            }
+        }
+        return Integer.bitCount(mask);
     }
 
     /** 值是否为合法 base64 形态（长度够、字符集正确、可解码、解码后至少 8 字节）。 */

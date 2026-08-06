@@ -25,8 +25,8 @@ public final class JdkAgreementFactory implements AlgorithmFactory {
     }
 
     @Override
-    public Set<String> names() {
-        return name == null ? JdkAgreement.SUPPORTED : Set.of(name);
+    public Set<String> supportedAlgorithms() {
+        return JdkAgreement.SUPPORTED;
     }
 
     @Override

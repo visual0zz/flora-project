@@ -25,8 +25,8 @@ public final class AgreementBasedKemFactory implements AlgorithmFactory {
     }
 
     @Override
-    public Set<String> names() {
-        return name == null ? AgreementBasedKem.SUPPORTED : Set.of(name);
+    public Set<String> supportedAlgorithms() {
+        return AgreementBasedKem.SUPPORTED;
     }
 
     @Override

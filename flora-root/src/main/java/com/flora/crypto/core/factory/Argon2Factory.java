@@ -9,7 +9,7 @@ import java.util.Set;
 public final class Argon2Factory implements AlgorithmFactory {
 
     @Override
-    public Set<String> names() {
+    public Set<String> supportedAlgorithms() {
         return Set.of("Argon2", "ARGON2");
     }
 

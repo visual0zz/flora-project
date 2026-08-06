@@ -25,8 +25,8 @@ public final class JdkKeyPairGeneratorFactory implements AlgorithmFactory {
     }
 
     @Override
-    public Set<String> names() {
-        return name == null ? JdkKeyPairGenerator.SUPPORTED : Set.of(name);
+    public Set<String> supportedAlgorithms() {
+        return JdkKeyPairGenerator.SUPPORTED;
     }
 
     @Override

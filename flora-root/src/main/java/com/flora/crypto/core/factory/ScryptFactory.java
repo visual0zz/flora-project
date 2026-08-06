@@ -9,7 +9,7 @@ import java.util.Set;
 public final class ScryptFactory implements AlgorithmFactory {
 
     @Override
-    public Set<String> names() {
+    public Set<String> supportedAlgorithms() {
         return Set.of("Scrypt", "SCRYPT");
     }
 

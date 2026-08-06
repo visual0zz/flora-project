@@ -25,8 +25,8 @@ public final class JdkAsymmetricBlockCipherFactory implements AlgorithmFactory {
     }
 
     @Override
-    public Set<String> names() {
-        return name == null ? JdkAsymmetricBlockCipher.SUPPORTED : Set.of(name);
+    public Set<String> supportedAlgorithms() {
+        return JdkAsymmetricBlockCipher.SUPPORTED;
     }
 
     @Override

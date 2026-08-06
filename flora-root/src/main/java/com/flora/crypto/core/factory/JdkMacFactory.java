@@ -25,8 +25,8 @@ public final class JdkMacFactory implements AlgorithmFactory {
     }
 
     @Override
-    public Set<String> names() {
-        return name == null ? JdkMac.SUPPORTED : Set.of(name);
+    public Set<String> supportedAlgorithms() {
+        return JdkMac.SUPPORTED;
     }
 
     @Override

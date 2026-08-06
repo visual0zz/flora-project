@@ -14,13 +14,18 @@ import java.util.function.Function;
  */
 public interface AlgorithmFactory {
 
-    /** @return 自述的 DSL 名集合（支持大小写别名等多名注册） */
-    Set<String> names();
+    /**
+     * 自述本工厂类支持的算法 DSL 名集合（全集，与实例是否通过 {@link #setAlgorithm(String)} 注入无关）。
+     *
+     * @return 该类可生产的所有算法名
+     */
+    Set<String> supportedAlgorithms();
 
     /**
      * 设定本工厂实例当前工作的算法名。
      * <p>类级批量注册（{@code CryptoProvider.register(AlgorithmKind, Class)}）会先以无参构造创建实例，
-     * 再于注册每个名字前调用本方法注入算法名；之后 {@link #names()} 返回被注入的名字。</p>
+     * 再于注册每个名字前调用本方法注入算法名。本方法仅决定 {@code create()} 生产哪个算法，
+     * 不影响 {@link #supportedAlgorithms()} 返回的全集。</p>
      *
      * @param name 算法 DSL 名
      */
@@ -35,10 +40,10 @@ public interface AlgorithmFactory {
     /**
      * 自述具体度，越小越优先。
      *
-     * @return 默认等于 {@link #names()} 的数量；通用适配器应覆写以返回支持集合大小
+     * @return 默认等于 {@link #supportedAlgorithms()} 的数量；通用适配器应覆写以返回支持集合大小
      */
     default int specificity() {
-        return names().size();
+        return supportedAlgorithms().size();
     }
 
     /**
@@ -56,7 +61,7 @@ public interface AlgorithmFactory {
                                Function<Object[], ?> factory) {
         return new AlgorithmFactory() {
             @Override
-            public Set<String> names() {
+            public Set<String> supportedAlgorithms() {
                 return names;
             }
 

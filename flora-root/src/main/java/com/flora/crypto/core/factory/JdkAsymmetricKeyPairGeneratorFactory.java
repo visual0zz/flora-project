@@ -25,8 +25,8 @@ public final class JdkAsymmetricKeyPairGeneratorFactory implements AlgorithmFact
     }
 
     @Override
-    public Set<String> names() {
-        return name == null ? JdkAsymmetricKeyPairGenerator.SUPPORTED : Set.of(name);
+    public Set<String> supportedAlgorithms() {
+        return JdkAsymmetricKeyPairGenerator.SUPPORTED;
     }
 
     @Override

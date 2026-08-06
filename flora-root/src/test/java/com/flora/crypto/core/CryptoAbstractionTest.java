@@ -246,7 +246,7 @@ class CryptoAbstractionTest {
         // 同 priority(0)：通用（specificity 3）vs 专用（specificity 1）→ 专用胜出
         CryptoProvider.register(AlgorithmKind.DIGEST, new AlgorithmFactory() {
             @Override
-            public Set<String> names() {
+            public Set<String> supportedAlgorithms() {
                 return Set.of(algo);
             }
 

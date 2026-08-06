@@ -25,8 +25,8 @@ public final class JdkBlockCipherFactory implements AlgorithmFactory {
     }
 
     @Override
-    public Set<String> names() {
-        return name == null ? JdkBlockCipher.SUPPORTED : Set.of(name);
+    public Set<String> supportedAlgorithms() {
+        return JdkBlockCipher.SUPPORTED;
     }
 
     @Override

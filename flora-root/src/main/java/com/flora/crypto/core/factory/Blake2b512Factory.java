@@ -9,7 +9,7 @@ import java.util.Set;
 public final class Blake2b512Factory implements AlgorithmFactory {
 
     @Override
-    public Set<String> names() {
+    public Set<String> supportedAlgorithms() {
         return Set.of("BLAKE2B-512");
     }
 

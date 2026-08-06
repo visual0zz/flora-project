@@ -165,25 +165,19 @@ public final class CryptoProvider {
      */
     public static void register(AlgorithmKind role, AlgorithmFactory factory) {
         CheckUtil.notNull(role, "算法族不能为空");
-        Set<String> names = factory.names();
+        Set<String> names = factory.supportedAlgorithms();
         CheckUtil.mustTrue(names != null && !names.isEmpty(), "算法名集合不能为空");
-        int priority = factory.priority();
-        int specificity = factory.specificity();
-        Class<?>[] paramTypes = factory.paramTypes();
-        boolean takesArguments = paramTypes != null && paramTypes.length > 0;
         for (String name : names) {
-            ROLES.computeIfAbsent(role, k -> new ConcurrentHashMap<>())
-                    .computeIfAbsent(name, k -> new CopyOnWriteArrayList<>())
-                    .add(new Entry(priority, specificity, takesArguments, paramTypes, factory::create));
+            register(role, factory, name);
         }
     }
 
     /**
      * 按类注册一个算法工厂（一条语句完成多重注册）。
      * <p>工厂类须提供可访问的无参构造与实例方法 {@link AlgorithmFactory#setAlgorithm(String)}，
-     * 且未注入算法名时 {@link AlgorithmFactory#names()} 返回该类支持的全部 DSL 名。
+     * 且 {@link AlgorithmFactory#supportedAlgorithms()} 返回该类支持的全部 DSL 名（全集，与注入无关）。
      * 注册表先以无参构造创建一个原型实例取其全集，再为每个名字创建独立实例并注入算法名，
-     * 最终委托 {@link #register(AlgorithmKind, AlgorithmFactory)}。</p>
+     * 最终委托 {@link #register(AlgorithmKind, AlgorithmFactory, String)} 逐名登记。</p>
      *
      * @param role  算法族（如 {@link AlgorithmKind#DIGEST}）
      * @param clazz 工厂类（实现 {@link AlgorithmFactory}）
@@ -198,9 +192,9 @@ public final class CryptoProvider {
             throw new IllegalStateException(
                     clazz.getSimpleName() + " 缺少可访问的无参构造器", e);
         }
-        Set<String> names = prototype.names();
+        Set<String> names = prototype.supportedAlgorithms();
         CheckUtil.mustTrue(names != null && !names.isEmpty(),
-                clazz.getSimpleName() + " 未注入算法名时 names() 返回空集合");
+                clazz.getSimpleName() + " 的 supportedAlgorithms() 返回空集合");
         for (String name : names) {
             AlgorithmFactory factory;
             try {
@@ -210,8 +204,26 @@ public final class CryptoProvider {
                         clazz.getSimpleName() + " 缺少可访问的无参构造器", e);
             }
             factory.setAlgorithm(name);
-            register(role, factory);
+            register(role, factory, name);
         }
+    }
+
+    /**
+     * 将单个算法名登记到注册表。
+     *
+     * @param role    算法族
+     * @param factory 生产该算法的工厂实例
+     * @param name    算法 DSL 名
+     */
+    private static void register(AlgorithmKind role, AlgorithmFactory factory, String name) {
+        CheckUtil.notEmpty(name, "算法名不能为空");
+        int priority = factory.priority();
+        int specificity = factory.specificity();
+        Class<?>[] paramTypes = factory.paramTypes();
+        boolean takesArguments = paramTypes != null && paramTypes.length > 0;
+        ROLES.computeIfAbsent(role, k -> new ConcurrentHashMap<>())
+                .computeIfAbsent(name, k -> new CopyOnWriteArrayList<>())
+                .add(new Entry(priority, specificity, takesArguments, paramTypes, factory::create));
     }
 
     // ── DSL 解析与裁决 ──

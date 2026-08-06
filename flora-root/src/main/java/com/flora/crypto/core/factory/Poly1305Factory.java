@@ -9,7 +9,7 @@ import java.util.Set;
 public final class Poly1305Factory implements AlgorithmFactory {
 
     @Override
-    public Set<String> names() {
+    public Set<String> supportedAlgorithms() {
         return Set.of("Poly1305", "POLY1305");
     }
 

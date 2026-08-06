@@ -26,8 +26,8 @@ public final class JdkDigestFactory implements AlgorithmFactory {
     }
 
     @Override
-    public Set<String> names() {
-        return name == null ? JdkDigest.SUPPORTED : Set.of(name);
+    public Set<String> supportedAlgorithms() {
+        return JdkDigest.SUPPORTED;
     }
 
     @Override

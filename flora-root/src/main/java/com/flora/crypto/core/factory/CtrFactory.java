@@ -10,7 +10,7 @@ import java.util.Set;
 public final class CtrFactory implements AlgorithmFactory {
 
     @Override
-    public Set<String> names() {
+    public Set<String> supportedAlgorithms() {
         return Set.of("CTR");
     }
 

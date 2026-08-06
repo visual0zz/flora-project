@@ -25,8 +25,8 @@ public final class JdkKemFactory implements AlgorithmFactory {
     }
 
     @Override
-    public Set<String> names() {
-        return name == null ? JdkKem.SUPPORTED : Set.of(name);
+    public Set<String> supportedAlgorithms() {
+        return JdkKem.SUPPORTED;
     }
 
     @Override

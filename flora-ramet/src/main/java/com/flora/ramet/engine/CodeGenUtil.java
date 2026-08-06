@@ -33,7 +33,7 @@ import java.util.Set;
  *   <li>{@link com.flora.ramet.engine.model.TemplateMeta} —— 模板级元数据聚合与笛卡尔积</li>
  *   <li>{@link com.flora.ramet.engine.runtime.TemplateBody} —— AST 渲染（Context → 文本）</li>
  * </ul>
- * 输入与输出都是纯数据，不涉及文件系统；文件读写由 {@link Ramet} 负责。
+ * 输入与输出都是纯数据，不涉及文件系统；文件读写由 {@link com.flora.ramet.Ramet} 负责。
  */
 public final class CodeGenUtil {
 

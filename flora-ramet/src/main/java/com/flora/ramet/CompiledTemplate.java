@@ -12,7 +12,7 @@ import java.util.List;
  * {@link CompiledTemplate} 即可加速渲染。
  *
  * <p>仅包含 AST 节点列表，不包含元数据。元数据（{@code @Param}、{@code @Path} 等）
- * 仅在入口模板通过 {@link CodeGenUtil#generate} 解析。
+ * 仅在入口模板通过 {@link com.flora.ramet.engine.CodeGenUtil#generate} 解析。
  *
  * @param nodes 已解析的 AST 节点列表
  */

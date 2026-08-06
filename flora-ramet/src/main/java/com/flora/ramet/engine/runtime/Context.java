@@ -31,7 +31,7 @@ public final class Context {
      * 当前正在渲染的模板相对路径（相对模板根目录，正斜杠）。
      * 用于 include 路径以「发起 include 的文件所在文件夹」为基准做相对解析。
      * 顶层模板由 {@code CodeGenUtil.generate} 传入；被 include 的模板由
-     * {@link IncludeNode} 在解析出目标 key 后更新为对应的相对路径。可能为 null
+     * {@link com.flora.ramet.engine.ast.IncludeNode} 在解析出目标 key 后更新为对应的相对路径。可能为 null
      * （如纯内存接口触发的渲染），此时回退为相对模板根目录解析。
      */
     public final String source;

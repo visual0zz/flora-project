@@ -3,14 +3,14 @@ package com.flora.ramet.engine.model;
 import java.util.List;
 
 /**
- * 词法分析产物——由 {@link com.flora.ramet.engine.parser.Lexer} 生成的 Token 对象。
+ * 词法分析产物——由 {@link com.flora.ramet.engine.lexer.Lexer} 生成的 Token 对象。
  *
  * <p>每个 Token 包含类型、原始文本、所在行号和可选的 Lson 参数列表。
  * Token 类型由 {@link Type} 枚举定义，涵盖指令关键字（IF、FOR 等）、
  * 变量引用（VAR）、纯文本（PASSIVE）和注释（COMMENT）等。
  *
  * <p>换行以独立的 {@link Type#NEW_LINE} token 表示，其文本为「换行符 + 其后的连续水平空白」，
- * 由 {@link com.flora.ramet.engine.parser.WhitespaceTrimmer} 在语法分析前统一规整。
+ * 由 {@link com.flora.ramet.engine.lexer.WhitespaceTrimmer} 在语法分析前统一规整。
  * 因此本类不再携带任何前导换行 / 抑制标记。
  */
 public final class Token {

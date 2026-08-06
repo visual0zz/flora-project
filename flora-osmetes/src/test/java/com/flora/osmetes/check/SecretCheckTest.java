@@ -19,8 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * {@link SecretCheck} 的综合判定测试：键名像密钥→WARNING，值像真实密钥→ERROR，
- * 值像 mock 假数据整体豁免。
+ * {@link SecretCheck} 的综合判定测试：扫描字符串字面量与裸标量候选，
+ * 厂商前缀 / 熵 / base64 熵密度→ERROR，占位符 / 正则 / 格式串 / 常规结构→豁免。
  */
 class SecretCheckTest {
 
@@ -40,11 +40,10 @@ class SecretCheckTest {
     }
 
     @Test
-    void keyLikeSecretReportsWarning() throws IOException {
-        // 键名像密钥，值是普通短串（非密钥、非 mock）
-        List<CheckIssue> issues = run("class C { String password = \"helloWorld123\"; }");
-        assertEquals(1, issues.size(), "键名像密钥应报 WARNING: " + issues);
-        assertEquals(Severity.WARNING, issues.getFirst().severity());
+    void plainShortStringValueIsSilent() throws IOException {
+        // 普通短字符串（低于最小长度阈值）不是密钥
+        assertTrue(run("class C { String password = \"helloWorld123\"; }").isEmpty(),
+                "普通短字符串不应报告: ");
     }
 
     @Test
@@ -76,24 +75,17 @@ class SecretCheckTest {
 
     @Test
     void uuidValueIsNotTreatedAsSecret() throws IOException {
-        // UUID 虽高熵，但属常规标识符，不应判为密钥（最多因键名 WARNING）
-        List<CheckIssue> issues = run(
-                "class C { String secret = \"550e8400-e29b-41d4-a716-446655440000\"; }");
-        assertFalse(issues.stream().anyMatch(i -> i.severity() == Severity.ERROR),
-                "UUID 值不应报 ERROR: " + issues);
-        assertEquals(1, issues.size(), "仅因键名报 WARNING: " + issues);
-        assertEquals(Severity.WARNING, issues.getFirst().severity());
+        // UUID 虽高熵，但属常规标识符，不应判为密钥
+        assertTrue(run("class C { String secret = \"550e8400-e29b-41d4-a716-446655440000\"; }").isEmpty(),
+                "UUID 值不应报告: ");
     }
 
     @Test
     void hashValueIsNotTreatedAsSecret() throws IOException {
-        // 长 hex 哈希虽长且高熵，但仅有小写+数字两类，不应判为密钥值
-        List<CheckIssue> issues = run(
-                "class C { String token = \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"; }");
-        assertFalse(issues.stream().anyMatch(i -> i.severity() == Severity.ERROR),
-                "哈希值不应报 ERROR: " + issues);
-        assertEquals(1, issues.size(), "仅因键名报 WARNING: " + issues);
-        assertEquals(Severity.WARNING, issues.getFirst().severity());
+        // 长 hex 哈希属常规摘要结构，不应判为密钥
+        assertTrue(run("class C { String token = \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"; }")
+                        .isEmpty(),
+                "哈希值不应报告: ");
     }
 
     @Test
@@ -111,11 +103,10 @@ class SecretCheckTest {
     }
 
     @Test
-    void compoundKeyNameReportsWarning() throws IOException {
-        // 分隔符复合键名（下划线）像密钥，且值非密钥 → WARNING
-        List<CheckIssue> issues = run("class C { String client_secret = \"normal-text-here\"; }");
-        assertEquals(1, issues.size(), "复合键名应报 WARNING: " + issues);
-        assertEquals(Severity.WARNING, issues.getFirst().severity());
+    void hyphenatedPlainWordIsSilent() throws IOException {
+        // 连字符普通词（单字符类别）不是密钥；键名不再作为判定信号
+        assertTrue(run("class C { String client_secret = \"normal-text-here\"; }").isEmpty(),
+                "连字符普通词不应报告: ");
     }
 
     @Test
@@ -146,11 +137,11 @@ class SecretCheckTest {
     }
 
     @Test
-    void bareScalarInPropertiesReportsWarning() throws IOException {
-        // .properties 允许裸标量，未加引号的值仍需判定
-        List<CheckIssue> issues = runAs("app.properties", "db.password=s3cr3tValue");
+    void bareScalarInPropertiesReportsError() throws IOException {
+        // .properties 允许裸标量，高熵裸值按值形态判 ERROR
+        List<CheckIssue> issues = runAs("app.properties", "db.password=aB3kF9xQ2mNpLr7tVcWz");
         assertEquals(1, issues.size(), "属性文件裸标量应报告: " + issues);
-        assertEquals(Severity.WARNING, issues.getFirst().severity());
+        assertEquals(Severity.ERROR, issues.getFirst().severity());
     }
 
     @Test
@@ -171,14 +162,11 @@ class SecretCheckTest {
     }
 
     @Test
-    void hexDigestSuppressesValueErrorButKeepsKeyWarning() throws IOException {
-        // 64 位 hex 是合法摘要形态；值形态不报 ERROR，但键名像密钥仍给 WARNING 兜底
-        List<CheckIssue> issues = run(
-                "class C { String secretKey = \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"; }");
-        assertFalse(issues.stream().anyMatch(i -> i.severity() == Severity.ERROR),
-                "hex 摘要值不应报 ERROR: " + issues);
-        assertEquals(1, issues.size(), "仅键名 WARNING: " + issues);
-        assertEquals(Severity.WARNING, issues.getFirst().severity());
+    void hexDigestIsSilent() throws IOException {
+        // 64 位 hex 是合法摘要形态，按结构豁免
+        assertTrue(run("class C { String secretKey = \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"; }")
+                        .isEmpty(),
+                "hex 摘要不应报告: ");
     }
 
     @Test
@@ -233,6 +221,45 @@ class SecretCheckTest {
         assertTrue(run("class C { String manifest = \"Manifest-Version: 1.0\\nMain-Class: X\\n\"; }")
                         .isEmpty(),
                 "多行文本不应报: ");
+    }
+
+    @Test
+    void base64RandomKeyReportsError() throws IOException {
+        // base64 形态值：解码后为随机字节（高熵 + 低可打印比例）→ 判为密钥
+        List<CheckIssue> issues = run("class C { String data = \"jxt9grYXCCNDUV/lJMiVUKkHQjr6r0vg\"; }");
+        assertEquals(1, issues.size(), "高熵 base64 应报 ERROR: " + issues);
+        assertEquals(Severity.ERROR, issues.getFirst().severity());
+    }
+
+    @Test
+    void base64EncodedTextIsSilent() throws IOException {
+        // base64 编码的普通文本：解码后可打印比例高 → 豁免
+        assertTrue(run("class C { String msg = "
+                        + "\"SGVsbG8gV29ybGQhIFRoaXMgaXMgYSByZWd1bGFyIHRleHQgbWVzc2FnZSBmb3IgZW50cm9weSB0ZXN0Lg==\"; }")
+                        .isEmpty(),
+                "base64 文本不应报告: ");
+    }
+
+    @Test
+    void regexStringIsSilent() throws IOException {
+        // 正则字面量含正则元字符，不是密钥
+        assertTrue(run("class C { Pattern p = Pattern.compile(\"[a-zA-Z0-9_-]{16,}\"); }").isEmpty(),
+                "正则字符串不应报告: ");
+    }
+
+    @Test
+    void formatStringIsSilent() throws IOException {
+        // 格式串（% 占位符）不是密钥
+        assertTrue(run("class C { String fmt = \"%s-%d-%s\"; }").isEmpty(),
+                "格式串不应报告: ");
+    }
+
+    @Test
+    void methodCallArgumentSecretReportsError() throws IOException {
+        // 非赋值形态（方法参数）中的厂商前缀密钥也能被发现
+        List<CheckIssue> issues = run("class C { void f() { client.setToken(\"sk-aB3kF9xQ2mNpLr7tVcWz\"); } }");
+        assertEquals(1, issues.size(), "方法参数中的前缀密钥应报 ERROR: " + issues);
+        assertEquals(Severity.ERROR, issues.getFirst().severity());
     }
 
     @Test

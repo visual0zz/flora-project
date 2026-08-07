@@ -42,38 +42,38 @@ class OsmetesDisabledChecksTest {
     }
 
     @Test
-    void disablingWhitetailKeepsTab() throws IOException {
+    void disablingTrailingWhitespaceKeepsTab() throws IOException {
         writeMixed();
-        List<CheckIssue> issues = runWith(Set.of("whitetail"));
-        assertFalse(issues.stream().anyMatch(i -> i.check().equals("whitetail")),
-                "whitetail 应被关闭: " + issues);
+        List<CheckIssue> issues = runWith(Set.of("trailing-whitespace"));
+        assertFalse(issues.stream().anyMatch(i -> i.check().equals("trailing-whitespace")),
+                "trailing-whitespace 应被关闭: " + issues);
         assertEquals(1, issues.stream().filter(i -> i.check().equals("tab")).count(),
                 "tab 仍应报告: " + issues);
     }
 
     @Test
-    void disablingTabKeepsWhitetail() throws IOException {
+    void disablingTabKeepsTrailingWhitespace() throws IOException {
         writeMixed();
         List<CheckIssue> issues = runWith(Set.of("tab"));
         assertFalse(issues.stream().anyMatch(i -> i.check().equals("tab")),
                 "tab 应被关闭: " + issues);
-        assertEquals(1, issues.stream().filter(i -> i.check().equals("whitetail")).count(),
-                "whitetail 仍应报告: " + issues);
+        assertEquals(1, issues.stream().filter(i -> i.check().equals("trailing-whitespace")).count(),
+                "trailing-whitespace 仍应报告: " + issues);
     }
 
     @Test
     void disablingMultipleChecksViaUnion() throws IOException {
         writeMixed();
         // 两类检查同时关闭后不应再产生任何问题
-        List<CheckIssue> issues = runWith(Set.of("tab", "whitetail"));
-        assertTrue(issues.isEmpty(), "tab 与 whitetail 均关闭后应为空: " + issues);
+        List<CheckIssue> issues = runWith(Set.of("tab", "trailing-whitespace"));
+        assertTrue(issues.isEmpty(), "tab 与 trailing-whitespace 均关闭后应为空: " + issues);
     }
 
     @Test
     void emptyDisabledSetRunsEverything() throws IOException {
         writeMixed();
         List<CheckIssue> issues = runWith(Set.of());
-        assertEquals(2, issues.size(), "未禁用时 tab 与 whitetail 都应报告: " + issues);
+        assertEquals(2, issues.size(), "未禁用时 tab 与 trailing-whitespace 都应报告: " + issues);
     }
 
     @Test
@@ -88,11 +88,11 @@ class OsmetesDisabledChecksTest {
     void parseNamesSplitsByAnyDelimiter() {
         assertEquals(Set.of("secret", "tab"),
                 Osmetes.parseNames("secret;tab"));
-        assertEquals(Set.of("secret", "tab", "whitetail", "encoding"),
-                Osmetes.parseNames("secret,tab|whitetail &encoding"),
+        assertEquals(Set.of("secret", "tab", "trailing-whitespace", "encoding"),
+                Osmetes.parseNames("secret,tab|trailing-whitespace &encoding"),
                 "逗号/分号/竖线/& 都应作为分隔符");
-        assertEquals(Set.of("whitetail"),
-                Osmetes.parseNames("  whitetail  "), "首尾空白应被去除");
+        assertEquals(Set.of("trailing-whitespace"),
+                Osmetes.parseNames("  trailing-whitespace  "), "首尾空白应被去除");
     }
 
     @Test

@@ -9,9 +9,9 @@ package com.flora.cache;
  * 设计上以两个回调取代原先一组细碎的 {@code onXxx} 回调，动作类型统一用
  * {@link CacheEventType} 表示（与对外事件类型一致）：
  * <ul>
- *   <li>写 / 读类操作统一通过 {@link #onAccess(Object, CacheEventType, boolean)}，
+ *   <li>写 / 读类操作统一通过 {@link #onAccess(Object, CacheEventType, boolean, Object, Object)}，
  *       由 {@link CacheEventType} 区分 PUT / GET / SET_TTL / GET_TTL；</li>
- *   <li>移除类操作统一通过 {@link #onRemove(Object, CacheEventType)}，
+ *   <li>移除类操作统一通过 {@link #onRemove(Object, Object, CacheEventType)}，
  *       由 {@link CacheEventType} 区分 EVICT / EXPIRE / REMOVE。</li>
  * </ul>
  * 各策略按自身需要 switch 枚举即可，无需为每种具体类型分别实现方法；感知不到

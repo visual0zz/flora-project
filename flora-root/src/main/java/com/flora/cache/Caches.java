@@ -19,9 +19,6 @@ import java.util.List;
  * <p>
  * 由于 Java 对链式泛型方法的目标类型推断在字段初始化器中不可靠，
  * 入口 {@link #memory()} 通常需显式类型见证 {@code Caches.<K, V>memory()}。
- *
- * @param <K> 键类型
- * @param <V> 值类型
  */
 @ModuleEntry
 public final class Caches {
@@ -97,7 +94,7 @@ public final class Caches {
             return obs;
         }
 
-        /** 监听器绑定（事件类型 + 监听器），供 {@link #get()} 统一注册。 */
+        /** 监听器绑定（事件类型 + 监听器），供 {@link InMemoryCacheBuilder#get()} 统一注册。 */
         private record ListenerBinding<K, V>(CacheEventType type,
                                              CacheEventListener<? super K, ? super V> listener) {
         }

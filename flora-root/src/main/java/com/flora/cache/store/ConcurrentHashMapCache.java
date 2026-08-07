@@ -279,7 +279,7 @@ public class ConcurrentHashMapCache<K, V>
     /**
      * 把单个过期 key 走删除管线：从存储移除 + 通知策略（onRemove 带 CacheEventType.EXPIRE）。
      * 返回是否真的删除了一个值（并发已删则返回 {@code false}）。
-     * 惰性过期（{@link #get}）与主动扫描（{@link #sweepExpired}）共用此路径。
+     * 惰性过期（{@link #get(Object)}）与主动扫描（{@link #sweepExpired}）共用此路径。
      */
     private boolean expireKey(K key) {
         V old = map.remove(key);

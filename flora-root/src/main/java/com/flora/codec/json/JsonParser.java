@@ -19,7 +19,15 @@ public final class JsonParser {
     private static final Pattern JSON_NUMBER = Pattern.compile(
             "-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?");
 
-    private static final int MAX_DEPTH = 1000;
+    /**
+     * 嵌套深度硬上限（栈溢出防护）。
+     * 解析为递归实现，每嵌套一层约消耗 2 个调用帧；触发本检查时调用栈深度约为
+     * {@code 2 * MAX_DEPTH + 1} 帧。取值须足够小，保证该深度远早于 JVM 线程栈耗尽前就抛出
+     * {@link IllegalStateException}，而非 {@code StackOverflowError}。
+     * 取 512：仍远超任何真实 JSON 的嵌套深度（实际文档极少超过十余层），同时把调用栈限制在约
+     * 1025 帧——约为此前 2001 帧溢出点的一半，留出充分余量；也足以容纳合法的深嵌套（如 501 层数组）。
+     */
+    private static final int MAX_DEPTH = 512;
 
     private final String s;
     private int i;
@@ -84,6 +92,7 @@ public final class JsonParser {
      * @return 解析出的 Java 对象
      */
     private Object parseValue(int depth) {
+        // depth 为当前嵌套层级；超过上限即判定为过深 JSON，抛出 IllegalStateException（栈溢出防护）
         if (depth > MAX_DEPTH) throw err("JSON 嵌套层级过深 (超过 " + MAX_DEPTH + " 层)");
         skipWs();
         if (i >= s.length()) throw err("期望 JSON 值");

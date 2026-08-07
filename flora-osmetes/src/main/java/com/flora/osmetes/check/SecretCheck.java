@@ -339,7 +339,7 @@ public final class SecretCheck extends LineCheck {
             return List.of();
         }
         String value = line.substring(start, i);
-        if (value.isEmpty() || NUMERIC.matcher(value).matches()) {
+        if (NUMERIC.matcher(value).matches()) {
             return List.of();
         }
         return List.of(new Candidate(value, start + 1));
@@ -424,7 +424,7 @@ public final class SecretCheck extends LineCheck {
                 distinct++;
             }
         }
-        if (distinct <= 1 || data.length == 0) {
+        if (distinct <= 1) {
             return 0;
         }
         double h = 0;

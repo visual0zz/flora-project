@@ -1,4 +1,4 @@
-package com.flora.benchmark.run;
+package com.flora.internal.evaluation.run;
 
 import com.flora.algebra.MathUtil;
 import org.openjdk.jmh.annotations.*;

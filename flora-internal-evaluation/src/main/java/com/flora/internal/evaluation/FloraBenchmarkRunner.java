@@ -1,4 +1,4 @@
-package com.flora.benchmark;
+package com.flora.internal.evaluation;
 
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;
@@ -8,9 +8,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Flora 模块 JMH 微基准测试统一入口。
+ * Flora 内部评测 JMH 微基准测试统一入口。
  * <p>
- * 运行此 main 方法即可执行 {@code com.flora.benchmark} 包下所有带 {@code @Benchmark} 的方法。
+ * 运行此 main 方法即可执行 {@code com.flora.internal.evaluation} 包下所有带 {@code @Benchmark} 的方法。
  * </p>
  */
 public final class FloraBenchmarkRunner {
@@ -22,8 +22,8 @@ public final class FloraBenchmarkRunner {
         String time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
 
         Options opt = new OptionsBuilder()
-                // 扫描 com.flora.benchmark 包下所有带 @Benchmark 的方法
-                .include("com\\.flora\\.benchmark\\.run\\..*")
+                // 扫描 com.flora.internal.evaluation 包下所有带 @Benchmark 的方法
+                .include("com\\.flora\\.internal\\.evaluation\\.run\\..*")
                 .shouldDoGC(true)
                 .output("absent/benchmark/flora-" + time + ".txt")
                 .build();

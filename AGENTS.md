@@ -12,8 +12,7 @@ flora-project/            -- 根 POM（pom 打包类型，Java 26）
 │   ├── decision/         -- 决策记录
 │   ├── design/           -- 方案/设计文档
 │   └── exploration/      -- 算法/协议/技术的详细剖析笔记
-├── flora/                -- 聚合模块（root + garden）
-├── flora-benchmark/      -- JMH 微基准测试
+├── flora-internal-evaluation/ -- JMH 微基准测试与内部评测
 ├── flora-garden/         -- 占位模块
 ├── flora-osmetes/        -- 源码分析与校验库
 ├── flora-ramet/          -- 基于模板的代码生成引擎

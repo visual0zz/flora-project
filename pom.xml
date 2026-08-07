@@ -16,8 +16,7 @@
         <module>plugins/maven-plugins/flora-osmetes-plugin</module>
         <module>flora-root</module>
         <module>flora-garden</module>
-        <module>flora</module>
-        <module>flora-benchmark</module>
+        <module>flora-internal-evaluation</module>
         <module>flora-tangle</module>
         <module>flora-tangle/testbed</module>
         <module>cultivating/flora-sanctum</module>

@@ -19,7 +19,8 @@ package com.flora.cache;
  *   <li>{@code REMOVE}：显式删除（{@link Cache#remove(Object)}）。</li>
  *   <li>{@code CLEAR}：整体清空（{@link Cache#clear()}），{@code key} 为 {@code null}。</li>
  * </ul>
- * 内部生命周期事件（由缓存引擎 / 后端驱动，<b>不经过装饰器</b>，故 {@code CacheListenerAdapter} 不派发）：
+ * 内部生命周期事件（由缓存引擎 / 后端驱动，<b>不经显式 API 拦截</b>，但经
+ * {@code CacheListenerAdapter} 的内部移除钩子桥接派发）：
  * <ul>
  *   <li>{@code EVICT}：被淘汰策略移除。</li>
  *   <li>{@code EXPIRE}：TTL 过期被自动清理。</li>

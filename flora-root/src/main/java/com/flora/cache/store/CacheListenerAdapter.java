@@ -30,7 +30,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * 事件在装饰器拦截到的<b>显式</b>操作上派发（put / putIfAbsent / get / ttl / containsKey / setTtl / remove / clear）；
  * 其中 {@code GET} 在每次读取时都会派发，高频读场景需留意监听器开销。
  * 被包装缓存<b>内部</b>触发的淘汰与过期（{@code EVICT} / {@code EXPIRE}，如 {@code cleanUp()} 驱动的批量回收）
- * 不经过本装饰器，故不会派发对应事件——这是装饰器仅观察公开 API 面的固有限制。
+ * 经由 {@link MemoryCache#setInternalRemovalListener} 安装的内部移除钩子桥接派发：{@code of(...)} 包装时
+ * 自动注入该钩子，把存储引擎的 EVICT / EXPIRE 转派给用户监听器，从而无需让存储直接持有事件总线。
  *
  * @param <K> 键类型
  * @param <V> 值类型

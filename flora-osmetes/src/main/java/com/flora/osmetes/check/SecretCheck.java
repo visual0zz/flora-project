@@ -39,8 +39,9 @@ import java.util.regex.Pattern;
  * 否则值像随机密钥报 ERROR。值一律打码，避免把真实密钥写进报告。
  * <p>
  * 通用配置（经 {@link #configure(Map)} 传入）可调整阈值：阈值越低越激进（更易报），
- * 越高越保守。支持的键：{@code secret.minLength}、{@code secret.minClasses}、
- * {@code secret.minEntropy}、{@code secret.minEntropyDensity}。
+ * 越高越保守。支持的子键（已剥离 {@code secret.} 前缀）：{@code minLength}、
+ * {@code minClasses}、{@code minEntropy}、{@code minEntropyDensity}；
+ * 用户侧配置名分别为 {@code secret.minLength} 等。
  */
 public final class SecretCheck extends LineCheck {
 
@@ -207,12 +208,21 @@ public final class SecretCheck extends LineCheck {
         return EXTENSIONS;
     }
 
+    /** 通用配置子键（已剥离 {@code secret.} 前缀）：判定为密钥的最小长度。 */
+    static final String CONFIG_MIN_LENGTH = "minLength";
+    /** 通用配置子键（已剥离 {@code secret.} 前缀）：所需的最少字符类别数。 */
+    static final String CONFIG_MIN_CLASSES = "minClasses";
+    /** 通用配置子键（已剥离 {@code secret.} 前缀）：所需的最小归一化熵。 */
+    static final String CONFIG_MIN_ENTROPY = "minEntropy";
+    /** 通用配置子键（已剥离 {@code secret.} 前缀）：base64 解码后的最小字节熵密度。 */
+    static final String CONFIG_MIN_ENTROPY_DENSITY = "minEntropyDensity";
+
     @Override
     public void configure(Map<String, String> properties) {
-        applyInt(properties, "secret.minLength", v -> minLength = v);
-        applyInt(properties, "secret.minClasses", v -> minClasses = v);
-        applyDouble(properties, "secret.minEntropy", v -> minEntropy = v);
-        applyDouble(properties, "secret.minEntropyDensity", v -> minEntropyDensity = v);
+        applyInt(properties, CONFIG_MIN_LENGTH, v -> minLength = v);
+        applyInt(properties, CONFIG_MIN_CLASSES, v -> minClasses = v);
+        applyDouble(properties, CONFIG_MIN_ENTROPY, v -> minEntropy = v);
+        applyDouble(properties, CONFIG_MIN_ENTROPY_DENSITY, v -> minEntropyDensity = v);
     }
 
     @Override

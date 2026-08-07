@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
  * 默认仅允许 {@code UTF-8}。可通过检查项级配置的
  * {@value #CONFIG_ALLOWED} 键扩展允许的编码清单（多个名称以 {@code ,}、{@code ;}、
  * {@code |}、{@code &} 中任意一个分隔，取并集），例如 {@code UTF-8;GBK}。
+ * 该键是引擎按 {@code name()} 剥离前缀后下发的裸键，用户侧配置名为 {@code encoding.allowed}。
  * <p>
  * 文件只要能被清单中<b>任一</b>编码无错误地完整解码即通过；引擎采用首个成功解码
  * 的编码得到的文本，继续检测其中的 C1 控制字符（U+0080-U+009F）。若所有允许编码
@@ -38,8 +39,8 @@ public final class EncodingCheck implements FileCheck {
             ".java", ".ramet", ".xml", ".properties", ".yaml", ".yml",
             ".json", ".md", ".txt", ".sh", ".cmd", ".bat", ".ps1", ".kts", ".gradle");
 
-    /** 本检查可识别的配置键：允许的编码名清单。 */
-    static final String CONFIG_ALLOWED = "encoding.allowed";
+    /** 本检查可识别的配置子键（已剥离 {@code encoding.} 前缀）：允许的编码名清单。 */
+    static final String CONFIG_ALLOWED = "allowed";
 
     /** 编码名之间的分隔符（与 ignorePatterns / disabledChecks 一致）。 */
     private static final String DELIMITERS = "[,;|&]+";

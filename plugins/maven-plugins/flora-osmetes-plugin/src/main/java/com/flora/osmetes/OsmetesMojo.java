@@ -55,10 +55,12 @@ public final class OsmetesMojo extends AbstractMojo {
     private String disabledChecks;
 
     /**
-     * 检查项级的通用配置表（键 -> 值），原样下发给每个检查项。
+     * 检查项级的通用配置表（键 -> 值），原样下发给引擎。
      * <p>
-     * 引擎在扫描前把整张表交给每个检查项，键的含义由各个检查项自行约定，引擎不解析。
-     * 例如编码检查 {@code EncodingCheck} 读取 {@code encoding.allowed} 键来扩展允许的编码：
+     * 键以检查项名称作为命名空间前缀（如 {@code encoding.allowed}、{@code secret.minLength}）；
+     * 引擎按前缀划分后，剥离前缀把仅属于自己的子集交给对应检查项，检查项本身只认裸子键。
+     * 例如用户以 {@code encoding.allowed} 配置，引擎剥离 {@code encoding.} 后把
+     * {@code allowed} 下发给编码检查来扩展允许的编码：
      * <pre>
      * &lt;checkConfig&gt;
      *     &lt;encoding.allowed&gt;UTF-8;GBK&lt;/encoding.allowed&gt;

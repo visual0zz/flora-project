@@ -21,6 +21,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -110,7 +111,7 @@ public final class Osmetes {
                                        Set<String> disabledChecks, Map<String, String> checkConfig) throws IOException {
         List<CheckIssue> all = new ArrayList<>();
         for (FileCheck check : checks) {
-            check.configure(checkConfig);
+            check.configure(configFor(check, checkConfig));
         }
         List<FileCheck> active = checks.stream()
                 .filter(c -> !disabledChecks.contains(c.name()))
@@ -180,6 +181,30 @@ public final class Osmetes {
      * @param names 分隔符连接的名称串，可为空字符串
      * @return 解析出的名称集合（空串返回空集）
      */
+    /**
+     * 取属于某检查项、已去掉 {@link FileCheck#name()} 前缀的配置子集。
+     * <p>
+     * 完整配置表的键形如 {@code "<name>.<subKey>"}（如 {@code encoding.allowed}）；
+     * 引擎按检查项的 {@code name()} 划分命名空间，只把前缀匹配且已剥离前缀的条目
+     * 交给该检查项。这样实现类只需认自己的裸键（如 {@code allowed}），无需感知
+     * 顶层前缀，也看不到其它检查项的配置。无匹配项时返回空表。
+     *
+     * @param check 目标检查项，其 {@code name()} 作为过滤前缀
+     * @param config 完整配置表
+     * @return 已剥离前缀、仅属于该检查项的配置子集
+     */
+    private static Map<String, String> configFor(FileCheck check, Map<String, String> config) {
+        String prefix = check.name() + ".";
+        Map<String, String> subset = new LinkedHashMap<>();
+        for (var e : config.entrySet()) {
+            String key = e.getKey();
+            if (key.startsWith(prefix)) {
+                subset.put(key.substring(prefix.length()), e.getValue());
+            }
+        }
+        return subset;
+    }
+
     static Set<String> parseNames(String names) {
         if (names == null) {
             return Set.of();

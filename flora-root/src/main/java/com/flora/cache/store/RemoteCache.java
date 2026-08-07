@@ -16,6 +16,9 @@ import java.util.Objects;
  * 这与本地缓存 {@link ConcurrentHashMapCache} 的做法完全一致，避免在每个缓存实现里重复事件代码。
  * 装饰器仅在公开 API 面（put / putIfAbsent / remove / clear / setTtl）上派发事件；
  * 远端自身的淘汰 / 过期由后端驱动，不经过本地装饰器，故不会派发对应事件。
+ * （内部移除钩子 {@link MemoryCache#setInternalRemovalListener} 仅由本地托管的
+ * {@link MemoryCache} 实现（如 {@link ConcurrentHashMapCache}）持有；本类不实现该接口，
+ * 无法桥接远端驱动的 EVICT / EXPIRE，故其不可观测。）
  *
  * <pre>{@code
  * RemoteCache raw = new RemoteCache("myapp:") {

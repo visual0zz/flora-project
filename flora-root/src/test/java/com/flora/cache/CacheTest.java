@@ -10,7 +10,7 @@ class CacheTest {
 
     @Test
     void factoryCreatesUnboundedMemoryCache() {
-        MemoryCache<String, String> cache = Caches.memory(-1);
+        MemoryCache<String, String> cache = Caches.<String, String>memory().get();
         assertNotNull(cache);
         assertEquals(0, cache.approxCount());
     }

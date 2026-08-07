@@ -39,7 +39,7 @@ public final class NativeLib implements AutoCloseable {
     private NativeLib(Arena arena, SymbolLookup lookup) {
         this.arena = arena;
         this.lookup = lookup;
-        this.funcCache = Caches.memory(FUNC_CACHE_CAPACITY);
+        this.funcCache = Caches.<BindKey, NativeFunc>memory().capacity(FUNC_CACHE_CAPACITY).get();
     }
 
     // ====== 加载库（包内可见，统一入口见 Native） ======

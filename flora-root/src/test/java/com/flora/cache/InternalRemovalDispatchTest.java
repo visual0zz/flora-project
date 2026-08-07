@@ -19,7 +19,7 @@ class InternalRemovalDispatchTest {
         AtomicReference<MemoryCache<String, String>> ref = new AtomicReference<>();
         LRUEvictionPolicy<String, String> policy =
                 new LRUEvictionPolicy<>(2, () -> ref.get().approxCount());
-        MemoryCache<String, String> store = Caches.memory(2, policy);
+        MemoryCache<String, String> store = Caches.<String, String>memory().capacity(2).evict(policy).get();
         ref.set(store);
 
         ObservableMemoryCache<String, String> obs = CacheListenerAdapter.of(store);
@@ -36,7 +36,7 @@ class InternalRemovalDispatchTest {
 
     @Test
     void expireDispatchesEventWithOldValue() throws InterruptedException {
-        MemoryCache<String, String> store = Caches.memory(-1);
+        MemoryCache<String, String> store = Caches.<String, String>memory().get();
         ObservableMemoryCache<String, String> obs = CacheListenerAdapter.of(store);
 
         List<String> expired = new ArrayList<>();

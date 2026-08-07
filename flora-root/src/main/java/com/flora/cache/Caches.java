@@ -11,15 +11,11 @@ import java.util.List;
  * 缓存构造工厂。通过导出 API 暴露具体实现的创建，
  * 使其他模块无需依赖 {@code com.flora.cache.store} 等内部子包。
  *
- * <p>支持两种风格：
- * <ul>
- *   <li>便捷工厂：{@link #memory(long)} / {@link #memory(long, EvictionPolicy)} 直接返回有界内存缓存；</li>
- *   <li>链式构造器：{@link #memory()} 返回 {@link InMemoryCacheBuilder}，
- *       可依次设定容量、淘汰策略、可观测性，最后以 {@code get()} 收尾，
- *       例如 {@code Caches.<K, V>memory().capacity(12).evict(policy).get()}。
- *       调用 {@code observable()} 即把缓存包装为可观测视图（支持监听器，
- *       EVICT / EXPIRE 经内部移除钩子桥接派发）。</li>
- * </ul>
+ * <p>链式构造器：{@link #memory()} 返回 {@link InMemoryCacheBuilder}，
+ * 可依次设定容量、淘汰策略、可观测性，最后以 {@code get()} 收尾，
+ * 例如 {@code Caches.<K, V>memory().capacity(12).evict(policy).get()}。
+ * 调用 {@code observable()} 即把缓存包装为可观测视图（支持监听器，
+ * EVICT / EXPIRE 经内部移除钩子桥接派发）。
  * <p>
  * 由于 Java 对链式泛型方法的目标类型推断在字段初始化器中不可靠，
  * 入口 {@link #memory()} 通常需显式类型见证 {@code Caches.<K, V>memory()}。
@@ -36,16 +32,6 @@ public final class Caches {
     /** 启动一个内存缓存的链式构造；默认无界、不驱逐、不可观测。 */
     public static <K, V> InMemoryCacheBuilder<K, V> memory() {
         return new InMemoryCacheBuilder<>();
-    }
-
-    /** 有界内存缓存，默认 W-TinyLFU 驱逐策略（等价于 {@code memory().capacity(capacity).get()}）。 */
-    public static <K, V> MemoryCache<K, V> memory(long capacity) {
-        return new ConcurrentHashMapCache<>(capacity);
-    }
-
-    /** 有界内存缓存，使用自定义驱逐策略（等价于 {@code memory().capacity(capacity).evict(policy).get()}）。 */
-    public static <K, V> MemoryCache<K, V> memory(long capacity, EvictionPolicy<K, V> policy) {
-        return new ConcurrentHashMapCache<>(capacity, policy);
     }
 
     /**
@@ -96,15 +82,15 @@ public final class Caches {
             return this;
         }
 
-        /** 完成构造，返回缓存实例；{@code observable} 时为可观测视图。 */
-        public Cache<K, V> get() {
+        /** 完成构造，返回缓存实例；{@code observable} 时为可观测视图（其本身也是 {@link MemoryCache}）。 */
+        public MemoryCache<K, V> get() {
             MemoryCache<K, V> cache = (policy == null)
                     ? new ConcurrentHashMapCache<>(capacity)
                     : new ConcurrentHashMapCache<>(capacity, policy);
             if (!observable) {
                 return cache;
             }
-            ObservableCache<K, V> obs = CacheListenerAdapter.of(cache);
+            ObservableMemoryCache<K, V> obs = CacheListenerAdapter.of(cache);
             for (ListenerBinding<K, V> b : bindings) {
                 obs.addListener(b.type(), b.listener());
             }

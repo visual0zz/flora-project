@@ -14,7 +14,7 @@ class SlidingTtlTest {
 
     @Test
     void getWithTtlKeepsEntryAlivePastFixedDeadline() throws InterruptedException {
-        MemoryCache<String, String> cache = Caches.memory(-1);
+        MemoryCache<String, String> cache = Caches.<String, String>memory().get();
         Duration ttl = Duration.ofSeconds(2);
 
         cache.put("k", "v", ttl);
@@ -28,7 +28,7 @@ class SlidingTtlTest {
 
     @Test
     void plainGetDoesNotRefreshDeadline() throws InterruptedException {
-        MemoryCache<String, String> cache = Caches.memory(-1);
+        MemoryCache<String, String> cache = Caches.<String, String>memory().get();
         cache.put("k", "v", Duration.ofSeconds(1));
         Thread.sleep(300);
         assertEquals("v", cache.get("k"));      // 普通读取不续期
@@ -38,7 +38,7 @@ class SlidingTtlTest {
 
     @Test
     void getWithNonPositiveOrMaxTtlDoesNotRefresh() throws InterruptedException {
-        MemoryCache<String, String> cache = Caches.memory(-1);
+        MemoryCache<String, String> cache = Caches.<String, String>memory().get();
         cache.put("k", "v", Duration.ofSeconds(1));
         Thread.sleep(400);
         assertEquals("v", cache.get("k", Duration.ZERO));  // 非正 ttl = 纯读取，不续期

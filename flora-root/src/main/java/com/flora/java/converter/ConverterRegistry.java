@@ -1,6 +1,7 @@
 package com.flora.java.converter;
 
-import com.flora.cache.store.ConcurrentHashMapCache;
+import com.flora.cache.Cache;
+import com.flora.cache.Caches;
 import com.flora.java.CheckUtil;
 import com.flora.java.Converter;
 import com.flora.java.TypeMatcher;
@@ -76,7 +77,7 @@ public final class ConverterRegistry {
         ALL_CONVERTERS.addAll(SPI_CONVERTERS);
     }
     private final List<Converter> executors;
-    private final ConcurrentHashMapCache<FindKey, Converter> cache = new ConcurrentHashMapCache<>(4096);
+    private final Cache<FindKey, Converter> cache = Caches.<FindKey, Converter>memory().capacity(4096).get();
     private ConverterRegistry(List<Converter> executors){
         this.executors = new CopyOnWriteArrayList<>(executors);
     }

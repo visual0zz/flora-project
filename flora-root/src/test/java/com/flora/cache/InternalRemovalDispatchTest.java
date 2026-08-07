@@ -36,7 +36,7 @@ class InternalRemovalDispatchTest {
 
     @Test
     void expireDispatchesEventWithOldValue() throws InterruptedException {
-        MemoryCache<String, String> store = Caches.memory();
+        MemoryCache<String, String> store = Caches.memory(-1);
         ObservableMemoryCache<String, String> obs = CacheListenerAdapter.of(store);
 
         List<String> expired = new ArrayList<>();

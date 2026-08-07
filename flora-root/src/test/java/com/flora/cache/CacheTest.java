@@ -10,14 +10,14 @@ class CacheTest {
 
     @Test
     void factoryCreatesUnboundedMemoryCache() {
-        MemoryCache<String, String> cache = Caches.memory();
+        MemoryCache<String, String> cache = Caches.memory(-1);
         assertNotNull(cache);
         assertEquals(0, cache.approxCount());
     }
 
     @Test
     void computeIfAbsentCachesAndComputesOnce() {
-        Cache<String, String> cache = Caches.memory();
+        Cache<String, String> cache = Caches.<String, String>memory().get();
         AtomicInteger calls = new AtomicInteger();
         String v1 = cache.computeIfAbsent("k", k -> {
             calls.incrementAndGet();
@@ -35,7 +35,7 @@ class CacheTest {
 
     @Test
     void computeIfAbsentSkipsNullMapping() {
-        Cache<String, String> cache = Caches.memory();
+        Cache<String, String> cache = Caches.<String, String>memory().get();
         String v = cache.computeIfAbsent("k", k -> null);
         assertNull(v);
         assertFalse(cache.containsKey("k"), "mapping 返回 null 时不写入");

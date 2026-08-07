@@ -14,7 +14,7 @@ import java.lang.foreign.MemorySegment;
  */
 public final class Native {
 
-    private static final Cache<String, NativeLib> LIBS = Caches.memory();
+    private static final Cache<String, NativeLib> LIBS = Caches.<String, NativeLib>memory().get();
 
     private Native() {
     }

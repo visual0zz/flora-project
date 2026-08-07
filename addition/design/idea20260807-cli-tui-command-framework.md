@@ -199,5 +199,81 @@ TUI 前端不依赖任何第三方库，直接用 ANSI 转义序列实现四件�
 2. **命令命名**：点分路径（推荐）与嵌套 `CommandGroup` 对象两种表达子命令树的方式，前者更贴合"心智模型简单"，后者层级能力更强。
 3. **Windows TUI 支持程度**：有限支持 vs 明确不支持（仅 CLI），需用户拍板。
 4. **参数校验错误模型**：统一"结构化的参数错误"是否也用于 CLI 的 stderr 展示格式，待定。
+5. **多前端共享 Session 的输入归一化**：键盘的 `KeyEvent` 与远程消息（如微信文本）需统一成同一套 `InputEvent` 才能进同一条执行流，归一化层放在 Frontend 内还是 `Invocation` 之前，待定。
+6. **多前端执行串行化**：多个前端同时发命令会抢 `Session` 状态，是否由 `Session` 内置单执行锁（或单线程事件循环）强制排队，待定。
+
+## 14. 多前端共享 Session（微信 + TUI 融合场景）
+
+**需求**：一个 Agent TUI 连接微信，微信发来的消息与本地键盘输入"汇总到同一个流"一起执行、一起显示——类比一个 tmux session 被两个 ssh 同时访问。
+
+**结论**：框架原生支持，且**命令声明层零改动**。本质是把微信当成一个新的 `Frontend`，与本地 `TuiFrontend` 同时 attach 到**同一个 `Session`**，并把命令结果写进**同一个可扇出的输出流**。
+
+### 14.1 拓扑对应（tmux 多 client 模型）
+
+| tmux | 框架 | 说明 |
+|------|------|------|
+| session | `Session` | 常驻状态（光标、当前文件、窗格树）——**唯一** |
+| client (ssh) | `Frontend` | 输入源 + 输出目的地——**可多个** |
+| 共享输出缓冲 | `Output` | 当前为单一抽象，需升级为可订阅（§14.3） |
+
+两个前端共用 `Session`，即自动共享执行上下文与显示内容——"汇总成一个流"的核心正在于此。
+
+### 14.2 融入方式（三处都在框架边界，不碰命令）
+
+1. **微信连接 = 一个新的 `Frontend`**
+   实现 `Frontend` 接口（`id()` 返回如 `"wechat"`），其 `run` 内部不是读键盘，而是起一个长连接读消息；每条消息按同一条解析路径变成 `Invocation`，调 `registry.dispatch(...)`，与键盘走的是**同一个** `dispatch`。命令代码对此完全无感知。
+
+   ```
+   // 设计契约示意
+   class WeChatFrontend implements Frontend {
+       String id() { return "wechat"; }
+       void run(CommandRegistry registry, List<String> argv) {
+           connect();                       // 建立微信长连接
+           while (alive) {
+               String msg = readMessage();  // 阻塞读微信消息
+               Invocation ctx = registry.parse(msg.lines());  // 同一解析路径
+               CommandResult r = registry.dispatch(ctx);      // 同一执行路径
+               ctx.out().println(r.message());                // 同一输出流
+           }
+       }
+   }
+   ```
+
+2. **`Output` 升级为可扇出**
+   当前设计里 `Invocation.out()` 返回单一 `Output`。要"两边都能看到"，把 `Output` 退化成一个扇出器 `OutputMultiplexer`，下面挂多个 `OutputSink`：本地 `ScreenSink`（写 TUI 屏）与 `WeChatSink`（回写微信连接）。命令只管 `out().println(...)`，各 sink 都收到，自然"一起显示"。
+
+   ```
+   interface OutputSink { void emit(String text); void emitError(String text); }
+   interface Output {
+       void print(String s);  void println(String s);  void error(String s);
+   }
+   // OutputMultiplexer 实现 Output，把每次调用 fan-out 到所有已挂载的 OutputSink
+   class OutputMultiplexer implements Output {
+       void attach(OutputSink s);   // TuiFrontend 挂 ScreenSink，WeChatFrontend 挂 WeChatSink
+       // print/println/error 内部遍历所有 sink 广播
+   }
+   ```
+
+3. **`Session` 是执行流的汇合点**
+   `Session` 已持有常驻状态，命令执行时从 `Invocation.session()` 取状态、写回状态。两个前端共用它，命令结果即共享上下文。这也解释了为什么"命令层零改动"：命令仍只声明 `args/usage/execute`，不感知输入来自键盘还是微信。
+
+### 14.3 需要补强的两块框架基础设施
+
+当前方案主体按"单前端"描述，落地多前端融合还差两块，但都属于扩展路径的题中应有之义，**不修改命令**：
+
+- **输入事件归一化（对应 §13 开放问题 5）**：键盘产生 `KeyEvent`，微信消息是字符串。要让它们进同一条流，需一层把微信消息也包成统一的 `InputEvent`（或复用 `ParsedArgs` 构造路径），否则两个前端各自解析会分叉。建议归一化层放在 `Frontend` 与 `Invocation` 之间，命令永远只看到统一的 `Invocation`。
+- **执行串行化（对应 §13 开放问题 6）**：两个前端若同时发命令会抢 `Session` 状态。`Session` 应内置一把执行锁（或单线程事件循环），命令排队执行——这正是 tmux 多 client 共享 session 时的内在约束。锁的粒度与超时策略是待定实现细节。
+
+### 14.4 命令层零改动原则重申
+
+这是关键收益：你写的 `Command`（`name()/args()/usage()/execute()`）完全不知道输入来自键盘还是微信。若某些指令需限制来源（如只允许 TUI 触发、不允许微信触发），也只在特化接口（如新增 `SourceRestricted` 或复用 `TuiView`/`AgentView` 的语义）声明，仍是"一处定义、按需特化"，不污染命令本体。
+
+### 14.5 心智模型补完
+
+原三个概念（Command / CommandRegistry / Frontend）不变，仅补一句：
+
+> 一个 `Session` 可被多个 `Frontend` 同时挂载；命令执行的"流"由 `Session` 唯一持有，输出由 `OutputMultiplexer` 广播到所有挂载的 `OutputSink`。
+
+这把 §2 的心智模型从"单前端"自然泛化为"多前端共享会话"，仍只增加一个概念（Session 的共享语义），复杂度可控。
 
 以上为方案主体。评审通过后按此落地实现，实现同样保持零依赖。

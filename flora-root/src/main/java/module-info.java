@@ -46,6 +46,10 @@ module com.flora.root {
     exports com.flora.tag;
     // 缓存抽象与实现
     exports com.flora.cache;
+    // 缓存淘汰策略实现（FIFO / LFU / LRU / W-TinyLFU）
+    exports com.flora.cache.eviction;
+    // 缓存存储引擎与可观测装饰器（ConcurrentHashMapCache / CacheListenerAdapter）
+    exports com.flora.cache.store;
     // 高性能容器消费者
     exports com.flora.fast.container.consumer;
     // 高性能映射容器

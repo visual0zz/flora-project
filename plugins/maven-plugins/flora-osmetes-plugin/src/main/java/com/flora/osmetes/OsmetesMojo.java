@@ -14,7 +14,7 @@ import java.util.Map;
  * Maven Mojo 封装：驱动 osmetes 综合检查引擎。
  * <p>
  * 对 {@code sourceRoot} 目录下的文件执行全部已注册检查项（编码、密钥、
- * Tab、行尾空白 whitetail 等），收集问题并通过 Maven 日志接口输出；存在 ERROR 级别
+ * Tab、行尾空白 trailing-whitespace 等），收集问题并通过 Maven 日志接口输出；存在 ERROR 级别
  * 问题时使构建失败。可通过 {@code disabledChecks} 关闭其中若干检查项，也可通过
  * {@code checkConfig} 给各个检查项下发其自定义的配置（如扩展编码检查允许的编码集）。
  */
@@ -47,7 +47,7 @@ public final class OsmetesMojo extends AbstractMojo {
     /**
      * 需要关闭的检查项名称（用 {@code ,}、{@code ;}、{@code |}、{@code &} 中任意一个分隔，取并集）。
      * <p>
-     * 例如 {@code secret;tab} 关闭密钥与 Tab 检查，{@code whitetail} 仅关闭行尾空白检查。
+     * 例如 {@code secret;tab} 关闭密钥与 Tab 检查，{@code trailing-whitespace} 仅关闭行尾空白检查。
      * 取值为各检查项在报告中显示的名称（{@link FileCheck#name()}）。为空时执行全部检查项。
      * 注意：在 pom.xml 中 {@code &} 需写作 {@code &amp;}，建议优先使用 {@code ;} 或 {@code ,} 分隔。
      */

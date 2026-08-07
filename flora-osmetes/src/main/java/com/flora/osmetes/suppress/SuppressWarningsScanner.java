@@ -26,7 +26,8 @@ import java.util.Set;
  */
 public final class SuppressWarningsScanner {
 
-    private static final String PREFIX = "osmetes:";
+    /** {@code @SuppressWarnings} 中用于标记 osmetes 检查名的命名空间前缀。 */
+    public static final String SUPPRESS_ANNOTATION_PREFIX = "osmetes:";
     private static final String SUPPRESS_WARNINGS = "SuppressWarnings";
 
     private final Map<Integer, Set<String>> suppressedByLine;
@@ -128,8 +129,8 @@ public final class SuppressWarningsScanner {
                 }
             } else if (s.startsWith("\"")) {
                 String value = s.substring(1);
-                if (value.startsWith(PREFIX)) {
-                    names.add(value.substring(PREFIX.length()));
+                if (value.startsWith(SUPPRESS_ANNOTATION_PREFIX)) {
+                    names.add(value.substring(SUPPRESS_ANNOTATION_PREFIX.length()));
                 }
             }
         }

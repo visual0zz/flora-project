@@ -43,6 +43,9 @@ public final class GitIgnore {
     private final Path base;
     private final List<Rule> rules;
 
+    /** 分隔模式串的分隔符正则（与 Osmetes、检查项配置一致）。 */
+    private static final String PATTERN_DELIMITERS = "[,;|&]+";
+
     /** 编译后的单条规则。 */
     private record Rule(Pattern regex, boolean negated, boolean dirOnly) {
     }
@@ -119,7 +122,7 @@ public final class GitIgnore {
             return parse(base, List.of()); // 未配置时退化为空规则集
         }
         List<String> lines = new ArrayList<>();
-        for (String segment : patterns.split("[,;|&]+")) {
+        for (String segment : patterns.split(PATTERN_DELIMITERS)) {
             String trimmed = segment.trim();
             if (!trimmed.isEmpty()) {
                 lines.add(trimmed);

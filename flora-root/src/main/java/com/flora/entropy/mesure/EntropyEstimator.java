@@ -30,21 +30,21 @@ import java.util.function.Supplier;
  * 聚合取所有算法密度的最小值（{@link #minDensity}）即「最保守算法」的判定。</p>
  *
  * <pre>{@code
- * EntropyMetric metric = EntropyProvider.metric("SHANNON");
+ * EntropyMetric metric = EntropyEstimator.metric("SHANNON");
  * double entropy = metric.measure(data);
- * double density = EntropyProvider.density("SHANNON", data);
- * double minD = EntropyProvider.minDensity(data);
+ * double density = EntropyEstimator.density("SHANNON", data);
+ * double minD = EntropyEstimator.minDensity(data);
  * }</pre>
  *
  * <h2>自定义算法注册</h2>
  * <pre>{@code
- * EntropyProvider.registerMetric(new MyEntropyMetric(), name -> new MyEntropyMetric());
- * EntropyMetric m = EntropyProvider.metric("MY_METRIC");
+ * EntropyEstimator.registerMetric(new MyEntropyMetric(), name -> new MyEntropyMetric());
+ * EntropyMetric m = EntropyEstimator.metric("MY_METRIC");
  * }</pre>
  */
-public final class EntropyProvider {
+public final class EntropyEstimator {
 
-    private EntropyProvider() {
+    private EntropyEstimator() {
     }
 
     // ── 注册表：算法名 → 提供者条目列表 ──
@@ -157,6 +157,19 @@ public final class EntropyProvider {
             return 0.0;
         }
         return Math.min(measure / max, 1.0);
+    }
+
+    /**
+     * 计算输入字节的<b>压缩复杂度比</b>（压缩后长度 / 原长，范围 {@code [0,1]}）。
+     * <p>是 {@code COMPLEXITY_RATIO} 算法的「可压缩度」语义视图，与 {@link #density(String, byte[])}
+     * 返回的<b>归一化熵密度</b>（按字节长度上限归一）不同：本方法直接反映压缩比本身，
+     * 不受 {@code maxPerByte(n)} 随短数据缩小的上界影响。</p>
+     *
+     * @param data 待评估字节数组，{@code null} 或空数组返回 0
+     * @return 压缩后长度 / 原长，范围 {@code [0,1]}
+     */
+    public static double compressionRatio(byte[] data) {
+        return ComplexityRatio.ratio(data);
     }
 
     /**

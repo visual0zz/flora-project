@@ -4,12 +4,14 @@ import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import com.flora.tag.ModuleEntry;
 
 /**
  * 数组处理工具类，提供判空、包含判断、索引查找、子数组截取、转换为列表及数组合并等常用操作。
  * <p>除 {@link #isEmpty(Object)} / {@link #isNotEmpty(Object)} 通过反射统一支持原始类型数组外，
  * 其余方法针对对象数组。所有方法均为 null 安全。</p>
  */
+@ModuleEntry
 public final class ArrayUtil {
 
     private ArrayUtil() {

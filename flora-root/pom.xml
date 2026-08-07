@@ -39,7 +39,7 @@
             </build>
         </profile>
         <!-- 可选综合检查：当本地仓库已安装 flora-osmetes 库时激活，
-             用 osmetes-plugin 在 validate 阶段扫描整个仓库（编码、密钥、Tab、行尾空白 whitetail 等），
+             用 osmetes-plugin 在 validate 阶段扫描整个仓库（编码、密钥、Tab、行尾空白 trailing-whitespace 等），
              尽早发现问题，避免后续编译/测试/打包在错误文件上浪费成本。
              扫描范围覆盖仓库根目录（maven.multiModuleProjectDirectory），覆盖全部子模块。
              可用 <disabledChecks> 关闭若干检查项（名称取并集，分隔符 ,;|& 任意），

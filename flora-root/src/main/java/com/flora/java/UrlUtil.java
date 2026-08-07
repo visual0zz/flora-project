@@ -3,12 +3,14 @@ package com.flora.java;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import com.flora.tag.ModuleEntry;
 
 
 /**
  * URL 编解码与路径规范化工具类。
  * <p>提供 URL 的 UTF-8 编解码、路径格式化及协议提取等静态方法。</p>
  */
+@ModuleEntry
 public final class UrlUtil {
 
     private UrlUtil() {

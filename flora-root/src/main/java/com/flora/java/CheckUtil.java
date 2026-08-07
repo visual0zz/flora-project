@@ -1,4 +1,5 @@
 package com.flora.java;
+import com.flora.tag.ModuleEntry;
 
 /**
  * 参数校验工具类，提供简洁的静态方法用于前置条件检查。
@@ -7,6 +8,7 @@ package com.flora.java;
  * 所有方法在条件满足时返回被检查的参数，以支持链式调用。
  * </p>
  */
+@ModuleEntry
 public final class CheckUtil {
 
     private CheckUtil() {

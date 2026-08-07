@@ -2,6 +2,7 @@ package com.flora.java;
 
 import com.flora.java.converter.ConvertFacade;
 import com.flora.java.converter.ConverterRegistry;
+import com.flora.tag.ModuleEntry;
 
 /**
  * 类型转换工具类，提供静态方法便捷地执行类型转换。
@@ -10,6 +11,7 @@ import com.flora.java.converter.ConverterRegistry;
  * 适用于大多数通用转换场景。采用组合而非继承，使外部 API 不暴露转换实现细节。
  * </p>
  */
+@ModuleEntry
 public final class ConvertUtil {
 
     private static final ConvertUtil INSTANCE = new ConvertUtil();

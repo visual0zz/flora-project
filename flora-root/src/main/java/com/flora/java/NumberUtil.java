@@ -1,6 +1,7 @@
 package com.flora.java;
 
 import java.util.regex.Pattern;
+import com.flora.tag.ModuleEntry;
 
 /**
  * 数值处理工具类，提供数值的边界约束、范围判断、安全解析与极值计算等常用操作。
@@ -8,6 +9,7 @@ import java.util.regex.Pattern;
  * 对于返回布尔的判断方法，任一参数为 null 时返回 false。区间方法要求 min ≤ max，
  * 违反时抛出 {@link IllegalArgumentException}。</p>
  */
+@ModuleEntry
 public final class NumberUtil {
 
     private static final Pattern NUMBER_PATTERN =

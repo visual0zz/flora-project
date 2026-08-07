@@ -5,11 +5,13 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import com.flora.tag.ModuleEntry;
 
 /**
  * Map 处理工具类，提供安全取值、缺省填充、键值反转、按值过滤及集合转 Map 等常用操作。
  * <p>所有方法均为 null 安全：map 为 null 时按“空映射”语义处理，并对必要参数做前置校验。</p>
  */
+@ModuleEntry
 public final class MapUtil {
 
     private MapUtil() {

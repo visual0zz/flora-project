@@ -12,8 +12,14 @@ import java.util.List;
 /**
  * 基于行的检查项基类。
  * <p>
- * 统一完成 UTF-8 读取与按行切分，子类只需实现单行检查逻辑；
- * 读取失败由 {@code encoding} 检查项负责报告，此处静默跳过。
+ * 统一完成 UTF-8 读取与按行切分，子类只需实现单行检查逻辑。
+ * <p>
+ * 读取失败（UTF-8 解码异常）时静默跳过本文件，不自行报告：文件是否"合法"取决于
+ * {@code encoding} 检查项在允许编码清单（可能含非 UTF-8 编码，如 GBK）下的判定，
+ * 该判定权在 {@code encoding} 一处，避免 LineCheck 子类各自重复报告或将合法的非
+ * UTF-8 文件误报。因此 {@code encoding} 检查项隐式承担了"文件可解码性"的兜底职责；
+ * 若 {@code encoding} 被 {@code disabledChecks} 禁用，则无法解码的文件将不再被报告
+ * （解码失败检测一并被关闭），这是关闭该项时的预期副作用。
  */
 public abstract class LineCheck implements FileCheck {
 

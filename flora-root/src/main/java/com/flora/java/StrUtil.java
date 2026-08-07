@@ -2,12 +2,14 @@ package com.flora.java;
 
 import java.util.StringJoiner;
 import java.util.regex.Pattern;
+import com.flora.tag.ModuleEntry;
 
 /**
  * 字符串处理工具类。
  * <p>提供字符串的空值/空白判断、修剪、前缀后缀移除、截取、填充、重复拼接、
  * 替换、大小写转换、反转、截断、编解码及类型转换等常用操作。</p>
  */
+@ModuleEntry
 public final class StrUtil {
     private static final String EMPTY = "";
     private static final String NULL = "null";

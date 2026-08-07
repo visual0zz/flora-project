@@ -73,7 +73,7 @@ class SuppressWarningsScannerTest {
                         + "}\n");
         assertTrue(s.isSuppressed(1, "tab"));
         assertTrue(s.isSuppressed(1, "secret"));
-        assertFalse(s.isSuppressed(1, "whitetail"));
+        assertFalse(s.isSuppressed(1, "trailing-whitespace"));
     }
 
     @Test
@@ -208,7 +208,7 @@ class SuppressWarningsScannerTest {
                         + "public class Service<T extends Comparable<T>> {\n"
                         + "    private final List<T> items = List.of();\n"
                         + "    @Deprecated\n"
-                        + "    @SuppressWarnings({\"osmetes:secret\", \"osmetes:whitetail\"})\n"
+                        + "    @SuppressWarnings({\"osmetes:secret\", \"osmetes:trailing-whitespace\"})\n"
                         + "    public T pick(@SuppressWarnings(\"osmetes:tab\") int index) {\n"
                         + "        return items.get(index);\n"
                         + "    }\n"
@@ -217,7 +217,7 @@ class SuppressWarningsScannerTest {
         assertTrue(s.isSuppressed(4, "tab"), "类级注解覆盖整个类体");
         assertTrue(s.isSuppressed(10, "tab"));
         assertTrue(s.isSuppressed(9, "secret"));
-        assertTrue(s.isSuppressed(10, "whitetail"), "方法级 whitetail 注解覆盖方法体");
+        assertTrue(s.isSuppressed(10, "trailing-whitespace"), "方法级 trailing-whitespace 注解覆盖方法体");
         assertTrue(s.isSuppressed(9, "tab"), "参数注解仅注解行");
         assertTrue(s.isSuppressed(11, "tab"), "方法闭合括号行仍在类注解覆盖范围内");
         assertFalse(s.isSuppressed(12, "secret"), "方法注解不应覆盖方法体之外的行");

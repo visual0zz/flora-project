@@ -3,6 +3,7 @@ package com.flora.os.natives.ffm;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 本地动态库调用包装。封装 JDK FFM API，提供轻量调用接口。
@@ -21,6 +22,8 @@ public final class NativeLib implements AutoCloseable {
 
     private final Arena arena;
     private final SymbolLookup lookup;
+    /** 按 (func, returnType, argTypes) 缓存已绑定的 NativeFunc，避免每次调用都重新生成 downcall 桩。 */
+    private final ConcurrentHashMap<BindKey, NativeFunc> funcCache = new ConcurrentHashMap<>();
 
     private NativeLib(Arena arena, SymbolLookup lookup) {
         this.arena = arena;
@@ -73,8 +76,13 @@ public final class NativeLib implements AutoCloseable {
         return bind(func, int.class, args);
     }
 
-    /** 绑定函数并返回可复用的句柄，按指定返回类型生成函数描述符。 */
+    /** 绑定函数并返回可复用的句柄，按指定返回类型生成函数描述符。结果按 (func, returnType, argTypes) 缓存，避免每次调用都重新生成 downcall 桩。 */
     public NativeFunc bind(String func, Class<?> returnType, Object... args) {
+        BindKey key = new BindKey(func, returnType, argClasses(args));
+        NativeFunc cached = funcCache.get(key);
+        if (cached != null) {
+            return cached;
+        }
         MemorySegment addr = lookup.find(func).orElse(null);
         if (addr == null) {
             // 用函数名本身作为符号名再试一次
@@ -83,12 +91,19 @@ public final class NativeLib implements AutoCloseable {
         }
         FunctionDescriptor desc = descriptor(returnType, args);
         MethodHandle handle = LINKER.downcallHandle(addr, desc);
-        return new NativeFunc(handle, desc);
+        NativeFunc nf = new NativeFunc(handle, desc);
+        funcCache.put(key, nf);
+        return nf;
     }
 
     @Override
     public void close() {
+        funcCache.clear();
         arena.close();
+    }
+
+    /** 函数绑定的缓存键：函数名 + 返回类型 + 参数类型序列（参数类型决定 FunctionDescriptor 布局）。 */
+    private record BindKey(String func, Class<?> returnType, List<Class<?>> argTypes) {
     }
 
     // ====== 内部 ======
@@ -145,6 +160,31 @@ public final class NativeLib implements AutoCloseable {
                     "String 参数需用 NativeString 或 MemorySegment，不能直接传入");
             default -> throw new IllegalArgumentException("不支持的类型: " + arg.getClass());
         };
+    }
+
+    /** 返回实参对应的 Java 类型，用于缓存键（需与 {@link #layoutOf} 的映射一致）。 */
+    private static Class<?> argClass(Object arg) {
+        return switch (arg) {
+            case Integer ignored -> int.class;
+            case Long ignored    -> long.class;
+            case Float ignored   -> float.class;
+            case Double ignored  -> double.class;
+            case Boolean ignored -> boolean.class;
+            case MemorySegment ignored -> MemorySegment.class;
+            case NativeString ignored  -> NativeString.class;
+            case String s -> throw new IllegalArgumentException(
+                    "String 参数需用 NativeString 或 MemorySegment，不能直接传入");
+            default -> throw new IllegalArgumentException("不支持的类型: " + arg.getClass());
+        };
+    }
+
+    /** 提取参数类型序列（不可变），用作绑定缓存键的一部分。 */
+    private static List<Class<?>> argClasses(Object... args) {
+        List<Class<?>> types = new ArrayList<>(args.length);
+        for (Object a : args) {
+            types.add(argClass(a));
+        }
+        return List.copyOf(types);
     }
 
     // ====== 可复用的函数句柄 ======

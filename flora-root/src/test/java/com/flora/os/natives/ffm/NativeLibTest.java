@@ -1,6 +1,8 @@
 package com.flora.os.natives.ffm;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.MemoryLayout;
@@ -51,5 +53,15 @@ class NativeLibTest {
         assertEquals(ValueLayout.JAVA_LONG, d.argumentLayouts().get(0));
         assertEquals(ValueLayout.JAVA_INT, d.argumentLayouts().get(1));
         assertEquals(ValueLayout.JAVA_BYTE, d.argumentLayouts().get(2));
+    }
+
+    @Test
+    @EnabledOnOs(OS.LINUX)
+    void bindCachesBySignatureAndArgTypes() {
+        try (NativeLib lib = NativeLib.load("libc")) {
+            NativeLib.NativeFunc a = lib.bind("getpid", int.class);
+            NativeLib.NativeFunc b = lib.bind("getpid", int.class);
+            assertSame(a, b, "相同 (func, returnType, argTypes) 应复用同一 NativeFunc，不再重新生成 downcall 桩");
+        }
     }
 }

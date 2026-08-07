@@ -185,7 +185,7 @@ TUI 前端不依赖任何第三方库，直接用 ANSI 转义序列实现四件�
 
 - **ANSI 渲染 / 屏幕缓冲 / 布局**：纯 JDK 可完成，无难点。
 - **参数解析**：手写状态机即可，本项目入口现状已证明规模可控。
-- **原始模式**（TUI 专属）：Unix 借 `stty` 子进程实现零依赖；**Windows 无公开 Java API**。方案：Windows 下通过 `powershell` 调 `SetConsoleMode`，若不可行则明确降级为"TUI 在 Windows 仅支持有限交互、CLI 不受影响"。这是如实声明的工程权衡，不掩盖限制。
+- **原始模式**（TUI 专属）：Unix 借 `stty` 子进程实现零依赖；**Windows 经 FFM 实现零依赖全支持**——`flora-root` 的 `com.flora.os.natives.ffm.NativeLib` 用 JDK 标准 FFM 直接 downcall `kernel32` 的 `GetStdHandle`/`GetConsoleMode`/`SetConsoleMode` 切换 raw mode，无需 JNA/JNI。完整实现与代码见技术探索笔记 `addition/exploration/explore20260807-windows-raw-mode-ffm.md`。使用前提：启动 JVM 需 `--enable-native-access=com.flora.root`。注意经典 Conhost 与 Windows Terminal 的 ConPTY 在 raw 语义上略有差异；该方案覆盖经典控制台场景。
 
 ## 12. 与现有代码的关系（收编路径）
 
@@ -197,7 +197,7 @@ TUI 前端不依赖任何第三方库，直接用 ANSI 转义序列实现四件�
 
 1. **放置位置**：flora-root（推荐）还是独立 flora-shell 模块——需用户确认。
 2. **命令命名**：点分路径（推荐）与嵌套 `CommandGroup` 对象两种表达子命令树的方式，前者更贴合"心智模型简单"，后者层级能力更强。
-3. **Windows TUI 支持程度**：有限支持 vs 明确不支持（仅 CLI），需用户拍板。
+3. **Windows TUI 支持程度**：已由 FFM 方案解决（见 `explore20260807-windows-raw-mode-ffm.md`），结论为"FFM 零依赖全支持"，原"有限支持 vs 不支持"的二选一不再成立。
 4. **参数校验错误模型**：统一"结构化的参数错误"是否也用于 CLI 的 stderr 展示格式，待定。
 5. **多前端共享 Session 的输入归一化**：键盘的 `KeyEvent` 与远程消息（如微信文本）需统一成同一套 `InputEvent` 才能进同一条执行流，归一化层放在 Frontend 内还是 `Invocation` 之前，待定。
 6. **多前端执行串行化**：多个前端同时发命令会抢 `Session` 状态，是否由 `Session` 内置单执行锁（或单线程事件循环）强制排队，待定。

@@ -172,16 +172,6 @@ public final class Osmetes {
     }
 
     /**
-     * 将分隔符连接的检查项名称串解析为集合。
-     * <p>
-     * 以 {@code ,}、{@code ;}、{@code |}、{@code &} 中任意一个作为分隔符，多个名称取并集；
-     * 各段首尾空白会被去除，空段忽略。例如 {@code "secret;tab"} 解析为包含
-     * {@code secret} 与 {@code tab} 的集合。供 Maven 插件等外部配置使用。
-     *
-     * @param names 分隔符连接的名称串，可为空字符串
-     * @return 解析出的名称集合（空串返回空集）
-     */
-    /**
      * 取属于某检查项、已去掉 {@link FileCheck#name()} 前缀的配置子集。
      * <p>
      * 完整配置表的键形如 {@code "<name>.<subKey>"}（如 {@code encoding.allowed}）；
@@ -205,6 +195,16 @@ public final class Osmetes {
         return subset;
     }
 
+    /**
+     * 将分隔符连接的检查项名称串解析为集合。
+     * <p>
+     * 以 {@code ,}、{@code ;}、{@code |}、{@code &} 中任意一个作为分隔符，多个名称取并集；
+     * 各段首尾空白会被去除，空段忽略。例如 {@code "secret;tab"} 解析为包含
+     * {@code secret} 与 {@code tab} 的集合。供 Maven 插件等外部配置使用。
+     *
+     * @param names 分隔符连接的名称串，可为空字符串
+     * @return 解析出的名称集合（空串返回空集）
+     */
     static Set<String> parseNames(String names) {
         if (names == null) {
             return Set.of();

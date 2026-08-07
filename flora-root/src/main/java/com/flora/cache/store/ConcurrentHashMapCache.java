@@ -1,6 +1,7 @@
 package com.flora.cache.store;
 
 import com.flora.cache.CacheEventType;
+import com.flora.cache.CacheEventListener;
 import com.flora.cache.EvictionPolicy;
 import com.flora.cache.MemoryCache;
 import com.flora.cache.eviction.WTinyLfuEvictionPolicy;
@@ -35,6 +36,8 @@ public class ConcurrentHashMapCache<K, V>
     private final ConcurrentHashMap<K, Long> expiry = new ConcurrentHashMap<>();
 
     private EvictionPolicy<K, V> policy;
+    /** 内部移除（逐出/过期）监听；由可观测装饰器注入，用于把 EVICT/EXPIRE 桥接给用户监听器。 */
+    private volatile CacheEventListener<K, V> removalListener;
     private final long capacity;
     /** 容量淘汰时的并发闸门，避免 ensureCapacity 重入导致重复淘汰 */
     private final AtomicBoolean evicting = new AtomicBoolean();
@@ -113,11 +116,11 @@ public class ConcurrentHashMapCache<K, V>
     private void upsert(K key, V value, Duration duration) {
         boolean existed = storeContains(key);
         if (!existed) ensureCapacity();
+        // map.put 返回被替换的前值（新建时为 null），作为 onAccess 的 oldValue
+        V oldValue = map.put(key, value);
         if (duration == null) {
-            map.put(key, value);
             expiry.remove(key);
         } else {
-            map.put(key, value);
             Long exp = null;
             if (!duration.isNegative() && !duration.equals(Duration.MAX)) {
                 exp = System.currentTimeMillis() + duration.toMillis();
@@ -126,7 +129,7 @@ public class ConcurrentHashMapCache<K, V>
             else expiry.put(key, exp);
         }
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onAccess(key, CacheEventType.PUT, existed);
+        if (p != null) p.onAccess(key, CacheEventType.PUT, existed, oldValue, value);
     }
 
     @Override
@@ -142,9 +145,9 @@ public class ConcurrentHashMapCache<K, V>
         Objects.requireNonNull(value, "value must not be null");
         if (duration != null && (duration.isZero() || duration.isNegative())) return false;
         if (storeContains(key)) {
-            // 已存在：原子写未生效，仅当作一次引用刷新热度
+            // 已存在：原子写未生效，仅当作一次引用刷新热度；旧值即当前值
             EvictionPolicy<K, V> p = policy;
-            if (p != null) p.onAccess(key, CacheEventType.PUT, true);
+            if (p != null) p.onAccess(key, CacheEventType.PUT, true, map.get(key), value);
             return false;
         }
         ensureCapacity();
@@ -163,7 +166,7 @@ public class ConcurrentHashMapCache<K, V>
             }) == value;
         }
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onAccess(key, CacheEventType.PUT, !inserted);
+        if (p != null) p.onAccess(key, CacheEventType.PUT, !inserted, null, value);
         return inserted;
     }
 
@@ -177,14 +180,14 @@ public class ConcurrentHashMapCache<K, V>
             Long exp = expiry.get(key);
             if (exp == null || !(System.currentTimeMillis() >= exp)) {
                 EvictionPolicy<K, V> p = policy;
-                if (p != null) p.onAccess(key, CacheEventType.GET, true);
+                if (p != null) p.onAccess(key, CacheEventType.GET, true, null, null);
                 return v;
             }
         }
         // 惰性过期：访问时发现过期即走删除管线
         if (storeIsExpired(key)) expireKey(key);
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onAccess(key, CacheEventType.GET, false);
+        if (p != null) p.onAccess(key, CacheEventType.GET, false, null, null);
         return null;
     }
 
@@ -208,9 +211,10 @@ public class ConcurrentHashMapCache<K, V>
         if (!storeContains(key)) return;
         if (duration.equals(Duration.MAX)) expiry.remove(key);
         else expiry.put(key, System.currentTimeMillis() + duration.toMillis());
-        // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度
+        // TTL 刷新 = 重新确认条目仍被需要，刷新其淘汰热度（SET_TTL 不改写值，newValue 为 null；
+        // oldValue 为被刷新的当前值）
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onAccess(key, CacheEventType.SET_TTL, true);
+        if (p != null) p.onAccess(key, CacheEventType.SET_TTL, true, map.get(key), null);
     }
 
     @Override
@@ -234,7 +238,7 @@ public class ConcurrentHashMapCache<K, V>
         expiry.remove(key);
         if (old == null) return null; // 并发已删
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onRemove(key, CacheEventType.REMOVE);
+        if (p != null) p.onRemove(key, old, CacheEventType.REMOVE);
         return old;
     }
 
@@ -272,7 +276,9 @@ public class ConcurrentHashMapCache<K, V>
         expiry.remove(key);
         if (old == null) return false;
         EvictionPolicy<K, V> p = policy;
-        if (p != null) p.onRemove(key, CacheEventType.EXPIRE);
+        if (p != null) p.onRemove(key, old, CacheEventType.EXPIRE);
+        CacheEventListener<K, V> rl = removalListener;
+        if (rl != null) rl.onEvent(CacheEventType.EXPIRE, key, old, null);
         return true;
     }
 
@@ -294,7 +300,9 @@ public class ConcurrentHashMapCache<K, V>
                 expiry.remove(victim);
                 if (old != null) {
                     EvictionPolicy<K, V> p1 = policy;
-                    if (p1 != null) p1.onRemove(victim, CacheEventType.EVICT);
+                    if (p1 != null) p1.onRemove(victim, old, CacheEventType.EVICT);
+                    CacheEventListener<K, V> rl = removalListener;
+                    if (rl != null) rl.onEvent(CacheEventType.EVICT, victim, old, null);
                 }
             }
         } finally {
@@ -331,5 +339,10 @@ public class ConcurrentHashMapCache<K, V>
     @Override
     public EvictionPolicy<K, V> evictionPolicy() {
         return policy;
+    }
+
+    @Override
+    public void setInternalRemovalListener(CacheEventListener<K, V> listener) {
+        this.removalListener = listener;
     }
 }

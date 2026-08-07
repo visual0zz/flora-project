@@ -52,15 +52,26 @@ public class CacheListenerAdapter<K, V>
     // ========== 工厂方法 ==========
 
     public static <K, V> ObservableMemoryCache<K, V> of(MemoryCache<K, V> cache) {
-        return new CacheListenerAdapter<>(cache);
+        CacheListenerAdapter<K, V> a = new CacheListenerAdapter<>(cache);
+        cache.setInternalRemovalListener(a::bridgeRemoval);
+        return a;
     }
 
     public static <K, V> ObservableBoundedCache<K, V> of(BoundedCache<K, V> cache) {
-        return new CacheListenerAdapter<>(cache);
+        CacheListenerAdapter<K, V> a = new CacheListenerAdapter<>(cache);
+        if (cache instanceof MemoryCache<K, V> mc) mc.setInternalRemovalListener(a::bridgeRemoval);
+        return a;
     }
 
     public static <K, V> ObservableCache<K, V> of(Cache<K, V> cache) {
-        return new CacheListenerAdapter<>(cache);
+        CacheListenerAdapter<K, V> a = new CacheListenerAdapter<>(cache);
+        if (cache instanceof MemoryCache<K, V> mc) mc.setInternalRemovalListener(a::bridgeRemoval);
+        return a;
+    }
+
+    /** 内部移除桥接：把存储引擎的 EVICT/EXPIRE 转派给用户监听器。 */
+    private void bridgeRemoval(CacheEventType type, K key, V oldValue, V newValue) {
+        fire(type, key, oldValue, newValue);
     }
 
     // ========== 监听器管理（ObservableCache） ==========

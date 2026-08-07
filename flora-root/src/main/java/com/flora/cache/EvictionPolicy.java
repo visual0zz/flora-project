@@ -30,24 +30,33 @@ public interface EvictionPolicy<K, V> {
      * {@code existed == false}）通常仅预热频率素描、不进入淘汰候选段。策略据此维护内部
      * 追踪状态（访问序、权重、频率计数等）。
      *
-     * @param key     被访问的键
-     * @param action  访问类型（PUT / GET / SET_TTL / GET_TTL）
-     * @param existed 操作前该 key 是否已逻辑存在；
-     *                PUT 时 {@code false}=新建、{@code true}=覆盖写；
-     *                GET / SET_TTL / GET_TTL 语义上恒为已存在态
+     * @param key      被访问的键
+     * @param action   访问类型（PUT / GET / SET_TTL / GET_TTL）
+     * @param existed  操作前该 key 是否已逻辑存在；
+     *                 PUT 时 {@code false}=新建、{@code true}=覆盖写；
+     *                 GET / SET_TTL / GET_TTL 语义上恒为已存在态
+     * @param oldValue 本次操作覆盖前的旧值：PUT 覆盖写时为被替换的前值；PUT 新建、
+     *                 GET、SET_TTL（不改写值）为 {@code null}。自定义策略如需在覆盖写时
+     *                 回收被替换的旧值可借此使用
+     * @param newValue 本次操作写入的新值：仅 PUT / PUT_IF_ABSENT 为写入的值；GET（读操作）
+     *                 与 SET_TTL（仅刷新 TTL、不改写值）均为 {@code null}。策略通常不需使用，
+     *                 仅为与 {@link #onRemove} 对称、便于需要值语义的自定义策略使用
      */
-    void onAccess(K key, CacheEventType action, boolean existed);
+    void onAccess(K key, CacheEventType action, boolean existed, V oldValue, V newValue);
 
     /**
      * 通知策略：某 key 以指定原因离开缓存（被淘汰 / 过期 / 显式删除）。
      * <p>
      * 策略应在此将 key 从内部追踪结构（访问序、权重表、频率计数等）中摘除，保持状态与缓存一致。
      * 不同 {@link CacheEventType} 的内部处理通常一致；如需区分（统计 / 日志）可按枚举分别处理。
+     * 若策略需在条目离开缓存时对其值执行资源回收（如关闭句柄），可在此用 {@code oldValue} 完成。
      *
-     * @param key   被移除的键
-     * @param reason 移除原因（CacheEventType#EVICT / EXPIRE / REMOVE）
+     * @param key      被移除的键
+     * @param oldValue 被移除前的值（EVICT / EXPIRE / REMOVE 均为离开缓存时的真实值）；
+     *                 自定义策略可借此对其调用清理函数（如 {@code AutoCloseable.close()}）
+     * @param reason   移除原因（CacheEventType#EVICT / EXPIRE / REMOVE）
      */
-    void onRemove(K key, CacheEventType reason);
+    void onRemove(K key, V oldValue, CacheEventType reason);
 
     /**
      * 通知策略缓存被整体清空（clear）。

@@ -31,7 +31,7 @@ public final class FIFOEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onAccess(K key, CacheEventType action, boolean existed) {
+    public void onAccess(K key, CacheEventType action, boolean existed, V oldValue, V newValue) {
         if (action != CacheEventType.PUT) return; // GET / SET_TTL / GET_TTL 不改变顺序：顺序仅由写入决定
         lock.lock();
         try {
@@ -42,7 +42,7 @@ public final class FIFOEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onRemove(K key, CacheEventType reason) {
+    public void onRemove(K key, V oldValue, CacheEventType reason) {
         lock.lock();
         try {
             queue.remove(key);

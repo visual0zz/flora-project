@@ -31,7 +31,7 @@ public final class LRUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onAccess(K key, CacheEventType action, boolean existed) {
+    public void onAccess(K key, CacheEventType action, boolean existed, V oldValue, V newValue) {
         switch (action) {
             case PUT -> {
                 lock.lock();
@@ -54,7 +54,7 @@ public final class LRUEvictionPolicy<K, V> implements EvictionPolicy<K, V> {
     }
 
     @Override
-    public void onRemove(K key, CacheEventType reason) {
+    public void onRemove(K key, V oldValue, CacheEventType reason) {
         lock.lock();
         try {
             order.remove(key);

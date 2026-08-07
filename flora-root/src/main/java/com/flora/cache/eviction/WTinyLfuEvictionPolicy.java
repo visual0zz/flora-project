@@ -176,7 +176,7 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
     // ========== EvictionPolicy 回调 ==========
 
     @Override
-    public void onAccess(K key, CacheEventType action, boolean existed) {
+    public void onAccess(K key, CacheEventType action, boolean existed, V oldValue, V newValue) {
         switch (action) {
             case PUT -> {
                 sketch.increment(key);
@@ -218,7 +218,7 @@ public final class WTinyLfuEvictionPolicy<K, V> implements EvictionPolicy<K, V> 
     }
 
     @Override
-    public void onRemove(K key, CacheEventType reason) {
+    public void onRemove(K key, V oldValue, CacheEventType reason) {
         windowLock.lock();
         try {
             window.remove(key);

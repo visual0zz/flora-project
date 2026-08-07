@@ -130,6 +130,11 @@ public class FileAppender implements Appender {
         return filePath;
     }
 
+    @Override
+    public Path getTargetPath() {
+        return filePath;
+    }
+
     /**
      * 追加日志事件到文件。
      * <p>

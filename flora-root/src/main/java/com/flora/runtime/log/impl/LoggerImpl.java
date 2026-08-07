@@ -1,6 +1,7 @@
 package com.flora.runtime.log.impl;
 import com.flora.tag.ThreadFragile;
 
+import com.flora.java.CheckUtil;
 import com.flora.runtime.log.Level;
 import com.flora.runtime.log.Logger;
 import com.flora.runtime.log.LoggerFactory;
@@ -9,6 +10,7 @@ import com.flora.runtime.log.spi.Layout;
 import com.flora.runtime.log.spi.LogEvent;
 import com.flora.runtime.log.spi.Masker;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -88,7 +90,26 @@ public final class LoggerImpl implements Logger {
      * @param appender 要添加的附加器
      */
     public void addAppender(Appender appender) {
-        appenders.add(appender);
+        CheckUtil.notNull(appender, "appender cannot be null");
+        synchronized (appenders) {
+            Path path = appender.getTargetPath();
+            if (path != null) {
+                Path normalized = normalizePath(path);
+                for (Appender existing : appenders) {
+                    Path existingPath = existing.getTargetPath();
+                    if (existingPath != null && normalized.equals(normalizePath(existingPath))) {
+                        throw new IllegalArgumentException(
+                                "Duplicate log file path: " + path
+                                        + " already used by another appender on logger '" + name + "'");
+                    }
+                }
+            }
+            appenders.add(appender);
+        }
+    }
+
+    private static Path normalizePath(Path path) {
+        return path.toAbsolutePath().normalize();
     }
 
     /**

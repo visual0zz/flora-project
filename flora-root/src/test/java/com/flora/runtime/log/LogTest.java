@@ -226,6 +226,32 @@ class LogTest {
         }
     }
 
+    /**
+     * 同一日志器上两个 appender 指向相同文件应被拒绝（配置期去重）。
+     */
+    @Test
+    void testDuplicateAppenderPathRejected() {
+        Logger logger = LoggerFactory.getLogger("dupPathTest");
+        Path file = Path.of("target", "logtest", "dup.log");
+        ((LoggerImpl) logger).addAppender(new FileAppender(file));
+
+        FileAppender dup = new FileAppender(file);
+        assertThrows(IllegalArgumentException.class,
+                () -> ((LoggerImpl) logger).addAppender(dup),
+                "同一日志器上重复的文件路径应被拒绝");
+
+        // 相对/规范形式不同但指向同一文件，也应被识别为重复
+        FileAppender relative = new FileAppender(
+                Path.of("target", "logtest", "..", "logtest", "dup.log"));
+        assertThrows(IllegalArgumentException.class,
+                () -> ((LoggerImpl) logger).addAppender(relative),
+                "规范后相同的文件路径应被识别为重复");
+
+        // 不同路径则允许共存
+        assertDoesNotThrow(() -> ((LoggerImpl) logger)
+                .addAppender(new FileAppender(Path.of("target", "logtest", "other.log"))));
+    }
+
     // ==================== 级别继承 ====================
 
     /**

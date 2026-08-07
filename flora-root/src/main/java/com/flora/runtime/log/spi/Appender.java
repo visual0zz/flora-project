@@ -2,6 +2,8 @@ package com.flora.runtime.log.spi;
 
 import com.flora.runtime.log.Level;
 
+import java.nio.file.Path;
+
 
 /**
  * 日志附加器接口，定义了日志输出的目的地和行为。
@@ -64,5 +66,16 @@ public interface Appender {
      * 关闭附加器，释放资源。
      */
     default void close() {
+    }
+
+    /**
+     * 返回该附加器输出的目标文件路径；非文件类附加器（如控制台）返回 {@code null}。
+     * <p>供配置期检测同一日志器上多个附加器指向相同文件时使用；默认实现返回 {@code null}，
+     * 文件类附加器应覆写以返回其目标路径。</p>
+     *
+     * @return 目标文件路径，或 {@code null}
+     */
+    default Path getTargetPath() {
+        return null;
     }
 }

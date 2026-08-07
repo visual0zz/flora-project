@@ -205,6 +205,11 @@ public class RollingFileAppender implements Appender {
         return maxHistory;
     }
 
+    @Override
+    public Path getTargetPath() {
+        return basePath;
+    }
+
     /**
      * 追加日志事件，在写入前检查是否需要进行文件滚动。
      *

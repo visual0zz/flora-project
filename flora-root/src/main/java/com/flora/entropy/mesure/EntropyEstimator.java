@@ -160,6 +160,19 @@ public final class EntropyEstimator {
     }
 
     /**
+     * 计算输入字节的<b>压缩复杂度比</b>（压缩后长度 / 原长，范围 {@code [0,1]}）。
+     * <p>是 {@code COMPLEXITY_RATIO} 算法的「可压缩度」语义视图，与 {@link #density(String, byte[])}
+     * 返回的<b>归一化熵密度</b>（按字节长度上限归一）不同：本方法直接反映压缩比本身，
+     * 不受 {@code maxPerByte(n)} 随短数据缩小的上界影响。</p>
+     *
+     * @param data 待评估字节数组，{@code null} 或空数组返回 0
+     * @return 压缩后长度 / 原长，范围 {@code [0,1]}
+     */
+    public static double compressionRatio(byte[] data) {
+        return ComplexityRatio.ratio(data);
+    }
+
+    /**
      * 计算输入串在所有（或指定）已注册算法上的<b>随机性密度最小值</b>（{@code [0,1]}）。
      * <p>字符串按 UTF-8 编码为字节后参与评估。取最小值即「最保守算法」的判定：
      * 仅当所有参与算法都认为该数据高度随机时结果才高，任何算法认为「不像随机」

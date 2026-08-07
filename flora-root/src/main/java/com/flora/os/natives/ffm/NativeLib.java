@@ -73,34 +73,39 @@ public final class NativeLib implements AutoCloseable {
     // ====== 实例方法 ======
 
     public int callInt(String func, Object... args) {
-        return bind(func, args).callInt(args);
+        return bind(func, int.class, args).callInt(args);
     }
 
     public long callLong(String func, Object... args) {
-        return bind(func, args).callLong(args);
+        return bind(func, long.class, args).callLong(args);
     }
 
     public double callDouble(String func, Object... args) {
-        return bind(func, args).callDouble(args);
+        return bind(func, double.class, args).callDouble(args);
     }
 
     public void callVoid(String func, Object... args) {
-        bind(func, args).callVoid(args);
+        bind(func, void.class, args).callVoid(args);
     }
 
     public MemorySegment callPtr(String func, Object... args) {
-        return bind(func, args).callPtr(args);
+        return bind(func, MemorySegment.class, args).callPtr(args);
     }
 
-    /** 绑定函数并返回可复用的句柄。 */
+    /** 绑定函数并返回可复用的句柄，返回值按 int 解释（兼容旧用法）。 */
     public NativeFunc bind(String func, Object... args) {
+        return bind(func, int.class, args);
+    }
+
+    /** 绑定函数并返回可复用的句柄，按指定返回类型生成函数描述符。 */
+    public NativeFunc bind(String func, Class<?> returnType, Object... args) {
         MemorySegment addr = lookup.find(func).orElse(null);
         if (addr == null) {
             // 用函数名本身作为符号名再试一次
             addr = LINKER.defaultLookup().find(func).orElseThrow(
                     () -> new IllegalArgumentException("找不到函数: " + func));
         }
-        FunctionDescriptor desc = descriptor(args);
+        FunctionDescriptor desc = descriptor(returnType, args);
         MethodHandle handle = LINKER.downcallHandle(addr, desc);
         return new NativeFunc(handle, desc);
     }
@@ -112,13 +117,43 @@ public final class NativeLib implements AutoCloseable {
 
     // ====== 内部 ======
 
-    private static FunctionDescriptor descriptor(Object... args) {
+    /**
+     * 按返回类型与参数生成函数描述符。返回布局必须与实际 C 函数一致，
+     * 否则 64 位返回值（指针/HANDLE）会被按 32 位读取而截断。
+     */
+    static FunctionDescriptor descriptor(Class<?> returnType, Object... args) {
         List<MemoryLayout> paramLayouts = new ArrayList<>();
         for (Object arg : args) {
             paramLayouts.add(layoutOf(arg));
         }
-        return FunctionDescriptor.of(ValueLayout.JAVA_INT,
-                paramLayouts.toArray(MemoryLayout[]::new));
+        MemoryLayout ret = returnLayout(returnType);
+        if (ret == null) {
+            return FunctionDescriptor.ofVoid(paramLayouts.toArray(MemoryLayout[]::new));
+        }
+        return FunctionDescriptor.of(ret, paramLayouts.toArray(MemoryLayout[]::new));
+    }
+
+    /** 把 Java 返回类型映射到 FFM 值布局；void 返回 null。 */
+    private static MemoryLayout returnLayout(Class<?> returnType) {
+        if (returnType == void.class || returnType == Void.class) {
+            return null;
+        }
+        if (returnType == int.class) {
+            return ValueLayout.JAVA_INT;
+        }
+        if (returnType == long.class) {
+            return ValueLayout.JAVA_LONG;
+        }
+        if (returnType == double.class) {
+            return ValueLayout.JAVA_DOUBLE;
+        }
+        if (returnType == float.class) {
+            return ValueLayout.JAVA_FLOAT;
+        }
+        if (returnType == MemorySegment.class) {
+            return ValueLayout.ADDRESS;
+        }
+        throw new IllegalArgumentException("不支持的返回类型: " + returnType);
     }
 
     static ValueLayout layoutOf(Object arg) {

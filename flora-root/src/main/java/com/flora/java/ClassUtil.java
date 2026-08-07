@@ -7,11 +7,13 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import com.flora.tag.ModuleEntry;
 
 
 /**
  * 类操作工具类，提供类加载、反射创建实例、接口/父类获取等功能。
  */
+@ModuleEntry
 public final class ClassUtil {
 
     private ClassUtil() {

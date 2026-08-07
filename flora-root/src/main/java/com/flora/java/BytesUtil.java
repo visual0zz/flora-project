@@ -2,12 +2,14 @@ package com.flora.java;
 
 import com.flora.codec.HexUtil;
 import java.security.InvalidParameterException;
+import com.flora.tag.ModuleEntry;
 
 
 /**
  * 字节数组工具类，提供字节数组与基本数据类型（short/int/long/float/double）之间的
  * 相互转换，以及十六进制字符串、二进制字符串、异或、拼接等操作。
  */
+@ModuleEntry
 public final class BytesUtil {
 
 

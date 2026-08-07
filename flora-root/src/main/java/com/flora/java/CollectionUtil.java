@@ -9,10 +9,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import com.flora.tag.ModuleEntry;
 
 /**
  * 集合操作工具类，提供集合的判空、大小获取、过滤、映射、集合运算等静态方法。
  */
+@ModuleEntry
 public final class CollectionUtil {
 
     private CollectionUtil() {

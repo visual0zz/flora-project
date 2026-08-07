@@ -7,11 +7,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import com.flora.tag.ModuleEntry;
 
 /**
  * 可迭代对象（Iterable）的工具类。
  * <p>提供对 Iterable 的空值安全判断、集合转换、过滤、映射及元素获取等便捷操作。</p>
  */
+@ModuleEntry
 public final class IterableUtil {
 
     private IterableUtil() {

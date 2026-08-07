@@ -2,10 +2,12 @@ package com.flora.java;
 
 import java.util.Objects;
 import java.util.function.Supplier;
+import com.flora.tag.ModuleEntry;
 
 /**
  * 对象操作工具类，提供判空、比较、toString、默认值等静态方法。
  */
+@ModuleEntry
 public final class ObjectUtil {
 
     private ObjectUtil() {

@@ -1,9 +1,11 @@
 package com.flora.java;
+import com.flora.tag.ModuleEntry;
 
 
 /**
  * 字符工具类，提供字符和字符串的常见类型判断与转换操作。
  */
+@ModuleEntry
 public final class CharUtil {
 
     private CharUtil() {

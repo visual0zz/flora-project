@@ -2,10 +2,12 @@ package com.flora.java;
 
 import java.util.HashSet;
 import java.util.Set;
+import com.flora.tag.ModuleEntry;
 
 /**
  * 异常处理工具类，提供异常包装、根因获取、安全取消息及因果链匹配等常用操作。
  */
+@ModuleEntry
 public final class ExceptionUtil {
 
     private ExceptionUtil() {

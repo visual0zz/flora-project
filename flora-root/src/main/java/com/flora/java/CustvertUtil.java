@@ -2,6 +2,7 @@ package com.flora.java;
 
 import com.flora.java.converter.ConvertFacade;
 import com.flora.java.converter.ConverterRegistry;
+import com.flora.tag.ModuleEntry;
 
 /**
  * 自定义转换工具类，仅加载 SPI 转换器（不加载内置转换器）。
@@ -10,6 +11,7 @@ import com.flora.java.converter.ConverterRegistry;
  * 采用组合持有 {@link ConvertFacade}，外部 API 不暴露转换实现细节。
  * </p>
  */
+@ModuleEntry
 public final class CustvertUtil {
 
     private static final CustvertUtil INSTANCE = new CustvertUtil();

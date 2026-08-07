@@ -30,21 +30,21 @@ import java.util.function.Supplier;
  * 聚合取所有算法密度的最小值（{@link #minDensity}）即「最保守算法」的判定。</p>
  *
  * <pre>{@code
- * EntropyMetric metric = EntropyProvider.metric("SHANNON");
+ * EntropyMetric metric = EntropyEstimator.metric("SHANNON");
  * double entropy = metric.measure(data);
- * double density = EntropyProvider.density("SHANNON", data);
- * double minD = EntropyProvider.minDensity(data);
+ * double density = EntropyEstimator.density("SHANNON", data);
+ * double minD = EntropyEstimator.minDensity(data);
  * }</pre>
  *
  * <h2>自定义算法注册</h2>
  * <pre>{@code
- * EntropyProvider.registerMetric(new MyEntropyMetric(), name -> new MyEntropyMetric());
- * EntropyMetric m = EntropyProvider.metric("MY_METRIC");
+ * EntropyEstimator.registerMetric(new MyEntropyMetric(), name -> new MyEntropyMetric());
+ * EntropyMetric m = EntropyEstimator.metric("MY_METRIC");
  * }</pre>
  */
-public final class EntropyProvider {
+public final class EntropyEstimator {
 
-    private EntropyProvider() {
+    private EntropyEstimator() {
     }
 
     // ── 注册表：算法名 → 提供者条目列表 ──

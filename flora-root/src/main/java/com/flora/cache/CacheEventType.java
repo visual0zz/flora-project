@@ -60,11 +60,11 @@ public enum CacheEventType {
     /** 整体清空（clear）；key 为 null，监听器不应依赖具体 key。 */
     CLEAR,
 
-    // ========== 内部生命周期（装饰器不派发） ==========
+    // ========== 内部生命周期（经装饰器内部移除钩子桥接派发） ==========
 
-    /** 被淘汰策略移除（内部事件，不由 CacheListenerAdapter 派发）。 */
+    /** 被淘汰策略移除（内部事件，由 CacheListenerAdapter 经内部移除钩子桥接派发）。 */
     EVICT,
 
-    /** TTL 过期被自动清理（内部事件，不由 CacheListenerAdapter 派发）。 */
+    /** TTL 过期被自动清理（内部事件，由 CacheListenerAdapter 经内部移除钩子桥接派发）。 */
     EXPIRE,
 }

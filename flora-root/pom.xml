@@ -78,4 +78,21 @@
             </build>
         </profile>
     </profiles>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- FFM restricted methods (e.g. MemorySegment.reinterpret) require native access enabled
+                         on the running JVM since Java 24+. This module's own tests run on the classpath
+                         (unnamed module), so ALL-UNNAMED covers them. Production side: when another module
+                         depends on this library as the named module com.flora.root and calls native methods,
+                         its launching JVM must enable native access for com.flora.root. -->
+                    <argLine>--enable-native-access=ALL-UNNAMED</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

@@ -60,6 +60,8 @@ module com.flora.root {
     exports com.flora.java;
     // 操作系统与路径相关工具
     exports com.flora.os;
+    // 基于 JDK FFM 的本地动态库调用封装
+    exports com.flora.os.natives.ffm;
     // 运行时日志门面
     exports com.flora.runtime.log;
     // 日志实现 SPI

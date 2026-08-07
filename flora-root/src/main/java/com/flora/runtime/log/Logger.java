@@ -17,6 +17,10 @@ import java.util.function.Supplier;
  *        仅当该级别启用时才调用 {@code get()}，避免无谓的字符串拼接开销。</li>
  * </ul>
  * 每个级别另提供 {@code (String, Throwable)} 重载用于关联异常堆栈。
+ * <p>
+ * 含占位符的重载（{@code (String, Object...)}）遵循与 SLF4J/log4j2 一致的习惯：
+ * 若参数数组的最后一个元素是 {@link Throwable}，则自动将其作为关联异常剥离，其余参数用于占位符填充，
+ * 因此 {@code error("msg {}", arg, ex)} 与 {@code error("msg {}", arg, (Throwable) ex)} 等价。
  */
 public interface Logger {
 

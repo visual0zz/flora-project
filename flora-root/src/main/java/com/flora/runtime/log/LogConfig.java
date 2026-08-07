@@ -22,7 +22,14 @@ import java.util.function.Consumer;
  * LogConfig.configure(c -&gt; c
  *     .rootLevel(Level.INFO)
  *     .console(cc -&gt; cc.pattern("%d{HH:mm:ss} %msg%n"))
- *     .fileAppender(fc -&gt; fc.file("/var/log/app.log")));
+ *     .rollingFile(rc -&gt; rc
+ *         .file("/var/log/app.log")
+ *         .pattern("%d %highlight{%level} %logger - %msg%n")
+ *         .rolling(RollingPolicy.SIZE_BASED, "yyyy-MM-dd")
+ *         .filePattern("app-%d{yyyy-MM-dd}.%i.log")
+ *         .maxSize(20 * 1024 * 1024)
+ *         .maxHistory(7))
+ *     .mask(LogMaskers.DEFAULT));   // 开启全局日志脱敏
  * </pre>
  */
 public final class LogConfig {

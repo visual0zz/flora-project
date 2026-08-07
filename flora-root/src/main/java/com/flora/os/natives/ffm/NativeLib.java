@@ -25,14 +25,15 @@ public final class NativeLib implements AutoCloseable {
 
     /** 每库函数绑定缓存的容量上限；超过后按 W-TinyLFU 淘汰最少使用的绑定。 */
     private static final long FUNC_CACHE_CAPACITY = 256;
-    /** 每库函数绑定缓存的条目存活时长；超过后下次访问触发重新绑定（downcall 桩重新生成）。 */
-    private static final Duration FUNC_CACHE_TTL = Duration.ofMinutes(10);
+    /** 每库函数绑定缓存的条目存活时长；超过后下次访问触发重新绑定（downcall 桩重新生成）。
+     *  滑动语义：每次 {@code bind} 命中都顺延，闲置满 1 小时才过期回收。 */
+    private static final Duration FUNC_CACHE_TTL = Duration.ofHours(1);
 
     private final Arena arena;
     private final SymbolLookup lookup;
     /** 按 (func, returnType, argTypes) 缓存已绑定的 NativeFunc，避免每次调用都重新生成 downcall 桩；
-     *  有界且限时（容量 {@link #FUNC_CACHE_CAPACITY}、TTL {@link #FUNC_CACHE_TTL}），
-     *  超容按 W-TinyLFU 淘汰、超时自动过期。 */
+     *  有界且限时（容量 {@link #FUNC_CACHE_CAPACITY}、滑动 TTL {@link #FUNC_CACHE_TTL}），
+     *  超容按 W-TinyLFU 淘汰、闲置超时自动过期。 */
     private final MemoryCache<BindKey, NativeFunc> funcCache;
 
     private NativeLib(Arena arena, SymbolLookup lookup) {
@@ -90,7 +91,8 @@ public final class NativeLib implements AutoCloseable {
     /** 绑定函数并返回可复用的句柄，按指定返回类型生成函数描述符。结果按 (func, returnType, argTypes) 缓存，避免每次调用都重新生成 downcall 桩。 */
     public NativeFunc bind(String func, Class<?> returnType, Object... args) {
         BindKey key = new BindKey(func, returnType, argClasses(args));
-        NativeFunc cached = funcCache.get(key);
+        // 命中带 TTL 读取：顺延过期时刻（滑动续期），闲置满 FUNC_CACHE_TTL 才过期回收
+        NativeFunc cached = funcCache.get(key, FUNC_CACHE_TTL);
         if (cached != null) {
             return cached;
         }

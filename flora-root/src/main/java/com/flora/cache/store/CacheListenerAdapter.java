@@ -165,7 +165,12 @@ public class CacheListenerAdapter<K, V>
 
     @Override
     public V get(K key) {
-        V v = delegate.get(key);
+        return get(key, null);
+    }
+
+    @Override
+    public V get(K key, Duration ttl) {
+        V v = delegate.get(key, ttl);
         if (hasListeners(CacheEventType.GET)) fire(CacheEventType.GET, key, null, v);
         return v;
     }

@@ -9,6 +9,7 @@ import com.flora.java.clazz.InheritTreeTraverser;
 import com.flora.java.clazz.InheritDistanceCalculator;
 import com.flora.tag.LogicFragile;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -33,6 +34,9 @@ public final class ConverterRegistry {
     private static final List<Converter> ALL_CONVERTERS = new CopyOnWriteArrayList<>();
 
     private static final Converter NOOP_CONVERTER = new NoopConverter();
+
+    /** 查找缓存的滑动 TTL：每次 {@code find} 命中都顺延，闲置满 1 小时才过期回收。 */
+    private static final Duration FIND_CACHE_TTL = Duration.ofHours(1);
 
     /**
      * 哨兵：代表“查无可用转换器”。缓存禁止 {@code null} 值，无法用 {@code null} 直接表达
@@ -77,7 +81,7 @@ public final class ConverterRegistry {
         ALL_CONVERTERS.addAll(SPI_CONVERTERS);
     }
     private final List<Converter> executors;
-    private final Cache<FindKey, Converter> cache = Caches.<FindKey, Converter>memory().capacity(4096).get();
+    private final Cache<FindKey, Converter> cache = Caches.<FindKey, Converter>memory().capacity(1024).get();
     private ConverterRegistry(List<Converter> executors){
         this.executors = new CopyOnWriteArrayList<>(executors);
     }
@@ -160,14 +164,15 @@ public final class ConverterRegistry {
         CheckUtil.notNull(targetType, "目标类型不能为空");
         assert sourceType != null : "sourceType 应来自 value.getClass()，调用方需保证非空";
         FindKey key = new FindKey(sourceType, targetType, elementType);
-        Converter cached = cache.get(key);
+        // 命中带 TTL 读取：顺延过期时刻（滑动续期），闲置满 FIND_CACHE_TTL 才过期回收
+        Converter cached = cache.get(key, FIND_CACHE_TTL);
         if (cached != null) {
             // 命中缓存：哨兵代表“查无转换器”，拆包为 null 返回；否则返回真实转换器
             return cached == NO_CONVERTER_MARKER ? null : cached;
         }
         Converter result = resolve(sourceType, targetType, elementType);
         // 无论解析结果是否为 null，都写入缓存（null 以哨兵占位），避免对“查无结果”的键反复重算
-        cache.put(key, result != null ? result : NO_CONVERTER_MARKER);
+        cache.put(key, result != null ? result : NO_CONVERTER_MARKER, FIND_CACHE_TTL);
         return result;
     }
 

@@ -174,11 +174,21 @@ public class ConcurrentHashMapCache<K, V>
 
     @Override
     public V get(K key) {
+        return get(key, null);
+    }
+
+    @Override
+    public V get(K key, Duration ttl) {
         Objects.requireNonNull(key, "key must not be null");
         V v = map.get(key);
         if (v != null) {
             Long exp = expiry.get(key);
             if (exp == null || !(System.currentTimeMillis() >= exp)) {
+                // 滑动续期：调用方显式带正时长时，把过期时刻顺延为 now + ttl；
+                // null / 非正 / Duration.MAX 不续期（MAX 跳过以规避溢出，也避免把条目意外改成永久）
+                if (ttl != null && !ttl.isZero() && !ttl.isNegative() && !ttl.equals(Duration.MAX)) {
+                    expiry.put(key, System.currentTimeMillis() + ttl.toMillis());
+                }
                 EvictionPolicy<K, V> p = policy;
                 if (p != null) p.onAccess(key, CacheEventType.GET, true, null, null);
                 return v;

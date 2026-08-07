@@ -7,14 +7,12 @@ import java.util.*;
 /**
  * 本地动态库调用包装。封装 JDK FFM API，提供轻量调用接口。
  *
- * <pre>{@code
- * // 一句话调用（查找 + 加载 + 调用，适合低频）
- * int pid = NativeLib.callInt("kernel32", "GetCurrentProcessId");
+ * <p>本类是「按库一个句柄」的底层封装，调用方通常不需要直接使用它：
+ * 统一入口见同包的 {@link Native}，它以内置缓存复用各库句柄，调用方无需先 load。
  *
- * // 预加载后调用（适合复用）
- * try (NativeLib lib = NativeLib.load("kernel32")) {
- *     int pid = lib.callInt("GetCurrentProcessId");
- * }
+ * <pre>{@code
+ * // 统一入口（库句柄由 Native 内部缓存，无需先 load）
+ * int pid = Native.callInt("kernel32", "GetCurrentProcessId");
  * }</pre>
  */
 public final class NativeLib implements AutoCloseable {
@@ -29,37 +27,15 @@ public final class NativeLib implements AutoCloseable {
         this.lookup = lookup;
     }
 
-    // ====== 静态一句话调用 ======
+    // ====== 加载库（包内可见，统一入口见 Native） ======
 
-    public static int callInt(String lib, String func, Object... args) {
-        try (NativeLib nl = load(lib)) {
-            return nl.callInt(func, args);
-        }
-    }
-
-    public static long callLong(String lib, String func, Object... args) {
-        try (NativeLib nl = load(lib)) {
-            return nl.callLong(func, args);
-        }
-    }
-
-    public static double callDouble(String lib, String func, Object... args) {
-        try (NativeLib nl = load(lib)) {
-            return nl.callDouble(func, args);
-        }
-    }
-
-    public static void callVoid(String lib, String func, Object... args) {
-        try (NativeLib nl = load(lib)) {
-            nl.callVoid(func, args);
-        }
-    }
-
-    // ====== 加载库 ======
-
-    /** 加载本地动态库。返回的 {@link NativeLib} 可复用。 */
-    public static NativeLib load(String libName) {
-        Arena arena = Arena.ofConfined();
+    /**
+     * 加载本地动态库并返回句柄。包内可见：对外的统一调用入口是 {@link Native}，
+     * 它会缓存每个库名对应的句柄，调用方无需先 load。
+     * 使用共享 arena，使缓存后的句柄可跨线程调用。
+     */
+    static NativeLib load(String libName) {
+        Arena arena = Arena.ofShared();
         SymbolLookup lookup;
         try {
             lookup = SymbolLookup.libraryLookup(libName, arena);

@@ -44,12 +44,13 @@ TUI 要接管整块屏幕、即时响应每个按键，必须把终端切成**�
 
 raw mode 的关键是：对输入句柄清掉 `0x0001 | 0x0002 | 0x0004`。
 
-## 3. 用 NativeLib 调用（核心片段）
+## 3. 用 Native 统一门面调用（核心片段）
 
-`NativeLib` 已封装 FFM：`load("kernel32")` 加载库，`callPtr` 调返回指针的函数，`callVoid` 调无返回值函数；参数 `Integer` 映射 `int`(32 位 DWORD)，`MemorySegment` 映射指针。
+`Native` 是统一入口：以库名为键缓存已加载的 `NativeLib`，调用方**无需先 load**。
+`callPtr` 调返回指针的函数，`callVoid` 调无返回值函数；参数 `Integer` 映射 `int`(32 位 DWORD)，`MemorySegment` 映射指针。
 
 ```java
-import com.flora.os.natives.ffm.NativeLib;
+import com.flora.os.natives.ffm.Native;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -62,27 +63,26 @@ static final int ENABLE_PROCESSED_INPUT = 0x0001;
 static final int ENABLE_LINE_INPUT      = 0x0002;
 static final int ENABLE_ECHO_INPUT      = 0x0004;
 
-try (NativeLib lib = NativeLib.load("kernel32");
-     Arena a = Arena.ofConfined()) {
+try (Arena a = Arena.ofConfined()) {
 
-    // 1) 取句柄（返回 64 位 HANDLE，必须用 callPtr 拿 MemorySegment）
-    MemorySegment hIn  = lib.callPtr("GetStdHandle", STD_INPUT_HANDLE);
-    MemorySegment hOut = lib.callPtr("GetStdHandle", STD_OUTPUT_HANDLE);
+    // 1) 取句柄（返回 64 位 HANDLE，必须用 callPtr 拿 MemorySegment；库句柄由 Native 内部缓存）
+    MemorySegment hIn  = Native.callPtr("kernel32", "GetStdHandle", STD_INPUT_HANDLE);
+    MemorySegment hOut = Native.callPtr("kernel32", "GetStdHandle", STD_OUTPUT_HANDLE);
 
     // 2) 读当前输入模式（GetConsoleMode 的 out 参数：4 字节 DWORD 缓冲）
     MemorySegment inMode = a.allocate(4);
-    lib.callVoid("GetConsoleMode", hIn, inMode);
+    Native.callVoid("kernel32", "GetConsoleMode", hIn, inMode);
     int current = inMode.get(ValueLayout.JAVA_INT, 0);
 
     // 3) 关掉行缓冲 / 回显 / 特殊处理 → raw
     int raw = current & ~ENABLE_LINE_INPUT & ~ENABLE_ECHO_INPUT & ~ENABLE_PROCESSED_INPUT;
-    lib.callVoid("SetConsoleMode", hIn, raw);
+    Native.callVoid("kernel32", "SetConsoleMode", hIn, raw);
 
     // 4) （可选）输出开启 ANSI 虚拟终端处理，支持颜色与光标移动
     MemorySegment outMode = a.allocate(4);
-    lib.callVoid("GetConsoleMode", hOut, outMode);
+    Native.callVoid("kernel32", "GetConsoleMode", hOut, outMode);
     int o = outMode.get(ValueLayout.JAVA_INT, 0) | 0x0004; // ENABLE_VIRTUAL_TERMINAL_PROCESSING
-    lib.callVoid("SetConsoleMode", hOut, o);
+    Native.callVoid("kernel32", "SetConsoleMode", hOut, o);
 }
 ```
 
@@ -91,6 +91,7 @@ try (NativeLib lib = NativeLib.load("kernel32");
 - `GetStdHandle` 返回 **64 位 HANDLE**，必须用 `callPtr`（返回 `MemorySegment`）。旧版 `NativeLib` 曾把返回布局写死成 `JAVA_INT`，会把高 32 位截断、拿到错误句柄；修复后 `descriptor` 按返回类型生成布局，才能正确取到句柄（见 `1b9129b`）。
 - `GetConsoleMode` 的第二参是 `LPDWORD`（指针），在 arena 里 `allocate(4)` 一段内存传入，`callVoid` 后从偏移 0 读回 `int`。
 - `Arena` 管理参数内存生命周期：字符串/缓冲用的 arena 必须活过 native 调用。
+- `Native` 内部用 `Caches.memory()`（无界缓存）保存各库句柄，进程生命周期内常驻，无需手动 `load`/关闭。
 
 ## 4. 完整可复用封装（示意）
 
@@ -98,30 +99,28 @@ try (NativeLib lib = NativeLib.load("kernel32");
 
 ```java
 public final class WindowsConsoleRaw implements AutoCloseable {
-    private final NativeLib lib;
     private final MemorySegment hIn;
     private int savedInMode;
     private boolean applied;
 
     public WindowsConsoleRaw() {
-        this.lib = NativeLib.load("kernel32");
-        this.hIn = lib.callPtr("GetStdHandle", -10);
+        this.hIn = Native.callPtr("kernel32", "GetStdHandle", -10);
     }
 
     public void enable() {
         try (Arena a = Arena.ofConfined()) {
             MemorySegment m = a.allocate(4);
-            lib.callVoid("GetConsoleMode", hIn, m);
+            Native.callVoid("kernel32", "GetConsoleMode", hIn, m);
             savedInMode = m.get(ValueLayout.JAVA_INT, 0);
             int raw = savedInMode & ~0x0002 & ~0x0004 & ~0x0001;
-            lib.callVoid("SetConsoleMode", hIn, raw);
+            Native.callVoid("kernel32", "SetConsoleMode", hIn, raw);
             applied = true;
         }
     }
 
     public void disable() {
         if (!applied) return;
-        lib.callVoid("SetConsoleMode", hIn, savedInMode); // 还原原始模式
+        Native.callVoid("kernel32", "SetConsoleMode", hIn, savedInMode); // 还原原始模式
         applied = false;
     }
 
@@ -132,7 +131,6 @@ public final class WindowsConsoleRaw implements AutoCloseable {
 
     @Override public void close() {
         disable();
-        lib.close();
     }
 }
 ```

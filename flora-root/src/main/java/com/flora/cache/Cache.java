@@ -3,6 +3,7 @@ package com.flora.cache;
 import com.flora.tag.ModuleEntry;
 
 import java.time.Duration;
+import java.util.function.Function;
 
 /**
  * 缓存存储契约：定义 KV 读写、TTL 与基础查询的最小公共能力。
@@ -59,6 +60,30 @@ public interface Cache<K, V> {
     /** 缓存是否为空。 */
     default boolean isEmpty() {
         return approxCount() == 0;
+    }
+
+    /**
+     * 若 {@code key} 不存在则按 {@code mapping} 计算并写入，返回最终值；已存在则直接返回、不重算。
+     * {@code mapping} 为 {@code null} 或返回 {@code null} 时不写入。并发下保证至多一个值被缓存：
+     * 若本线程的计算结果未被采纳（被其他线程抢先），返回已缓存的值。
+     */
+    default V computeIfAbsent(K key, Function<? super K, ? extends V> mapping) {
+        V existing = get(key);
+        if (existing != null) {
+            return existing;
+        }
+        if (mapping == null) {
+            return null;
+        }
+        V created = mapping.apply(key);
+        if (created == null) {
+            return null;
+        }
+        if (putIfAbsent(key, created)) {
+            return created;
+        }
+        V raced = get(key);
+        return raced != null ? raced : created;
     }
 
 }

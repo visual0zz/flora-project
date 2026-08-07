@@ -1,9 +1,12 @@
 package com.flora.os.natives.ffm;
 
+import com.flora.cache.Caches;
+import com.flora.cache.MemoryCache;
+
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
+import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 本地动态库调用包装。封装 JDK FFM API，提供轻量调用接口。
@@ -20,14 +23,22 @@ public final class NativeLib implements AutoCloseable {
 
     private static final Linker LINKER = Linker.nativeLinker();
 
+    /** 每库函数绑定缓存的容量上限；超过后按 W-TinyLFU 淘汰最少使用的绑定。 */
+    private static final long FUNC_CACHE_CAPACITY = 256;
+    /** 每库函数绑定缓存的条目存活时长；超过后下次访问触发重新绑定（downcall 桩重新生成）。 */
+    private static final Duration FUNC_CACHE_TTL = Duration.ofMinutes(10);
+
     private final Arena arena;
     private final SymbolLookup lookup;
-    /** 按 (func, returnType, argTypes) 缓存已绑定的 NativeFunc，避免每次调用都重新生成 downcall 桩。 */
-    private final ConcurrentHashMap<BindKey, NativeFunc> funcCache = new ConcurrentHashMap<>();
+    /** 按 (func, returnType, argTypes) 缓存已绑定的 NativeFunc，避免每次调用都重新生成 downcall 桩；
+     *  有界且限时（容量 {@link #FUNC_CACHE_CAPACITY}、TTL {@link #FUNC_CACHE_TTL}），
+     *  超容按 W-TinyLFU 淘汰、超时自动过期。 */
+    private final MemoryCache<BindKey, NativeFunc> funcCache;
 
     private NativeLib(Arena arena, SymbolLookup lookup) {
         this.arena = arena;
         this.lookup = lookup;
+        this.funcCache = Caches.memory(FUNC_CACHE_CAPACITY);
     }
 
     // ====== 加载库（包内可见，统一入口见 Native） ======
@@ -92,7 +103,7 @@ public final class NativeLib implements AutoCloseable {
         FunctionDescriptor desc = descriptor(returnType, args);
         MethodHandle handle = LINKER.downcallHandle(addr, desc);
         NativeFunc nf = new NativeFunc(handle, desc);
-        funcCache.put(key, nf);
+        funcCache.put(key, nf, FUNC_CACHE_TTL);
         return nf;
     }
 

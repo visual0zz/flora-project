@@ -10,14 +10,14 @@ import java.nio.charset.StandardCharsets;
  *   <li><b>香农熵（Shannon entropy）</b>：衡量字符/字节分布的不确定度，单位为 bit/符号；
  *       越接近均匀分布，熵越高。</li>
  *   <li><b>归一化熵（密度）</b>：香农熵除以按输入字节长度推导的熵上限（见
- *       {@link EntropyProvider#maxPerByte}），落在 {@code [0,1]}，与长度解耦，
+ *       {@link EntropyEstimator#maxPerByte}），落在 {@code [0,1]}，与长度解耦，
  *       使不同长度的串可直接比较"相对于自身字母表有多随机"。</li>
  *   <li><b>压缩复杂度比</b>：用 Deflate 压缩后的长度与原长的比值（Kolmogorov 复杂度的
  *       工程近似）；接近 {@code 1} 表示不可压缩（高随机），接近 {@code 0} 表示高度重复。</li>
  *   <li><b>聚合密度</b>：{@link #minDensity} 取所有已注册算法密度的最小值，
  *       即"最保守算法"的综合随机性评分。</li>
  * </ul>
- * 算法层统一以 {@code byte[]} 输入、输出熵总量，密度归一化与聚合由 {@link EntropyProvider}
+ * 算法层统一以 {@code byte[]} 输入、输出熵总量，密度归一化与聚合由 {@link EntropyEstimator}
  * 完成；字符串输入在门面层按 UTF-8 编码后参与评估。
  * </p>
  */
@@ -37,7 +37,7 @@ public final class Entropy {
         if (s == null || s.isEmpty()) {
             return 0.0;
         }
-        return EntropyProvider.metric("SHANNON").measure(s.getBytes(StandardCharsets.UTF_8));
+        return EntropyEstimator.metric("SHANNON").measure(s.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -48,7 +48,7 @@ public final class Entropy {
      * @return 香农熵，单位 bit/字节，始终非负
      */
     public static double shannon(byte[] data) {
-        return EntropyProvider.metric("SHANNON").measure(data);
+        return EntropyEstimator.metric("SHANNON").measure(data);
     }
 
     /**
@@ -63,7 +63,7 @@ public final class Entropy {
         if (s == null || s.isEmpty()) {
             return 0.0;
         }
-        return EntropyProvider.density("SHANNON", s.getBytes(StandardCharsets.UTF_8));
+        return EntropyEstimator.density("SHANNON", s.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -79,7 +79,7 @@ public final class Entropy {
             return 0.0;
         }
         // 算法输出每字节熵近似（min(ratio,1)*8），此处还原为比值
-        return EntropyProvider.metric("COMPLEXITY_RATIO")
+        return EntropyEstimator.metric("COMPLEXITY_RATIO")
                 .measure(s.getBytes(StandardCharsets.UTF_8)) / 8.0;
     }
 
@@ -95,7 +95,7 @@ public final class Entropy {
      * @return 所有参与算法密度值的最小值；无参与算法时返回 0
      */
     public static double minDensity(String s, String... algorithms) {
-        return EntropyProvider.minDensity(s, algorithms);
+        return EntropyEstimator.minDensity(s, algorithms);
     }
 
     /**
@@ -107,6 +107,6 @@ public final class Entropy {
      * @return 所有参与算法密度值的最小值；无参与算法时返回 0
      */
     public static double minDensity(byte[] data, String... algorithms) {
-        return EntropyProvider.minDensity(data, algorithms);
+        return EntropyEstimator.minDensity(data, algorithms);
     }
 }

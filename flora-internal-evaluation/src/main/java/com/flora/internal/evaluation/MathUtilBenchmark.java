@@ -11,11 +11,20 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.options.Options;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /**
  * {@link MathUtil} 素数相关方法的微基准测试。
+ * <p>独立运行:直接执行 {@link #main} 即可启动本基准。</p>
  */
 @BenchmarkMode({Mode.SampleTime})
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -59,5 +68,17 @@ public class MathUtilBenchmark {
     @Benchmark
     public long primeCountRange() {
         return MathUtil.primeCount(primeCandidate, 1_000_000);
+    }
+
+    /** 独立启动本基准测试,结果输出到 {@code absent/benchmark/} 目录。 */
+    public static void main(String[] args) throws Exception {
+        Files.createDirectories(Path.of("absent", "benchmark"));
+        String time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+        Options opt = new OptionsBuilder()
+                .include(Pattern.quote(MathUtilBenchmark.class.getName()))
+                .shouldDoGC(true)
+                .output("absent/benchmark/math-util-" + time + ".txt")
+                .build();
+        new Runner(opt).run();
     }
 }

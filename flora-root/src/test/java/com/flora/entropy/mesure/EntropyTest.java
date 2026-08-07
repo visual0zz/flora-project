@@ -10,7 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * {@link Entropy} 的度量契约测试：香农熵、归一化熵（密度）、压缩复杂度比、聚合 minDensity。
+ * {@link Entropy} 的度量契约测试：香农熵、归一化香农熵密度、按算法名取密度、
+ * 压缩复杂度比、聚合 minDensity。
  */
 class EntropyTest {
 
@@ -34,14 +35,31 @@ class EntropyTest {
     }
 
     @Test
-    void normalizedRangesAndUniform() {
-        assertEquals(0.0, Entropy.normalized(""), 1e-9);
-        assertEquals(0.0, Entropy.normalized("aaaa"), 1e-9);
+    void shannonDensityRangesAndUniform() {
+        assertEquals(0.0, Entropy.shannonDensity(""), 1e-9);
+        assertEquals(0.0, Entropy.shannonDensity("aaaa"), 1e-9);
         // 互异字母：归一化后应为 1.0（相对自身字母表完全随机）
-        assertEquals(1.0, Entropy.normalized("abcdefghijklmnop"), 1e-9);
+        assertEquals(1.0, Entropy.shannonDensity("abcdefghijklmnop"), 1e-9);
         // 随机且混合的串归一化熵接近上限，且不超过 1
-        double r = Entropy.normalized("aB3kF9xQ2mNpLr7tVcWzQeXyZ");
+        double r = Entropy.shannonDensity("aB3kF9xQ2mNpLr7tVcWzQeXyZ");
         assertTrue(r > 0.8 && r <= 1.0, "随机串归一化熵应接近 1: " + r);
+    }
+
+    @Test
+    void densityByAlgorithmNameReachesAllRegistered() {
+        // density(name, s) 是统一入口：SHANNON 视图应与 shannonDensity 一致
+        String s = "abcdefghijklmnop";
+        assertEquals(Entropy.shannonDensity(s), Entropy.density("SHANNON", s), 1e-9);
+        // BASE64 视图：64 个互异 base64 符号 → 每字符满熵 → 密度 1.0
+        String b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        assertEquals(1.0, Entropy.density("BASE64", b64), 1e-9);
+        // ENGLISH 视图：density(name, s) 统一入口可达，返回落在 [0,1]。
+        // 注：短串的 density 会因 maxPerByte(n)=log2(n) 趋于饱和而钳到 1.0，
+        // ENGLISH 对短串的区分能力体现在原始交叉熵（见 englishMarkovCrossEntropyDistinguishesTextFromRandom）。
+        double englishDensity = Entropy.density("ENGLISH", "the quick brown fox jumps over the lazy dog");
+        assertTrue(englishDensity >= 0.0 && englishDensity <= 1.0, "ENGLISH 密度应在 [0,1]: " + englishDensity);
+        // 未注册算法应抛异常
+        assertThrows(IllegalArgumentException.class, () -> Entropy.density("BASE32", s));
     }
 
     @Test

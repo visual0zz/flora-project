@@ -380,7 +380,7 @@ public final class SecretCheck extends LineCheck {
         if (alnumClasses(value) < minClasses) {
             return false;
         }
-        return Entropy.normalized(value) >= minEntropy;
+        return Entropy.shannonDensity(value) >= minEntropy;
     }
 
     /**

@@ -5,57 +5,64 @@ import com.flora.runtime.config.interfaces.ReloadableConfig;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * {@link ReloadableConfig} 的可变实现：内部持有当前 {@link Config}（volatile 引用，读线程安全）。
- * <p>{@link #replaceWith(Config)} 全量替换底层配置；{@link #refreshWith(Config)} 按合并语义更新
- * ——新配置的值覆盖旧值，未涉及的旧值保留（类似 {@code putAll} 的深度版）。</p>
+ * {@link ReloadableConfig} 的可变实现：内部以 {@link AtomicReference} 持有当前 {@link Config} 快照，
+ * 读侧每次获取的是原子、完整的快照。
+ * <p>{@link #replaceWith(Config)} 单次原子替换；{@link #refreshWith(Config)} 按合并语义更新
+ * （新值覆盖旧值、无新值保留旧值），采用 CAS 循环——并发刷新时后到的线程基于最新快照重新合并，
+ * 不丢失更新。无锁，读侧不阻塞。</p>
  */
 public class ReloadableConfigImpl implements ReloadableConfig {
 
-    private volatile Config current;
+    private final AtomicReference<Config> current;
 
     /** 以空配置初始化。 */
     public ReloadableConfigImpl() {
-        this.current = MapConfig.empty();
+        this.current = new AtomicReference<>(MapConfig.empty());
     }
 
     /** 以初始配置初始化。 */
     public ReloadableConfigImpl(Config initial) {
-        this.current = initial == null ? MapConfig.empty() : initial;
+        this.current = new AtomicReference<>(initial == null ? MapConfig.empty() : initial);
     }
 
     @Override
     public void replaceWith(Config newConfig) {
-        this.current = newConfig == null ? MapConfig.empty() : newConfig;
+        current.set(newConfig == null ? MapConfig.empty() : newConfig);
     }
 
     @Override
     public void refreshWith(Config newConfig) {
         if (newConfig == null) return;
-        this.current = MapConfig.of(mergeDeep(current.toMapTree(), newConfig.toMapTree()));
+        while (true) {
+            Config snapshot = current.get();
+            Config candidate = MapConfig.of(mergeDeep(snapshot.toMapTree(), newConfig.toMapTree()));
+            if (current.compareAndSet(snapshot, candidate)) break;
+        }
     }
 
     // ====== 转发当前快照 ======
 
     @Override
     public Object get(String path) {
-        return current.get(path);
+        return current.get().get(path);
     }
 
     @Override
     public Map<String, Object> toMapTree() {
-        return current.toMapTree();
+        return current.get().toMapTree();
     }
 
     @Override
     public Map<String, Object> toLongKeyMap() {
-        return current.toLongKeyMap();
+        return current.get().toLongKeyMap();
     }
 
     @Override
     public boolean isEmpty() {
-        return current.isEmpty();
+        return current.get().isEmpty();
     }
 
     /** 深度合并：overlay 的值覆盖 base，两者均为 Map 时递归；其余类型直接覆盖。 */

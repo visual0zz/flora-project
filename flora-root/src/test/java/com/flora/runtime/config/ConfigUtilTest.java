@@ -1,6 +1,6 @@
 package com.flora.runtime.config;
 
-import com.flora.runtime.config.impl.ConfigFormat;
+import com.flora.runtime.config.impl.ConfigSourceFileFormat;
 import com.flora.runtime.config.impl.ConfigLoader;
 import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.interfaces.ConfigSource;
@@ -28,7 +28,7 @@ class ConfigUtilTest {
     @Test
     void loadGenericSource() {
         Config config = ConfigUtil.newConfig()
-                .load(new StringConfigSource(ConfigFormat.PROPERTIES, "k=hello"));
+                .load(new StringConfigSource(ConfigSourceFileFormat.PROPERTIES, "k=hello"));
         assertEquals("hello", config.getString("k"));
     }
 
@@ -72,7 +72,7 @@ class ConfigUtilTest {
     @Test
     void chainGenericAndSugar() {
         Config config = ConfigUtil.newConfig()
-                .load(new StringConfigSource(ConfigFormat.PROPERTIES, "name=default"))
+                .load(new StringConfigSource(ConfigSourceFileFormat.PROPERTIES, "name=default"))
                 .loadFile("src/test/resources/config/app.yaml");
         assertEquals("test-app", config.getString("app.name"));
     }

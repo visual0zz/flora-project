@@ -21,30 +21,30 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class ConfigLoaderTest {
 
-    // ====== ConfigFormat ======
+    // ====== ConfigSourceFileFormat ======
 
     @Test
     void formatFromFilename() {
-        assertEquals(ConfigFormat.JSON, ConfigFormat.fromFilename("config.json"));
-        assertEquals(ConfigFormat.YAML, ConfigFormat.fromFilename("config.yaml"));
-        assertEquals(ConfigFormat.YAML, ConfigFormat.fromFilename("config.yml"));
-        assertEquals(ConfigFormat.TOML, ConfigFormat.fromFilename("config.toml"));
-        assertEquals(ConfigFormat.PROPERTIES, ConfigFormat.fromFilename("config.properties"));
-        assertEquals(ConfigFormat.PROPERTIES, ConfigFormat.fromFilename("config.props"));
+        assertEquals(ConfigSourceFileFormat.JSON, ConfigSourceFileFormat.fromFilename("config.json"));
+        assertEquals(ConfigSourceFileFormat.YAML, ConfigSourceFileFormat.fromFilename("config.yaml"));
+        assertEquals(ConfigSourceFileFormat.YAML, ConfigSourceFileFormat.fromFilename("config.yml"));
+        assertEquals(ConfigSourceFileFormat.TOML, ConfigSourceFileFormat.fromFilename("config.toml"));
+        assertEquals(ConfigSourceFileFormat.PROPERTIES, ConfigSourceFileFormat.fromFilename("config.properties"));
+        assertEquals(ConfigSourceFileFormat.PROPERTIES, ConfigSourceFileFormat.fromFilename("config.props"));
     }
 
     @Test
     void formatFromFilenameUnknownThrows() {
-        assertThrows(ConfigException.class, () -> ConfigFormat.fromFilename("config.xyz"));
-        assertThrows(ConfigException.class, () -> ConfigFormat.fromFilename("config"));
+        assertThrows(ConfigException.class, () -> ConfigSourceFileFormat.fromFilename("config.xyz"));
+        assertThrows(ConfigException.class, () -> ConfigSourceFileFormat.fromFilename("config"));
     }
 
     @Test
     void formatParse() {
-        Config m = Config.of(ConfigFormat.JSON.parse("{\"a\":1}"));
+        Config m = Config.of(ConfigSourceFileFormat.JSON.parse("{\"a\":1}"));
         assertEquals(Long.valueOf(1), m.get("a"));
 
-        Config m2 = Config.of(ConfigFormat.YAML.parse("a: 1\n"));
+        Config m2 = Config.of(ConfigSourceFileFormat.YAML.parse("a: 1\n"));
         assertEquals(Long.valueOf(1), m2.get("a"));
     }
 
@@ -130,7 +130,7 @@ class ConfigLoaderTest {
 
     @Test
     void stringConfigSource() {
-        ConfigSource src = new StringConfigSource(ConfigFormat.JSON, "{\"a\":1}");
+        ConfigSource src = new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"a\":1}");
         Config m = src.load();
         assertEquals(Long.valueOf(1), m.get("a"));
     }
@@ -169,7 +169,7 @@ class ConfigLoaderTest {
     @Test
     void configLoaderSingleSource() {
         ConfigLoader loader = new ConfigLoader();
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"a\":1, \"b\":\"x\"}"));
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"a\":1, \"b\":\"x\"}"));
         Config m = loader.load();
         assertEquals(Long.valueOf(1), m.get("a"));
         assertEquals("x", m.getString("b"));
@@ -178,8 +178,8 @@ class ConfigLoaderTest {
     @Test
     void configLoaderMergeOverride() {
         ConfigLoader loader = new ConfigLoader();
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"a\":1, \"b\":2}"));
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"b\":3, \"c\":4}"));
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"a\":1, \"b\":2}"));
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"b\":3, \"c\":4}"));
         Config m = loader.load();
         assertEquals(Long.valueOf(1), m.get("a"));
         assertEquals(Long.valueOf(3), m.get("b"));  // 后添加的覆盖
@@ -189,9 +189,9 @@ class ConfigLoaderTest {
     @Test
     void configLoaderMergeDeep() {
         ConfigLoader loader = new ConfigLoader();
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON,
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON,
                 "{\"db\":{\"host\":\"localhost\",\"port\":3306}}"));
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON,
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON,
                 "{\"db\":{\"port\":5432,\"user\":\"admin\"}}"));
         Config m = loader.load();
         assertEquals("localhost", m.getString("db.host"));
@@ -202,9 +202,9 @@ class ConfigLoaderTest {
     @Test
     void configLoaderMultipleFormats() {
         ConfigLoader loader = new ConfigLoader();
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"from\":\"json\"}"));
-        loader.addSource(new StringConfigSource(ConfigFormat.YAML, "from: yaml\ncount: 3\n"));
-        loader.addSource(new StringConfigSource(ConfigFormat.TOML, "from = \"toml\"\n"));
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"from\":\"json\"}"));
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.YAML, "from: yaml\ncount: 3\n"));
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.TOML, "from = \"toml\"\n"));
         Config m = loader.load();
         assertEquals("toml", m.getString("from"));  // 最后添加的覆盖
         assertEquals(Long.valueOf(3), m.get("count"));
@@ -220,7 +220,7 @@ class ConfigLoaderTest {
     @Test
     void systemInstanceIsolation() {
         ConfigLoader loader = new ConfigLoader();
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"k\":\"v\"}"));
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"k\":\"v\"}"));
         assertTrue(ConfigLoader.system().getSources().isEmpty());
         assertEquals(1, loader.getSources().size());
     }
@@ -231,7 +231,7 @@ class ConfigLoaderTest {
     void resolveWithNoExtraSources() {
         // 回调返回空 —— resolve 退化为普通 load
         ConfigLoader loader = new ConfigLoader();
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"a\":1}"));
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"a\":1}"));
         Config m = loader.resolve(cfg -> Collections.emptyList());
         assertEquals(Long.valueOf(1), m.get("a"));
     }
@@ -242,7 +242,7 @@ class ConfigLoaderTest {
         String mainYaml = "app:\n  name: main\nserver:\n  port: 8080\n";
 
         ConfigLoader loader = new ConfigLoader();
-        loader.addSource(new StringConfigSource(ConfigFormat.YAML, mainYaml, "main.yaml"));
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.YAML, mainYaml, "main.yaml"));
 
         Config m = loader.resolve(cfg -> {
             // 读取一个普通 app key "app.name" —— 无任何特殊含义
@@ -267,7 +267,7 @@ class ConfigLoaderTest {
         String third = "stage: 3\ndone: true\n";
 
         ConfigLoader loader = new ConfigLoader();
-        loader.addSource(new StringConfigSource(ConfigFormat.YAML, first, "first.yaml"));
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.YAML, first, "first.yaml"));
 
         Config m = loader.resolve(cfg -> {
             String done = cfg.getString("done");
@@ -276,8 +276,8 @@ class ConfigLoaderTest {
             String importNext = cfg.getString("import.next");
             if ("true".equals(importNext)) {
                 switch (cfg.getOrDefault("stage", "")) {
-                    case "1": return List.of(new StringConfigSource(ConfigFormat.YAML, second, "second.yaml"));
-                    case "2": return List.of(new StringConfigSource(ConfigFormat.YAML, third, "third.yaml"));
+                    case "1": return List.of(new StringConfigSource(ConfigSourceFileFormat.YAML, second, "second.yaml"));
+                    case "2": return List.of(new StringConfigSource(ConfigSourceFileFormat.YAML, third, "third.yaml"));
                 }
             }
             return Collections.emptyList();
@@ -292,11 +292,11 @@ class ConfigLoaderTest {
     void resolveCycleDetection() {
         // 同一位置重复解析 -> 自动跳过
         ConfigLoader loader = new ConfigLoader();
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"x\":1}", "cyclic.yaml"));
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"x\":1}", "cyclic.yaml"));
 
         Config m = loader.resolve(cfg -> {
             // 每次回调都返回同一个来源 —— loadedLocations 会阻止重复加载
-            return List.of(new StringConfigSource(ConfigFormat.JSON, "{\"x\":2}", "cyclic.yaml"));
+            return List.of(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"x\":2}", "cyclic.yaml"));
         });
 
         // 第二次加载被跳过，值应为 1（非 2）
@@ -308,8 +308,8 @@ class ConfigLoaderTest {
     @Test
     void samePriorityLaterOverridesEarlier() {
         ConfigLoader loader = new ConfigLoader();
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"k\":1}"), ConfigPriority.NORMAL);
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"k\":2}"), ConfigPriority.NORMAL);
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"k\":1}"), ConfigPriority.NORMAL);
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"k\":2}"), ConfigPriority.NORMAL);
         assertEquals(Long.valueOf(2), loader.load().get("k"));
     }
 
@@ -317,8 +317,8 @@ class ConfigLoaderTest {
     void higherPriorityOverridesLower() {
         ConfigLoader loader = new ConfigLoader();
         // 先添加高优先级，后添加低优先级
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"k\":\"high\"}"), ConfigPriority.HIGH);
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"k\":\"low\"}"), ConfigPriority.LOW);
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"k\":\"high\"}"), ConfigPriority.HIGH);
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"k\":\"low\"}"), ConfigPriority.LOW);
         // HIGH > LOW，结果应为 "high"
         assertEquals("high", loader.load().getString("k"));
     }
@@ -326,9 +326,9 @@ class ConfigLoaderTest {
     @Test
     void priorityMixedWithSameLevelOverride() {
         ConfigLoader loader = new ConfigLoader();
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"a\":1, \"b\":1}"), ConfigPriority.LOW);
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"a\":2}"),           ConfigPriority.LOW);
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"b\":3, \"c\":3}"), ConfigPriority.HIGH);
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"a\":1, \"b\":1}"), ConfigPriority.LOW);
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"a\":2}"),           ConfigPriority.LOW);
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"b\":3, \"c\":3}"), ConfigPriority.HIGH);
         Config m = loader.load();
         // LOW 内部：第二个 source 覆盖第一个 -> a=2, b=1
         // HIGH 覆盖 LOW -> b=3, c=3
@@ -340,8 +340,8 @@ class ConfigLoaderTest {
     @Test
     void priorityDefaultIsNormal() {
         ConfigLoader loader = new ConfigLoader();
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"k\":\"default\"}"));
-        loader.addSource(new StringConfigSource(ConfigFormat.JSON, "{\"k\":\"explicit\"}"), ConfigPriority.NORMAL);
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"k\":\"default\"}"));
+        loader.addSource(new StringConfigSource(ConfigSourceFileFormat.JSON, "{\"k\":\"explicit\"}"), ConfigPriority.NORMAL);
         // 同 NORMAL，后添加覆盖
         assertEquals("explicit", loader.load().getString("k"));
     }

@@ -12,7 +12,7 @@ import java.util.function.Function;
 /**
  * 配置格式枚举，关联 {@code com.flora.codec} 包中的解析器。
  */
-public enum ConfigFormat {
+public enum ConfigSourceFileFormat {
 
     JSON(JsonUtil::parseObject, "json"),
     YAML(YamlUtil::parseObject, "yaml", "yml"),
@@ -22,7 +22,7 @@ public enum ConfigFormat {
     private final Function<String, Map<String, Object>> parser;
     private final String[] extensions;
 
-    ConfigFormat(Function<String, Map<String, Object>> parser, String... extensions) {
+    ConfigSourceFileFormat(Function<String, Map<String, Object>> parser, String... extensions) {
         this.parser = parser;
         this.extensions = extensions;
     }
@@ -34,12 +34,12 @@ public enum ConfigFormat {
      * @return 匹配的格式
      * @throws ConfigException 无法识别时抛出
      */
-    public static ConfigFormat fromFilename(String filename) {
+    public static ConfigSourceFileFormat fromFilename(String filename) {
         if (filename == null) throw new ConfigException("文件名为 null，无法推断格式");
         int dot = filename.lastIndexOf('.');
         if (dot < 0) throw new ConfigException("文件名缺少扩展名: " + filename);
         String ext = filename.substring(dot + 1).toLowerCase();
-        for (ConfigFormat fmt : values()) {
+        for (ConfigSourceFileFormat fmt : values()) {
             for (String e : fmt.extensions) {
                 if (e.equals(ext)) return fmt;
             }

@@ -134,6 +134,7 @@ module com.flora.root {
     exports com.flora.cache.interfaces;
     exports com.flora.runtime.config.source;
     exports com.flora.runtime.config.interfaces;
+    exports com.flora.common;
 
     uses Converter;
     uses AiProvider;

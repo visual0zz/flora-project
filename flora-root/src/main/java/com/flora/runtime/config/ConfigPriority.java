@@ -1,6 +1,5 @@
 package com.flora.runtime.config;
 
-import com.flora.runtime.config.impl.ConfigLoader;
 
 /**
  * 配置来源优先级。

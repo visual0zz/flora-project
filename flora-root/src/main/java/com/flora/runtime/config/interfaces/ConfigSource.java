@@ -4,7 +4,7 @@ import com.flora.runtime.config.ConfigException;
 
 /**
  * 配置来源接口。
- * <p>代表一个可独立加载的配置来源，如文件、类路径资源或字符串。</p>
+ * <p>代表一个可独立加载，可重复读取的配置来源，如文件、类路径资源或字符串。</p>
  */
 public interface ConfigSource {
 

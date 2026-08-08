@@ -1,15 +1,10 @@
 package com.flora.runtime.config;
 
-import com.flora.runtime.config.impl.ConfigFormat;
-import com.flora.runtime.config.impl.ConfigImpl;
 import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.interfaces.ConfigSource;
 import com.flora.tag.ModuleEntry;
-import com.flora.runtime.config.impl.ConfigLoader;
-import com.flora.runtime.config.source.ClasspathConfigSource;
-import com.flora.runtime.config.source.FileConfigSource;
-import com.flora.runtime.config.source.StringConfigSource;
 
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
@@ -30,12 +25,12 @@ public final class ConfigUtil {
 
     /** 创建独立配置链。 */
     public static ConfigBuilder newConfig() {
-        return new ConfigBuilder(new ConfigLoader());
+        return new ConfigBuilder();
     }
 
     /** 使用全局单例，多处调用共享同一来源列表。 */
     public static ConfigBuilder system() {
-        return new ConfigBuilder(ConfigLoader.system());
+        return new ConfigBuilder();
     }
 
     /**
@@ -43,35 +38,13 @@ public final class ConfigUtil {
      * <p>通过 {@link ConfigUtil#newConfig()} 或 {@link ConfigUtil#system()} 获得实例。
      * 链式调用的结果直接可作为 {@code Config} 使用。</p>
      */
-    public static final class ConfigBuilder extends ConfigImpl {
+    public static final class ConfigBuilder{
+        void loadFrom(ConfigSource source) {
+            //todo
+        }
+        void loadFromFile(Path filePath){
 
-        private final ConfigLoader loader;
-
-        /** 包内使用：由 {@link ConfigUtil#newConfig()} 创建。 */
-        public ConfigBuilder(ConfigLoader loader) {
-            super(loader.load().toMap());
-            this.loader = loader;
         }
 
-        /** 添加任意配置来源并返回最新快照。 */
-        public ConfigBuilder load(ConfigSource source) {
-            loader.addSource(source);
-            return new ConfigBuilder(loader);
-        }
-
-        /** 从文件加载配置，等价于 {@code load(new FileConfigSource(...))}。 */
-        public ConfigBuilder loadFile(String path) {
-            if (path.startsWith("classpath:")) {
-                return load(new ClasspathConfigSource(path.substring("classpath:".length())));
-            }
-            return load(new FileConfigSource(Paths.get(path)));
-        }
-
-        /** 从 Properties 字符串加载配置，等价于 {@code load(new StringConfigSource(PROPS, ...))}。 */
-        public ConfigBuilder loadString(String content) {
-            String label = "<inline>:" + (content.length() > 40
-                    ? content.substring(0, 37) + "..." : content);
-            return load(new StringConfigSource(ConfigFormat.PROPERTIES, content, label));
-        }
     }
 }

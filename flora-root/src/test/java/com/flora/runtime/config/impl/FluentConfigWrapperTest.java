@@ -2,7 +2,6 @@ package com.flora.runtime.config.impl;
 
 import com.flora.runtime.config.ConfigException;
 import com.flora.runtime.config.interfaces.Config;
-import com.flora.runtime.config.interfaces.FluentConfig;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
@@ -94,35 +93,35 @@ class FluentConfigWrapperTest {
 
     @Test
     void ofWrapsPlainConfig() {
-        FluentConfig fluent = FluentConfig.of(new MemConfig(sampleData()));
+        FluentConfigWrapper fluent = FluentConfigWrapper.of(new MemConfig(sampleData()));
         assertNotNull(fluent);
         assertEquals("hello", fluent.getString("name"));
     }
 
     @Test
     void ofNullThrows() {
-        assertThrows(ConfigException.class, () -> FluentConfig.of(null));
+        assertThrows(ConfigException.class, () -> FluentConfigWrapper.of(null));
     }
 
     @Test
     void ofReturnsSameForAlreadyFluent() {
-        FluentConfig fluent = FluentConfig.of(new MemConfig(sampleData()));
-        assertSame(fluent, FluentConfig.of(fluent));
+        FluentConfigWrapper fluent = FluentConfigWrapper.of(new MemConfig(sampleData()));
+        assertSame(fluent, FluentConfigWrapper.of(fluent));
     }
 
     // ====== 转发 ======
 
     @Test
     void getForwardsRawType() {
-        FluentConfig fluent = FluentConfig.of(new MemConfig(sampleData()));
+        FluentConfigWrapper fluent = FluentConfigWrapper.of(new MemConfig(sampleData()));
         assertEquals(42L, fluent.get("count"));       // Long 原样透传
         assertEquals("3306", fluent.get("port"));     // String 原样透传
     }
 
     @Test
     void getSubConfigReturnsFluentForChain() {
-        FluentConfig fluent = FluentConfig.of(new MemConfig(sampleData()));
-        FluentConfig db = fluent.getSubConfig("db");
+        FluentConfigWrapper fluent = FluentConfigWrapper.of(new MemConfig(sampleData()));
+        FluentConfigWrapper db = fluent.getSubConfig("db");
         assertNotNull(db);
         assertEquals("localhost", db.getString("host"));
         assertEquals(Integer.valueOf(5432), db.getInt("port"));
@@ -130,13 +129,13 @@ class FluentConfigWrapperTest {
 
     @Test
     void getSubConfigMissingReturnsNull() {
-        FluentConfig fluent = FluentConfig.of(new MemConfig(sampleData()));
+        FluentConfigWrapper fluent = FluentConfigWrapper.of(new MemConfig(sampleData()));
         assertNull(fluent.getSubConfig("nope"));
     }
 
     @Test
     void forwardsMapTreeLongKeyAndEmpty() {
-        FluentConfig fluent = FluentConfig.of(new MemConfig(sampleData()));
+        FluentConfigWrapper fluent = FluentConfigWrapper.of(new MemConfig(sampleData()));
         assertFalse(fluent.isEmpty());
         assertEquals("hello", fluent.toMapTree().get("name"));
         Map<String, Object> flat = fluent.toLongKeyMap();
@@ -144,14 +143,14 @@ class FluentConfigWrapperTest {
         assertEquals("localhost", flat.get("db.host"));
         assertEquals(5432L, flat.get("db.port"));
         assertEquals(8, flat.size());
-        assertTrue(FluentConfig.of(new MemConfig(Map.of())).isEmpty());
+        assertTrue(FluentConfigWrapper.of(new MemConfig(Map.of())).isEmpty());
     }
 
     // ====== 类型转换 ======
 
     @Test
     void getStringConversions() {
-        FluentConfig fluent = FluentConfig.of(new MemConfig(sampleData()));
+        FluentConfigWrapper fluent = FluentConfigWrapper.of(new MemConfig(sampleData()));
         assertEquals("hello", fluent.getString("name"));
         assertEquals("42", fluent.getString("count"));       // Long -> toString
         assertEquals("3306", fluent.getString("port"));      // String 原样
@@ -160,7 +159,7 @@ class FluentConfigWrapperTest {
 
     @Test
     void getIntConversions() {
-        FluentConfig fluent = FluentConfig.of(new MemConfig(sampleData()));
+        FluentConfigWrapper fluent = FluentConfigWrapper.of(new MemConfig(sampleData()));
         assertEquals(Integer.valueOf(42), fluent.getInt("count"));    // Long -> int
         assertEquals(Integer.valueOf(3306), fluent.getInt("port"));   // String -> int
         assertEquals(Integer.valueOf(5432), fluent.getSubConfig("db").getInt("port"));
@@ -169,14 +168,14 @@ class FluentConfigWrapperTest {
 
     @Test
     void getIntUnconvertibleThrows() {
-        FluentConfig fluent = FluentConfig.of(new MemConfig(sampleData()));
+        FluentConfigWrapper fluent = FluentConfigWrapper.of(new MemConfig(sampleData()));
         assertThrows(ConfigException.class, () -> fluent.getInt("name"));
         assertThrows(ConfigException.class, () -> fluent.getInt("debug"));
     }
 
     @Test
     void getLongConversions() {
-        FluentConfig fluent = FluentConfig.of(new MemConfig(sampleData()));
+        FluentConfigWrapper fluent = FluentConfigWrapper.of(new MemConfig(sampleData()));
         assertEquals(Long.valueOf(42), fluent.getLong("count"));      // Long 原样
         assertEquals(Long.valueOf(3306), fluent.getLong("port"));     // String -> long
         assertNull(fluent.getLong("missing"));
@@ -185,7 +184,7 @@ class FluentConfigWrapperTest {
 
     @Test
     void getBooleanConversions() {
-        FluentConfig fluent = FluentConfig.of(new MemConfig(sampleData()));
+        FluentConfigWrapper fluent = FluentConfigWrapper.of(new MemConfig(sampleData()));
         assertEquals(Boolean.TRUE, fluent.getBoolean("debug"));       // Boolean 原样
         assertEquals(Boolean.FALSE, fluent.getBoolean("flag"));       // "FALSE" 字符串
         assertNull(fluent.getBoolean("missing"));
@@ -194,7 +193,7 @@ class FluentConfigWrapperTest {
 
     @Test
     void getListConversions() {
-        FluentConfig fluent = FluentConfig.of(new MemConfig(sampleData()));
+        FluentConfigWrapper fluent = FluentConfigWrapper.of(new MemConfig(sampleData()));
         assertEquals(List.of(1, 2, 3), fluent.getList("items"));
         assertNull(fluent.getList("missing"));
         assertThrows(ConfigException.class, () -> fluent.getList("name"));
@@ -206,7 +205,7 @@ class FluentConfigWrapperTest {
 
     @Test
     void orDefaultVariants() {
-        FluentConfig fluent = FluentConfig.of(new MemConfig(sampleData()));
+        FluentConfigWrapper fluent = FluentConfigWrapper.of(new MemConfig(sampleData()));
         assertEquals(3306, fluent.getIntOrDefault("port", 0));
         assertEquals(7, fluent.getIntOrDefault("missing", 7));
         assertEquals("def", fluent.getStringOrDefault("missing", "def"));

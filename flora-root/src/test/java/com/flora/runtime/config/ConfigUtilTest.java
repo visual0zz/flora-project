@@ -2,7 +2,6 @@ package com.flora.runtime.config;
 
 import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.interfaces.ConfigView;
-import com.flora.runtime.config.interfaces.FluentConfig;
 import com.flora.runtime.config.interfaces.ReloadableConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -58,7 +57,7 @@ class ConfigUtilTest {
 
     @Test
     void newConfigViewReturnsConfigView() {
-        // view() 返回轻量 ConfigView（仅 get/getSubConfig），不是完整 FluentConfig
+        // view() 返回轻量 ConfigView（仅 get/getSubConfig），类型化读取用 FluentConfigWrapper.of(build())
         ConfigView view = ConfigUtil.newConfig()
                 .loadFromString("port=3306")
                 .view();

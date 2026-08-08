@@ -3,20 +3,19 @@ package com.flora.runtime.config.impl;
 import com.flora.runtime.config.ConfigException;
 import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.interfaces.ConfigView;
-import com.flora.runtime.config.interfaces.FluentConfig;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 /**
- * {@link FluentConfig} 的包装器实现。
+ * 类型化配置视图的包装器实现。
  * <p>持有内部 {@link Config}，所有配置访问（{@code get/getSubConfig/toMapTree/toLongKeyMap/isEmpty}）
  * 直接转发给内部对象——{@code Config} 层不处理类型问题，底层解析类型原样透传；
  * 类型化 getter（{@code getString/getInt/getLong/getBoolean/getList}）基于透传值做转换，
  * 转换失败抛 {@link ConfigException}。子配置通过 {@link #of(Config)} 递归包装以维持链式调用。</p>
  */
-public class FluentConfigWrapper implements FluentConfig {
+public final class FluentConfigWrapper implements Config {
 
     private final Config inner;
 
@@ -25,13 +24,13 @@ public class FluentConfigWrapper implements FluentConfig {
     }
 
     /**
-     * 包装普通 {@link Config} 为流式类型化视图；已是 {@link FluentConfig} 时原样返回。
+     * 包装普通 {@link Config} 为类型化视图；已是 {@link FluentConfigWrapper} 时原样返回。
      *
      * @throws ConfigException config 为 null 时抛出
      */
-    public static FluentConfig of(Config config) {
+    public static FluentConfigWrapper of(Config config) {
         if (config == null) throw new ConfigException("Config 不能为 null");
-        return config instanceof FluentConfig fluent ? fluent : new FluentConfigWrapper(config);
+        return config instanceof FluentConfigWrapper wrapper ? wrapper : new FluentConfigWrapper(config);
     }
 
     // ====== 转发 Config 访问 ======
@@ -42,7 +41,7 @@ public class FluentConfigWrapper implements FluentConfig {
     }
 
     @Override
-    public FluentConfig getSubConfig(String path) {
+    public FluentConfigWrapper getSubConfig(String path) {
         Config sub = inner.getSubConfig(path);
         return sub == null ? null : of(sub);
     }
@@ -65,7 +64,6 @@ public class FluentConfigWrapper implements FluentConfig {
     // ====== 类型化取值 ======
 
     /** 按点号路径获取字符串值，缺失时返回 null；标量（Number/Boolean 等）取 {@code toString()}；子结构（Map/List/子配置）抛 {@link ConfigException}。 */
-    @Override
     public String getString(String path) {
         Object v = inner.get(path);
         if (v == null) return null;
@@ -82,7 +80,6 @@ public class FluentConfigWrapper implements FluentConfig {
     }
 
     /** 按点号路径获取整型值，缺失时返回 null；数值或可解析字符串被转换，否则抛 {@link ConfigException}。 */
-    @Override
     public Integer getInt(String path) {
         Object v = inner.get(path);
         if (v == null) return null;
@@ -99,7 +96,6 @@ public class FluentConfigWrapper implements FluentConfig {
     }
 
     /** 按点号路径获取长整型值，缺失时返回 null；数值或可解析字符串被转换，否则抛 {@link ConfigException}。 */
-    @Override
     public Long getLong(String path) {
         Object v = inner.get(path);
         if (v == null) return null;
@@ -116,7 +112,6 @@ public class FluentConfigWrapper implements FluentConfig {
     }
 
     /** 按点号路径获取布尔值，缺失时返回 null；{@code Boolean} 或 {@code "true"}/{@code "false"} 字符串被接受，否则抛 {@link ConfigException}。 */
-    @Override
     public Boolean getBoolean(String path) {
         Object v = inner.get(path);
         if (v == null) return null;
@@ -130,11 +125,36 @@ public class FluentConfigWrapper implements FluentConfig {
 
     /** 按点号路径获取列表，缺失时返回 null；值不是列表类型时抛 {@link ConfigException}。 */
     @SuppressWarnings("unchecked")
-    @Override
     public List<Object> getList(String path) {
         Object v = inner.get(path);
         if (v == null) return null;
         if (v instanceof List) return Collections.unmodifiableList((List<Object>) v);
         throw new ConfigException("路径 '" + path + "' 的值不是列表类型: " + v.getClass().getName());
+    }
+
+    // ====== 带默认值的变体 ======
+
+    /** 按点号路径获取字符串值，缺失时返回默认值。 */
+    public String getStringOrDefault(String path, String defaultValue) {
+        String v = getString(path);
+        return v != null ? v : defaultValue;
+    }
+
+    /** 按点号路径获取整型值，缺失时返回默认值。 */
+    public int getIntOrDefault(String path, int defaultValue) {
+        Integer v = getInt(path);
+        return v != null ? v : defaultValue;
+    }
+
+    /** 按点号路径获取长整型值，缺失时返回默认值。 */
+    public long getLongOrDefault(String path, long defaultValue) {
+        Long v = getLong(path);
+        return v != null ? v : defaultValue;
+    }
+
+    /** 按点号路径获取布尔值，缺失时返回默认值。 */
+    public boolean getBooleanOrDefault(String path, boolean defaultValue) {
+        Boolean v = getBoolean(path);
+        return v != null ? v : defaultValue;
     }
 }

@@ -51,12 +51,27 @@ class FluentConfigWrapperTest {
 
         @Override
         public Map<String, Object> toLongKeyMap() {
-            return Map.of("flat", data);
+            Map<String, Object> flat = new LinkedHashMap<>();
+            flatten("", data, flat);
+            return flat;
         }
 
         @Override
         public boolean isEmpty() {
             return data.isEmpty();
+        }
+
+        @SuppressWarnings("unchecked")
+        private static void flatten(String prefix, Map<String, Object> map, Map<String, Object> out) {
+            for (Map.Entry<String, Object> e : map.entrySet()) {
+                String key = prefix.isEmpty() ? e.getKey() : prefix + "." + e.getKey();
+                Object v = e.getValue();
+                if (v instanceof Map) {
+                    flatten(key, (Map<String, Object>) v, out);
+                } else {
+                    out.put(key, v);
+                }
+            }
         }
     }
 
@@ -124,7 +139,11 @@ class FluentConfigWrapperTest {
         FluentConfig fluent = FluentConfig.of(new MemConfig(sampleData()));
         assertFalse(fluent.isEmpty());
         assertEquals("hello", fluent.toMapTree().get("name"));
-        assertEquals(sampleData(), fluent.toLongKeyMap().get("flat"));
+        Map<String, Object> flat = fluent.toLongKeyMap();
+        assertEquals("hello", flat.get("name"));
+        assertEquals("localhost", flat.get("db.host"));
+        assertEquals(5432L, flat.get("db.port"));
+        assertEquals(8, flat.size());
         assertTrue(FluentConfig.of(new MemConfig(Map.of())).isEmpty());
     }
 

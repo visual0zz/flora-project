@@ -121,4 +121,21 @@ class RemoteConfigSourceTest {
         assertTrue(describe.contains("remote("));
         assertTrue(describe.contains("db.host"));
     }
+
+    @Test
+    void toLongKeyMapFlattensDotPaths() {
+        MapKV kv = new MapKV();
+        kv.map.put("db.host", "localhost");
+        kv.map.put("db.port", "3306");
+        kv.map.put("missing", null);
+        RemoteConfigSource source = new RemoteConfigSource(kv, ConfigSchema.of("db.host", "db.port", "missing"));
+
+        Config config = source.load();
+        Map<String, Object> flat = config.toLongKeyMap();
+        assertEquals("localhost", flat.get("db.host"));
+        assertEquals("3306", flat.get("db.port"));
+        assertTrue(flat.containsKey("missing"));
+        assertNull(flat.get("missing"));
+        assertEquals(3, flat.size());
+    }
 }

@@ -1,10 +1,14 @@
 package com.flora.cache.store;
 
+import com.flora.cache.CacheEventType;
 import com.flora.cache.interfaces.BoundedCache;
 import com.flora.cache.interfaces.Cache;
 import com.flora.cache.interfaces.CacheEventListener;
 import com.flora.cache.interfaces.EvictionPolicy;
 import com.flora.cache.interfaces.MemoryCache;
+import com.flora.cache.interfaces.ObservableBoundedCache;
+import com.flora.cache.interfaces.ObservableCache;
+import com.flora.cache.interfaces.ObservableMemoryCache;
 import com.flora.common.SharedExecutors;
 import com.flora.tag.ModuleEntry;
 
@@ -22,18 +26,21 @@ import java.util.function.Function;
  * 刷新失败（loader 抛异常）时保留旧值，且不推进刷新计时，下次读取会再次尝试。</p>
  * <p>并发约束：同一 key 最多存在一个排队中的刷新任务（重复触发被合并）；
  * 同步加载不设锁，极端并发下可能出现多次加载，最终只写入一个值（由底层缓存保证）。</p>
- * <p>实现 {@link MemoryCache} 契约，其余存储/淘汰/TTL 能力全部委托给被装饰的底层缓存。</p>
+ * <p>实现 {@link MemoryCache} 与 {@link ObservableCache} 契约：其余存储/淘汰/TTL 能力委托给被装饰的底层缓存；
+ * 监听能力透传给底层可观测缓存（{@code delegate} 非可观测时 {@code addListener} 抛异常）。</p>
  * <p><b>与可观测缓存的组合约定</b>：裸使用手动组合时，本适配器应包在
  * {@code CacheListenerAdapter} <b>外层</b>（{@code RefreshingCacheAdapter.of(CacheListenerAdapter.of(store), ...)}），
  * 使后台刷新写回经过可观测层、PUT 事件不被截断；若包在可观测层内层，刷新写回直接落存储，
  * 监听器将看不到刷新产生的写入。通过 {@code Caches.memory().refreshing(...)} 链式创建时，
- * 该顺序由 {@code Caches} 工厂固定保证。</p>
+ * 该顺序由 {@code Caches} 工厂固定保证。也可直接用 {@link #of(ObservableCache, Duration, Function)}
+ * 等重载透传可观测类型。</p>
  *
  * @param <K> 键类型
  * @param <V> 值类型
  */
 @ModuleEntry
-public final class RefreshingCacheAdapter<K, V> implements MemoryCache<K, V> {
+public final class RefreshingCacheAdapter<K, V>
+        implements ObservableMemoryCache<K, V>, ObservableBoundedCache<K, V>, ObservableCache<K, V> {
 
     private final Cache<K, V> delegate;
     private final Function<? super K, ? extends V> loader;
@@ -87,6 +94,30 @@ public final class RefreshingCacheAdapter<K, V> implements MemoryCache<K, V> {
     public static <K, V> MemoryCache<K, V> of(MemoryCache<K, V> delegate,
                                               Duration refreshAfter,
                                               Function<? super K, ? extends V> loader) {
+        return new RefreshingCacheAdapter<>(delegate, refreshAfter, loader);
+    }
+
+    /**
+     * 包装可观测缓存，返回 {@link ObservableCache} 视图（监听能力透传给底层）。
+     * 见 {@link #of(Cache, Duration, Function)}。
+     */
+    public static <K, V> ObservableCache<K, V> of(ObservableCache<K, V> delegate,
+                                                  Duration refreshAfter,
+                                                  Function<? super K, ? extends V> loader) {
+        return new RefreshingCacheAdapter<>(delegate, refreshAfter, loader);
+    }
+
+    /** 包装可观测有界缓存，返回 {@link ObservableBoundedCache} 视图。见 {@link #of(ObservableCache, Duration, Function)}。 */
+    public static <K, V> ObservableBoundedCache<K, V> of(ObservableBoundedCache<K, V> delegate,
+                                                         Duration refreshAfter,
+                                                         Function<? super K, ? extends V> loader) {
+        return new RefreshingCacheAdapter<>(delegate, refreshAfter, loader);
+    }
+
+    /** 包装可观测内存缓存，返回 {@link ObservableMemoryCache} 视图。见 {@link #of(ObservableCache, Duration, Function)}。 */
+    public static <K, V> ObservableMemoryCache<K, V> of(ObservableMemoryCache<K, V> delegate,
+                                                        Duration refreshAfter,
+                                                        Function<? super K, ? extends V> loader) {
         return new RefreshingCacheAdapter<>(delegate, refreshAfter, loader);
     }
 
@@ -228,6 +259,32 @@ public final class RefreshingCacheAdapter<K, V> implements MemoryCache<K, V> {
         }
         throw new UnsupportedOperationException(
                 "delegate is not a MemoryCache: " + delegate.getClass().getName());
+    }
+
+    // ========== 可观测能力（透传给底层可观测缓存） ==========
+
+    @Override
+    public void addListener(CacheEventType type, CacheEventListener<? super K, ? super V> listener) {
+        observableCache().addListener(type, listener);
+    }
+
+    @Override
+    public void removeListener(CacheEventType type, CacheEventListener<? super K, ? super V> listener) {
+        observableCache().removeListener(type, listener);
+    }
+
+    @Override
+    public void removeListeners(CacheEventType type) {
+        observableCache().removeListeners(type);
+    }
+
+    @SuppressWarnings("unchecked")
+    private ObservableCache<K, V> observableCache() {
+        if (delegate instanceof ObservableCache<?, ?>) {
+            return (ObservableCache<K, V>) delegate;
+        }
+        throw new UnsupportedOperationException(
+                "delegate is not observable: " + delegate.getClass().getName());
     }
 
     // ========== 内部 ==========

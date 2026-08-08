@@ -3,6 +3,8 @@ package com.flora.cache;
 import com.flora.cache.interfaces.BoundedCache;
 import com.flora.cache.interfaces.Cache;
 import com.flora.cache.interfaces.MemoryCache;
+import com.flora.cache.interfaces.ObservableMemoryCache;
+import com.flora.cache.store.CacheListenerAdapter;
 import com.flora.cache.store.RefreshingCacheAdapter;
 import org.junit.jupiter.api.Test;
 
@@ -38,15 +40,15 @@ class RefreshingCacheAdapterTest {
     void getReturnsStaleValueAndRefreshesInBackground() throws Exception {
         AtomicInteger calls = new AtomicInteger();
         MemoryCache<String, String> cache = refreshingCache(
-                Duration.ofMillis(1), k -> "v" + calls.incrementAndGet());
+                Duration.ofMillis(100), k -> "v" + calls.incrementAndGet());
 
         cache.put("k", "initial");
-        // 未超间隔：返回旧值，不触发刷新
+        // 未超间隔：返回旧值，不触发刷新（put 后立即 get，远小于 100ms 间隔）
         assertEquals("initial", cache.get("k"));
-        Thread.sleep(20);
+        Thread.sleep(50);
         assertEquals(0, calls.get(), "未到刷新间隔不应触发刷新");
 
-        Thread.sleep(5); // 超过 1ms 刷新间隔
+        Thread.sleep(100); // 累计超 100ms 刷新间隔
         // 超过间隔：仍返回旧值，但后台已提交刷新
         assertEquals("initial", cache.get("k"), "刷新完成前仍返回旧值");
         awaitCalls(calls, 1);
@@ -90,16 +92,16 @@ class RefreshingCacheAdapterTest {
     void putResetsRefreshTimer() throws Exception {
         AtomicInteger calls = new AtomicInteger();
         MemoryCache<String, String> cache = refreshingCache(
-                Duration.ofMillis(1), k -> {
+                Duration.ofMillis(100), k -> {
                     calls.incrementAndGet();
                     return "new";
                 });
 
         cache.put("k", "old");
-        Thread.sleep(5);
+        Thread.sleep(150); // 超过 100ms 刷新间隔
         cache.put("k", "updated"); // 手动写回应重置计时
-        assertEquals("updated", cache.get("k"));
-        Thread.sleep(20);
+        assertEquals("updated", cache.get("k")); // put 后立即 get，未到间隔
+        Thread.sleep(50);
         assertEquals(0, calls.get(), "put 重置计时后未到间隔不应触发刷新");
     }
 
@@ -184,5 +186,28 @@ class RefreshingCacheAdapterTest {
         assertTrue(asCache instanceof RefreshingCacheAdapter, "of(Cache) 应返回刷新适配器");
         assertTrue(asBounded instanceof RefreshingCacheAdapter, "of(BoundedCache) 应返回刷新适配器");
         assertTrue(asMemory instanceof RefreshingCacheAdapter, "of(MemoryCache) 应返回刷新适配器");
+    }
+
+    @Test
+    void ofObservableTransmitsListenerAndRefreshEvents() throws Exception {
+        // of(ObservableMemoryCache) 返回可观测视图：addListener 透传给内层，刷新写回触发 PUT 事件
+        List<String> events = new CopyOnWriteArrayList<>();
+        MemoryCache<String, String> store = Caches.<String, String>memory().get();
+        ObservableMemoryCache<String, String> obs = CacheListenerAdapter.of(store);
+
+        ObservableMemoryCache<String, String> refreshing =
+                RefreshingCacheAdapter.of(obs, Duration.ofMillis(100), k -> "fresh");
+        refreshing.addListener(CacheEventType.PUT, (type, key, oldV, newV) -> events.add("PUT:" + key));
+
+        refreshing.put("k", "old");
+        Thread.sleep(150); // 超过刷新间隔
+        assertEquals("old", refreshing.get("k"), "刷新前返回旧值");
+
+        long deadline = System.currentTimeMillis() + 5000;
+        while (events.stream().noneMatch(e -> e.equals("PUT:k")) && System.currentTimeMillis() < deadline) {
+            Thread.sleep(5);
+        }
+        assertTrue(events.stream().anyMatch(e -> e.equals("PUT:k")),
+                "of(ObservableMemoryCache) 应透传监听且刷新写回触发事件，实际: " + events);
     }
 }

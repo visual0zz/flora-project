@@ -106,6 +106,11 @@ public class FileConfigSource implements ConfigSource {
         }
 
         @Override
+        public Map<String, Object> toLongKeyMap() {
+            return Map.of();
+        }
+
+        @Override
         public boolean isEmpty() {
             return raw.isEmpty();
         }

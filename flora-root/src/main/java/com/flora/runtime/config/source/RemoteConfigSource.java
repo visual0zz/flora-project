@@ -3,6 +3,7 @@ package com.flora.runtime.config.source;
 import com.flora.common.RemoteKVSource;
 import com.flora.runtime.config.ConfigException;
 import com.flora.runtime.config.ConfigSchema;
+import com.flora.runtime.config.impl.LazyConfigView;
 import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.interfaces.ConfigSource;
 
@@ -81,7 +82,12 @@ public class RemoteConfigSource implements ConfigSource {
 
         @Override
         public Object get(String path) {
-            return resolve(path);
+            Object v = resolve(path);
+            if (v instanceof Map) {
+                // 子结构 → 返回可继续下钻的子视图（与 ConfigView.get 语义一致，共享本树作解释上下文）
+                return new LazyConfigView(() -> this.raw, path);
+            }
+            return v;
         }
 
         @Override

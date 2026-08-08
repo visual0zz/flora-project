@@ -155,4 +155,49 @@ class ConfigUtilTest {
     void unboundHelperCannotReadCurrent() {
         assertThrows(IllegalStateException.class, ConfigUtil.newConfig()::current);
     }
+
+    // ====== 占位符 ======
+
+    @Test
+    void placeholderResolvedInBuild() {
+        Config config = ConfigUtil.newConfig()
+                .loadFromString("db.host=localhost\ndb.port=3306\ndb.url=jdbc://${db.host}:${db.port}")
+                .build();
+        assertEquals("jdbc://localhost:3306", config.get("db.url"));
+    }
+
+    @Test
+    void placeholderMissingKeyThrows() {
+        assertThrows(ConfigException.class,
+                () -> ConfigUtil.newConfig().loadFromString("a=${missing}").build());
+    }
+
+    @Test
+    void placeholderFromSystemProperty() {
+        Config config = ConfigUtil.newConfig().loadFromString("v=${java.version}").build();
+        assertEquals(System.getProperty("java.version"), config.get("v"));
+    }
+
+    @Test
+    void placeholderCircularThrows() {
+        assertThrows(ConfigException.class,
+                () -> ConfigUtil.newConfig().loadFromString("a=${b}\nb=${a}").build());
+    }
+
+    @Test
+    void viewInterpretsPlaceholderOnAccess() {
+        Object v = ConfigUtil.newConfig()
+                .loadFromString("a=1\nb=val-${a}")
+                .view()
+                .get("b");
+        assertEquals("val-1", v);
+    }
+
+    // ====== classpath 来源 ======
+
+    @Test
+    void loadFromClasspathResource() {
+        Config config = ConfigUtil.newConfig().loadFromClasspath("config/app.yaml").build();
+        assertEquals("test-app", config.get("app.name"));
+    }
 }

@@ -1,7 +1,7 @@
 package com.flora.runtime.config.source;
 
-import com.flora.codec.PropsUtil;
 import com.flora.runtime.config.ConfigException;
+import com.flora.runtime.config.impl.ConfigSourceFileFormat;
 import com.flora.runtime.config.impl.MapConfig;
 import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.interfaces.ConfigSource;
@@ -27,7 +27,7 @@ public class StringConfigSource implements ConfigSource {
     @Override
     public Config load() {
         try {
-            return MapConfig.of(PropsUtil.parse(content));
+            return MapConfig.of(ConfigSourceFileFormat.PROPERTIES.parse(content));
         } catch (RuntimeException e) {
             throw new ConfigException("解析配置字符串失败: " + e.getMessage(), e);
         }

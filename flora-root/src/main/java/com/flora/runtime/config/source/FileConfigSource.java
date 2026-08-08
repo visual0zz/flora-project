@@ -1,10 +1,8 @@
 package com.flora.runtime.config.source;
 
-import com.flora.codec.JsonUtil;
-import com.flora.codec.PropsUtil;
-import com.flora.codec.TomlUtil;
-import com.flora.codec.YamlUtil;
 import com.flora.runtime.config.ConfigException;
+import com.flora.runtime.config.impl.ConfigSourceFileFormat;
+import com.flora.runtime.config.impl.LazyConfigView;
 import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.interfaces.ConfigSource;
 
@@ -56,19 +54,8 @@ public class FileConfigSource implements ConfigSource {
     @SuppressWarnings("unchecked")
     private Map<String, Object> parse(String text) {
         String name = filePath.getFileName().toString();
-        int dot = name.lastIndexOf('.');
-        if (dot <= 0 || dot == name.length() - 1) {
-            throw new ConfigException("无法从文件名识别配置格式: " + name);
-        }
-        String ext = name.substring(dot + 1).toLowerCase();
         try {
-            return switch (ext) {
-                case "json" -> JsonUtil.parseObject(text);
-                case "yaml", "yml" -> YamlUtil.parseObject(text);
-                case "toml" -> TomlUtil.parse(text);
-                case "properties", "props" -> PropsUtil.parse(text);
-                default -> throw new ConfigException("不支持的配置格式: ." + ext);
-            };
+            return ConfigSourceFileFormat.fromFilename(name).parse(text);
         } catch (ConfigException e) {
             throw e;
         } catch (RuntimeException e) {
@@ -87,7 +74,12 @@ public class FileConfigSource implements ConfigSource {
 
         @Override
         public Object get(String path) {
-            return resolve(path);
+            Object v = resolve(path);
+            if (v instanceof Map) {
+                // 子结构 → 返回可继续下钻的子视图（与 ConfigView.get 语义一致，共享本树作解释上下文）
+                return new LazyConfigView(() -> this.raw, path);
+            }
+            return v;
         }
 
         @Override

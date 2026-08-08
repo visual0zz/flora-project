@@ -9,64 +9,98 @@ import java.util.function.Supplier;
 /**
  * {@link ConfigView} 的懒合并实现：创建时零成本（不合并、不读取来源），
  * 首次访问（{@link #get}/{@link #getSubConfig}）时才执行一次合并并缓存结果。
- * <p>合并结果以不可变快照形式持有，仅对外暴露只读查询；子配置视图共享同一合并结果，
- * 通过 {@link #getSubConfig(String)} 链式下钻。线程安全：懒缓存为 volatile + 双重检查。</p>
+ * <p>合并结果以不可变快照形式持有，仅对外暴露只读查询；所有子视图共享同一根合并树
+ * （携带路径前缀做相对解析），保证任意层级的占位符解释都能访问完整上下文。
+ * 占位符（{@code ${key}}）不做预替换，访问到含占位符的字符串时才以
+ * 「根合并树 + 环境变量 + 系统属性」为上下文动态解释（解释性追踪）。</p>
+ * <p>线程安全：懒缓存为 volatile + 双重检查，以共享 {@link RootRef} 为锁。</p>
  */
 public final class LazyConfigView implements ConfigView {
 
-    private final Supplier<Map<String, Object>> merger;
-    private volatile Map<String, Object> merged;
-
-    /**
-     * @param merger 懒合并工厂：首次访问时执行，产出嵌套 Map 树（此后不再调用）
-     */
-    public LazyConfigView(Supplier<Map<String, Object>> merger) {
-        this.merger = merger;
+    /** 共享的根合并树缓存：所有子视图共用，保证只合并一次。 */
+    private static final class RootRef {
+        volatile Map<String, Object> value;
     }
 
-    private Map<String, Object> tree() {
-        Map<String, Object> m = merged;
+    private final RootRef ref;
+    private final Supplier<Map<String, Object>> rootMerger;
+    private final String prefix;
+
+    /** 创建根视图。 */
+    public LazyConfigView(Supplier<Map<String, Object>> rootMerger) {
+        this(new RootRef(), rootMerger, "");
+    }
+
+    /** 创建指定前缀的子视图，与根视图共享合并结果（供 {@code get} 返回可下钻子视图使用）。 */
+    public LazyConfigView(Supplier<Map<String, Object>> rootMerger, String prefix) {
+        this(new RootRef(), rootMerger, prefix);
+    }
+
+    private LazyConfigView(RootRef ref, Supplier<Map<String, Object>> rootMerger, String prefix) {
+        this.ref = ref;
+        this.rootMerger = rootMerger;
+        this.prefix = prefix;
+    }
+
+    private Map<String, Object> root() {
+        Map<String, Object> m = ref.value;
         if (m == null) {
-            synchronized (this) {
-                m = merged;
+            synchronized (ref) {
+                m = ref.value;
                 if (m == null) {
-                    m = merger.get();
-                    merged = m;
+                    m = rootMerger.get();
+                    ref.value = m;
                 }
             }
         }
         return m;
     }
 
+    private Object resolve(String path) {
+        return resolveIn(root(), prefix.isEmpty() ? path : prefix + "." + path);
+    }
+
     @Override
     public Object get(String path) {
-        Object v = resolve(tree(), path);
+        Object v = resolve(path);
         if (v instanceof Map<?, ?> sub) {
             // 子结构 → 返回可继续下钻的子视图（与 getSubConfig 语义一致）
-            @SuppressWarnings("unchecked")
-            Map<String, Object> subMap = (Map<String, Object>) sub;
-            return new LazyConfigView(() -> subMap);
+            return new LazyConfigView(ref, rootMerger, join(prefix, path));
         }
-        return v; // 标量 → 原值
+        if (v instanceof String s && s.indexOf("${") >= 0) {
+            return PlaceholderResolver.resolve(s, this::lookup);
+        }
+        return v;
     }
 
     @Override
     public ConfigView getSubConfig(String path) {
-        Object v = resolve(tree(), path);
+        Object v = resolve(path);
         if (v == null) {
             return null;
         }
-        if (v instanceof Map<?, ?> sub) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> subMap = (Map<String, Object>) sub;
-            return new LazyConfigView(() -> subMap);
+        if (v instanceof Map) {
+            return new LazyConfigView(ref, rootMerger, join(prefix, path));
         }
-        // 对标量路径与 MapConfig 一致：报错而非返回 null
+        // 对标量路径与 Config 一致：报错而非返回 null
         throw new ConfigException("路径 '" + path + "' 的值不是映射类型: " + v.getClass().getSimpleName());
     }
 
+    /** 占位符解释上下文：根合并树 → 环境变量 → 系统属性。 */
+    private String lookup(String key) {
+        Object v = resolveIn(root(), key);
+        if (v != null) return String.valueOf(v);
+        String env = System.getenv(key);
+        if (env != null) return env;
+        return System.getProperty(key);
+    }
+
+    private static String join(String prefix, String path) {
+        return prefix.isEmpty() ? path : prefix + "." + path;
+    }
+
     @SuppressWarnings("unchecked")
-    private static Object resolve(Map<String, Object> map, String path) {
+    private static Object resolveIn(Map<String, Object> map, String path) {
         if (path == null || path.isEmpty()) {
             return null;
         }

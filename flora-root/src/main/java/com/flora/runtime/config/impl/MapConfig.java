@@ -55,11 +55,9 @@ public final class MapConfig implements Config {
     @Override
     public Object get(String path) {
         Object v = resolve(path);
-        if (v instanceof Map<?, ?> sub) {
-            // 子结构 → 返回可下钻的 ConfigView（与 ConfigView.get 语义一致）
-            @SuppressWarnings("unchecked")
-            Map<String, Object> subMap = (Map<String, Object>) sub;
-            return new LazyConfigView(() -> subMap);
+        if (v instanceof Map) {
+            // 子结构 → 返回可继续下钻的子视图（与 ConfigView.get 语义一致，共享本树作解释上下文）
+            return new LazyConfigView(() -> this.raw, path);
         }
         return v;
     }

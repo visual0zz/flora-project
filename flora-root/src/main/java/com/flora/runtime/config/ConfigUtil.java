@@ -3,14 +3,18 @@ package com.flora.runtime.config;
 import com.flora.common.RemoteKVSource;
 import com.flora.runtime.config.impl.LazyConfigView;
 import com.flora.runtime.config.impl.MapConfig;
+import com.flora.runtime.config.impl.PlaceholderResolver;
 import com.flora.runtime.config.impl.ReloadableConfigImpl;
 import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.interfaces.ConfigSource;
 import com.flora.runtime.config.interfaces.ConfigView;
 import com.flora.runtime.config.interfaces.ReloadableConfig;
+import com.flora.runtime.config.source.ClasspathConfigSource;
+import com.flora.runtime.config.source.EnvConfigSource;
 import com.flora.runtime.config.source.FileConfigSource;
 import com.flora.runtime.config.source.RemoteConfigSource;
 import com.flora.runtime.config.source.StringConfigSource;
+import com.flora.runtime.config.source.SystemPropertiesConfigSource;
 import com.flora.tag.ModuleEntry;
 
 import java.nio.file.Path;
@@ -19,6 +23,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * 配置加载的流式入口。
@@ -98,7 +103,7 @@ public final class ConfigUtil {
         private final ReloadableConfig target;   // null = 构建新的；非 null = 更新目标
         private final boolean merge;             // target 非 null：true=refresh(合并) / false=replace(替换)
         private final List<SourceEntry> entries = new ArrayList<>();
-        private final List<String> subConfigPaths = new ArrayList<>();
+        private final List<SubConfigEntry> subConfigs = new ArrayList<>();
 
         ConfigLoadHelper(ReloadableConfig target, boolean merge) {
             this.target = target;
@@ -141,18 +146,45 @@ public final class ConfigUtil {
             return loadFrom(priority, new RemoteConfigSource(kv, schema));
         }
 
+        public ConfigLoadHelper loadFromClasspath(String resource) {
+            return loadFrom(ConfigPriority.NORMAL, new ClasspathConfigSource(resource));
+        }
+
+        public ConfigLoadHelper loadFromClasspath(ConfigPriority priority, String resource) {
+            return loadFrom(priority, new ClasspathConfigSource(resource));
+        }
+
+        /** 从环境变量加载（schema key 原样作为环境变量名，缺失填 null）。 */
+        public ConfigLoadHelper loadFromEnv(ConfigSchema schema) {
+            return loadFrom(ConfigPriority.NORMAL, new EnvConfigSource(schema));
+        }
+
+        public ConfigLoadHelper loadFromEnv(ConfigPriority priority, ConfigSchema schema) {
+            return loadFrom(priority, new EnvConfigSource(schema));
+        }
+
+        /** 从系统属性加载（schema key 原样作为属性名，缺失填 null）。 */
+        public ConfigLoadHelper loadFromSystemProperties(ConfigSchema schema) {
+            return loadFrom(ConfigPriority.NORMAL, new SystemPropertiesConfigSource(schema));
+        }
+
+        public ConfigLoadHelper loadFromSystemProperties(ConfigPriority priority, ConfigSchema schema) {
+            return loadFrom(priority, new SystemPropertiesConfigSource(schema));
+        }
+
         /**
          * 将某个路径下的子配置提升到整体：如存在 {@code com.flora.database.host = 127.0.0.1}，
          * 执行 {@code loadFromSubConfig("com.flora")} 后顶层 {@code database.host} 被其覆盖。
-         * 提升在全部来源合并后按添加顺序作为叠加层执行。
+         * 提升在全部来源合并后按优先级从低到高执行（高优先级提升覆盖低优先级提升，同优先级按添加顺序）。
          */
         public ConfigLoadHelper loadFromSubConfig(String path) {
             return loadFromSubConfig(ConfigPriority.NORMAL, path);
         }
 
         public ConfigLoadHelper loadFromSubConfig(ConfigPriority priority, String path) {
+            if (priority == null) throw new ConfigException("ConfigPriority 不能为 null");
             if (path == null || path.isEmpty()) throw new ConfigException("subConfig 路径不能为空");
-            subConfigPaths.add(path);
+            subConfigs.add(new SubConfigEntry(priority, path));
             return this;
         }
 
@@ -211,8 +243,10 @@ public final class ConfigUtil {
             for (SourceEntry e : sorted) {
                 acc = mergeDeep(acc, e.source.load().toMapTree());
             }
-            for (String path : subConfigPaths) {
-                Object sub = resolve(acc, path);
+            List<SubConfigEntry> sortedSubs = new ArrayList<>(subConfigs);
+            sortedSubs.sort(Comparator.comparingInt(e -> e.priority.ordinal()));  // 稳定排序：低优先级提升先执行，高覆盖低
+            for (SubConfigEntry e : sortedSubs) {
+                Object sub = resolve(acc, e.path);
                 if (sub instanceof Map) {
                     acc = mergeDeep(acc, (Map<String, Object>) sub);
                 }
@@ -221,7 +255,20 @@ public final class ConfigUtil {
         }
 
         private Config merged() {
-            return MapConfig.of(mergedRaw());
+            Map<String, Object> raw = mergedRaw();
+            // build/flush 路径：静态展开占位符（view() 保留原文，由 LazyConfigView 访问时解释）
+            return MapConfig.of(PlaceholderResolver.resolveTree(raw, lookupOf(raw)));
+        }
+
+        /** 占位符查找上下文：合并结果树 → 环境变量 → 系统属性。 */
+        private static Function<String, String> lookupOf(Map<String, Object> tree) {
+            return key -> {
+                Object v = resolve(tree, key);
+                if (v != null) return String.valueOf(v);
+                String env = System.getenv(key);
+                if (env != null) return env;
+                return System.getProperty(key);
+            };
         }
 
         @SuppressWarnings("unchecked")
@@ -251,5 +298,7 @@ public final class ConfigUtil {
         }
 
         private record SourceEntry(ConfigSource source, ConfigPriority priority) {}
+
+        private record SubConfigEntry(ConfigPriority priority, String path) {}
     }
 }

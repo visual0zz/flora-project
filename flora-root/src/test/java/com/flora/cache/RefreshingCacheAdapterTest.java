@@ -4,8 +4,8 @@ import com.flora.cache.interfaces.BoundedCache;
 import com.flora.cache.interfaces.Cache;
 import com.flora.cache.interfaces.MemoryCache;
 import com.flora.cache.interfaces.ObservableMemoryCache;
-import com.flora.cache.store.CacheListenerAdapter;
-import com.flora.cache.store.RefreshingCacheAdapter;
+import com.flora.cache.impl.CacheListenerAdapter;
+import com.flora.cache.impl.RefreshingCacheAdapter;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;

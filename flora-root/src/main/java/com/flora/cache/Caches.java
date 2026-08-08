@@ -4,9 +4,9 @@ import com.flora.cache.interfaces.CacheEventListener;
 import com.flora.cache.interfaces.EvictionPolicy;
 import com.flora.cache.interfaces.MemoryCache;
 import com.flora.cache.interfaces.ObservableMemoryCache;
-import com.flora.cache.store.CacheListenerAdapter;
-import com.flora.cache.store.ConcurrentHashMapCache;
-import com.flora.cache.store.RefreshingCacheAdapter;
+import com.flora.cache.impl.CacheListenerAdapter;
+import com.flora.cache.impl.ConcurrentHashMapCache;
+import com.flora.cache.impl.RefreshingCacheAdapter;
 import com.flora.tag.ModuleEntry;
 
 import java.time.Duration;

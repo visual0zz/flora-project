@@ -1,4 +1,4 @@
-package com.flora.cache.store;
+package com.flora.cache.impl;
 
 import com.flora.cache.interfaces.Cache;
 import com.flora.cache.interfaces.MemoryCache;

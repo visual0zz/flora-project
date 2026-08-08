@@ -47,7 +47,7 @@ public class FileConfigSource implements ConfigSource {
             throw new ConfigException("配置文件不存在或不是普通文件: " + filePath);
         }
         try {
-            return new String(Files.readAllBytes(filePath), StandardCharsets.UTF_8);
+            return Files.readString(filePath);
         } catch (IOException e) {
             throw new ConfigException("读取配置文件失败: " + filePath, e);
         }

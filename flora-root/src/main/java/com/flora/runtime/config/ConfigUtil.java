@@ -1,123 +1,255 @@
 package com.flora.runtime.config;
 
 import com.flora.common.RemoteKVSource;
+import com.flora.runtime.config.impl.LazyConfigView;
+import com.flora.runtime.config.impl.MapConfig;
+import com.flora.runtime.config.impl.ReloadableConfigImpl;
 import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.interfaces.ConfigSource;
-import com.flora.runtime.config.interfaces.FluentConfig;
+import com.flora.runtime.config.interfaces.ConfigView;
 import com.flora.runtime.config.interfaces.ReloadableConfig;
+import com.flora.runtime.config.source.FileConfigSource;
+import com.flora.runtime.config.source.RemoteConfigSource;
+import com.flora.runtime.config.source.StringConfigSource;
 import com.flora.tag.ModuleEntry;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 配置加载的流式入口。
  *
  * <pre>{@code
  * Config config = ConfigUtil.newConfig()
- *     .load(new FileConfigSource(...))
- *     .loadFile("override.yaml")
- *     .loadString("key=val")
- *     .getMap("database");
+ *     .loadFromFile(Paths.get("app.yaml"))
+ *     .loadFromString("key=val")
+ *     .build();
+ *
+ * // 可热替换
+ * ReloadableConfig r = ConfigUtil.newReloadableConfig()
+ *     .loadFromFile(Paths.get("app.yaml"))
+ *     .buildReloadable();
+ *
+ * // 更新已有 ReloadableConfig
+ * ConfigUtil.replaceConfig(r).loadFromString("port=8080").flush();
+ *
+ * // 全局配置（单例，替换式更新）
+ * ConfigUtil.replaceSystem().loadFromFile(Paths.get("app.yaml")).flush();
  * }</pre>
+ *
+ * <p>所有入口共享同一套加载/合并实现（{@link ConfigLoadHelper}），
+ * 通过入口语义限制输出：{@link #newConfig()} / {@link #newReloadableConfig()} 构建新配置，
+ * {@link #refreshConfig(ReloadableConfig)}（合并式）/ {@link #replaceConfig(ReloadableConfig)}（替换式）
+ * 与 {@link #refreshSystem()}（全局单例，合并式）/ {@link #replaceSystem()}（全局单例，替换式）更新既有配置。</p>
  */
 @ModuleEntry
 public final class ConfigUtil {
 
+    /** 全局单例配置（refreshSystem() / replaceSystem() 的操作目标）。 */
+    private static final ReloadableConfig SYSTEM = new ReloadableConfigImpl();
+
     private ConfigUtil() {}
 
-    /** 创建独立配置链。 */
+    /** 创建独立配置链，最终以 {@link Config} 输出。 */
     public static ConfigLoadHelper newConfig() {
-        return null;//todo 链式构造新的Config
+        return new ConfigLoadHelper(null, false);
     }
 
+    /** 创建独立配置链，最终以新 {@link ReloadableConfig} 输出。 */
     public static ConfigLoadHelper newReloadableConfig() {
-        return null;//todo 链式构造新的ReloadableConfig
+        return new ConfigLoadHelper(null, false);
     }
+
+    /** 创建绑定到既有 ReloadableConfig 的链，flush 时按合并语义更新（新值覆盖旧值，无新值保留旧值）。 */
     public static ConfigLoadHelper refreshConfig(ReloadableConfig config) {
-        return null;//todo 链式构造新的ReloadableConfig
+        return new ConfigLoadHelper(requireConfig(config), true);
     }
+
+    /** 创建绑定到既有 ReloadableConfig 的链，flush 时全量替换其底层配置。 */
     public static ConfigLoadHelper replaceConfig(ReloadableConfig config) {
-        return null;//todo 链式构造新的ReloadableConfig
+        return new ConfigLoadHelper(requireConfig(config), false);
     }
-    /** 使用全局单例，多处调用共享同一来源列表。 */
-    public static ConfigLoadHelper system() {
-        return null;//todo 链式更新全局Config，全局的配置类型固定为ReloadableConfig
+
+    /** 返回操作全局单例配置的链，flush 时按合并语义更新全局（新值覆盖旧值，无新值保留旧值）。 */
+    public static ConfigLoadHelper refreshSystem() {
+        return new ConfigLoadHelper(SYSTEM, true);
+    }
+    /** 返回操作全局单例配置的链，flush 时全量替换全局配置。 */
+    public static ConfigLoadHelper replaceSystem() {
+        return new ConfigLoadHelper(SYSTEM, false);
+    }
+
+    private static ReloadableConfig requireConfig(ReloadableConfig config) {
+        if (config == null) throw new ConfigException("ReloadableConfig 不能为 null");
+        return config;
     }
 
     /**
-     * 流式配置构建器，同时也是 {@link Config}。
-     * <p>通过 {@link ConfigUtil#newConfig()} 或 {@link ConfigUtil#system()} 获得实例。
-     * 链式调用的结果直接可作为 {@code Config} 使用。</p>
+     * 配置链加载器（唯一实现）：收集来源与优先级，按优先级从低到高稳定合并，
+     * 最终由终端方法输出。绑定目标为 null 时构建新的 {@link Config}/{@link ReloadableConfig}；
+     * 绑定目标非 null 时 {@link #flush()} 按 {@code merge} 语义更新目标。
      */
     public static final class ConfigLoadHelper {
-        ConfigLoadHelper loadFrom(ConfigSource source) {
-            //todo
-            return null;
-        }
-        ConfigLoadHelper loadFromFile(Path filePath){
-            //todo
-            return null;
-        }
-        ConfigLoadHelper loadFromString(String str){
-            //todo
-            return null;
-        }
-        ConfigLoadHelper loadFromRemote(RemoteKVSource kv, ConfigSchema schema){
-            //todo
-            return null;
-        }
-        ConfigLoadHelper loadFromSubConfig(String path){
-            //todo 将某个路径下面的配置加载到整体，
-            /* 例如存在 com.flora.database.host = 127.0.0.1
-             * 存在 com.flora.database.port = 6379
-             * 存在 database.host = 192.168.0.1
-             * 执行 loadFromSubConfig("com.flora")之后会变为
-             *  com.flora.database.host = 127.0.0.1
-             *  com.flora.database.port = 6379
-             *  database.host = 127.0.0.1
-             *  database.port = 6379
-             */
-            return null;
+
+        private final ReloadableConfig target;   // null = 构建新的；非 null = 更新目标
+        private final boolean merge;             // target 非 null：true=refresh(合并) / false=replace(替换)
+        private final List<SourceEntry> entries = new ArrayList<>();
+        private final List<String> subConfigPaths = new ArrayList<>();
+
+        ConfigLoadHelper(ReloadableConfig target, boolean merge) {
+            this.target = target;
+            this.merge = merge;
         }
 
-        ConfigLoadHelper loadFrom(ConfigPriority priority, ConfigSource source) {
-            //todo
-            return null;
-        }
-        ConfigLoadHelper loadFromFile(ConfigPriority priority, Path filePath){
-            //todo
-            return null;
-        }
-        ConfigLoadHelper loadFromString(ConfigPriority priority, String str){
-            //todo
-            return null;
-        }
-        ConfigLoadHelper loadFromRemote(ConfigPriority priority, RemoteKVSource kv, ConfigSchema schema){
-            //todo
-            return null;
-        }
-        ConfigLoadHelper loadFromSubConfig(ConfigPriority priority, String path){
-            //todo 将某个路径下面的配置加载到整体，
-            /* 例如存在 com.flora.database.host = 127.0.0.1
-             * 存在 com.flora.database.port = 6379
-             * 存在 database.host = 192.168.0.1
-             * 执行 loadFromSubConfig("com.flora")之后会变为
-             *  com.flora.database.host = 127.0.0.1
-             *  com.flora.database.port = 6379
-             *  database.host = 127.0.0.1
-             *  database.port = 6379
-             */
-            return null;
-        }
-        FluentConfig view() {
-            //todo 返回一个FluentConfig的视图
-            return null;
-        }
-        Config build() {
-            //todo 构建最终的Config
-            return null;
+        // ====== 来源收集 ======
+
+        public ConfigLoadHelper loadFrom(ConfigSource source) {
+            return loadFrom(ConfigPriority.NORMAL, source);
         }
 
+        public ConfigLoadHelper loadFrom(ConfigPriority priority, ConfigSource source) {
+            if (source == null) throw new ConfigException("ConfigSource 不能为 null");
+            entries.add(new SourceEntry(source, priority));
+            return this;
+        }
 
+        public ConfigLoadHelper loadFromFile(Path filePath) {
+            return loadFrom(ConfigPriority.NORMAL, new FileConfigSource(filePath));
+        }
+
+        public ConfigLoadHelper loadFromFile(ConfigPriority priority, Path filePath) {
+            return loadFrom(priority, new FileConfigSource(filePath));
+        }
+
+        public ConfigLoadHelper loadFromString(String str) {
+            return loadFrom(ConfigPriority.NORMAL, new StringConfigSource(str));
+        }
+
+        public ConfigLoadHelper loadFromString(ConfigPriority priority, String str) {
+            return loadFrom(priority, new StringConfigSource(str));
+        }
+
+        public ConfigLoadHelper loadFromRemote(RemoteKVSource kv, ConfigSchema schema) {
+            return loadFrom(ConfigPriority.NORMAL, new RemoteConfigSource(kv, schema));
+        }
+
+        public ConfigLoadHelper loadFromRemote(ConfigPriority priority, RemoteKVSource kv, ConfigSchema schema) {
+            return loadFrom(priority, new RemoteConfigSource(kv, schema));
+        }
+
+        /**
+         * 将某个路径下的子配置提升到整体：如存在 {@code com.flora.database.host = 127.0.0.1}，
+         * 执行 {@code loadFromSubConfig("com.flora")} 后顶层 {@code database.host} 被其覆盖。
+         * 提升在全部来源合并后按添加顺序作为叠加层执行。
+         */
+        public ConfigLoadHelper loadFromSubConfig(String path) {
+            return loadFromSubConfig(ConfigPriority.NORMAL, path);
+        }
+
+        public ConfigLoadHelper loadFromSubConfig(ConfigPriority priority, String path) {
+            if (path == null || path.isEmpty()) throw new ConfigException("subConfig 路径不能为空");
+            subConfigPaths.add(path);
+            return this;
+        }
+
+        // ====== 终端 ======
+
+        /** 构建静态 {@link Config}（仅未绑定目标时可用）。 */
+        public Config build() {
+            requireUnbound("build()");
+            return merged();
+        }
+
+        /** 构建新的 {@link ReloadableConfig}（仅未绑定目标时可用）。 */
+        public ReloadableConfig buildReloadable() {
+            requireUnbound("buildReloadable()");
+            return new ReloadableConfigImpl(merged());
+        }
+
+        /**
+         * 返回当前链已收集来源的<b>只读查询视图</b>：反映本次加载进行到当前点的中间数据
+         * （仅含已 {@code loadFrom*} 的来源与子配置提升，不含绑定目标的历史值），
+         * 未绑定与已绑定目标的状态下均可用。创建零成本（不合并、不读取来源），
+         * 首次 {@link ConfigView#get}/{@link ConfigView#getSubConfig} 访问时才合并并缓存；
+         * 不触发终端语义（不会 flush 到目标，也不影响后续继续 {@code loadFrom*}）。
+         */
+        public ConfigView view() {
+            return new LazyConfigView(this::mergedRaw);
+        }
+
+        /** 返回绑定目标的当前快照（仅绑定目标时可用，如 {@code replaceSystem().current()} 读取全局配置）。 */
+        public Config current() {
+            if (target == null) throw new IllegalStateException("当前链未绑定 ReloadableConfig，没有可读取的快照");
+            return target;
+        }
+
+        /** 按绑定语义更新目标：merge 为 true 时 refresh（合并），否则 replace（全量替换）。 */
+        public void flush() {
+            if (target == null) throw new IllegalStateException("当前链未绑定 ReloadableConfig，应使用 build()/buildReloadable()");
+            Config c = merged();
+            if (merge) target.refreshWith(c);
+            else target.replaceWith(c);
+        }
+
+        private void requireUnbound(String method) {
+            if (target != null) {
+                throw new IllegalStateException("当前链已绑定 ReloadableConfig，不能调用 " + method + "，应使用 flush()");
+            }
+        }
+
+        // ====== 内部合并 ======
+
+        /** 合并当前已收集来源，返回嵌套 Map（低优先级先、高覆盖低，随后子配置提升）。 */
+        private Map<String, Object> mergedRaw() {
+            List<SourceEntry> sorted = new ArrayList<>(entries);
+            sorted.sort(Comparator.comparingInt(e -> e.priority.ordinal()));  // 稳定排序：低优先级先加载，高覆盖低
+            Map<String, Object> acc = new LinkedHashMap<>();
+            for (SourceEntry e : sorted) {
+                acc = mergeDeep(acc, e.source.load().toMapTree());
+            }
+            for (String path : subConfigPaths) {
+                Object sub = resolve(acc, path);
+                if (sub instanceof Map) {
+                    acc = mergeDeep(acc, (Map<String, Object>) sub);
+                }
+            }
+            return acc;
+        }
+
+        private Config merged() {
+            return MapConfig.of(mergedRaw());
+        }
+
+        @SuppressWarnings("unchecked")
+        private static Object resolve(Map<String, Object> map, String path) {
+            Object current = map;
+            for (String key : path.split("\\.")) {
+                if (!(current instanceof Map)) return null;
+                current = ((Map<String, Object>) current).get(key);
+                if (current == null) return null;
+            }
+            return current;
+        }
+
+        @SuppressWarnings("unchecked")
+        private static Map<String, Object> mergeDeep(Map<String, Object> base, Map<String, Object> overlay) {
+            Map<String, Object> merged = new LinkedHashMap<>(base);
+            for (Map.Entry<String, Object> e : overlay.entrySet()) {
+                Object overlayValue = e.getValue();
+                Object baseValue = merged.get(e.getKey());
+                if (baseValue instanceof Map && overlayValue instanceof Map) {
+                    merged.put(e.getKey(), mergeDeep((Map<String, Object>) baseValue, (Map<String, Object>) overlayValue));
+                } else {
+                    merged.put(e.getKey(), overlayValue);
+                }
+            }
+            return merged;
+        }
+
+        private record SourceEntry(ConfigSource source, ConfigPriority priority) {}
     }
 }

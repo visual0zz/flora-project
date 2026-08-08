@@ -2,6 +2,7 @@ package com.flora.runtime.config.impl;
 
 import com.flora.runtime.config.ConfigException;
 import com.flora.runtime.config.interfaces.Config;
+import com.flora.runtime.config.interfaces.ConfigView;
 import com.flora.runtime.config.interfaces.FluentConfig;
 
 import java.util.Collections;
@@ -63,13 +64,21 @@ public class FluentConfigWrapper implements FluentConfig {
 
     // ====== 类型化取值 ======
 
-    /** 按点号路径获取字符串值，缺失时返回 null；非字符串值取 {@code toString()}。 */
+    /** 按点号路径获取字符串值，缺失时返回 null；标量（Number/Boolean 等）取 {@code toString()}；子结构（Map/List/子配置）抛 {@link ConfigException}。 */
     @Override
     public String getString(String path) {
         Object v = inner.get(path);
         if (v == null) return null;
         if (v instanceof String s) return s;
+        requireScalar(path, v);
         return v.toString();
+    }
+
+    /** 值是否为非标量子结构（子配置/集合），类型化 getter 应报错而非尝试转换。 */
+    private static void requireScalar(String path, Object v) {
+        if (v instanceof Map || v instanceof List || v instanceof ConfigView) {
+            throw new ConfigException("路径 '" + path + "' 的值不是标量: " + v.getClass().getSimpleName());
+        }
     }
 
     /** 按点号路径获取整型值，缺失时返回 null；数值或可解析字符串被转换，否则抛 {@link ConfigException}。 */
@@ -77,6 +86,7 @@ public class FluentConfigWrapper implements FluentConfig {
     public Integer getInt(String path) {
         Object v = inner.get(path);
         if (v == null) return null;
+        requireScalar(path, v);
         if (v instanceof Number n) return n.intValue();
         if (v instanceof String s) {
             try {
@@ -93,6 +103,7 @@ public class FluentConfigWrapper implements FluentConfig {
     public Long getLong(String path) {
         Object v = inner.get(path);
         if (v == null) return null;
+        requireScalar(path, v);
         if (v instanceof Number n) return n.longValue();
         if (v instanceof String s) {
             try {
@@ -109,6 +120,7 @@ public class FluentConfigWrapper implements FluentConfig {
     public Boolean getBoolean(String path) {
         Object v = inner.get(path);
         if (v == null) return null;
+        requireScalar(path, v);
         if (v instanceof Boolean b) return b;
         String s = v.toString().toLowerCase();
         if ("true".equals(s)) return Boolean.TRUE;

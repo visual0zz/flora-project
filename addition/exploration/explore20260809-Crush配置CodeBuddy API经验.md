@@ -130,3 +130,29 @@ Crush 有三层 token 控制：
 ## 六、与其他 Provider 的关系
 
 当前配置同时启用了 codebuddy 和 deepseek 两个 provider。Crush 按模型粒度选择 provider：每个模型绑定到唯一的 provider，切换模型即切换 provider。不存在 provider 级别的 fallback 或负载均衡。
+
+---
+
+## 七、尝试配置阿里云 Qoder（失败）
+
+### 7.1 背景
+
+阿里云 Qoder（`qoder.com`）提供编码 Agent 服务，API key 格式为 `pt-...`（Personal Access Token）。
+
+### 7.2 结论：无法配置
+
+Qoder 的 API 是自有的 **Cloud Agents API**（Agent-as-a-Service），不是 OpenAI 兼容协议：
+
+- Base URL：`https://api.qoder.com/api/v1/cloud`
+- 认证：`Authorization: Bearer pt-...`
+- API 端点：Agents、Sessions、Events（SSE 流）、Files、Vaults 等——全是 Agent 生命周期管理
+- **不存在 `/v1/chat/completions` 端点**，无法作为 OpenAI 兼容的 drop-in replacement
+
+Crush 的 provider type 支持 `openai`、`openai-compat`、`anthropic` 及本地类型（ollama/lmstudio/llamacpp），不包含 Qoder 的自有协议。因此 Qoder 无法直接接入 Crush。
+
+### 7.3 替代思路
+
+如果未来需要接入，可能的路径：
+1. 自建一个 Qoder → OpenAI 兼容协议的转换代理（将 `/v1/chat/completions` 请求转为 Qoder Session + SSE 事件流）
+2. 等 Qoder 官方推出 OpenAI 兼容端点
+3. 等 Crush 支持自定义 provider 协议适配

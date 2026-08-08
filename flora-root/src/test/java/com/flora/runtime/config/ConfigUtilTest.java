@@ -1,8 +1,11 @@
 package com.flora.runtime.config;
 
+import com.flora.runtime.config.impl.ConfigFormat;
 import com.flora.runtime.config.impl.ConfigLoader;
-import com.flora.runtime.config.impl.FileConfigSource;
-import com.flora.runtime.config.impl.StringConfigSource;
+import com.flora.runtime.config.interfaces.Config;
+import com.flora.runtime.config.interfaces.ConfigSource;
+import com.flora.runtime.config.source.FileConfigSource;
+import com.flora.runtime.config.source.StringConfigSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 

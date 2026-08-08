@@ -1,14 +1,12 @@
 package com.flora.runtime.config.impl;
 
-import com.flora.runtime.config.Config;
+import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.ConfigException;
-import com.flora.runtime.config.ConfigFormat;
 import com.flora.runtime.config.ConfigPriority;
-import com.flora.runtime.config.ConfigSource;
-import com.flora.runtime.config.impl.ClasspathConfigSource;
-import com.flora.runtime.config.impl.ConfigLoader;
-import com.flora.runtime.config.impl.FileConfigSource;
-import com.flora.runtime.config.impl.StringConfigSource;
+import com.flora.runtime.config.interfaces.ConfigSource;
+import com.flora.runtime.config.source.ClasspathConfigSource;
+import com.flora.runtime.config.source.FileConfigSource;
+import com.flora.runtime.config.source.StringConfigSource;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Paths;
@@ -63,7 +61,7 @@ class ConfigLoaderTest {
         assertEquals("hello", m.getString("name"));
         assertEquals("42", m.getString("count"));
         assertNull(m.getString("missing"));
-        assertEquals("def", m.getString("missing", "def"));
+        assertEquals("def", m.getOrDefault("missing", "def"));
     }
 
     @Test
@@ -91,15 +89,15 @@ class ConfigLoaderTest {
     void configMapNestedAccess() {
         Config m = Config.of(Map.of("a", Map.of("b", Map.of("c", "deep"))));
         assertEquals("deep", m.getString("a.b.c"));
-        assertNotNull(m.getMap("a"));
-        assertNotNull(m.getMap("a.b"));
+        assertNotNull(m.getConfig("a"));
+        assertNotNull(m.getConfig("a.b"));
         assertNull(m.get("a.b.c.d"));
     }
 
     @Test
-    void configMapGetMap() {
+    void configMapGetConfig() {
         Config m = Config.of(Map.of("sub", Map.of("k", "v")));
-        Config sub = m.getMap("sub");
+        Config sub = m.getConfig("sub");
         assertNotNull(sub);
         assertEquals("v", sub.getString("k"));
     }
@@ -277,7 +275,7 @@ class ConfigLoaderTest {
 
             String importNext = cfg.getString("import.next");
             if ("true".equals(importNext)) {
-                switch (cfg.getString("stage", "")) {
+                switch (cfg.getOrDefault("stage", "")) {
                     case "1": return List.of(new StringConfigSource(ConfigFormat.YAML, second, "second.yaml"));
                     case "2": return List.of(new StringConfigSource(ConfigFormat.YAML, third, "third.yaml"));
                 }

@@ -49,7 +49,7 @@ module com.flora.root {
     // 缓存淘汰策略实现（FIFO / LFU / LRU / W-TinyLFU）
     exports com.flora.cache.eviction;
     // 缓存存储引擎与可观测装饰器（ConcurrentHashMapCache / CacheListenerAdapter）
-    exports com.flora.cache.store;
+    exports com.flora.cache.impl;
     // 高性能容器消费者
     exports com.flora.fast.container.consumer;
     // 高性能映射容器
@@ -131,6 +131,9 @@ module com.flora.root {
     exports com.flora.runtime.config.impl;
     // 重试机制工具
     exports com.flora.concurrent.retry;
+    exports com.flora.cache.interfaces;
+    exports com.flora.runtime.config.source;
+    exports com.flora.runtime.config.interfaces;
 
     uses Converter;
     uses AiProvider;

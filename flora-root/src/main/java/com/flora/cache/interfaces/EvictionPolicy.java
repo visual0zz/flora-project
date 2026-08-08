@@ -1,4 +1,6 @@
-package com.flora.cache;
+package com.flora.cache.interfaces;
+
+import com.flora.cache.CacheEventType;
 
 /**
  * 淘汰策略回调接口。

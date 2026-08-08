@@ -1,5 +1,7 @@
 package com.flora.cache;
 
+import com.flora.cache.interfaces.Cache;
+
 /**
  * 缓存事件类型。
  * <p>

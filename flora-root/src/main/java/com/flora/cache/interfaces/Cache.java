@@ -1,4 +1,4 @@
-package com.flora.cache;
+package com.flora.cache.interfaces;
 
 import com.flora.tag.ModuleEntry;
 

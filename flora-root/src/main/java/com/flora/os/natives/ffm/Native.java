@@ -1,7 +1,8 @@
 package com.flora.os.natives.ffm;
 
-import com.flora.cache.Cache;
+import com.flora.cache.interfaces.Cache;
 import com.flora.cache.Caches;
+import com.flora.tag.ModuleEntry;
 
 import java.lang.foreign.MemorySegment;
 
@@ -12,6 +13,7 @@ import java.lang.foreign.MemorySegment;
  * <p>库句柄一旦加载便在进程生命周期内常驻（无界缓存、不驱逐），与 native 库句柄
  * 通常随进程存活的语义一致。并发调用安全：每个库名至多加载一次。
  */
+@ModuleEntry
 public final class Native {
 
     private static final Cache<String, NativeLib> LIBS = Caches.<String, NativeLib>memory().get();

@@ -1,4 +1,6 @@
-package com.flora.runtime.config;
+package com.flora.runtime.config.interfaces;
+
+import com.flora.runtime.config.ConfigException;
 
 /**
  * 配置来源接口。

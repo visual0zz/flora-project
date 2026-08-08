@@ -1,14 +1,14 @@
-package com.flora.cache.store;
+package com.flora.cache.impl;
 
-import com.flora.cache.BoundedCache;
-import com.flora.cache.Cache;
+import com.flora.cache.interfaces.BoundedCache;
+import com.flora.cache.interfaces.Cache;
 import com.flora.cache.CacheEventType;
-import com.flora.cache.CacheEventListener;
-import com.flora.cache.EvictionPolicy;
-import com.flora.cache.MemoryCache;
-import com.flora.cache.ObservableBoundedCache;
-import com.flora.cache.ObservableCache;
-import com.flora.cache.ObservableMemoryCache;
+import com.flora.cache.interfaces.CacheEventListener;
+import com.flora.cache.interfaces.EvictionPolicy;
+import com.flora.cache.interfaces.MemoryCache;
+import com.flora.cache.interfaces.ObservableBoundedCache;
+import com.flora.cache.interfaces.ObservableCache;
+import com.flora.cache.interfaces.ObservableMemoryCache;
 
 import java.time.Duration;
 import java.util.List;
@@ -32,6 +32,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * 被包装缓存<b>内部</b>触发的淘汰与过期（{@code EVICT} / {@code EXPIRE}，如 {@code cleanUp()} 驱动的批量回收）
  * 经由 {@link MemoryCache#setInternalRemovalListener} 安装的内部移除钩子桥接派发：{@code of(...)} 包装时
  * 自动注入该钩子，把存储引擎的 EVICT / EXPIRE 转派给用户监听器，从而无需让存储直接持有事件总线。
+ * <p><b>与其他适配器的组合约定</b>：异步刷新适配器 {@code RefreshingCacheAdapter} 应包在
+ * 本可观测层<b>外层</b>，否则其后台刷新写回绕过本层、PUT 事件缺失；通过 {@code Caches} 链式
+ * 创建时顺序由工厂固定（observable 内层、refreshing 外层）。</p>
  *
  * @param <K> 键类型
  * @param <V> 值类型

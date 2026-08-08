@@ -1,10 +1,14 @@
 package com.flora.runtime.config;
 
+import com.flora.runtime.config.impl.ConfigFormat;
+import com.flora.runtime.config.impl.ConfigImpl;
+import com.flora.runtime.config.interfaces.Config;
+import com.flora.runtime.config.interfaces.ConfigSource;
 import com.flora.tag.ModuleEntry;
 import com.flora.runtime.config.impl.ConfigLoader;
-import com.flora.runtime.config.impl.ClasspathConfigSource;
-import com.flora.runtime.config.impl.FileConfigSource;
-import com.flora.runtime.config.impl.StringConfigSource;
+import com.flora.runtime.config.source.ClasspathConfigSource;
+import com.flora.runtime.config.source.FileConfigSource;
+import com.flora.runtime.config.source.StringConfigSource;
 
 import java.nio.file.Paths;
 
@@ -39,7 +43,7 @@ public final class ConfigUtil {
      * <p>通过 {@link ConfigUtil#newConfig()} 或 {@link ConfigUtil#system()} 获得实例。
      * 链式调用的结果直接可作为 {@code Config} 使用。</p>
      */
-    public static final class ConfigChain extends Config {
+    public static final class ConfigChain extends ConfigImpl {
 
         private final ConfigLoader loader;
 

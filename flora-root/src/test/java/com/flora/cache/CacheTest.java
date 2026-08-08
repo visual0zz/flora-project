@@ -1,5 +1,7 @@
 package com.flora.cache;
 
+import com.flora.cache.interfaces.Cache;
+import com.flora.cache.interfaces.MemoryCache;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;

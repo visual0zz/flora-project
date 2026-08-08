@@ -1,22 +1,27 @@
 package com.flora.cache;
 
+import com.flora.cache.interfaces.Cache;
 import com.flora.cache.interfaces.CacheEventListener;
 import com.flora.cache.interfaces.EvictionPolicy;
 import com.flora.cache.interfaces.MemoryCache;
+import com.flora.cache.interfaces.ObservableCache;
 import com.flora.cache.interfaces.ObservableMemoryCache;
+import com.flora.cache.interfaces.RemoteStore;
 import com.flora.cache.impl.CacheListenerAdapter;
 import com.flora.cache.impl.ConcurrentHashMapCache;
 import com.flora.cache.impl.RefreshingCacheAdapter;
+import com.flora.cache.impl.RemoteCache;
 import com.flora.tag.ModuleEntry;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 /**
  * 缓存构造工厂。通过导出 API 暴露具体实现的创建，
- * 使其他模块无需依赖 {@code com.flora.cache.store} 等内部子包。
+ * 使其他模块无需依赖 {@code com.flora.cache.impl} 等内部子包。
  *
  * <p>链式构造器：{@link #memory()} 返回 {@link InMemoryCacheBuilder}，
  * 可依次设定容量、淘汰策略、可观测性、异步刷新，最后以 {@code get()} 收尾，
@@ -37,6 +42,11 @@ public final class Caches {
     /** 启动一个内存缓存的链式构造；默认无界、不驱逐、不可观测、不刷新。 */
     public static <K, V> InMemoryCacheBuilder<K, V> memory() {
         return new InMemoryCacheBuilder<>();
+    }
+
+    /** 启动一个远程缓存的链式构造（键值均为 {@code String}）。 */
+    public static RemoteCacheBuilder remote() {
+        return new RemoteCacheBuilder();
     }
 
     /**
@@ -123,10 +133,63 @@ public final class Caches {
             }
             return cache;
         }
+    }
 
-        /** 监听器绑定（事件类型 + 监听器），供 {@link InMemoryCacheBuilder#get()} 统一注册。 */
-        private record ListenerBinding<K, V>(CacheEventType type,
-                                             CacheEventListener<? super K, ? super V> listener) {
+    /** 监听器绑定（事件类型 + 监听器），供各构造器统一注册。 */
+    private record ListenerBinding<K, V>(CacheEventType type,
+                                         CacheEventListener<? super K, ? super V> listener) {
+    }
+
+    /**
+     * 远程缓存链式构造器。需先 {@link #store(RemoteStore)} 指定后端，终端 {@link #get()} 产出缓存实例。
+     */
+    public static final class RemoteCacheBuilder {
+
+        private RemoteStore store;
+        private boolean observable;
+        private final List<ListenerBinding<String, String>> bindings = new ArrayList<>();
+
+        /** 指定远程存储后端。 */
+        public RemoteCacheBuilder store(RemoteStore store) {
+            this.store = store;
+            return this;
+        }
+
+        /** 包装为可观测缓存，使其支持监听器。 */
+        public RemoteCacheBuilder observable() {
+            this.observable = true;
+            return this;
+        }
+
+        /** 注册一个监听器（监听全部事件类型），隐含 {@link #observable()}。 */
+        public RemoteCacheBuilder listener(CacheEventListener<? super String, ? super String> listener) {
+            this.observable = true;
+            for (CacheEventType type : CacheEventType.values()) {
+                bindings.add(new ListenerBinding<>(type, listener));
+            }
+            return this;
+        }
+
+        /** 注册指定类型的监听器，隐含 {@link #observable()}。 */
+        public RemoteCacheBuilder listener(CacheEventType type,
+                                           CacheEventListener<? super String, ? super String> listener) {
+            this.observable = true;
+            bindings.add(new ListenerBinding<>(type, listener));
+            return this;
+        }
+
+        /** 完成构造，返回缓存实例；{@code observable} 时为可观测视图。 */
+        public Cache<String, String> get() {
+            Objects.requireNonNull(store, "store 未设置，请先调用 store(RemoteStore)");
+            Cache<String, String> cache = RemoteCache.of(store);
+            if (observable) {
+                ObservableCache<String, String> obs = CacheListenerAdapter.of(cache);
+                for (ListenerBinding<String, String> b : bindings) {
+                    obs.addListener(b.type(), b.listener());
+                }
+                cache = obs;
+            }
+            return cache;
         }
     }
 }

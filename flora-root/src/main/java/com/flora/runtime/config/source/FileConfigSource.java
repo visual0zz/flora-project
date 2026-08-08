@@ -91,7 +91,7 @@ public class FileConfigSource implements ConfigSource {
         }
 
         @Override
-        public Config getConfig(String path) {
+        public Config getSubConfig(String path) {
             Object v = resolve(path);
             if (v == null) return null;
             if (v instanceof Map) {

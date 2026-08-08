@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * 流式配置视图，支持链式类型化取值。
- * <p>相比 {@link Config}，{@link #getConfig(String)} 将返回类型协变为
+ * <p>相比 {@link Config}，{@link #getSubConfig(String)} 将返回类型协变为
  * {@link FluentConfig}，使 {@code getConfig("db").getConfig("mysql").getInt("port")}
  * 这类深层链式调用成为可能；同时提供 null-safe 的类型化取值方法与带默认值的变体。
  * 实际取值与类型转换行为由底层实现承载。</p>
@@ -13,7 +13,7 @@ public interface FluentConfig extends Config {
 
     /** 按点号路径获取子配置，返回类型协变为 {@link FluentConfig} 以支持链式调用。路径不存在时返回 null。 */
     @Override
-    FluentConfig getConfig(String path);
+    FluentConfig getSubConfig(String path);
 
     /** 按点号路径获取字符串值，缺失时返回 null；非字符串值取 {@code toString()}。 */
     String getString(String path);

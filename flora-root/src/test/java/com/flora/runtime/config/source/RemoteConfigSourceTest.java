@@ -34,8 +34,8 @@ class RemoteConfigSourceTest {
         Config config = source.load();
         assertEquals("localhost", config.get("db.host"));
         assertEquals("3306", config.get("db.port"));
-        assertNotNull(config.getConfig("db"));
-        assertEquals("localhost", config.getConfig("db").get("host"));
+        assertNotNull(config.getSubConfig("db"));
+        assertEquals("localhost", config.getSubConfig("db").get("host"));
     }
 
     @Test
@@ -57,7 +57,7 @@ class RemoteConfigSourceTest {
 
         Config config = source.load();
         assertNull(config.get("x.y"));
-        Config sub = config.getConfig("x");
+        Config sub = config.getSubConfig("x");
         assertNotNull(sub);
         assertTrue(sub.toMapTree().containsKey("y"));
         assertNull(sub.toMapTree().get("y"));

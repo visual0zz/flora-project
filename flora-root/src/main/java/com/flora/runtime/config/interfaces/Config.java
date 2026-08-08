@@ -6,9 +6,10 @@ public interface Config {
     /** 按点号路径获取值（如 {@code "a.b.c"}），路径不存在时返回 null。 */
     Object get(String path);
 
-    Config getConfig(String path);
+    Config getSubConfig(String path);
     /** 返回原始底层 Map 的不可变视图。 */
     Map<String, Object> toMapTree();
+    Map<String, Object> toLongKeyMap();
 
     /** 检查是否为空。 */
     boolean isEmpty();

@@ -85,7 +85,7 @@ public class RemoteConfigSource implements ConfigSource {
         }
 
         @Override
-        public Config getConfig(String path) {
+        public Config getSubConfig(String path) {
             Object v = resolve(path);
             if (v == null) return null;
             if (v instanceof Map) {
@@ -97,6 +97,11 @@ public class RemoteConfigSource implements ConfigSource {
         @Override
         public Map<String, Object> toMapTree() {
             return raw;
+        }
+
+        @Override
+        public Map<String, Object> toLongKeyMap() {
+            return Map.of();
         }
 
         @Override

@@ -1,5 +1,6 @@
 package com.flora.runtime.config;
 
+import com.flora.common.RemoteKVSource;
 import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.interfaces.ConfigSource;
 import com.flora.tag.ModuleEntry;
@@ -25,12 +26,15 @@ public final class ConfigUtil {
 
     /** 创建独立配置链。 */
     public static ConfigBuilder newConfig() {
-        return new ConfigBuilder();
+        return null;//todo 链式构造新的Config
     }
 
+    public static ConfigBuilder newReloadableConfig() {
+        return null;//todo 链式构造新的ReloadableConfig
+    }
     /** 使用全局单例，多处调用共享同一来源列表。 */
     public static ConfigBuilder system() {
-        return new ConfigBuilder();
+        return null;//todo 链式更新全局Config，全局的配置类型固定为ReloadableConfig
     }
 
     /**
@@ -39,11 +43,69 @@ public final class ConfigUtil {
      * 链式调用的结果直接可作为 {@code Config} 使用。</p>
      */
     public static final class ConfigBuilder{
-        void loadFrom(ConfigSource source) {
+        ConfigBuilder loadFrom(ConfigSource source) {
             //todo
+            return null;
         }
-        void loadFromFile(Path filePath){
+        ConfigBuilder loadFromFile(Path filePath){
+            //todo
+            return null;
+        }
+        ConfigBuilder loadFromString(String str){
+            //todo
+            return null;
+        }
+        ConfigBuilder loadFromRemote(RemoteKVSource kv, ConfigSchema schema){
+            //todo
+            return null;
+        }
+        ConfigBuilder loadFromSubConfig(String path){
+            //todo 将某个路径下面的配置加载到整体，
+            /* 例如存在 com.flora.database.host = 127.0.0.1
+             * 存在 com.flora.database.port = 6379
+             * 存在 database.host = 192.168.0.1
+             * 执行 loadFromSubConfig("com.flora")之后会变为
+             *  com.flora.database.host = 127.0.0.1
+             *  com.flora.database.port = 6379
+             *  database.host = 127.0.0.1
+             *  database.port = 6379
+             */
+            return null;
+        }
 
+        ConfigBuilder loadFrom(ConfigPriority priority,ConfigSource source) {
+            //todo
+            return null;
+        }
+        ConfigBuilder loadFromFile(ConfigPriority priority,Path filePath){
+            //todo
+            return null;
+        }
+        ConfigBuilder loadFromString(ConfigPriority priority,String str){
+            //todo
+            return null;
+        }
+        ConfigBuilder loadFromRemote(ConfigPriority priority,RemoteKVSource kv, ConfigSchema schema){
+            //todo
+            return null;
+        }
+        ConfigBuilder loadFromSubConfig(ConfigPriority priority,String path){
+            //todo 将某个路径下面的配置加载到整体，
+            /* 例如存在 com.flora.database.host = 127.0.0.1
+             * 存在 com.flora.database.port = 6379
+             * 存在 database.host = 192.168.0.1
+             * 执行 loadFromSubConfig("com.flora")之后会变为
+             *  com.flora.database.host = 127.0.0.1
+             *  com.flora.database.port = 6379
+             *  database.host = 127.0.0.1
+             *  database.port = 6379
+             */
+            return null;
+        }
+
+        Config build() {
+            //todo 构建最终的Config
+            return null;
         }
 
     }

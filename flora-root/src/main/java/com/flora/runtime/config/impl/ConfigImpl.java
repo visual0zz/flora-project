@@ -1,19 +1,23 @@
-package com.flora.runtime.config;
+package com.flora.runtime.config.impl;
+
+import com.flora.runtime.config.ConfigException;
+import com.flora.runtime.config.interfaces.Config;
 
 import java.util.*;
 
 /**
  * 不可变的层次化配置映射，支持点号路径访问和类型安全取值。
  * <p>包装来自解析器（{@code Map<String, Object>}）的嵌套结构，
- * 提供便捷的类型转换方法。所有取值方法均为 null-safe。</p>
+ * 提供便捷的类型转换方法。所有取值方法均为 null-safe。
+ * 本类是 {@link Config} 接口的默认实现，通过 {@link Config#of} / {@link Config#empty()} 创建。</p>
  */
-public class Config {
+public class ConfigImpl implements Config {
 
-    private static final Config EMPTY = new Config(Map.of());
+    private static final Config EMPTY = new ConfigImpl(Map.of());
 
     private final Map<String, Object> raw;
 
-    protected Config(Map<String, Object> raw) {
+    protected ConfigImpl(Map<String, Object> raw) {
         this.raw = Collections.unmodifiableMap(copyDeep(raw));
     }
 
@@ -27,7 +31,7 @@ public class Config {
     /** 包装原始 Map。 */
     public static Config of(Map<String, Object> map) {
         if (map == null || map.isEmpty()) return EMPTY;
-        return new Config(map);
+        return new ConfigImpl(map);
     }
 
     // ====== 路径访问 ======
@@ -46,16 +50,6 @@ public class Config {
     public String getString(String path) {
         Object v = resolve(path);
         if (v == null) return null;
-        if (v instanceof String) return (String) v;
-        return v.toString();
-    }
-
-    /**
-     * 按点号路径获取字符串值，不存在时返回默认值。
-     */
-    public String getString(String path, String defaultValue) {
-        Object v = resolve(path);
-        if (v == null) return defaultValue;
         if (v instanceof String) return (String) v;
         return v.toString();
     }
@@ -101,10 +95,10 @@ public class Config {
      * 按点号路径获取子映射。
      */
     @SuppressWarnings("unchecked")
-    public Config getMap(String path) {
+    public Config getConfig(String path) {
         Object v = resolve(path);
         if (v == null) return null;
-        if (v instanceof Map) return new Config((Map<String, Object>) v);
+        if (v instanceof Map) return new ConfigImpl((Map<String, Object>) v);
         throw new ConfigException("路径 '" + path + "' 的值不是映射类型: " + v.getClass().getName());
     }
 
@@ -144,7 +138,7 @@ public class Config {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Config c)) return false;
+        if (!(o instanceof ConfigImpl c)) return false;
         return raw.equals(c.raw);
     }
 
@@ -205,9 +199,9 @@ public class Config {
     public static Config merge(Config base, Config overlay) {
         if (base.isEmpty()) return overlay;
         if (overlay.isEmpty()) return base;
-        Map<String, Object> merged = new LinkedHashMap<>(copyDeep(base.raw));
-        mergeDeep(merged, copyDeep(overlay.raw));
-        return new Config(merged);
+        Map<String, Object> merged = new LinkedHashMap<>(copyDeep(base.toMap()));
+        mergeDeep(merged, copyDeep(overlay.toMap()));
+        return new ConfigImpl(merged);
     }
 
     @SuppressWarnings("unchecked")

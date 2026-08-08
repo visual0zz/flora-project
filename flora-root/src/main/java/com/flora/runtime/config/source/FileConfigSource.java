@@ -1,9 +1,9 @@
-package com.flora.runtime.config.impl;
+package com.flora.runtime.config.source;
 
-import com.flora.runtime.config.Config;
+import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.ConfigException;
-import com.flora.runtime.config.ConfigFormat;
-import com.flora.runtime.config.ConfigSource;
+import com.flora.runtime.config.impl.ConfigFormat;
+import com.flora.runtime.config.interfaces.ConfigSource;
 
 import java.io.File;
 import java.io.IOException;

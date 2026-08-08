@@ -1,9 +1,9 @@
 package com.flora.runtime.config.impl;
 
-import com.flora.runtime.config.Config;
+import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.ConfigException;
 import com.flora.runtime.config.ConfigPriority;
-import com.flora.runtime.config.ConfigSource;
+import com.flora.runtime.config.interfaces.ConfigSource;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;

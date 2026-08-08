@@ -1,8 +1,8 @@
-package com.flora.runtime.config.impl;
+package com.flora.runtime.config.source;
 
-import com.flora.runtime.config.Config;
-import com.flora.runtime.config.ConfigFormat;
-import com.flora.runtime.config.ConfigSource;
+import com.flora.runtime.config.interfaces.Config;
+import com.flora.runtime.config.impl.ConfigFormat;
+import com.flora.runtime.config.interfaces.ConfigSource;
 
 /**
  * 从字符串文本中加载配置的源。主要用于测试或内联配置场景。

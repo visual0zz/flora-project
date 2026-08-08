@@ -2,7 +2,7 @@ package com.flora.cache;
 
 import com.flora.cache.interfaces.Cache;
 import com.flora.cache.interfaces.ObservableCache;
-import com.flora.cache.interfaces.RemoteStore;
+import com.flora.common.RemoteKVStore;
 import com.flora.cache.impl.RemoteCache;
 import org.junit.jupiter.api.Test;
 
@@ -16,11 +16,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class RemoteCacheTest {
 
-    /** 内存 RemoteStore 假实现（Redis 语义子集）。 */
-    private static RemoteStore memStore() {
+    /** 内存 RemoteKVStore 假实现（Redis 语义子集）。 */
+    private static RemoteKVStore memStore() {
         Map<String, String> data = new ConcurrentHashMap<>();
         Map<String, Long> expiry = new ConcurrentHashMap<>();
-        return new RemoteStore() {
+        return new RemoteKVStore() {
             @Override public void set(String key, String value, long ttlMillis) {
                 if (ttlMillis <= 0 && ttlMillis != -1) {
                     data.remove(key);
@@ -44,6 +44,13 @@ class RemoteCacheTest {
                 if (ttlMillis == -1) expiry.remove(key);
                 else expiry.put(key, System.currentTimeMillis() + ttlMillis);
                 return true;
+            }
+            @Override public String getAndExpire(String key, long ttlMillis) {
+                if (!data.containsKey(key)) return null;
+                String v = data.get(key);
+                if (ttlMillis == -1) expiry.remove(key);
+                else expiry.put(key, System.currentTimeMillis() + ttlMillis);
+                return v;
             }
             @Override public long ttl(String key) {
                 if (!data.containsKey(key)) return -2;
@@ -112,5 +119,25 @@ class RemoteCacheTest {
         assertTrue(events.stream().anyMatch(e -> e.equals("PUT:k")),
                 "remote().listener() 应派发 PUT 事件，实际: " + events);
         assertTrue(cache instanceof ObservableCache, "observable 时返回可观测视图");
+    }
+
+    @Test
+    void slidingTtlRefreshesOnGet() {
+        RemoteCache cache = RemoteCache.of(memStore());
+
+        cache.put("k", "v", Duration.ofMillis(100_000));
+        // 带正时长读取 → 原子续期为新的 TTL
+        assertEquals("v", cache.get("k", Duration.ofMillis(200_000)));
+        assertTrue(cache.ttl("k").toMillis() > 150_000,
+                "续期后剩余时间应接近新 TTL，实际: " + cache.ttl("k").toMillis());
+
+        // null / 非正 / MAX 的 ttl 纯读取、不续期
+        assertEquals("v", cache.get("k", null));
+        assertEquals("v", cache.get("k", Duration.MAX));
+        assertEquals("v", cache.get("k", Duration.ZERO));
+
+        // 缺失键返回 null，不产生续期副作用
+        assertNull(cache.get("missing", Duration.ofMillis(100)));
+        assertFalse(cache.containsKey("missing"));
     }
 }

@@ -37,11 +37,9 @@ public interface Cache<K, V> {
      * 读取并滑动续期：命中且未过期时，将该条目生命周期顺延为 {@code now + ttl}；
      * {@code ttl} 为 {@code null}、非正或 {@link Duration#MAX} 时等价于 {@link #get(Object)}（纯读取、不续期）。
      * 持续以正时长读取的条目永不因时间过期，闲置满 {@code ttl} 后过期回收（空闲超时语义）。
-     * 默认实现忽略 {@code ttl}，仅本地存储支持续期时覆写。
+     * 所有实现必须真正执行续期（命中且 {@code ttl} 为正时顺延过期时刻）。
      */
-    default V get(K key, Duration ttl) {
-        return get(key);
-    }
+    V get(K key, Duration ttl);
 
     /** key 是否存在（未过期）。 */
     boolean containsKey(K key);

@@ -74,11 +74,11 @@ class ConfigUtilTest {
         assertEquals("127.0.0.1", config.get("database.host"));
     }
 
-    // ====== newReloadableConfig：构建新 ReloadableConfig ======
+    // ====== newConfig().buildReloadable()：构建新 ReloadableConfig ======
 
     @Test
-    void newReloadableConfigBuild() {
-        ReloadableConfig r = ConfigUtil.newReloadableConfig()
+    void newConfigBuild() {
+        ReloadableConfig r = ConfigUtil.newConfig()
                 .loadFromString("k=v")
                 .buildReloadable();
         assertEquals("v", r.get("k"));
@@ -88,7 +88,7 @@ class ConfigUtilTest {
 
     @Test
     void replaceConfigReplacesWhole() {
-        ReloadableConfig r = ConfigUtil.newReloadableConfig().loadFromString("a=1\nb=2").buildReloadable();
+        ReloadableConfig r = ConfigUtil.newConfig().loadFromString("a=1\nb=2").buildReloadable();
         ConfigUtil.replaceConfig(r).loadFromString("b=3").flush();
         assertNull(r.get("a"));          // 未在新配置中 -> 被替换掉
         assertEquals("3", r.get("b"));
@@ -96,7 +96,7 @@ class ConfigUtilTest {
 
     @Test
     void refreshConfigMergesKeepingOld() {
-        ReloadableConfig r = ConfigUtil.newReloadableConfig().loadFromString("a=1\nb=2").buildReloadable();
+        ReloadableConfig r = ConfigUtil.newConfig().loadFromString("a=1\nb=2").buildReloadable();
         ConfigUtil.refreshConfig(r).loadFromString("b=3").flush();
         assertEquals("1", r.get("a"));   // 无新值 -> 保留
         assertEquals("3", r.get("b"));   // 新值覆盖
@@ -112,7 +112,7 @@ class ConfigUtilTest {
 
     @Test
     void boundHelperCannotBuildEvenWhenCast() {
-        ReloadableConfig r = ConfigUtil.newReloadableConfig().buildReloadable();
+        ReloadableConfig r = ConfigUtil.newConfig().buildReloadable();
         ConfigUtil.ConfigLoadHelper helper = (ConfigUtil.ConfigLoadHelper) ConfigUtil.replaceConfig(r);
         assertThrows(IllegalStateException.class, helper::build);
         assertThrows(IllegalStateException.class, helper::buildReloadable);
@@ -129,10 +129,10 @@ class ConfigUtilTest {
     @Test
     void systemReplacesGlobally() {
         ConfigUtil.replaceSystem().loadFromString("sys=one").flush();
-        assertEquals("one", ConfigUtil.replaceSystem().current().get("sys"));
+        assertEquals("one", ConfigUtil.systemConfig().get("sys"));
 
         ConfigUtil.replaceSystem().loadFromString("sys=two").flush();
-        assertEquals("two", ConfigUtil.replaceSystem().current().get("sys"));
+        assertEquals("two", ConfigUtil.systemConfig().get("sys"));
     }
 
     @Test
@@ -147,14 +147,8 @@ class ConfigUtilTest {
     void refreshSystemMergesKeepingOld() {
         ConfigUtil.replaceSystem().loadFromString("keep=old\nover=old").flush();
         ConfigUtil.refreshSystem().loadFromString("over=new").flush();
-        assertEquals("old", ConfigUtil.replaceSystem().current().get("keep"));  // 无新值 -> 保留
-        assertEquals("new", ConfigUtil.replaceSystem().current().get("over"));  // 新值覆盖
-    }
-
-    @Test
-    void unboundHelperCannotReadCurrentEvenWhenCast() {
-        ConfigUtil.ConfigLoadHelper helper = (ConfigUtil.ConfigLoadHelper) ConfigUtil.newConfig();
-        assertThrows(IllegalStateException.class, helper::current);
+        assertEquals("old", ConfigUtil.systemConfig().get("keep"));  // 无新值 -> 保留
+        assertEquals("new", ConfigUtil.systemConfig().get("over"));  // 新值覆盖
     }
 
     // ====== 占位符 ======

@@ -7,9 +7,10 @@ import com.flora.runtime.config.ConfigSchema;
 import java.nio.file.Path;
 
 /**
- * 更新型配置链：收集来源后可调用终结方法更新既有目标（{@link #flush()}）或读取其快照（{@link #current()}）。
+ * 更新型配置链：收集来源后可调用终结方法更新既有目标（{@link #flush()}）。
  * <p>编译期限定——此接口无法调用构建型终结方法（build/buildReloadable/view），由
- * {@code ConfigUtil.refreshConfig()} / {@code replaceConfig()} / {@code refreshSystem()} / {@code replaceSystem()} 返回。</p>
+ * {@code ConfigUtil.refreshConfig()} / {@code replaceConfig()} / {@code refreshSystem()} / {@code replaceSystem()} 返回；
+ * 读取全局单例配置请用 {@code ConfigUtil.systemConfig()}。</p>
  */
 public interface ConfigUpdater {
 
@@ -32,7 +33,4 @@ public interface ConfigUpdater {
 
     /** 按绑定语义更新目标：merge 为 true 时 refresh（合并），否则 replace（全量替换）。 */
     void flush();
-
-    /** 返回绑定目标的当前快照（如 {@code replaceSystem().current()} 读取全局配置）。 */
-    Config current();
 }

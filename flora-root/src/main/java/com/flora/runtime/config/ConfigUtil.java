@@ -37,7 +37,7 @@ import java.util.function.Function;
  *     .build();
  *
  * // 可热替换
- * ReloadableConfig r = ConfigUtil.newReloadableConfig()
+ * ReloadableConfig r = ConfigUtil.newConfig()
  *     .loadFromFile(Paths.get("app.yaml"))
  *     .buildReloadable();
  *
@@ -49,10 +49,10 @@ import java.util.function.Function;
  * }</pre>
  *
  * <p>所有入口共享同一套加载/合并实现（{@link ConfigLoadHelper}），
- * 通过<b>编译期</b>接口类型限制终结方法：{@link #newConfig()} / {@link #newReloadableConfig()}
+ * 通过<b>编译期</b>接口类型限制终结方法：{@link #newConfig()}
  * 返回 {@link ConfigBuilder}（只能 build/buildReloadable/view），
  * {@link #refreshConfig(ReloadableConfig)}（合并式）/ {@link #replaceConfig(ReloadableConfig)}（替换式）
- * 与 {@link #refreshSystem()} / {@link #replaceSystem()} 返回 {@link ConfigUpdater}（只能 flush/current）。</p>
+ * 与 {@link #refreshSystem()} / {@link #replaceSystem()} 返回 {@link ConfigUpdater}（只能 flush）。</p>
  */
 @ModuleEntry
 public final class ConfigUtil {
@@ -62,13 +62,8 @@ public final class ConfigUtil {
 
     private ConfigUtil() {}
 
-    /** 创建构建型配置链，最终以 {@link Config} 输出。 */
+    /** 创建构建型配置链，最终以 {@link Config} 或 {@link ReloadableConfig} 输出。 */
     public static ConfigBuilder newConfig() {
-        return new ConfigLoadHelper(null, false);
-    }
-
-    /** 创建构建型配置链，最终以新 {@link ReloadableConfig} 输出。 */
-    public static ConfigBuilder newReloadableConfig() {
         return new ConfigLoadHelper(null, false);
     }
 
@@ -89,6 +84,11 @@ public final class ConfigUtil {
     /** 返回操作全局单例配置的更新型链，flush 时全量替换全局配置。 */
     public static ConfigUpdater replaceSystem() {
         return new ConfigLoadHelper(SYSTEM, false);
+    }
+
+    /** 返回全局单例配置的当前快照（只读视角）；修改全局请用 {@link #replaceSystem()} / {@link #refreshSystem()}。 */
+    public static Config systemConfig() {
+        return SYSTEM;
     }
 
     private static ReloadableConfig requireConfig(ReloadableConfig config) {
@@ -215,12 +215,6 @@ public final class ConfigUtil {
          */
         public ConfigView view() {
             return new LazyConfigView(this::mergedRaw);
-        }
-
-        /** 返回绑定目标的当前快照（仅绑定目标时可用，如 {@code replaceSystem().current()} 读取全局配置）。 */
-        public Config current() {
-            if (target == null) throw new IllegalStateException("当前链未绑定 ReloadableConfig，没有可读取的快照");
-            return target;
         }
 
         /** 按绑定语义更新目标：merge 为 true 时 refresh（合并），否则 replace（全量替换）。 */

@@ -8,8 +8,7 @@ import java.nio.file.Path;
 
 /**
  * 构建型配置链：收集来源后可调用终结方法产出新配置（{@link #build()} / {@link #buildReloadable()} / {@link #view()}）。
- * <p>编译期限定——此接口无法调用更新型终结方法（flush/current），由 {@code ConfigUtil.newConfig()} /
- * {@code newReloadableConfig()} 返回。</p>
+ * <p>编译期限定——此接口无法调用更新型终结方法（flush），由 {@code ConfigUtil.newConfig()} 返回。</p>
  */
 public interface ConfigBuilder {
 

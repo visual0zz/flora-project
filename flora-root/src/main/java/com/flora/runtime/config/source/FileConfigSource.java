@@ -2,7 +2,6 @@ package com.flora.runtime.config.source;
 
 import com.flora.runtime.config.ConfigException;
 import com.flora.runtime.config.impl.ConfigSourceFileFormat;
-import com.flora.runtime.config.impl.LazyConfigView;
 import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.interfaces.ConfigSource;
 
@@ -73,23 +72,14 @@ public class FileConfigSource implements ConfigSource {
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         public Object get(String path) {
             Object v = resolve(path);
             if (v instanceof Map) {
-                // 子结构 → 返回可继续下钻的子视图（与 ConfigView.get 语义一致，共享本树作解释上下文）
-                return new LazyConfigView(() -> this.raw, path);
-            }
-            return v;
-        }
-
-        @Override
-        public Config getSubConfig(String path) {
-            Object v = resolve(path);
-            if (v == null) return null;
-            if (v instanceof Map) {
+                // 子结构 → 返回可继续下钻的子 Config
                 return new MapConfig((Map<String, Object>) v);
             }
-            throw new ConfigException("路径 '" + path + "' 的值不是映射类型: " + v.getClass().getName());
+            return v;
         }
 
         @Override

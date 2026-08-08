@@ -57,7 +57,7 @@ class ConfigUtilTest {
 
     @Test
     void newConfigViewReturnsConfigView() {
-        // view() 返回轻量 ConfigView（仅 get/getSubConfig），类型化读取用 FluentConfigWrapper.of(build())
+        // view() 返回轻量 ConfigView（仅 get 下钻），类型化读取用 FluentConfigWrapper.of(build())
         ConfigView view = ConfigUtil.newConfig()
                 .loadFromString("port=3306")
                 .view();

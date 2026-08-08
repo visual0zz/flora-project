@@ -44,11 +44,6 @@ public class ReloadableConfigImpl implements ReloadableConfig {
     }
 
     @Override
-    public Config getSubConfig(String path) {
-        return current.getSubConfig(path);
-    }
-
-    @Override
     public Map<String, Object> toMapTree() {
         return current.toMapTree();
     }

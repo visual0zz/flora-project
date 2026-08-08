@@ -24,6 +24,7 @@ class FluentConfigWrapperTest {
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         public Object get(String path) {
             Object current = data;
             for (String key : path.split("\\.")) {
@@ -31,16 +32,11 @@ class FluentConfigWrapperTest {
                 current = m.get(key);
                 if (current == null) return null;
             }
+            if (current instanceof Map m) {
+                // 子结构 → 返回可继续下钻的子 Config（与生产实现一致）
+                return new MemConfig((Map<String, Object>) m);
+            }
             return current;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public Config getSubConfig(String path) {
-            Object v = get(path);
-            if (v == null) return null;
-            if (v instanceof Map m) return new MemConfig((Map<String, Object>) m);
-            throw new ConfigException("不是映射: " + v.getClass().getName());
         }
 
         @Override

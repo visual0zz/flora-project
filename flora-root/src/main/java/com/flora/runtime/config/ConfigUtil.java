@@ -206,7 +206,7 @@ public final class ConfigUtil {
          * 返回当前链已收集来源的<b>只读查询视图</b>：反映本次加载进行到当前点的中间数据
          * （仅含已 {@code loadFrom*} 的来源与子配置提升，不含绑定目标的历史值），
          * 未绑定与已绑定目标的状态下均可用。创建零成本（不合并、不读取来源），
-         * 首次 {@link ConfigView#get}/{@link ConfigView#getSubConfig} 访问时才合并并缓存；
+         * 首次 {@link ConfigView#get} 访问时才合并并缓存；
          * 不触发终端语义（不会 flush 到目标，也不影响后续继续 {@code loadFrom*}）。
          */
         public ConfigView view() {

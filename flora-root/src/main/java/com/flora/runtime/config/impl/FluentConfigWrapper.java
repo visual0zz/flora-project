@@ -10,10 +10,11 @@ import java.util.Map;
 
 /**
  * 类型化配置视图的包装器实现。
- * <p>持有内部 {@link Config}，所有配置访问（{@code get/getSubConfig/toMapTree/toLongKeyMap/isEmpty}）
- * 直接转发给内部对象——{@code Config} 层不处理类型问题，底层解析类型原样透传；
+ * <p>持有内部 {@link Config}，配置访问（{@code get/toMapTree/toLongKeyMap/isEmpty}）直接转发给内部对象
+ * ——{@code Config} 层不处理类型问题，底层解析类型原样透传；
  * 类型化 getter（{@code getString/getInt/getLong/getBoolean/getList}）基于透传值做转换，
- * 转换失败抛 {@link ConfigException}。子配置通过 {@link #of(Config)} 递归包装以维持链式调用。</p>
+ * 转换失败抛 {@link ConfigException}。{@link #getSubConfig(String)} 基于 {@link #get} 下钻，
+ * 子配置通过 {@link #of(Config)} 递归包装以维持链式调用。</p>
  */
 public final class FluentConfigWrapper implements Config {
 
@@ -40,10 +41,12 @@ public final class FluentConfigWrapper implements Config {
         return inner.get(path);
     }
 
-    @Override
+    /** 按点号路径取子配置（基于 {@link #get} 下钻），返回类型化子视图；路径缺失返回 null，值为标量时抛 {@link ConfigException}。 */
     public FluentConfigWrapper getSubConfig(String path) {
-        Config sub = inner.getSubConfig(path);
-        return sub == null ? null : of(sub);
+        Object v = get(path);
+        if (v == null) return null;
+        if (v instanceof Config c) return of(c);
+        throw new ConfigException("路径 '" + path + "' 的值不是映射类型: " + v.getClass().getSimpleName());
     }
 
     @Override

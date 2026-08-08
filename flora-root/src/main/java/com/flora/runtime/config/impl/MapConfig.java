@@ -1,6 +1,5 @@
 package com.flora.runtime.config.impl;
 
-import com.flora.runtime.config.ConfigException;
 import com.flora.runtime.config.interfaces.Config;
 
 import java.util.ArrayList;
@@ -53,22 +52,14 @@ public final class MapConfig implements Config {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public Object get(String path) {
         Object v = resolve(path);
         if (v instanceof Map) {
-            // 子结构 → 返回可继续下钻的子视图（与 ConfigView.get 语义一致，共享本树作解释上下文）
-            return new LazyConfigView(() -> this.raw, path);
+            // 子结构 → 返回可继续下钻的子 Config（数据层语义）
+            return new MapConfig((Map<String, Object>) v);
         }
         return v;
-    }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public Config getSubConfig(String path) {
-        Object v = resolve(path);
-        if (v == null) return null;
-        if (v instanceof Map) return new MapConfig((Map<String, Object>) v);
-        throw new ConfigException("路径 '" + path + "' 的值不是映射类型: " + v.getClass().getName());
     }
 
     @Override

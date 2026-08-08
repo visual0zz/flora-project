@@ -116,7 +116,8 @@ public final class Caches {
                 }
                 cache = obs;
             }
-            // refreshing 包在最外层：其后台刷新写回经 observable 派发事件，不被截断
+            // 包装顺序固定：先 observable（若有）包底层，再 refreshing（若有）包外层——
+            // refreshing 后台写回必经 observable 派发事件，不被截断；链式调用顺序不影响结果
             if (loader != null) {
                 cache = RefreshingCacheAdapter.of(cache, refreshAfter, loader);
             }

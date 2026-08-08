@@ -21,6 +21,11 @@ import java.util.function.Function;
  * <p>并发约束：同一 key 最多存在一个排队中的刷新任务（重复触发被合并）；
  * 同步加载不设锁，极端并发下可能出现多次加载，最终只写入一个值（由底层缓存保证）。</p>
  * <p>实现 {@link MemoryCache} 契约，其余存储/淘汰/TTL 能力全部委托给被装饰的底层缓存。</p>
+ * <p><b>与可观测缓存的组合约定</b>：裸使用手动组合时，本适配器应包在
+ * {@code CacheListenerAdapter} <b>外层</b>（{@code RefreshingCacheAdapter.of(CacheListenerAdapter.of(store), ...)}），
+ * 使后台刷新写回经过可观测层、PUT 事件不被截断；若包在可观测层内层，刷新写回直接落存储，
+ * 监听器将看不到刷新产生的写入。通过 {@code Caches.memory().refreshing(...)} 链式创建时，
+ * 该顺序由 {@code Caches} 工厂固定保证。</p>
  *
  * @param <K> 键类型
  * @param <V> 值类型

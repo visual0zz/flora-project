@@ -6,7 +6,9 @@ import com.flora.runtime.config.impl.MapConfig;
 import com.flora.runtime.config.impl.PlaceholderResolver;
 import com.flora.runtime.config.impl.ReloadableConfigImpl;
 import com.flora.runtime.config.interfaces.Config;
+import com.flora.runtime.config.interfaces.ConfigBuilder;
 import com.flora.runtime.config.interfaces.ConfigSource;
+import com.flora.runtime.config.interfaces.ConfigUpdater;
 import com.flora.runtime.config.interfaces.ConfigView;
 import com.flora.runtime.config.interfaces.ReloadableConfig;
 import com.flora.runtime.config.source.ClasspathConfigSource;
@@ -47,9 +49,10 @@ import java.util.function.Function;
  * }</pre>
  *
  * <p>所有入口共享同一套加载/合并实现（{@link ConfigLoadHelper}），
- * 通过入口语义限制输出：{@link #newConfig()} / {@link #newReloadableConfig()} 构建新配置，
+ * 通过<b>编译期</b>接口类型限制终结方法：{@link #newConfig()} / {@link #newReloadableConfig()}
+ * 返回 {@link ConfigBuilder}（只能 build/buildReloadable/view），
  * {@link #refreshConfig(ReloadableConfig)}（合并式）/ {@link #replaceConfig(ReloadableConfig)}（替换式）
- * 与 {@link #refreshSystem()}（全局单例，合并式）/ {@link #replaceSystem()}（全局单例，替换式）更新既有配置。</p>
+ * 与 {@link #refreshSystem()} / {@link #replaceSystem()} 返回 {@link ConfigUpdater}（只能 flush/current）。</p>
  */
 @ModuleEntry
 public final class ConfigUtil {
@@ -59,32 +62,32 @@ public final class ConfigUtil {
 
     private ConfigUtil() {}
 
-    /** 创建独立配置链，最终以 {@link Config} 输出。 */
-    public static ConfigLoadHelper newConfig() {
+    /** 创建构建型配置链，最终以 {@link Config} 输出。 */
+    public static ConfigBuilder newConfig() {
         return new ConfigLoadHelper(null, false);
     }
 
-    /** 创建独立配置链，最终以新 {@link ReloadableConfig} 输出。 */
-    public static ConfigLoadHelper newReloadableConfig() {
+    /** 创建构建型配置链，最终以新 {@link ReloadableConfig} 输出。 */
+    public static ConfigBuilder newReloadableConfig() {
         return new ConfigLoadHelper(null, false);
     }
 
-    /** 创建绑定到既有 ReloadableConfig 的链，flush 时按合并语义更新（新值覆盖旧值，无新值保留旧值）。 */
-    public static ConfigLoadHelper refreshConfig(ReloadableConfig config) {
+    /** 创建更新型配置链，flush 时按合并语义更新（新值覆盖旧值，无新值保留旧值）。 */
+    public static ConfigUpdater refreshConfig(ReloadableConfig config) {
         return new ConfigLoadHelper(requireConfig(config), true);
     }
 
-    /** 创建绑定到既有 ReloadableConfig 的链，flush 时全量替换其底层配置。 */
-    public static ConfigLoadHelper replaceConfig(ReloadableConfig config) {
+    /** 创建更新型配置链，flush 时全量替换其底层配置。 */
+    public static ConfigUpdater replaceConfig(ReloadableConfig config) {
         return new ConfigLoadHelper(requireConfig(config), false);
     }
 
-    /** 返回操作全局单例配置的链，flush 时按合并语义更新全局（新值覆盖旧值，无新值保留旧值）。 */
-    public static ConfigLoadHelper refreshSystem() {
+    /** 返回操作全局单例配置的更新型链，flush 时按合并语义更新全局（新值覆盖旧值，无新值保留旧值）。 */
+    public static ConfigUpdater refreshSystem() {
         return new ConfigLoadHelper(SYSTEM, true);
     }
-    /** 返回操作全局单例配置的链，flush 时全量替换全局配置。 */
-    public static ConfigLoadHelper replaceSystem() {
+    /** 返回操作全局单例配置的更新型链，flush 时全量替换全局配置。 */
+    public static ConfigUpdater replaceSystem() {
         return new ConfigLoadHelper(SYSTEM, false);
     }
 
@@ -94,11 +97,12 @@ public final class ConfigUtil {
     }
 
     /**
-     * 配置链加载器（唯一实现）：收集来源与优先级，按优先级从低到高稳定合并，
-     * 最终由终端方法输出。绑定目标为 null 时构建新的 {@link Config}/{@link ReloadableConfig}；
-     * 绑定目标非 null 时 {@link #flush()} 按 {@code merge} 语义更新目标。
+     * 配置链加载器（唯一实现）：收集来源与优先级，按优先级从低到高稳定合并。
+     * <p>同时实现 {@link ConfigBuilder}（构建型：{@code build/buildReloadable/view}）与
+     * {@link ConfigUpdater}（更新型：{@code flush/current}）两个接口——入口通过返回类型在编译期
+     * 限定调用方可用的终结方法；本类的运行期检查仅防御强转等绕过编译期的调用。</p>
      */
-    public static final class ConfigLoadHelper {
+    public static final class ConfigLoadHelper implements ConfigBuilder, ConfigUpdater {
 
         private final ReloadableConfig target;   // null = 构建新的；非 null = 更新目标
         private final boolean merge;             // target 非 null：true=refresh(合并) / false=replace(替换)

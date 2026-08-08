@@ -108,19 +108,20 @@ class ConfigUtilTest {
         assertThrows(ConfigException.class, () -> ConfigUtil.refreshConfig(null));
     }
 
-    // ====== 终端方法误用 ======
+    // ====== 运行期防御（编译期已由 ConfigBuilder/ConfigUpdater 接口限制，此处验证强转绕过仍被拦截） ======
 
     @Test
-    void boundHelperCannotBuild() {
+    void boundHelperCannotBuildEvenWhenCast() {
         ReloadableConfig r = ConfigUtil.newReloadableConfig().buildReloadable();
-        ConfigUtil.ConfigLoadHelper helper = ConfigUtil.replaceConfig(r);
+        ConfigUtil.ConfigLoadHelper helper = (ConfigUtil.ConfigLoadHelper) ConfigUtil.replaceConfig(r);
         assertThrows(IllegalStateException.class, helper::build);
         assertThrows(IllegalStateException.class, helper::buildReloadable);
     }
 
     @Test
-    void unboundHelperCannotFlush() {
-        assertThrows(IllegalStateException.class, ConfigUtil.newConfig()::flush);
+    void unboundHelperCannotFlushEvenWhenCast() {
+        ConfigUtil.ConfigLoadHelper helper = (ConfigUtil.ConfigLoadHelper) ConfigUtil.newConfig();
+        assertThrows(IllegalStateException.class, helper::flush);
     }
 
     // ====== system：全局单例替换式更新 ======
@@ -151,8 +152,9 @@ class ConfigUtilTest {
     }
 
     @Test
-    void unboundHelperCannotReadCurrent() {
-        assertThrows(IllegalStateException.class, ConfigUtil.newConfig()::current);
+    void unboundHelperCannotReadCurrentEvenWhenCast() {
+        ConfigUtil.ConfigLoadHelper helper = (ConfigUtil.ConfigLoadHelper) ConfigUtil.newConfig();
+        assertThrows(IllegalStateException.class, helper::current);
     }
 
     // ====== 占位符 ======

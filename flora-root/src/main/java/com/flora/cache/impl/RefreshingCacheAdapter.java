@@ -9,7 +9,7 @@ import com.flora.cache.interfaces.MemoryCache;
 import com.flora.cache.interfaces.ObservableBoundedCache;
 import com.flora.cache.interfaces.ObservableCache;
 import com.flora.cache.interfaces.ObservableMemoryCache;
-import com.flora.common.SharedExecutors;
+import com.flora.common.executors.ExecutorPools;
 import com.flora.tag.ModuleEntry;
 
 import java.time.Duration;
@@ -69,7 +69,7 @@ public final class RefreshingCacheAdapter<K, V>
     /**
      * 包装为异步刷新缓存：读取立即返回旧值，超过 {@code refreshAfter} 后在后台用 {@code loader} 刷新。
      * 返回类型与 {@code delegate} 的接口层级一致（输入什么接口就输出什么接口）。
-     * 后台刷新任务通过 {@link SharedExecutors} 的共享执行器执行。
+     * 后台刷新任务通过 {@link ExecutorPools} 的共享执行器执行。
      *
      * @param delegate     被装饰的缓存（承载实际存储、TTL 与淘汰）
      * @param refreshAfter 刷新间隔（正时长）
@@ -311,7 +311,7 @@ public final class RefreshingCacheAdapter<K, V>
         if (refreshing.putIfAbsent(key, Boolean.TRUE) != null) {
             return; // 已有排队中的刷新任务，合并本次触发
         }
-        SharedExecutors.refresh().execute(() -> {
+        ExecutorPools.refresh().execute(() -> {
             try {
                 V fresh = loader.apply(key);
                 if (fresh != null) {

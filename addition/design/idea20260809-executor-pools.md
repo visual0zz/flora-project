@@ -8,7 +8,7 @@
 - **池划分维度**：按计算特征/语义，预置 `COMPUTE / IO / SCHEDULED / LIGHT` 四类，基础库内部固定。
 - **参数来源**：基于 `Runtime.getRuntime().availableProcessors()` 动态计算 + 内置合理默认 + 有界队列；零依赖，不接配置系统。
 - **生命周期**：纯守护线程，随 JVM 退出；不提供任何 shutdown/关闭 API（进程级单例）。
-- **包位置**：新建 `com.flora.concurrent`（与 `com.flora.concurrent.retry` 并列），`module-info` 新增 `exports com.flora.concurrent;`，内部实现放不导出的 `com.flora.concurrent.impl`。
+- **包位置**：新建 `com.flora.common.executors`（与 `com.flora.concurrent.retry` 并列），`module-info` 新增 `exports com.flora.common.executors;`，内部实现放不导出的 `com.flora.common.executors.impl`。
 
 ## 参数表（N = availableProcessors）
 | 类型 | 适用 | core | max | 队列 | keepAlive | 拒绝策略 |
@@ -31,14 +31,14 @@
 - `ExecutorPools.scheduled()`：返回 `ScheduledExecutorService`。
 - `ExecutorPools.refresh()`：便捷方法，等价于 `executor(TaskKind.IO)`，供缓存后台刷新。
 - 懒加载单例：`ConcurrentHashMap<TaskKind, ExecutorService>` + `computeIfAbsent`。
-- `com.flora.concurrent.impl.FloraThreadFactory` + 重写 `afterExecute` 的 `LoggingThreadPoolExecutor` /
+- `com.flora.common.executors.impl.FloraThreadFactory` + 重写 `afterExecute` 的 `LoggingThreadPoolExecutor` /
   `LoggingScheduledThreadPoolExecutor`：统一线程命名与守护属性，任务异常经 `runtime.log` 记录
   （标准线程池不会为提交任务触发线程的 UncaughtExceptionHandler，须在 afterExecute 兜底）。
 
 ## 改造
-- 新增 `com/flora/concurrent/{ExecutorPools,TaskKind,package-info}.java` 与 `impl/{FloraThreadFactory,LoggingThreadPoolExecutor,LoggingScheduledThreadPoolExecutor}.java`。
+- 新增 `com/flora/common/executors/{ExecutorPools,TaskKind,package-info}.java` 与 `impl/{FloraThreadFactory,LoggingThreadPoolExecutor,LoggingScheduledThreadPoolExecutor}.java`。
 - 删除 `com/flora/common/SharedExecutors.java`；`RefreshingCacheAdapter`、`Caches` 改用 `ExecutorPools`。
-- `module-info.java` 新增 `exports com.flora.concurrent;`。
+- `module-info.java` 新增 `exports com.flora.common.executors;`。
 
 ## 验证
 - `flora-root` 测试全绿（2165 个，0 失败），`ExecutorPoolsTest` 覆盖单例性、守护/命名、CallerRuns 不丢、Discard 丢弃、异常不传播。

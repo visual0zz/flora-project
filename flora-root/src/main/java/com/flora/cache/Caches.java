@@ -78,7 +78,7 @@ public final class Caches {
 
         /**
          * 启用异步刷新：读取立即返回旧值，超过 {@code refreshAfter} 后在后台用 {@code loader} 刷新。
-         * 后台刷新任务通过 {@link com.flora.common.SharedExecutors} 的共享执行器执行。
+         * 后台刷新任务通过 {@link com.flora.common.executors.ExecutorPools} 的共享执行器执行。
          * 见 {@link RefreshingCacheAdapter}。
          *
          * @param refreshAfter 刷新间隔（正时长）

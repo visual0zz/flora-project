@@ -131,6 +131,8 @@ module com.flora.root {
     exports com.flora.runtime.config.impl;
     // 重试机制工具
     exports com.flora.concurrent.retry;
+    // 共享线程池注册表（按任务语义分池）
+    exports com.flora.common.executors;
     exports com.flora.cache.interfaces;
     exports com.flora.runtime.config.source;
     exports com.flora.runtime.config.interfaces;

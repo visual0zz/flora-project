@@ -1,4 +1,4 @@
-package com.flora.cache;
+package com.flora.cache.interfaces;
 
 /**
  * 有界缓存契约：提供容量约束与回收能力（容量上限、是否已满、垃圾回收）。

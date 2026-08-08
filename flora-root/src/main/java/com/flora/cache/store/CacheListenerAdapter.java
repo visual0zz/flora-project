@@ -1,14 +1,14 @@
 package com.flora.cache.store;
 
-import com.flora.cache.BoundedCache;
-import com.flora.cache.Cache;
+import com.flora.cache.interfaces.BoundedCache;
+import com.flora.cache.interfaces.Cache;
 import com.flora.cache.CacheEventType;
-import com.flora.cache.CacheEventListener;
-import com.flora.cache.EvictionPolicy;
-import com.flora.cache.MemoryCache;
-import com.flora.cache.ObservableBoundedCache;
-import com.flora.cache.ObservableCache;
-import com.flora.cache.ObservableMemoryCache;
+import com.flora.cache.interfaces.CacheEventListener;
+import com.flora.cache.interfaces.EvictionPolicy;
+import com.flora.cache.interfaces.MemoryCache;
+import com.flora.cache.interfaces.ObservableBoundedCache;
+import com.flora.cache.interfaces.ObservableCache;
+import com.flora.cache.interfaces.ObservableMemoryCache;
 
 import java.time.Duration;
 import java.util.List;

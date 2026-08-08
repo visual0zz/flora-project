@@ -1,5 +1,8 @@
-package com.flora.cache;
+package com.flora.cache.store;
 
+import com.flora.cache.interfaces.CacheEventListener;
+import com.flora.cache.interfaces.EvictionPolicy;
+import com.flora.cache.interfaces.MemoryCache;
 import com.flora.tag.ModuleEntry;
 
 import java.time.Duration;

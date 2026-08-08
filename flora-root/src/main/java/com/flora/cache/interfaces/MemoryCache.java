@@ -1,4 +1,4 @@
-package com.flora.cache;
+package com.flora.cache.interfaces;
 
 /**
  * 可配置驱逐策略的缓存契约：提供挂载 / 卸除淘汰策略插件（{@link EvictionPolicy}）的能力。

@@ -1,6 +1,8 @@
 package com.flora.cache;
 
 import com.flora.cache.eviction.LRUEvictionPolicy;
+import com.flora.cache.interfaces.MemoryCache;
+import com.flora.cache.interfaces.ObservableMemoryCache;
 import com.flora.cache.store.CacheListenerAdapter;
 import org.junit.jupiter.api.Test;
 

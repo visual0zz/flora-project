@@ -1,6 +1,6 @@
 package com.flora.java.converter;
 
-import com.flora.cache.Cache;
+import com.flora.cache.interfaces.Cache;
 import com.flora.cache.Caches;
 import com.flora.java.CheckUtil;
 import com.flora.java.Converter;

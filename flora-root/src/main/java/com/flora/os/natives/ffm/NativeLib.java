@@ -1,7 +1,7 @@
 package com.flora.os.natives.ffm;
 
 import com.flora.cache.Caches;
-import com.flora.cache.MemoryCache;
+import com.flora.cache.interfaces.MemoryCache;
 
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;

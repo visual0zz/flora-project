@@ -1,5 +1,6 @@
 package com.flora.cache;
 
+import com.flora.cache.interfaces.MemoryCache;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;

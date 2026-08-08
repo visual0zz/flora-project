@@ -1,6 +1,6 @@
 package com.flora.os.natives.ffm;
 
-import com.flora.cache.Cache;
+import com.flora.cache.interfaces.Cache;
 import com.flora.cache.Caches;
 import com.flora.tag.ModuleEntry;
 

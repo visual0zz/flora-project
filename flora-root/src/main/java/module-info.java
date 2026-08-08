@@ -131,6 +131,7 @@ module com.flora.root {
     exports com.flora.runtime.config.impl;
     // 重试机制工具
     exports com.flora.concurrent.retry;
+    exports com.flora.cache.interfaces;
 
     uses Converter;
     uses AiProvider;

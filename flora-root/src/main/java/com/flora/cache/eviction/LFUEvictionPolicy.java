@@ -1,7 +1,7 @@
 package com.flora.cache.eviction;
 
 import com.flora.cache.CacheEventType;
-import com.flora.cache.EvictionPolicy;
+import com.flora.cache.interfaces.EvictionPolicy;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

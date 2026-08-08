@@ -1,9 +1,9 @@
 package com.flora.cache.store;
 
 import com.flora.cache.CacheEventType;
-import com.flora.cache.CacheEventListener;
-import com.flora.cache.EvictionPolicy;
-import com.flora.cache.MemoryCache;
+import com.flora.cache.interfaces.CacheEventListener;
+import com.flora.cache.interfaces.EvictionPolicy;
+import com.flora.cache.interfaces.MemoryCache;
 import com.flora.cache.eviction.WTinyLfuEvictionPolicy;
 
 import java.time.Duration;

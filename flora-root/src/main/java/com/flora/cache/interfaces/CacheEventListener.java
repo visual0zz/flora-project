@@ -1,4 +1,6 @@
-package com.flora.cache;
+package com.flora.cache.interfaces;
+
+import com.flora.cache.CacheEventType;
 
 /**
  * 缓存事件回调。

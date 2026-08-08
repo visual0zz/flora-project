@@ -3,12 +3,12 @@ package com.flora.cache.store;
 import com.flora.cache.interfaces.CacheEventListener;
 import com.flora.cache.interfaces.EvictionPolicy;
 import com.flora.cache.interfaces.MemoryCache;
+import com.flora.common.SharedExecutors;
 import com.flora.tag.ModuleEntry;
 
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
 import java.util.function.Function;
 
 /**
@@ -31,20 +31,18 @@ public final class RefreshingCacheAdapter<K, V> implements MemoryCache<K, V> {
     private final MemoryCache<K, V> delegate;
     private final Function<? super K, ? extends V> loader;
     private final Duration refreshAfter;
-    private final Executor executor;
     /** key → 最近一次成功写入/刷新的时间戳(ms) */
     private final ConcurrentHashMap<K, Long> refreshedAt = new ConcurrentHashMap<>();
     /** key → 是否已有排队中的刷新任务（防止同 key 并发重复刷新） */
     private final ConcurrentHashMap<K, Boolean> refreshing = new ConcurrentHashMap<>();
 
     /**
-     * 包装为异步刷新缓存。见 {@link #of(MemoryCache, Function, Duration, Executor)}。
+     * 包装为异步刷新缓存。见 {@link #of(MemoryCache, Duration, Function)}。
      * 包内可见，仅供 {@code of(...)} 工厂与 {@code Caches} 使用。
      */
     RefreshingCacheAdapter(MemoryCache<K, V> delegate,
-                           Function<? super K, ? extends V> loader,
                            Duration refreshAfter,
-                           Executor executor) {
+                           Function<? super K, ? extends V> loader) {
         this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
         this.loader = Objects.requireNonNull(loader, "loader must not be null");
         Objects.requireNonNull(refreshAfter, "refreshAfter must not be null");
@@ -52,24 +50,22 @@ public final class RefreshingCacheAdapter<K, V> implements MemoryCache<K, V> {
             throw new IllegalArgumentException("refreshAfter 必须为正时长");
         }
         this.refreshAfter = refreshAfter;
-        this.executor = Objects.requireNonNull(executor, "executor must not be null");
     }
 
     /**
      * 包装为异步刷新缓存：读取立即返回旧值，超过 {@code refreshAfter} 后在后台用 {@code loader} 刷新。
+     * 后台刷新任务通过 {@link SharedExecutors} 的共享执行器执行。
      *
      * @param delegate     被装饰的缓存（承载实际存储、TTL 与淘汰）
-     * @param loader       重新计算缓存值的函数，用于后台刷新与缺失加载
      * @param refreshAfter 刷新间隔（正时长）
-     * @param executor     执行后台刷新任务的线程池（生命周期由调用方管理）
+     * @param loader       重新计算缓存值的函数，用于后台刷新与缺失加载
      * @param <K>          键类型
      * @param <V>          值类型
      */
     public static <K, V> RefreshingCacheAdapter<K, V> of(MemoryCache<K, V> delegate,
-                                                         Function<? super K, ? extends V> loader,
                                                          Duration refreshAfter,
-                                                         Executor executor) {
-        return new RefreshingCacheAdapter<>(delegate, loader, refreshAfter, executor);
+                                                         Function<? super K, ? extends V> loader) {
+        return new RefreshingCacheAdapter<>(delegate, refreshAfter, loader);
     }
 
     // ========== 读取 ==========
@@ -227,7 +223,7 @@ public final class RefreshingCacheAdapter<K, V> implements MemoryCache<K, V> {
         if (refreshing.putIfAbsent(key, Boolean.TRUE) != null) {
             return; // 已有排队中的刷新任务，合并本次触发
         }
-        executor.execute(() -> {
+        SharedExecutors.refresh().execute(() -> {
             try {
                 V fresh = loader.apply(key);
                 if (fresh != null) {

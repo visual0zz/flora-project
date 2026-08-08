@@ -12,7 +12,6 @@ import com.flora.tag.ModuleEntry;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executor;
 import java.util.function.Function;
 
 /**
@@ -53,7 +52,6 @@ public final class Caches {
         private boolean observable;
         private Function<? super K, ? extends V> loader;
         private Duration refreshAfter;
-        private Executor executor;
         private final List<ListenerBinding<K, V>> bindings = new ArrayList<>();
 
         /** 设置容量上限；{@code <= 0} 表示无界。 */
@@ -70,18 +68,16 @@ public final class Caches {
 
         /**
          * 启用异步刷新：读取立即返回旧值，超过 {@code refreshAfter} 后在后台用 {@code loader} 刷新。
+         * 后台刷新任务通过 {@link com.flora.common.SharedExecutors} 的共享执行器执行。
          * 见 {@link RefreshingCacheAdapter}。
          *
-         * @param loader       重新计算缓存值的函数（后台刷新与缺失加载）
          * @param refreshAfter 刷新间隔（正时长）
-         * @param executor     执行后台刷新任务的线程池（生命周期由调用方管理）
+         * @param loader       重新计算缓存值的函数（后台刷新与缺失加载）
          */
-        public InMemoryCacheBuilder<K, V> refreshing(Function<? super K, ? extends V> loader,
-                                                     Duration refreshAfter,
-                                                     Executor executor) {
+        public InMemoryCacheBuilder<K, V> refreshing(Duration refreshAfter,
+                                                     Function<? super K, ? extends V> loader) {
             this.loader = loader;
             this.refreshAfter = refreshAfter;
-            this.executor = executor;
             return this;
         }
 
@@ -122,7 +118,7 @@ public final class Caches {
             }
             // refreshing 包在最外层：其后台刷新写回经 observable 派发事件，不被截断
             if (loader != null) {
-                cache = RefreshingCacheAdapter.of(cache, loader, refreshAfter, executor);
+                cache = RefreshingCacheAdapter.of(cache, refreshAfter, loader);
             }
             return cache;
         }

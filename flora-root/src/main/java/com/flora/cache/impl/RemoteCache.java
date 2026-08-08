@@ -2,13 +2,13 @@ package com.flora.cache.impl;
 
 import com.flora.cache.interfaces.Cache;
 import com.flora.cache.interfaces.MemoryCache;
-import com.flora.common.RemoteKVStore;
+import com.flora.common.RemoteTtlKVStore;
 
 import java.util.Objects;
 
 /**
  * 远程缓存（Redis 等），键与值均为 {@code String}，与 Redis 协议对应。
- * <p>通过 {@code RemoteCache.of(store)} 代理一个 {@link RemoteKVStore} 后端，本类只承载
+ * <p>通过 {@code RemoteCache.of(store)} 代理一个 {@link RemoteTtlKVStore} 后端，本类只承载
  * {@link Cache} 契约的语义换算（{@code Duration} ↔ 毫秒、TTL 约定等），实际读写委托给 store。
  * 远端过期与淘汰由后端（如 Redis maxmemory-policy）管理，故不承载容量维度、淘汰策略与本地过期扫描，
  * 也不区分 {@code INSERT}/{@code UPDATE}（每次 put 统一写入）。线程安全性取决于 store 实现。</p>
@@ -21,7 +21,7 @@ import java.util.Objects;
  * 无法桥接远端驱动的 EVICT / EXPIRE，故其不可观测。）</p>
  *
  * <pre>{@code
- * RemoteKVStore store = new RemoteKVStore() {
+ * RemoteTtlKVStore store = new RemoteTtlKVStore() {
  *     @Override public void set(String key, String value, long ttlMillis) {
  *         if (ttlMillis == -1) jedis.set(key, value);
  *         else jedis.set(key, value, "PX", ttlMillis);
@@ -35,14 +35,14 @@ import java.util.Objects;
  */
 public final class RemoteCache implements Cache<String, String> {
 
-    private final RemoteKVStore store;
+    private final RemoteTtlKVStore store;
 
-    private RemoteCache(RemoteKVStore store) {
+    private RemoteCache(RemoteTtlKVStore store) {
         this.store = Objects.requireNonNull(store, "store must not be null");
     }
 
     /** 代理指定远程存储后端，返回完整远程缓存。 */
-    public static RemoteCache of(RemoteKVStore store) {
+    public static RemoteCache of(RemoteTtlKVStore store) {
         return new RemoteCache(store);
     }
 
@@ -91,7 +91,7 @@ public final class RemoteCache implements Cache<String, String> {
     }
 
     /**
-     * 读取并滑动续期：带正时长读取时经 {@link RemoteKVStore#getAndExpire} 原子续期；
+     * 读取并滑动续期：带正时长读取时经 {@link RemoteTtlKVStore#getAndExpire} 原子续期；
      * {@code ttl} 为 {@code null}、非正或 {@link Duration#MAX} 时纯读取、不续期。
      */
     @Override

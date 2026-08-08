@@ -15,7 +15,7 @@ package com.flora.common;
  * </ul>
  * <p>线程安全性取决于实现所用客户端。</p>
  */
-public interface RemoteKVStore extends RemoteKVSource{
+public interface RemoteTtlKVStore extends KVSource {
 
     /** 写入键值（对应 Redis {@code SET}）：{@code ttlMillis} 约定见类级说明。 */
     void set(String key, String value, long ttlMillis);

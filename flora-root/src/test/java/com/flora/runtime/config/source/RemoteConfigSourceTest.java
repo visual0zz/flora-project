@@ -1,6 +1,6 @@
 package com.flora.runtime.config.source;
 
-import com.flora.common.RemoteKVSource;
+import com.flora.common.KVSource;
 import com.flora.runtime.config.ConfigException;
 import com.flora.runtime.config.ConfigSchema;
 import com.flora.runtime.config.interfaces.Config;
@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class RemoteConfigSourceTest {
 
     /** 内存键值桩。 */
-    private static final class MapKV implements RemoteKVSource {
+    private static final class MapKV implements KVSource {
         final Map<String, String> map = new HashMap<>();
 
         @Override public String get(String key) { return map.get(key); }
@@ -95,7 +95,7 @@ class RemoteConfigSourceTest {
 
     @Test
     void kvReadFailureWrappedAsConfigException() {
-        RemoteKVSource failing = new RemoteKVSource() {
+        KVSource failing = new KVSource() {
             @Override public String get(String key) { throw new IllegalStateException("backend down"); }
             @Override public boolean exists(String key) { return false; }
         };

@@ -1,5 +1,7 @@
 package com.flora.concurrent.retry;
 
+import com.flora.tag.ModuleEntry;
+
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
@@ -9,6 +11,7 @@ import java.util.concurrent.TimeUnit;
  * <p>
  * 实例不可变且线程安全,可被多个线程共享。等待退避期间响应线程中断,中断会中止重试并恢复中断状态。
  */
+@ModuleEntry
 public final class Retryer {
 
     private final RetryPolicy policy;

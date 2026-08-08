@@ -1,6 +1,6 @@
 package com.flora.runtime.config;
 
-import com.flora.common.RemoteKVSource;
+import com.flora.common.KVSource;
 import com.flora.runtime.config.impl.LazyConfigView;
 import com.flora.runtime.config.impl.MapConfig;
 import com.flora.runtime.config.impl.PlaceholderResolver;
@@ -142,11 +142,11 @@ public final class ConfigUtil {
             return loadFrom(priority, new StringConfigSource(str));
         }
 
-        public ConfigLoadHelper loadFromRemote(RemoteKVSource kv, ConfigSchema schema) {
+        public ConfigLoadHelper loadFromRemote(KVSource kv, ConfigSchema schema) {
             return loadFrom(ConfigPriority.NORMAL, new RemoteConfigSource(kv, schema));
         }
 
-        public ConfigLoadHelper loadFromRemote(ConfigPriority priority, RemoteKVSource kv, ConfigSchema schema) {
+        public ConfigLoadHelper loadFromRemote(ConfigPriority priority, KVSource kv, ConfigSchema schema) {
             return loadFrom(priority, new RemoteConfigSource(kv, schema));
         }
 

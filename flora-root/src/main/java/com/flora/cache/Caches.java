@@ -6,7 +6,7 @@ import com.flora.cache.interfaces.EvictionPolicy;
 import com.flora.cache.interfaces.MemoryCache;
 import com.flora.cache.interfaces.ObservableCache;
 import com.flora.cache.interfaces.ObservableMemoryCache;
-import com.flora.common.RemoteKVStore;
+import com.flora.common.RemoteTtlKVStore;
 import com.flora.cache.impl.CacheListenerAdapter;
 import com.flora.cache.impl.ConcurrentHashMapCache;
 import com.flora.cache.impl.RefreshingCacheAdapter;
@@ -141,16 +141,16 @@ public final class Caches {
     }
 
     /**
-     * 远程缓存链式构造器。需先 {@link #store(RemoteKVStore)} 指定后端，终端 {@link #get()} 产出缓存实例。
+     * 远程缓存链式构造器。需先 {@link #store(RemoteTtlKVStore)} 指定后端，终端 {@link #get()} 产出缓存实例。
      */
     public static final class RemoteCacheBuilder {
 
-        private RemoteKVStore store;
+        private RemoteTtlKVStore store;
         private boolean observable;
         private final List<ListenerBinding<String, String>> bindings = new ArrayList<>();
 
         /** 指定远程存储后端。 */
-        public RemoteCacheBuilder store(RemoteKVStore store) {
+        public RemoteCacheBuilder store(RemoteTtlKVStore store) {
             this.store = store;
             return this;
         }
@@ -180,7 +180,7 @@ public final class Caches {
 
         /** 完成构造，返回缓存实例；{@code observable} 时为可观测视图。 */
         public Cache<String, String> get() {
-            Objects.requireNonNull(store, "store 未设置，请先调用 store(RemoteKVStore)");
+            Objects.requireNonNull(store, "store 未设置，请先调用 store(RemoteTtlKVStore)");
             Cache<String, String> cache = RemoteCache.of(store);
             if (observable) {
                 ObservableCache<String, String> obs = CacheListenerAdapter.of(cache);

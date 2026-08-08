@@ -1,6 +1,6 @@
 package com.flora.common;
 
-public interface RemoteKVSource {
+public interface KVSource {
     /** 读取键值（对应 Redis {@code GET}）；缺失返回 {@code null}。 */
     String get(String key);
 

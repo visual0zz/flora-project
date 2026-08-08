@@ -2,7 +2,7 @@ package com.flora.cache;
 
 import com.flora.cache.interfaces.Cache;
 import com.flora.cache.interfaces.ObservableCache;
-import com.flora.common.RemoteKVStore;
+import com.flora.common.RemoteTtlKVStore;
 import com.flora.cache.impl.RemoteCache;
 import org.junit.jupiter.api.Test;
 
@@ -16,11 +16,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class RemoteCacheTest {
 
-    /** 内存 RemoteKVStore 假实现（Redis 语义子集）。 */
-    private static RemoteKVStore memStore() {
+    /** 内存 RemoteTtlKVStore 假实现（Redis 语义子集）。 */
+    private static RemoteTtlKVStore memStore() {
         Map<String, String> data = new ConcurrentHashMap<>();
         Map<String, Long> expiry = new ConcurrentHashMap<>();
-        return new RemoteKVStore() {
+        return new RemoteTtlKVStore() {
             @Override public void set(String key, String value, long ttlMillis) {
                 if (ttlMillis <= 0 && ttlMillis != -1) {
                     data.remove(key);

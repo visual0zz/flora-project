@@ -1,6 +1,6 @@
 package com.flora.runtime.config.interfaces;
 
-import com.flora.common.RemoteKVSource;
+import com.flora.common.KVSource;
 import com.flora.runtime.config.ConfigPriority;
 import com.flora.runtime.config.ConfigSchema;
 
@@ -18,8 +18,8 @@ public interface ConfigBuilder {
     ConfigBuilder loadFromFile(ConfigPriority priority, Path filePath);
     ConfigBuilder loadFromString(String str);
     ConfigBuilder loadFromString(ConfigPriority priority, String str);
-    ConfigBuilder loadFromRemote(RemoteKVSource kv, ConfigSchema schema);
-    ConfigBuilder loadFromRemote(ConfigPriority priority, RemoteKVSource kv, ConfigSchema schema);
+    ConfigBuilder loadFromRemote(KVSource kv, ConfigSchema schema);
+    ConfigBuilder loadFromRemote(ConfigPriority priority, KVSource kv, ConfigSchema schema);
     ConfigBuilder loadFromClasspath(String resource);
     ConfigBuilder loadFromClasspath(ConfigPriority priority, String resource);
     ConfigBuilder loadFromEnv(ConfigSchema schema);

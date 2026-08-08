@@ -1,6 +1,6 @@
 package com.flora.runtime.config.source;
 
-import com.flora.common.RemoteKVSource;
+import com.flora.common.KVSource;
 import com.flora.runtime.config.ConfigException;
 import com.flora.runtime.config.ConfigSchema;
 import com.flora.runtime.config.interfaces.Config;
@@ -14,7 +14,7 @@ import java.util.Map;
 
 /**
  * 从远程键值源加载配置的来源。
- * <p>组合一个 {@link RemoteKVSource} 与一个 {@link ConfigSchema}：schema 声明了配置包含的 key
+ * <p>组合一个 {@link KVSource} 与一个 {@link ConfigSchema}：schema 声明了配置包含的 key
  * （点号路径形式），每个 key 直接作为远端键读取。加载时逐个读取，远端缺失的 key 在结果中
  * 仍会出现且值为 {@code null}（「缺失一律填 null」）。点号路径展开为嵌套结构，使
  * {@code Config.get("db.host")} 可访问。</p>
@@ -22,11 +22,11 @@ import java.util.Map;
  */
 public class RemoteConfigSource implements ConfigSource {
 
-    private final RemoteKVSource kv;
+    private final KVSource kv;
     private final ConfigSchema schema;
 
-    public RemoteConfigSource(RemoteKVSource kv, ConfigSchema schema) {
-        if (kv == null) throw new ConfigException("RemoteKVSource 不能为 null");
+    public RemoteConfigSource(KVSource kv, ConfigSchema schema) {
+        if (kv == null) throw new ConfigException("KVSource 不能为 null");
         if (schema == null) throw new ConfigException("ConfigSchema 不能为 null");
         this.kv = kv;
         this.schema = schema;

@@ -1,6 +1,6 @@
 package com.flora.runtime.config.interfaces;
 
-import com.flora.common.RemoteKVSource;
+import com.flora.common.KVSource;
 import com.flora.runtime.config.ConfigPriority;
 import com.flora.runtime.config.ConfigSchema;
 
@@ -20,8 +20,8 @@ public interface ConfigUpdater {
     ConfigUpdater loadFromFile(ConfigPriority priority, Path filePath);
     ConfigUpdater loadFromString(String str);
     ConfigUpdater loadFromString(ConfigPriority priority, String str);
-    ConfigUpdater loadFromRemote(RemoteKVSource kv, ConfigSchema schema);
-    ConfigUpdater loadFromRemote(ConfigPriority priority, RemoteKVSource kv, ConfigSchema schema);
+    ConfigUpdater loadFromRemote(KVSource kv, ConfigSchema schema);
+    ConfigUpdater loadFromRemote(ConfigPriority priority, KVSource kv, ConfigSchema schema);
     ConfigUpdater loadFromClasspath(String resource);
     ConfigUpdater loadFromClasspath(ConfigPriority priority, String resource);
     ConfigUpdater loadFromEnv(ConfigSchema schema);

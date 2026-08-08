@@ -1,5 +1,7 @@
 package com.flora.cache.store;
 
+import com.flora.cache.interfaces.BoundedCache;
+import com.flora.cache.interfaces.Cache;
 import com.flora.cache.interfaces.CacheEventListener;
 import com.flora.cache.interfaces.EvictionPolicy;
 import com.flora.cache.interfaces.MemoryCache;
@@ -33,7 +35,7 @@ import java.util.function.Function;
 @ModuleEntry
 public final class RefreshingCacheAdapter<K, V> implements MemoryCache<K, V> {
 
-    private final MemoryCache<K, V> delegate;
+    private final Cache<K, V> delegate;
     private final Function<? super K, ? extends V> loader;
     private final Duration refreshAfter;
     /** key → 最近一次成功写入/刷新的时间戳(ms) */
@@ -42,10 +44,10 @@ public final class RefreshingCacheAdapter<K, V> implements MemoryCache<K, V> {
     private final ConcurrentHashMap<K, Boolean> refreshing = new ConcurrentHashMap<>();
 
     /**
-     * 包装为异步刷新缓存。见 {@link #of(MemoryCache, Duration, Function)}。
+     * 包装为异步刷新缓存。见 {@link #of(Cache, Duration, Function)}。
      * 包内可见，仅供 {@code of(...)} 工厂与 {@code Caches} 使用。
      */
-    RefreshingCacheAdapter(MemoryCache<K, V> delegate,
+    RefreshingCacheAdapter(Cache<K, V> delegate,
                            Duration refreshAfter,
                            Function<? super K, ? extends V> loader) {
         this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
@@ -59,6 +61,7 @@ public final class RefreshingCacheAdapter<K, V> implements MemoryCache<K, V> {
 
     /**
      * 包装为异步刷新缓存：读取立即返回旧值，超过 {@code refreshAfter} 后在后台用 {@code loader} 刷新。
+     * 返回类型与 {@code delegate} 的接口层级一致（输入什么接口就输出什么接口）。
      * 后台刷新任务通过 {@link SharedExecutors} 的共享执行器执行。
      *
      * @param delegate     被装饰的缓存（承载实际存储、TTL 与淘汰）
@@ -67,9 +70,23 @@ public final class RefreshingCacheAdapter<K, V> implements MemoryCache<K, V> {
      * @param <K>          键类型
      * @param <V>          值类型
      */
-    public static <K, V> RefreshingCacheAdapter<K, V> of(MemoryCache<K, V> delegate,
-                                                         Duration refreshAfter,
-                                                         Function<? super K, ? extends V> loader) {
+    public static <K, V> Cache<K, V> of(Cache<K, V> delegate,
+                                        Duration refreshAfter,
+                                        Function<? super K, ? extends V> loader) {
+        return new RefreshingCacheAdapter<>(delegate, refreshAfter, loader);
+    }
+
+    /** 包装 {@link BoundedCache}，返回 {@link BoundedCache} 视图。见 {@link #of(Cache, Duration, Function)}。 */
+    public static <K, V> BoundedCache<K, V> of(BoundedCache<K, V> delegate,
+                                               Duration refreshAfter,
+                                               Function<? super K, ? extends V> loader) {
+        return new RefreshingCacheAdapter<>(delegate, refreshAfter, loader);
+    }
+
+    /** 包装 {@link MemoryCache}，返回 {@link MemoryCache} 视图。见 {@link #of(Cache, Duration, Function)}。 */
+    public static <K, V> MemoryCache<K, V> of(MemoryCache<K, V> delegate,
+                                              Duration refreshAfter,
+                                              Function<? super K, ? extends V> loader) {
         return new RefreshingCacheAdapter<>(delegate, refreshAfter, loader);
     }
 
@@ -172,36 +189,45 @@ public final class RefreshingCacheAdapter<K, V> implements MemoryCache<K, V> {
         return v;
     }
 
-    // ========== BoundedCache / MemoryCache 委托 ==========
+    // ========== BoundedCache / MemoryCache 委托（按 delegate 实际层级降级） ==========
 
     @Override
     public long cleanUp() {
-        return delegate.cleanUp();
+        return delegate instanceof BoundedCache<?, ?> bc ? bc.cleanUp() : 0L;
     }
 
     @Override
     public boolean isFull() {
-        return delegate.isFull();
+        return delegate instanceof BoundedCache<?, ?> bc ? bc.isFull() : false;
     }
 
     @Override
     public long capacity() {
-        return delegate.capacity();
+        return delegate instanceof BoundedCache<?, ?> bc ? bc.capacity() : 0L;
     }
 
     @Override
     public void setEvictionPolicy(EvictionPolicy<K, V> policy) {
-        delegate.setEvictionPolicy(policy);
+        memoryCache().setEvictionPolicy(policy);
     }
 
     @Override
     public EvictionPolicy<K, V> evictionPolicy() {
-        return delegate.evictionPolicy();
+        return memoryCache().evictionPolicy();
     }
 
     @Override
     public void setInternalRemovalListener(CacheEventListener<K, V> listener) {
-        delegate.setInternalRemovalListener(listener);
+        memoryCache().setInternalRemovalListener(listener);
+    }
+
+    @SuppressWarnings("unchecked")
+    private MemoryCache<K, V> memoryCache() {
+        if (delegate instanceof MemoryCache<?, ?>) {
+            return (MemoryCache<K, V>) delegate;
+        }
+        throw new UnsupportedOperationException(
+                "delegate is not a MemoryCache: " + delegate.getClass().getName());
     }
 
     // ========== 内部 ==========

@@ -1,6 +1,9 @@
 package com.flora.cache;
 
+import com.flora.cache.interfaces.BoundedCache;
+import com.flora.cache.interfaces.Cache;
 import com.flora.cache.interfaces.MemoryCache;
+import com.flora.cache.store.RefreshingCacheAdapter;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -166,5 +169,20 @@ class RefreshingCacheAdapterTest {
         }
         assertTrue(events.stream().anyMatch(e -> e.equals("PUT:k=fresh")),
                 "后台刷新写回应派发 PUT 事件，实际事件: " + events);
+    }
+
+    @Test
+    void ofTransmitsDelegateInterface() {
+        // 输入什么接口就输出什么接口：of() 返回与被包装 delegate 相同的接口层级
+        MemoryCache<String, String> memory = Caches.<String, String>memory().get();
+        Duration d = Duration.ofMinutes(1);
+
+        Cache<String, String> asCache = RefreshingCacheAdapter.of(memory, d, k -> "v");
+        BoundedCache<String, String> asBounded = RefreshingCacheAdapter.of(memory, d, k -> "v");
+        MemoryCache<String, String> asMemory = RefreshingCacheAdapter.of(memory, d, k -> "v");
+
+        assertTrue(asCache instanceof RefreshingCacheAdapter, "of(Cache) 应返回刷新适配器");
+        assertTrue(asBounded instanceof RefreshingCacheAdapter, "of(BoundedCache) 应返回刷新适配器");
+        assertTrue(asMemory instanceof RefreshingCacheAdapter, "of(MemoryCache) 应返回刷新适配器");
     }
 }

@@ -20,9 +20,4 @@ public interface ConfigSource {
      * 返回该来源的描述（用于日志/调试）。
      */
     String describe();
-
-    /**
-     * 返回该来源的位置标识（用于去重和循环检测）。
-     */
-    String location();
 }

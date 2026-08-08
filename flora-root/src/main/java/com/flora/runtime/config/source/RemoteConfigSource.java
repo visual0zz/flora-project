@@ -1,17 +1,11 @@
 package com.flora.runtime.config.source;
 
-import com.flora.codec.JsonUtil;
-import com.flora.codec.PropsUtil;
-import com.flora.codec.TomlUtil;
-import com.flora.codec.YamlUtil;
+import com.flora.common.RemoteKVSource;
 import com.flora.runtime.config.ConfigException;
+import com.flora.runtime.config.ConfigSchema;
 import com.flora.runtime.config.interfaces.Config;
 import com.flora.runtime.config.interfaces.ConfigSource;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -19,64 +13,64 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 从文件系统加载配置的来源。
- * <p>根据文件扩展名自动识别格式并委托对应解析器：{@code .json}、{@code .yaml}/{@code .yml}、
- * {@code .toml}、{@code .properties}/{@code .props}，解析结果顶层必须是映射。
- * 文件缺失、不可读、格式不支持或解析失败时抛 {@link ConfigException}。</p>
+ * 从远程键值源加载配置的来源。
+ * <p>组合一个 {@link RemoteKVSource} 与一个 {@link ConfigSchema}：schema 声明了配置包含的 key
+ * （点号路径形式），每个 key 直接作为远端键读取。加载时逐个读取，远端缺失的 key 在结果中
+ * 仍会出现且值为 {@code null}（「缺失一律填 null」）。点号路径展开为嵌套结构，使
+ * {@code Config.get("db.host")} 可访问。</p>
+ * <p>远端读取失败（kv.get 抛运行时异常）时包装为 {@link ConfigException}。</p>
  */
-public class FileConfigSource implements ConfigSource {
+public class RemoteConfigSource implements ConfigSource {
 
-    private final Path filePath;
+    private final RemoteKVSource kv;
+    private final ConfigSchema schema;
 
-    public FileConfigSource(Path filePath) {
-        this.filePath = filePath.toAbsolutePath().normalize();
+    public RemoteConfigSource(RemoteKVSource kv, ConfigSchema schema) {
+        if (kv == null) throw new ConfigException("RemoteKVSource 不能为 null");
+        if (schema == null) throw new ConfigException("ConfigSchema 不能为 null");
+        this.kv = kv;
+        this.schema = schema;
     }
 
     @Override
     public Config load() {
-        return new MapConfig(parse(readFile()));
+        Map<String, String> flat = new LinkedHashMap<>();
+        for (String key : schema.keys()) {
+            try {
+                flat.put(key, kv.get(key));
+            } catch (RuntimeException e) {
+                throw new ConfigException("读取远程配置 key 失败: " + key, e);
+            }
+        }
+        return new MapConfig(expand(flat));
     }
 
     @Override
     public String describe() {
-        return "file:" + filePath;
+        return "remote(" + kv.getClass().getName() + ") schema=" + schema.keys();
     }
 
-    private String readFile() {
-        if (!Files.isRegularFile(filePath)) {
-            throw new ConfigException("配置文件不存在或不是普通文件: " + filePath);
+    /** 把扁平点号键展开为嵌套 LinkedHashMap，null 值照常写入。 */
+    private static Map<String, Object> expand(Map<String, String> flat) {
+        Map<String, Object> root = new LinkedHashMap<>();
+        for (Map.Entry<String, String> e : flat.entrySet()) {
+            String[] segments = e.getKey().split("\\.");
+            Map<String, Object> current = root;
+            for (int i = 0; i < segments.length - 1; i++) {
+                Object next = current.get(segments[i]);
+                if (!(next instanceof Map)) {
+                    Map<String, Object> child = new LinkedHashMap<>();
+                    current.put(segments[i], child);
+                    next = child;
+                }
+                current = (Map<String, Object>) next;
+            }
+            current.put(segments[segments.length - 1], e.getValue());
         }
-        try {
-            return new String(Files.readAllBytes(filePath), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new ConfigException("读取配置文件失败: " + filePath, e);
-        }
+        return root;
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> parse(String text) {
-        String name = filePath.getFileName().toString();
-        int dot = name.lastIndexOf('.');
-        if (dot <= 0 || dot == name.length() - 1) {
-            throw new ConfigException("无法从文件名识别配置格式: " + name);
-        }
-        String ext = name.substring(dot + 1).toLowerCase();
-        try {
-            return switch (ext) {
-                case "json" -> JsonUtil.parseObject(text);
-                case "yaml", "yml" -> YamlUtil.parseObject(text);
-                case "toml" -> TomlUtil.parse(text);
-                case "properties", "props" -> PropsUtil.parse(text);
-                default -> throw new ConfigException("不支持的配置格式: ." + ext);
-            };
-        } catch (ConfigException e) {
-            throw e;
-        } catch (RuntimeException e) {
-            throw new ConfigException("解析配置文件失败: " + filePath + " —— " + e.getMessage(), e);
-        }
-    }
-
-    /** 解析结果的不可变 Config 包装，支持点号路径访问。 */
+    /** 加载结果的不可变 Config 包装，支持点号路径访问。 */
     private static final class MapConfig implements Config {
 
         private final Map<String, Object> raw;

@@ -29,13 +29,13 @@ public final class ConfigUtil {
     private ConfigUtil() {}
 
     /** 创建独立配置链。 */
-    public static ConfigChain newConfig() {
-        return new ConfigChain(new ConfigLoader());
+    public static ConfigBuilder newConfig() {
+        return new ConfigBuilder(new ConfigLoader());
     }
 
     /** 使用全局单例，多处调用共享同一来源列表。 */
-    public static ConfigChain system() {
-        return new ConfigChain(ConfigLoader.system());
+    public static ConfigBuilder system() {
+        return new ConfigBuilder(ConfigLoader.system());
     }
 
     /**
@@ -43,24 +43,24 @@ public final class ConfigUtil {
      * <p>通过 {@link ConfigUtil#newConfig()} 或 {@link ConfigUtil#system()} 获得实例。
      * 链式调用的结果直接可作为 {@code Config} 使用。</p>
      */
-    public static final class ConfigChain extends ConfigImpl {
+    public static final class ConfigBuilder extends ConfigImpl {
 
         private final ConfigLoader loader;
 
         /** 包内使用：由 {@link ConfigUtil#newConfig()} 创建。 */
-        public ConfigChain(ConfigLoader loader) {
+        public ConfigBuilder(ConfigLoader loader) {
             super(loader.load().toMap());
             this.loader = loader;
         }
 
         /** 添加任意配置来源并返回最新快照。 */
-        public ConfigChain load(ConfigSource source) {
+        public ConfigBuilder load(ConfigSource source) {
             loader.addSource(source);
-            return new ConfigChain(loader);
+            return new ConfigBuilder(loader);
         }
 
         /** 从文件加载配置，等价于 {@code load(new FileConfigSource(...))}。 */
-        public ConfigChain loadFile(String path) {
+        public ConfigBuilder loadFile(String path) {
             if (path.startsWith("classpath:")) {
                 return load(new ClasspathConfigSource(path.substring("classpath:".length())));
             }
@@ -68,7 +68,7 @@ public final class ConfigUtil {
         }
 
         /** 从 Properties 字符串加载配置，等价于 {@code load(new StringConfigSource(PROPS, ...))}。 */
-        public ConfigChain loadString(String content) {
+        public ConfigBuilder loadString(String content) {
             String label = "<inline>:" + (content.length() > 40
                     ? content.substring(0, 37) + "..." : content);
             return load(new StringConfigSource(ConfigFormat.PROPERTIES, content, label));

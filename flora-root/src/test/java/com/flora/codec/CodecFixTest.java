@@ -2,6 +2,7 @@ package com.flora.codec;
 
 import com.flora.codec.json.JsonBuilder;
 import com.flora.codec.json.JsonIgnore;
+import com.flora.codec.json.JsonNumber;
 import com.flora.codec.json.JsonParser;
 import org.junit.jupiter.api.Test;
 
@@ -166,9 +167,8 @@ class CodecFixTest {
 
     @Test
     void parseExponentWithPlusSign() {
-        Object v = JsonParser.parse("1e+10");
-        assertTrue(v instanceof BigDecimal);
-        assertEquals(0, ((BigDecimal) v).compareTo(BigDecimal.TEN.pow(10)));
+        JsonNumber v = JsonParser.parse("1e+10").asNumber();
+        assertEquals(0, v.decimalValue().compareTo(BigDecimal.TEN.pow(10)));
     }
 
     // ── P2: JsonBuilder 积分 Double 超出 long 范围 ──

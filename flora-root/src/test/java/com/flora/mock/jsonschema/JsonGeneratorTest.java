@@ -287,11 +287,11 @@ class JsonGeneratorTest {
                 + "\"required\":[\"name\",\"count\",\"ok\"]}");
         for (int i = 0; i < 20; i++) {
             String json = gen.generateStr();
-            Object parsed = JsonParser.parse(json);
+            Object parsed = JsonParser.parse(json).toNative();
             assertTrue(schema.isValid(parsed));
             // round-trip：同一实例经 JsonBuilder 序列化后再解析应深度相等
             Object generated = gen.generate();
-            assertTrue(JsonTypes.deepEquals(JsonParser.parse(JsonBuilder.toJsonString(generated)), generated));
+            assertTrue(JsonTypes.deepEquals(JsonParser.parse(JsonBuilder.toJsonString(generated)).toMap(), generated));
         }
     }
 
@@ -363,7 +363,7 @@ class JsonGeneratorTest {
     @Test
     void targetLengthScalesOutput() {
         String schemaJson = "{\"type\":\"string\"}";
-        Object schema = JsonParser.parse(schemaJson);
+        Object schema = JsonParser.parse(schemaJson).toMap();
         JsonGenerator small = JsonGenerator.of(schema, 8);
         JsonGenerator big = JsonGenerator.of(schema, 64);
         for (int i = 0; i < 30; i++) {
@@ -380,7 +380,7 @@ class JsonGeneratorTest {
         JsonSchema schema = JsonSchema.of(
                 "{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":3}");
         JsonGenerator gen = JsonGenerator.of(
-                JsonParser.parse("{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":3}"),
+                JsonParser.parse("{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":3}").toMap(),
                 2);
         for (int i = 0; i < 20; i++) {
             Object value = gen.generate();

@@ -3,6 +3,8 @@ package com.flora.codec.jsonl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.flora.codec.json.JsonObject;
+
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -22,8 +24,8 @@ class JsonlQueueTest {
             w.append(Map.of("id", 2, "msg", "world"));
         }
         try (JsonlReader r = new JsonlReader(file)) {
-            assertEquals("hello", r.read().get("msg"));
-            assertEquals("world", r.read().get("msg"));
+            assertEquals("hello", r.read().getString("msg"));
+            assertEquals("world", r.read().getString("msg"));
         }
     }
 
@@ -46,8 +48,8 @@ class JsonlQueueTest {
             w.append(Map.of("a", 1)).append(Map.of("b", 2));
         }
         try (JsonlReader r = new JsonlReader(file)) {
-            assertEquals(Long.valueOf(1), r.read().get("a"));
-            assertEquals(Long.valueOf(2), r.read().get("b"));
+            assertEquals(Long.valueOf(1), r.read().getLong("a"));
+            assertEquals(Long.valueOf(2), r.read().getLong("b"));
         }
     }
 
@@ -59,14 +61,14 @@ class JsonlQueueTest {
 
             // 另一个线程读取
             ExecutorService exec = Executors.newSingleThreadExecutor();
-            Future<Map<String, Object>> future = exec.submit(() -> reader.read(5000));
+            Future<JsonObject> future = exec.submit(() -> reader.read(5000));
 
             // 主线程写入
             Thread.sleep(50); // 确保读取者已就绪
             writer.append(Map.of("from", "thread"));
 
-            Map<String, Object> result = future.get(3, TimeUnit.SECONDS);
-            assertEquals("thread", result.get("from"));
+            JsonObject result = future.get(3, TimeUnit.SECONDS);
+            assertEquals("thread", result.getString("from"));
             exec.shutdown();
         }
     }
@@ -81,13 +83,13 @@ class JsonlQueueTest {
         try (JsonlReader reader = new JsonlReader(file, 20);
              JsonlWriter writer = new JsonlWriter(file)) {
 
-            Future<Map<String, Object>> future = exec.submit(() -> reader.read(3000));
+            Future<JsonObject> future = exec.submit(() -> reader.read(3000));
 
             Thread.sleep(100);
             writer.append(Map.of("later", "data"));
 
-            Map<String, Object> result = future.get(3, TimeUnit.SECONDS);
-            assertEquals("data", result.get("later"));
+            JsonObject result = future.get(3, TimeUnit.SECONDS);
+            assertEquals("data", result.getString("later"));
             exec.shutdown();
         }
     }

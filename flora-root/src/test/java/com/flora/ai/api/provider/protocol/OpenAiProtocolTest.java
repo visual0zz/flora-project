@@ -94,7 +94,7 @@ class OpenAiProtocolTest {
         String chunk = """
                 {"choices":[{"delta":{"content":"Hello","reasoning_content":"hmm"}}]}
                 """;
-        Map<String, Object> root = JsonParser.parseObject(chunk);
+        Map<String, Object> root = JsonParser.parseObject(chunk).toMap();
         List<?> choices = (List<?>) root.get("choices");
         Map<?, ?> delta = (Map<?, ?>) ((Map<?, ?>) choices.get(0)).get("delta");
         assertEquals("Hello", delta.get("content"));

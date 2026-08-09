@@ -3,103 +3,106 @@ package com.flora.codec.json;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
+import java.math.BigInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * JsonParser 解析器的独立单元测试。
+ * JsonParser 解析器的独立单元测试，基于 JsonValue 模型。
  * 覆盖标准 JSON 解析、边界情况、异常路径。
  */
 class JsonParserTest {
 
     @Test
     void parseObject() {
-        Map<String, Object> m = JsonParser.parseObject("{\"a\":1, \"b\":\"x\"}");
-        assertEquals(Long.valueOf(1), m.get("a"));
-        assertEquals("x", m.get("b"));
+        JsonObject o = JsonParser.parseObject("{\"a\":1, \"b\":\"x\"}");
+        assertEquals(Long.valueOf(1), o.getLong("a"));
+        assertEquals("x", o.getString("b"));
     }
 
     @Test
     void parseArray() {
-        List<Object> list = JsonParser.parseArray("[1, 2, 3]");
-        assertEquals(List.of(1L, 2L, 3L), list);
+        JsonArray arr = JsonParser.parseArray("[1, 2, 3]");
+        assertEquals(3, arr.size());
+        assertEquals(1L, arr.get(0).asNumber().longValue());
     }
 
     @Test
     void parseNested() {
-        Object v = JsonParser.parse("{\"a\":{\"b\":[1,2]}}");
-        assertInstanceOf(Map.class, v);
+        JsonValue v = JsonParser.parse("{\"a\":{\"b\":[1,2]}}");
+        assertInstanceOf(JsonObject.class, v);
+        JsonObject inner = v.asObject().getObject("a");
+        assertEquals(2, inner.getArray("b").size());
     }
 
     @Test
     void parseStringEscapes() {
-        Map<String, Object> m = JsonParser.parseObject("{\"s\":\"a\\nb\\tc\\\"d\\\\e/\"}");
-        assertEquals("a\nb\tc\"d\\e/", m.get("s"));
+        JsonObject o = JsonParser.parseObject("{\"s\":\"a\\nb\\tc\\\"d\\\\e/\"}");
+        assertEquals("a\nb\tc\"d\\e/", o.getString("s"));
     }
 
     @Test
     void parseUnicodeEscape() {
-        Map<String, Object> m = JsonParser.parseObject("{\"u\":\"\\u0041\"}");
-        assertEquals("A", m.get("u"));
+        JsonObject o = JsonParser.parseObject("{\"u\":\"\\u0041\"}");
+        assertEquals("A", o.getString("u"));
     }
 
     @Test
     void parseSurrogatePair() {
-        // U+1D11E (MUSICAL SYMBOL G CLEF) = \uD834\uDD1E
-        Map<String, Object> m = JsonParser.parseObject("{\"g\":\"\\uD834\\uDD1E\"}");
-        assertEquals("\uD834\uDD1E", m.get("g"));
+        JsonObject o = JsonParser.parseObject("{\"g\":\"\\uD834\\uDD1E\"}");
+        assertEquals("\uD834\uDD1E", o.getString("g"));
     }
 
     @Test
     void parseNumbers() {
-        Map<String, Object> m = JsonParser.parseObject("{\"i\":42, \"f\":3.14, \"e\":1e5, \"n\":-1}");
-        assertEquals(Long.valueOf(42), m.get("i"));
-        assertEquals(new BigDecimal("3.14"), m.get("f"));
-        assertEquals(new BigDecimal("1e5"), m.get("e"));
-        assertEquals(Long.valueOf(-1), m.get("n"));
+        JsonObject o = JsonParser.parseObject("{\"i\":42, \"f\":3.14, \"e\":1e5, \"n\":-1}");
+        assertEquals(Long.valueOf(42), o.getLong("i"));
+        assertEquals(new BigDecimal("3.14"), o.getNumber("f").decimalValue());
+        assertEquals(new BigDecimal("1e5"), o.getNumber("e").decimalValue());
+        assertEquals(Long.valueOf(-1), o.getLong("n"));
     }
 
     @Test
     void parseBooleanAndNull() {
-        Map<String, Object> m = JsonParser.parseObject("{\"t\":true,\"f\":false,\"n\":null}");
-        assertEquals(Boolean.TRUE, m.get("t"));
-        assertEquals(Boolean.FALSE, m.get("f"));
-        assertNull(m.get("n"));
+        JsonObject o = JsonParser.parseObject("{\"t\":true,\"f\":false,\"n\":null}");
+        assertEquals(Boolean.TRUE, o.getBool("t"));
+        assertEquals(Boolean.FALSE, o.getBool("f"));
+        assertTrue(o.get("n").isNull());
     }
 
     @Test
     void parseEmptyObject() {
-        assertEquals(Map.of(), JsonParser.parseObject("{}"));
+        assertTrue(JsonParser.parseObject("{}").isEmpty());
     }
 
     @Test
     void parseEmptyArray() {
-        assertEquals(List.of(), JsonParser.parseArray("[]"));
+        assertTrue(JsonParser.parseArray("[]").isEmpty());
     }
 
     @Test
     void parseWhitespace() {
-        assertEquals(Map.of("k", 1L), JsonParser.parseObject("  {  \"k\"  :  1  }  "));
+        JsonObject o = JsonParser.parseObject("  {  \"k\"  :  1  }  ");
+        assertEquals(Long.valueOf(1), o.getLong("k"));
     }
 
     @Test
     void parseBom() {
-        assertEquals(Map.of("a", 1L), JsonParser.parseObject("\uFEFF{\"a\":1}"));
+        JsonObject o = JsonParser.parseObject("\uFEFF{\"a\":1}");
+        assertEquals(Long.valueOf(1), o.getLong("a"));
     }
 
     @Test
     void parseBigInteger() {
-        Map<String, Object> m = JsonParser.parseObject("{\"big\":123456789012345678901234567890}");
-        assertInstanceOf(java.math.BigInteger.class, m.get("big"));
+        JsonObject o = JsonParser.parseObject("{\"big\":123456789012345678901234567890}");
+        assertInstanceOf(BigInteger.class, o.getNumber("big").value());
     }
 
     // ====== 异常路径 ======
 
     @Test
     void parseNullThrows() {
-        assertThrows(NullPointerException.class, () -> JsonParser.parse(null)); // 因为传入 null 导致 s.charAt(i) NPE
+        assertThrows(NullPointerException.class, () -> JsonParser.parse(null));
     }
 
     @Test
@@ -116,8 +119,8 @@ class JsonParserTest {
     @Test
     void parseInvalidJsonThrows() {
         assertThrows(IllegalStateException.class, () -> JsonParser.parse("{invalid}"));
-        assertThrows(IllegalStateException.class, () -> JsonParser.parse("[1,2,]")); // 尾部逗号在 JSON 中非法
-        assertThrows(IllegalStateException.class, () -> JsonParser.parse("{1:2}")); // key 必须是字符串
+        assertThrows(IllegalStateException.class, () -> JsonParser.parse("[1,2,]"));
+        assertThrows(IllegalStateException.class, () -> JsonParser.parse("{1:2}"));
     }
 
     @Test
@@ -137,7 +140,8 @@ class JsonParserTest {
         sb.append('1');
         for (int i = 0; i < 500; i++) sb.append(']');
         sb.append(']');
-        Object v = JsonParser.parse(sb.toString());
+        JsonValue v = JsonParser.parse(sb.toString());
         assertNotNull(v);
+        assertTrue(v.isArray());
     }
 }

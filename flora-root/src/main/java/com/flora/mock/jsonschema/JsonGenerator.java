@@ -66,17 +66,17 @@ public final class JsonGenerator {
 
     /** 从 JSON 字符串构建生成器，使用默认推荐长度。 */
     public static JsonGenerator of(String schemaJson) {
-        return of(JsonParser.parse(schemaJson), DEFAULT_TARGET_LENGTH, null);
+        return of(JsonParser.parse(schemaJson).toMap(), DEFAULT_TARGET_LENGTH, null);
     }
 
     /** 从 JSON 字符串构建生成器，指定推荐长度。 */
     public static JsonGenerator of(String schemaJson, int targetLength) {
-        return of(JsonParser.parse(schemaJson), targetLength, null);
+        return of(JsonParser.parse(schemaJson).toMap(), targetLength, null);
     }
 
     /** 从 JSON 字符串构建生成器，注入熵源（同一种子可复现）。 */
     public static JsonGenerator of(String schemaJson, RandomGenerator entropy) {
-        return of(JsonParser.parse(schemaJson), DEFAULT_TARGET_LENGTH, entropy);
+        return of(JsonParser.parse(schemaJson).toMap(), DEFAULT_TARGET_LENGTH, entropy);
     }
 
     /** 从解析后的 Java 对象构建生成器，使用默认推荐长度。 */

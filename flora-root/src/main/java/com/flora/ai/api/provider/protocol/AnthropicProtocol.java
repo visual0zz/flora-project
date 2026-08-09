@@ -218,7 +218,7 @@ public final class AnthropicProtocol {
 
     /** 解析响应 JSON → ChatResponse（text/thinking/tool_use 分离）。 */
     public static ChatResponse parseResponse(String json) {
-        Map<String, Object> root = JsonParser.parseObject(json);
+        Map<String, Object> root = JsonParser.parseObject(json).toMap();
         StringBuilder text = new StringBuilder();
         StringBuilder thinking = new StringBuilder();
         List<ToolCall> toolCalls = new ArrayList<>();
@@ -255,7 +255,7 @@ public final class AnthropicProtocol {
 
     /** 从 SSE data 提取流式文本/thinking 增量（content_block_delta 事件）；工具入参分片由 client 处理。 */
     public static Delta extractStreamDelta(String data) {
-        Map<String, Object> event = JsonParser.parseObject(data);
+        Map<String, Object> event = JsonParser.parseObject(data).toMap();
         String type = JsonHelper.str(event.get("type"));
         if (!"content_block_delta".equals(type)) {
             return null;

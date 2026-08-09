@@ -111,7 +111,7 @@ public final class AiApi {
     /** 批量注册：解析配置 JSON 数组并逐个注册。 */
     @ThreadFragile("全局注册表无锁，运行时并发注册/注销与查询需外部同步")
     public static List<Endpoint> registerAll(String jsonArray) {
-        List<?> list = com.flora.codec.json.JsonParser.parseArray(jsonArray);
+        List<?> list = com.flora.codec.json.JsonParser.parseArray(jsonArray).toList();
         List<Endpoint> registered = new ArrayList<>();
         for (Object item : list) {
             registered.addAll(register(JsonBuilder.toJsonString(item)));

@@ -83,6 +83,6 @@ public final class DeepSeekOfficialClient implements ChatClient, StreamingClient
         String body = JsonBuilder.toJsonString(DeepSeekProtocol.buildRequestMap(request,
                 endpoint.modelId(), false, Map.of("type", "json_object")));
         String json = http.postJson(url(), headers(), body);
-        return com.flora.codec.json.JsonParser.parseObject(DeepSeekProtocol.parseResponse(json).text());
+        return com.flora.codec.json.JsonParser.parseObject(DeepSeekProtocol.parseResponse(json).text()).toMap();
     }
 }

@@ -54,7 +54,7 @@ public final class JsonSchema {
 
     /** 从 JSON 字符串构建 schema。 */
     public static JsonSchema of(String schemaJson) {
-        return of(JsonParser.parse(schemaJson));
+        return of(JsonParser.parse(schemaJson).toMap());
     }
 
     /** 校验实例，返回是否通过。 */

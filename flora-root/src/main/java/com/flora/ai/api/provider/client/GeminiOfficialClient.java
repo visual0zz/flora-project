@@ -68,7 +68,7 @@ public final class GeminiOfficialClient implements ChatClient, StreamingClient, 
                 queue.offer(new StreamEvent.Done("stop", null));
                 return;
             }
-            Map<String, Object> root = JsonParser.parseObject(data);
+            Map<String, Object> root = JsonParser.parseObject(data).toMap();
             for (Object c : JsonHelper.asList(root.get("candidates"))) {
                 Map<String, Object> content = JsonHelper.asMap(JsonHelper.asMap(c).get("content"));
                 for (Object p : JsonHelper.asList(content.get("parts"))) {
@@ -94,6 +94,6 @@ public final class GeminiOfficialClient implements ChatClient, StreamingClient, 
     public Map<String, Object> chatJson(ChatRequest request) {
         String body = GeminiProtocol.buildRequest(request, Map.of("type", "json_object"));
         String json = http.postJson(url(false), headers(), body);
-        return JsonParser.parseObject(GeminiProtocol.parseResponse(json).text());
+        return JsonParser.parseObject(GeminiProtocol.parseResponse(json).text()).toMap();
     }
 }

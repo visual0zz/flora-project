@@ -187,7 +187,7 @@ public final class GeminiProtocol {
 
     /** 解析响应 JSON → ChatResponse（text/thought part 与 functionCall 分离）。 */
     public static ChatResponse parseResponse(String json) {
-        Map<String, Object> root = JsonParser.parseObject(json);
+        Map<String, Object> root = JsonParser.parseObject(json).toMap();
         StringBuilder text = new StringBuilder();
         StringBuilder thinking = new StringBuilder();
         List<ToolCall> toolCalls = new ArrayList<>();
@@ -230,7 +230,7 @@ public final class GeminiProtocol {
 
     /** 从 SSE data 提取流式增量文本（candidates[0].content.parts[0].text）。 */
     public static String extractStreamDelta(String data) {
-        Map<String, Object> root = JsonParser.parseObject(data);
+        Map<String, Object> root = JsonParser.parseObject(data).toMap();
         List<?> candidates = JsonHelper.asList(root.get("candidates"));
         if (candidates.isEmpty()) {
             return null;

@@ -14,7 +14,7 @@ import java.util.function.Function;
  */
 public enum ConfigSourceFileFormat {
 
-    JSON(JsonUtil::parseObject, "json"),
+    JSON(text -> JsonUtil.parseObject(text).toMap(), "json"),
     YAML(YamlUtil::parseObject, "yaml", "yml"),
     TOML(TomlUtil::parse, "toml"),
     PROPERTIES(PropsUtil::parse, "properties", "props");

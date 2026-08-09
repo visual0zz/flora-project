@@ -49,7 +49,7 @@ public record Endpoint(
      * 保留到 {@code extra}（供 Router 读取）。</p>
      */
     public static List<Endpoint> fromJsonAll(String json) {
-        Map<String, Object> m = JsonParser.parseObject(json);
+        Map<String, Object> m = JsonParser.parseObject(json).toMap();
         ApiSchema kind = ApiSchema.valueOf(String.valueOf(m.get("apiKind")));
         Object modelObj = m.get("modelId");
         String modelId = modelObj == null ? null : String.valueOf(modelObj);

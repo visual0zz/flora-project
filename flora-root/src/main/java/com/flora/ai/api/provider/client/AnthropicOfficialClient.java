@@ -73,7 +73,7 @@ public final class AnthropicOfficialClient implements ChatClient, StreamingClien
                 queue.offer(new StreamEvent.Done("stop", null));
                 return;
             }
-            Map<String, Object> event = JsonParser.parseObject(data);
+            Map<String, Object> event = JsonParser.parseObject(data).toMap();
             String type = JsonHelper.str(event.get("type"));
             switch (type) {
                 case "content_block_start" -> {
@@ -104,7 +104,7 @@ public final class AnthropicOfficialClient implements ChatClient, StreamingClien
                         Map<String, Object> parsed = Map.of();
                         if (raw != null && !raw.isBlank()) {
                             try {
-                                Object v = JsonParser.parse(raw);
+                                Object v = JsonParser.parse(raw).toMap();
                                 if (v instanceof Map<?, ?> m) {
                                     parsed = (Map<String, Object>) m;
                                 }
@@ -138,7 +138,7 @@ public final class AnthropicOfficialClient implements ChatClient, StreamingClien
             }
         }
         // 退化：直接解析文本
-        Object parsed = JsonParser.parse(resp.text());
+        Object parsed = JsonParser.parse(resp.text()).toMap();
         return parsed instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
     }
 }

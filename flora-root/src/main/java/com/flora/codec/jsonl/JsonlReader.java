@@ -1,12 +1,12 @@
 package com.flora.codec.jsonl;
 
 import com.flora.codec.JsonUtil;
+import com.flora.codec.json.JsonObject;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 
 /**
  * JSONL 读取端。
@@ -35,9 +35,9 @@ public class JsonlReader implements Closeable {
     /**
      * 读取下一行 JSON 对象。阻塞直到有数据可用。
      *
-     * @return 解析后的 Map，读取中断时返回 null
+     * @return 解析后的 JsonObject，读取中断时返回 null
      */
-    public Map<String, Object> read() throws IOException {
+    public JsonObject read() throws IOException {
         try {
             return read(Long.MAX_VALUE);
         } catch (InterruptedException e) {
@@ -50,13 +50,13 @@ public class JsonlReader implements Closeable {
      * 读取下一行 JSON 对象，带超时。
      *
      * @param timeoutMs 超时毫秒
-     * @return 解析后的 Map，超时或无数据时返回 null
+     * @return 解析后的 JsonObject，超时或无数据时返回 null
      * @throws InterruptedException 线程中断
      */
-    public Map<String, Object> read(long timeoutMs) throws IOException, InterruptedException {
+    public JsonObject read(long timeoutMs) throws IOException, InterruptedException {
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (true) {
-            Map<String, Object> result = tryRead();
+            JsonObject result = tryRead();
             if (result != null) return result;
 
             long remaining = deadline - System.currentTimeMillis();
@@ -66,7 +66,7 @@ public class JsonlReader implements Closeable {
         }
     }
 
-    private Map<String, Object> tryRead() throws IOException {
+    private JsonObject tryRead() throws IOException {
         ensureOpen();
         String line = readNextLine();
         if (line == null) return null;

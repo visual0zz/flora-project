@@ -65,7 +65,7 @@ final class OpenAiToolCallAggregator {
             return Map.of();
         }
         try {
-            Object v = JsonParser.parse(raw);
+            Object v = JsonParser.parse(raw).toMap();
             return v instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
         } catch (IllegalStateException ignored) {
             return Map.of();

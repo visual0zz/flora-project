@@ -71,7 +71,7 @@ public final class OpenAiOfficialClient implements ChatClient, StreamingClient, 
                 queue.offer(new StreamEvent.Done("stop", null));
                 return;
             }
-            Map<String, Object> chunk = com.flora.codec.json.JsonParser.parseObject(data);
+            Map<String, Object> chunk = com.flora.codec.json.JsonParser.parseObject(data).toMap();
             var choices = JsonHelper.asList(chunk.get("choices"));
             if (!choices.isEmpty()) {
                 Map<String, Object> choice = JsonHelper.asMap(choices.get(0));
@@ -114,6 +114,6 @@ public final class OpenAiOfficialClient implements ChatClient, StreamingClient, 
         String body = JsonBuilder.toJsonString(OpenAiProtocol.buildRequestMap(request,
                 endpoint.modelId(), false, Map.of("type", "json_object")));
         String json = http.postJson(url(), headers(), body);
-        return com.flora.codec.json.JsonParser.parseObject(OpenAiProtocol.parseResponse(json).text());
+        return com.flora.codec.json.JsonParser.parseObject(OpenAiProtocol.parseResponse(json).text()).toMap();
     }
 }

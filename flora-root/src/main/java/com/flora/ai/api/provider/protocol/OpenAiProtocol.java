@@ -183,7 +183,7 @@ public final class OpenAiProtocol {
 
     /** 解析响应 JSON → ChatResponse。 */
     public static ChatResponse parseResponse(String json) {
-        Map<String, Object> root = JsonParser.parseObject(json);
+        Map<String, Object> root = JsonParser.parseObject(json).toMap();
         List<?> choices = JsonHelper.asList(root.get("choices"));
         Map<?, ?> choice = choices.isEmpty() ? null : JsonHelper.asMap(choices.get(0));
         Map<?, ?> message = choice == null ? null : JsonHelper.asMap(choice.get("message"));
@@ -206,7 +206,7 @@ public final class OpenAiProtocol {
             String argsJson = JsonHelper.str(fn.get("arguments"));
             Map<String, Object> args = Map.of();
             if (argsJson != null && !argsJson.isBlank()) {
-                Object parsed = JsonParser.parse(argsJson);
+                Object parsed = JsonParser.parse(argsJson).toMap();
                 if (parsed instanceof Map<?, ?> pm) {
                     args = (Map<String, Object>) pm;
                 }

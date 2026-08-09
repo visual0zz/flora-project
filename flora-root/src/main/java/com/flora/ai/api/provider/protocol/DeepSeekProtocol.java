@@ -173,7 +173,7 @@ public final class DeepSeekProtocol {
 
     /** 解析响应 JSON → ChatResponse（含 tool_calls）。 */
     public static ChatResponse parseResponse(String json) {
-        Map<String, Object> root = JsonParser.parseObject(json);
+        Map<String, Object> root = JsonParser.parseObject(json).toMap();
         List<?> choices = JsonHelper.asList(root.get("choices"));
         Map<?, ?> choice = choices.isEmpty() ? null : JsonHelper.asMap(choices.getFirst());
         Map<?, ?> message = choice == null ? null : JsonHelper.asMap(choice.get("message"));
@@ -194,7 +194,7 @@ public final class DeepSeekProtocol {
             String argsJson = JsonHelper.str(fn.get("arguments"));
             Map<String, Object> args = Map.of();
             if (argsJson != null && !argsJson.isBlank()) {
-                Object parsed = JsonParser.parse(argsJson);
+                Object parsed = JsonParser.parse(argsJson).toMap();
                 if (parsed instanceof Map<?, ?> pm) {
                     args = (Map<String, Object>) pm;
                 }
@@ -219,7 +219,7 @@ public final class DeepSeekProtocol {
 
     /** 从 SSE data 提取流式增量（choices[0].delta）。 */
     public static Delta extractStreamDelta(String data) {
-        Map<String, Object> root = JsonParser.parseObject(data);
+        Map<String, Object> root = JsonParser.parseObject(data).toMap();
         List<?> choices = JsonHelper.asList(root.get("choices"));
         if (choices.isEmpty()) {
             return null;

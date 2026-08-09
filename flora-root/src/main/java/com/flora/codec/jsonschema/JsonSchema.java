@@ -1,5 +1,6 @@
 package com.flora.codec.jsonschema;
 
+import com.flora.codec.json.JsonObject;
 import com.flora.codec.json.JsonParser;
 
 import java.util.List;
@@ -54,7 +55,7 @@ public final class JsonSchema {
 
     /** 从 JSON 字符串构建 schema。 */
     public static JsonSchema of(String schemaJson) {
-        return of(JsonParser.parse(schemaJson).toMap());
+        return of(JsonParser.parseObject(schemaJson));
     }
 
     /** 校验实例，返回是否通过。 */

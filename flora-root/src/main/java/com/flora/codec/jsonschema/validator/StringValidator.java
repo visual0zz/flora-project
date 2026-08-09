@@ -1,8 +1,8 @@
 package com.flora.codec.jsonschema.validator;
 
+import com.flora.codec.json.JsonObject;
 import com.flora.codec.jsonschema.ValidationContext;
 
-import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -23,11 +23,12 @@ public final class StringValidator implements KeywordValidator {
         this.pattern = pattern;
     }
 
-    public static StringValidator of(Map<String, Object> schema) {
-        Integer min = schema.get("minLength") instanceof Number n ? n.intValue() : null;
-        Integer max = schema.get("maxLength") instanceof Number n ? n.intValue() : null;
+    public static StringValidator of(JsonObject schema) {
+        Integer min = schema.getNumber("minLength") != null ? schema.getNumber("minLength").intValue() : null;
+        Integer max = schema.getNumber("maxLength") != null ? schema.getNumber("maxLength").intValue() : null;
         Pattern p = null;
-        if (schema.get("pattern") instanceof String ps) {
+        String ps = schema.getString("pattern");
+        if (ps != null) {
             try {
                 p = Pattern.compile(ps);
             } catch (PatternSyntaxException e) {

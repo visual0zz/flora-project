@@ -1,5 +1,8 @@
 package com.flora.codec.jsonschema.validator;
 
+import com.flora.codec.json.JsonArray;
+import com.flora.codec.json.JsonObject;
+import com.flora.codec.json.JsonValue;
 import com.flora.codec.jsonschema.CompiledSchema;
 import com.flora.codec.jsonschema.JsonTypes;
 import com.flora.codec.jsonschema.SchemaRegistry;
@@ -7,7 +10,6 @@ import com.flora.codec.jsonschema.ValidationContext;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 数组关键字校验：{@code prefixItems}/{@code items}/{@code contains}/
@@ -40,28 +42,31 @@ public final class ArrayValidator implements KeywordValidator {
         this.uniqueItems = uniqueItems;
     }
 
-    public static ArrayValidator of(Map<String, Object> schema, SchemaRegistry registry, String baseUri) {
+    public static ArrayValidator of(JsonObject schema, SchemaRegistry registry, String baseUri) {
         List<CompiledSchema> prefix = new ArrayList<>();
-        if (schema.get("prefixItems") instanceof List<?> list) {
-            for (Object item : list) {
-                prefix.add(registry.compileNode(item, baseUri));
+        JsonArray prefixItems = schema.getArray("prefixItems");
+        if (prefixItems != null) {
+            for (JsonValue item : prefixItems.elements()) {
+                prefix.add(registry.compileNode(item.toNative(), baseUri));
             }
         }
         CompiledSchema itemsSchema = null;
         boolean forbidden = false;
-        if (schema.get("items") instanceof Map) {
-            itemsSchema = registry.compileNode(schema.get("items"), baseUri);
-        } else if (Boolean.FALSE.equals(schema.get("items"))) {
+        JsonValue items = schema.get("items");
+        if (items != null && items.isObject()) {
+            itemsSchema = registry.compileNode(items.toNative(), baseUri);
+        } else if (items != null && items.isBool() && !items.asBool()) {
             forbidden = true;
         }
         CompiledSchema containsSchema = null;
-        if (schema.get("contains") instanceof Map) {
-            containsSchema = registry.compileNode(schema.get("contains"), baseUri);
+        JsonValue contains = schema.get("contains");
+        if (contains != null && contains.isObject()) {
+            containsSchema = registry.compileNode(contains.toNative(), baseUri);
         }
         return new ArrayValidator(prefix, itemsSchema, forbidden, containsSchema,
                 intOf(schema.get("minContains")), intOf(schema.get("maxContains")),
                 intOf(schema.get("minItems")), intOf(schema.get("maxItems")),
-                Boolean.TRUE.equals(schema.get("uniqueItems")));
+                boolOf(schema.get("uniqueItems")));
     }
 
     @Override
@@ -134,7 +139,14 @@ public final class ArrayValidator implements KeywordValidator {
         }
     }
 
-    private static Integer intOf(Object o) {
-        return o instanceof Number n ? n.intValue() : null;
+    private static Integer intOf(JsonValue o) {
+        if (o == null || !o.isNumber()) {
+            return null;
+        }
+        return o.asNumber().intValue();
+    }
+
+    private static boolean boolOf(JsonValue o) {
+        return o != null && o.isBool() && o.asBool();
     }
 }

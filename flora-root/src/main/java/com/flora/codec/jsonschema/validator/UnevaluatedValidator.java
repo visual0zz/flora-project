@@ -1,5 +1,7 @@
 package com.flora.codec.jsonschema.validator;
 
+import com.flora.codec.json.JsonObject;
+import com.flora.codec.json.JsonValue;
 import com.flora.codec.jsonschema.CompiledSchema;
 import com.flora.codec.jsonschema.SchemaRegistry;
 import com.flora.codec.jsonschema.ValidationContext;
@@ -26,19 +28,21 @@ public final class UnevaluatedValidator implements KeywordValidator {
         this.itemsForbidden = itemsForbidden;
     }
 
-    public static UnevaluatedValidator of(Map<String, Object> schema, SchemaRegistry registry, String baseUri) {
+    public static UnevaluatedValidator of(JsonObject schema, SchemaRegistry registry, String baseUri) {
         CompiledSchema props = null;
         boolean propsForbidden = false;
-        if (schema.get("unevaluatedProperties") instanceof Map) {
-            props = registry.compileNode(schema.get("unevaluatedProperties"), baseUri);
-        } else if (Boolean.FALSE.equals(schema.get("unevaluatedProperties"))) {
+        JsonValue up = schema.get("unevaluatedProperties");
+        if (up != null && up.isObject()) {
+            props = registry.compileNode(up.toNative(), baseUri);
+        } else if (up != null && up.isBool() && !up.asBool()) {
             propsForbidden = true;
         }
         CompiledSchema items = null;
         boolean itemsForbidden = false;
-        if (schema.get("unevaluatedItems") instanceof Map) {
-            items = registry.compileNode(schema.get("unevaluatedItems"), baseUri);
-        } else if (Boolean.FALSE.equals(schema.get("unevaluatedItems"))) {
+        JsonValue ui = schema.get("unevaluatedItems");
+        if (ui != null && ui.isObject()) {
+            items = registry.compileNode(ui.toNative(), baseUri);
+        } else if (ui != null && ui.isBool() && !ui.asBool()) {
             itemsForbidden = true;
         }
         return new UnevaluatedValidator(props, propsForbidden, items, itemsForbidden);

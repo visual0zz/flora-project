@@ -1,5 +1,8 @@
 package com.flora.codec.jsonschema.validator;
 
+import com.flora.codec.json.JsonArray;
+import com.flora.codec.json.JsonObject;
+import com.flora.codec.json.JsonValue;
 import com.flora.codec.jsonschema.CompiledSchema;
 import com.flora.codec.jsonschema.SchemaRegistry;
 import com.flora.codec.jsonschema.ValidationContext;
@@ -51,60 +54,76 @@ public final class ObjectValidator implements KeywordValidator {
         this.maxProperties = maxProperties;
     }
 
-    public static ObjectValidator of(Map<String, Object> schema, SchemaRegistry registry, String baseUri) {
+    public static ObjectValidator of(JsonObject schema, SchemaRegistry registry, String baseUri) {
         Map<String, CompiledSchema> props = new LinkedHashMap<>();
-        if (schema.get("properties") instanceof Map<?, ?> pm) {
-            for (Map.Entry<?, ?> e : pm.entrySet()) {
-                props.put(String.valueOf(e.getKey()), registry.compileNode(e.getValue(), baseUri));
+        JsonObject properties = schema.getObject("properties");
+        if (properties != null) {
+            for (Map.Entry<String, JsonValue> e : propertiesMembers(properties)) {
+                props.put(e.getKey(), registry.compileNode(e.getValue().toNative(), baseUri));
             }
         }
         List<PatternEntry> patterns = new ArrayList<>();
-        if (schema.get("patternProperties") instanceof Map<?, ?> ppm) {
-            for (Map.Entry<?, ?> e : ppm.entrySet()) {
-                patterns.add(new PatternEntry(Pattern.compile(String.valueOf(e.getKey())),
-                        registry.compileNode(e.getValue(), baseUri)));
+        JsonObject patternProps = schema.getObject("patternProperties");
+        if (patternProps != null) {
+            for (Map.Entry<String, JsonValue> e : propertiesMembers(patternProps)) {
+                patterns.add(new PatternEntry(Pattern.compile(e.getKey()),
+                        registry.compileNode(e.getValue().toNative(), baseUri)));
             }
         }
         CompiledSchema additional = null;
         boolean forbidden = false;
-        if (schema.get("additionalProperties") instanceof Map) {
-            additional = registry.compileNode(schema.get("additionalProperties"), baseUri);
-        } else if (Boolean.FALSE.equals(schema.get("additionalProperties"))) {
+        JsonValue additionalProps = schema.get("additionalProperties");
+        if (additionalProps != null && additionalProps.isObject()) {
+            additional = registry.compileNode(additionalProps.toNative(), baseUri);
+        } else if (additionalProps != null && additionalProps.isBool() && !additionalProps.asBool()) {
             forbidden = true;
         }
         List<String> required = new ArrayList<>();
-        if (schema.get("required") instanceof List<?> rl) {
-            for (Object o : rl) {
-                if (o instanceof String s) {
-                    required.add(s);
+        JsonArray requiredArr = schema.getArray("required");
+        if (requiredArr != null) {
+            for (JsonValue o : requiredArr.elements()) {
+                if (o.isString()) {
+                    required.add(o.asString());
                 }
             }
         }
         Map<String, List<String>> depRequired = new LinkedHashMap<>();
-        if (schema.get("dependentRequired") instanceof Map<?, ?> dm) {
-            for (Map.Entry<?, ?> e : dm.entrySet()) {
+        JsonObject depReq = schema.getObject("dependentRequired");
+        if (depReq != null) {
+            for (Map.Entry<String, JsonValue> e : propertiesMembers(depReq)) {
                 List<String> names = new ArrayList<>();
-                if (e.getValue() instanceof List<?> l) {
-                    for (Object o : l) {
-                        if (o instanceof String s) {
-                            names.add(s);
+                JsonValue l = e.getValue();
+                if (l.isArray()) {
+                    for (JsonValue o : l.asArray().elements()) {
+                        if (o.isString()) {
+                            names.add(o.asString());
                         }
                     }
                 }
-                depRequired.put(String.valueOf(e.getKey()), names);
+                depRequired.put(e.getKey(), names);
             }
         }
         Map<String, CompiledSchema> depSchemas = new LinkedHashMap<>();
-        if (schema.get("dependentSchemas") instanceof Map<?, ?> dm) {
-            for (Map.Entry<?, ?> e : dm.entrySet()) {
-                depSchemas.put(String.valueOf(e.getKey()), registry.compileNode(e.getValue(), baseUri));
+        JsonObject depSch = schema.getObject("dependentSchemas");
+        if (depSch != null) {
+            for (Map.Entry<String, JsonValue> e : propertiesMembers(depSch)) {
+                depSchemas.put(e.getKey(), registry.compileNode(e.getValue().toNative(), baseUri));
             }
         }
-        CompiledSchema names = schema.get("propertyNames") instanceof Map
-                ? registry.compileNode(schema.get("propertyNames"), baseUri) : null;
+        JsonValue names = schema.get("propertyNames");
+        CompiledSchema propertyNames = (names != null && names.isObject())
+                ? registry.compileNode(names.toNative(), baseUri) : null;
         return new ObjectValidator(props, patterns, additional, forbidden, required,
-                depRequired, depSchemas, names,
+                depRequired, depSchemas, propertyNames,
                 intOf(schema.get("minProperties")), intOf(schema.get("maxProperties")));
+    }
+
+    private static List<Map.Entry<String, JsonValue>> propertiesMembers(JsonObject obj) {
+        List<Map.Entry<String, JsonValue>> entries = new ArrayList<>();
+        for (String key : obj.keySet()) {
+            entries.add(java.util.Map.entry(key, obj.get(key)));
+        }
+        return entries;
     }
 
     @Override
@@ -175,8 +194,11 @@ public final class ObjectValidator implements KeywordValidator {
         return name.replace("~", "~0").replace("/", "~1");
     }
 
-    private static Integer intOf(Object o) {
-        return o instanceof Number n ? n.intValue() : null;
+    private static Integer intOf(JsonValue o) {
+        if (o == null || !o.isNumber()) {
+            return null;
+        }
+        return o.asNumber().intValue();
     }
 
     private record PatternEntry(Pattern pattern, CompiledSchema schema) {

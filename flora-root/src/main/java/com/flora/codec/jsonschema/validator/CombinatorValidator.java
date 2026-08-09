@@ -1,12 +1,13 @@
 package com.flora.codec.jsonschema.validator;
 
+import com.flora.codec.json.JsonObject;
+import com.flora.codec.json.JsonValue;
 import com.flora.codec.jsonschema.CompiledSchema;
 import com.flora.codec.jsonschema.SchemaRegistry;
 import com.flora.codec.jsonschema.ValidationContext;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 组合关键字校验：{@code allOf}/{@code anyOf}/{@code oneOf}/{@code not}/{@code if}/{@code then}/{@code else}。
@@ -35,7 +36,7 @@ public final class CombinatorValidator implements KeywordValidator {
         this.elseSchema = elseSchema;
     }
 
-    public static CombinatorValidator of(Map<String, Object> schema, SchemaRegistry registry, String baseUri) {
+    public static CombinatorValidator of(JsonObject schema, SchemaRegistry registry, String baseUri) {
         return new CombinatorValidator(
                 compileList(schema.get("allOf"), registry, baseUri),
                 compileList(schema.get("anyOf"), registry, baseUri),
@@ -130,18 +131,18 @@ public final class CombinatorValidator implements KeywordValidator {
         }
     }
 
-    private static List<CompiledSchema> compileList(Object value, SchemaRegistry registry, String baseUri) {
-        if (!(value instanceof List<?> list)) {
+    private static List<CompiledSchema> compileList(JsonValue value, SchemaRegistry registry, String baseUri) {
+        if (value == null || !value.isArray()) {
             return null;
         }
         List<CompiledSchema> result = new ArrayList<>();
-        for (Object item : list) {
-            result.add(registry.compileNode(item, baseUri));
+        for (JsonValue item : value.asArray().elements()) {
+            result.add(registry.compileNode(item.toNative(), baseUri));
         }
         return result;
     }
 
-    private static CompiledSchema compileSingle(Object value, SchemaRegistry registry, String baseUri) {
-        return value == null ? null : registry.compileNode(value, baseUri);
+    private static CompiledSchema compileSingle(JsonValue value, SchemaRegistry registry, String baseUri) {
+        return value == null ? null : registry.compileNode(value.toNative(), baseUri);
     }
 }

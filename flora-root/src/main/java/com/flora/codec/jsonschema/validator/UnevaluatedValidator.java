@@ -33,7 +33,7 @@ public final class UnevaluatedValidator implements KeywordValidator {
         boolean propsForbidden = false;
         JsonValue up = schema.get("unevaluatedProperties");
         if (up != null && up.isObject()) {
-            props = registry.compileNode(up.toNative(), baseUri);
+            props = registry.compileNode(up, baseUri);
         } else if (up != null && up.isBool() && !up.asBool()) {
             propsForbidden = true;
         }
@@ -41,7 +41,7 @@ public final class UnevaluatedValidator implements KeywordValidator {
         boolean itemsForbidden = false;
         JsonValue ui = schema.get("unevaluatedItems");
         if (ui != null && ui.isObject()) {
-            items = registry.compileNode(ui.toNative(), baseUri);
+            items = registry.compileNode(ui, baseUri);
         } else if (ui != null && ui.isBool() && !ui.asBool()) {
             itemsForbidden = true;
         }

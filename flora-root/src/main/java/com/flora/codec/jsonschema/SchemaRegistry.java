@@ -65,7 +65,8 @@ public final class SchemaRegistry {
             return result;
         }
         if (!(node instanceof Map<?, ?> map) && !(node instanceof JsonObject)) {
-            throw new IllegalArgumentException("schema 必须是对象或布尔值: " + node);
+            throw new IllegalArgumentException("schema 根节点必须是 JSON Object、裸 Map<String,Object> 或 Boolean，实际为: "
+                    + (node == null ? "null" : node.getClass().getName()));
         }
         CompiledSchema cached = cache.get(node);
         if (cached != null) {

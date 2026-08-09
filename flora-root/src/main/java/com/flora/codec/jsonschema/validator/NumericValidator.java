@@ -1,8 +1,8 @@
 package com.flora.codec.jsonschema.validator;
 
-import com.flora.codec.json.JsonNumber;
 import com.flora.codec.json.JsonObject;
 import com.flora.codec.jsonschema.JsonTypes;
+import com.flora.codec.jsonschema.SchemaNumbers;
 import com.flora.codec.jsonschema.ValidationContext;
 
 import java.math.BigDecimal;
@@ -30,11 +30,11 @@ public final class NumericValidator implements KeywordValidator {
 
     public static NumericValidator of(JsonObject schema) {
         return new NumericValidator(
-                decimal(schema.getNumber("minimum")),
-                decimal(schema.getNumber("maximum")),
-                decimal(schema.getNumber("exclusiveMinimum")),
-                decimal(schema.getNumber("exclusiveMaximum")),
-                decimal(schema.getNumber("multipleOf")));
+                SchemaNumbers.decimalOf(schema.getNumber("minimum")),
+                SchemaNumbers.decimalOf(schema.getNumber("maximum")),
+                SchemaNumbers.decimalOf(schema.getNumber("exclusiveMinimum")),
+                SchemaNumbers.decimalOf(schema.getNumber("exclusiveMaximum")),
+                SchemaNumbers.decimalOf(schema.getNumber("multipleOf")));
     }
 
     @Override
@@ -63,7 +63,4 @@ public final class NumericValidator implements KeywordValidator {
         }
     }
 
-    private static BigDecimal decimal(JsonNumber n) {
-        return n == null ? null : n.decimalValue();
-    }
 }

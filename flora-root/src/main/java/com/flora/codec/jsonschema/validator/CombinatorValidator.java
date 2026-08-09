@@ -137,12 +137,12 @@ public final class CombinatorValidator implements KeywordValidator {
         }
         List<CompiledSchema> result = new ArrayList<>();
         for (JsonValue item : value.asArray().elements()) {
-            result.add(registry.compileNode(item.toNative(), baseUri));
+            result.add(registry.compileNode(item, baseUri));
         }
         return result;
     }
 
     private static CompiledSchema compileSingle(JsonValue value, SchemaRegistry registry, String baseUri) {
-        return value == null ? null : registry.compileNode(value.toNative(), baseUri);
+        return value == null ? null : registry.compileNode(value, baseUri);
     }
 }

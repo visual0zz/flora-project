@@ -5,6 +5,7 @@ import com.flora.codec.json.JsonObject;
 import com.flora.codec.json.JsonValue;
 import com.flora.codec.jsonschema.CompiledSchema;
 import com.flora.codec.jsonschema.JsonTypes;
+import com.flora.codec.jsonschema.SchemaNumbers;
 import com.flora.codec.jsonschema.SchemaRegistry;
 import com.flora.codec.jsonschema.ValidationContext;
 
@@ -47,26 +48,26 @@ public final class ArrayValidator implements KeywordValidator {
         JsonArray prefixItems = schema.getArray("prefixItems");
         if (prefixItems != null) {
             for (JsonValue item : prefixItems.elements()) {
-                prefix.add(registry.compileNode(item.toNative(), baseUri));
+                prefix.add(registry.compileNode(item, baseUri));
             }
         }
         CompiledSchema itemsSchema = null;
         boolean forbidden = false;
         JsonValue items = schema.get("items");
         if (items != null && items.isObject()) {
-            itemsSchema = registry.compileNode(items.toNative(), baseUri);
+            itemsSchema = registry.compileNode(items, baseUri);
         } else if (items != null && items.isBool() && !items.asBool()) {
             forbidden = true;
         }
         CompiledSchema containsSchema = null;
         JsonValue contains = schema.get("contains");
         if (contains != null && contains.isObject()) {
-            containsSchema = registry.compileNode(contains.toNative(), baseUri);
+            containsSchema = registry.compileNode(contains, baseUri);
         }
         return new ArrayValidator(prefix, itemsSchema, forbidden, containsSchema,
-                intOf(schema.get("minContains")), intOf(schema.get("maxContains")),
-                intOf(schema.get("minItems")), intOf(schema.get("maxItems")),
-                boolOf(schema.get("uniqueItems")));
+                SchemaNumbers.intOf(schema.get("minContains")), SchemaNumbers.intOf(schema.get("maxContains")),
+                SchemaNumbers.intOf(schema.get("minItems")), SchemaNumbers.intOf(schema.get("maxItems")),
+                SchemaNumbers.boolOf(schema.get("uniqueItems")));
     }
 
     @Override
@@ -137,16 +138,5 @@ public final class ArrayValidator implements KeywordValidator {
         if (maxContains != null && count > maxContains) {
             ctx.addError("maxContains", "匹配 contains 的元素数 " + count + " 大于 " + maxContains);
         }
-    }
-
-    private static Integer intOf(JsonValue o) {
-        if (o == null || !o.isNumber()) {
-            return null;
-        }
-        return o.asNumber().intValue();
-    }
-
-    private static boolean boolOf(JsonValue o) {
-        return o != null && o.isBool() && o.asBool();
     }
 }

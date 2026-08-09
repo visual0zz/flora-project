@@ -57,6 +57,11 @@ public final class JsonObject implements JsonValue {
         return members.values();
     }
 
+    /** 键值条目的只读视图，便于遍历（每条目的值为 {@link JsonValue}）。 */
+    public Set<Map.Entry<String, JsonValue>> entrySet() {
+        return members.entrySet();
+    }
+
     /** 取得指定键的 {@link JsonValue}；不存在时返回 {@code null}。 */
     public JsonValue get(String key) {
         return members.get(key);

@@ -4,6 +4,7 @@ import com.flora.codec.json.JsonArray;
 import com.flora.codec.json.JsonObject;
 import com.flora.codec.json.JsonValue;
 import com.flora.codec.jsonschema.CompiledSchema;
+import com.flora.codec.jsonschema.SchemaNumbers;
 import com.flora.codec.jsonschema.SchemaRegistry;
 import com.flora.codec.jsonschema.ValidationContext;
 
@@ -59,7 +60,7 @@ public final class ObjectValidator implements KeywordValidator {
         JsonObject properties = schema.getObject("properties");
         if (properties != null) {
             for (Map.Entry<String, JsonValue> e : propertiesMembers(properties)) {
-                props.put(e.getKey(), registry.compileNode(e.getValue().toNative(), baseUri));
+                props.put(e.getKey(), registry.compileNode(e.getValue(), baseUri));
             }
         }
         List<PatternEntry> patterns = new ArrayList<>();
@@ -67,14 +68,14 @@ public final class ObjectValidator implements KeywordValidator {
         if (patternProps != null) {
             for (Map.Entry<String, JsonValue> e : propertiesMembers(patternProps)) {
                 patterns.add(new PatternEntry(Pattern.compile(e.getKey()),
-                        registry.compileNode(e.getValue().toNative(), baseUri)));
+                        registry.compileNode(e.getValue(), baseUri)));
             }
         }
         CompiledSchema additional = null;
         boolean forbidden = false;
         JsonValue additionalProps = schema.get("additionalProperties");
         if (additionalProps != null && additionalProps.isObject()) {
-            additional = registry.compileNode(additionalProps.toNative(), baseUri);
+            additional = registry.compileNode(additionalProps, baseUri);
         } else if (additionalProps != null && additionalProps.isBool() && !additionalProps.asBool()) {
             forbidden = true;
         }
@@ -107,23 +108,19 @@ public final class ObjectValidator implements KeywordValidator {
         JsonObject depSch = schema.getObject("dependentSchemas");
         if (depSch != null) {
             for (Map.Entry<String, JsonValue> e : propertiesMembers(depSch)) {
-                depSchemas.put(e.getKey(), registry.compileNode(e.getValue().toNative(), baseUri));
+                depSchemas.put(e.getKey(), registry.compileNode(e.getValue(), baseUri));
             }
         }
         JsonValue names = schema.get("propertyNames");
         CompiledSchema propertyNames = (names != null && names.isObject())
-                ? registry.compileNode(names.toNative(), baseUri) : null;
+                ? registry.compileNode(names, baseUri) : null;
         return new ObjectValidator(props, patterns, additional, forbidden, required,
                 depRequired, depSchemas, propertyNames,
-                intOf(schema.get("minProperties")), intOf(schema.get("maxProperties")));
+                SchemaNumbers.intOf(schema.get("minProperties")), SchemaNumbers.intOf(schema.get("maxProperties")));
     }
 
-    private static List<Map.Entry<String, JsonValue>> propertiesMembers(JsonObject obj) {
-        List<Map.Entry<String, JsonValue>> entries = new ArrayList<>();
-        for (String key : obj.keySet()) {
-            entries.add(java.util.Map.entry(key, obj.get(key)));
-        }
-        return entries;
+    private static java.util.Set<Map.Entry<String, JsonValue>> propertiesMembers(JsonObject obj) {
+        return obj.entrySet();
     }
 
     @Override
@@ -192,13 +189,6 @@ public final class ObjectValidator implements KeywordValidator {
 
     private static String escape(String name) {
         return name.replace("~", "~0").replace("/", "~1");
-    }
-
-    private static Integer intOf(JsonValue o) {
-        if (o == null || !o.isNumber()) {
-            return null;
-        }
-        return o.asNumber().intValue();
     }
 
     private record PatternEntry(Pattern pattern, CompiledSchema schema) {

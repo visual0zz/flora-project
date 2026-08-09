@@ -6,9 +6,14 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 递归校验上下文。
- * <p>持有共享的可变错误列表与求值状态；instancePath/schemaPath 为当前校验位置
- * （JSON Pointer 形式）。组合关键字（anyOf/oneOf/if）通过错误计数快照回滚失败分支。</p>
+ * 递归校验上下文（可变、按路径派生子上下文）。
+ * <p>持有跨分支共享的可变错误列表 {@code errors} 与 {@code activeRefs}（$ref 循环防护）；
+ * {@code instancePath}/{@code schemaPath} 为当前校验位置（JSON Pointer 形式）。
+ * 注意共享语义：{@code errors}、{@code activeRefs}、{@code registry} 在父子/分支上下文间共享同一引用，
+ * 而 {@code evaluation}（求值状态）在 {@link #forBranch()} 时创建独立副本、
+ * 由成功分支经 {@code merge} 合并回父上下文——误将分支的 evaluation 当作共享会破坏
+ * unevaluated* 关键字。组合关键字（anyOf/oneOf/if）通过 {@link #errorCount()} 快照与
+ * {@link #truncateErrors(int)} 回滚失败分支的错误，分支尝试期间 errors 始终共享。</p>
  */
 public final class ValidationContext {
 

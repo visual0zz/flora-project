@@ -4,6 +4,8 @@ import com.flora.codec.json.JsonBuilder;
 import com.flora.codec.json.JsonParser;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +32,12 @@ public final class JsonStores {
             Object parsed = JsonParser.parse(raw);
             if (type.isInstance(parsed)) {
                 return (T) parsed;
+            }
+            if (Map.class.isAssignableFrom(type) || List.class.isAssignableFrom(type)) {
+                Object nativeTree = ((com.flora.codec.json.JsonValue) parsed).toNative();
+                if (type.isInstance(nativeTree)) {
+                    return (T) nativeTree;
+                }
             }
             return null;
         } catch (IOException e) {

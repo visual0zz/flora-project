@@ -101,7 +101,7 @@ public class VaultStore {
     public static VaultMeta loadMeta(Path vaultDir) throws IOException {
         Path metaFile = vaultDir.resolve(META_FILE);
         String json = Files.readString(metaFile, StandardCharsets.UTF_8);
-        return VaultMeta.fromMap(JsonCodec.parseObject(json));
+        return VaultMeta.fromMap(JsonCodec.parseObject(json).toMap());
     }
 
     /**
@@ -186,7 +186,7 @@ public class VaultStore {
         byte[] encrypted = Base64.getDecoder().decode(base64);
         byte[] decrypted = AesGcmCipher.decrypt(encrypted, encKey);
         String json = new String(decrypted, StandardCharsets.UTF_8);
-        return Entry.fromMap(JsonCodec.parseObject(json));
+        return Entry.fromMap(JsonCodec.parseObject(json).toMap());
     }
 
     /**

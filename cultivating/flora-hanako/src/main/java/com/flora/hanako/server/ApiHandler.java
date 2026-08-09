@@ -47,7 +47,7 @@ public final class ApiHandler {
             json(ctx, a);
         });
         app.post("/api/agents", ctx -> {
-            Map<String, Object> body = (Map<String, Object>) JsonParser.parse(ctx.body());
+            Map<String, Object> body = JsonParser.parse(ctx.body()).toMap();
             Agent a = mapToAgent(body);
             engine.saveAgent(a);
             json(ctx, a);
@@ -64,7 +64,7 @@ public final class ApiHandler {
         });
         app.post("/api/sessions", ctx -> {
             Map<String, Object> body = ctx.body().isBlank() ? Map.of()
-                    : (Map<String, Object>) JsonParser.parse(ctx.body());
+                    : JsonParser.parse(ctx.body()).toMap();
             String agentId = body.get("agentId") == null ? null : String.valueOf(body.get("agentId"));
             json(ctx, engine.newSession(agentId));
         });
@@ -84,7 +84,7 @@ public final class ApiHandler {
         // ── Models ──
         app.get("/api/models", ctx -> json(ctx, engine.listModels()));
         app.post("/api/models", ctx -> {
-            Map<String, Object> body = (Map<String, Object>) JsonParser.parse(ctx.body());
+            Map<String, Object> body = JsonParser.parse(ctx.body()).toMap();
             ModelConfig m = mapToModel(body);
             engine.saveModel(m);
             engine.applyProviders();
@@ -94,7 +94,7 @@ public final class ApiHandler {
         // ── Providers ──
         app.get("/api/providers", ctx -> json(ctx, engine.listProviders()));
         app.post("/api/providers", ctx -> {
-            Map<String, Object> body = (Map<String, Object>) JsonParser.parse(ctx.body());
+            Map<String, Object> body = JsonParser.parse(ctx.body()).toMap();
             ProviderConfig p = mapToProvider(body);
             engine.saveProvider(p);
             engine.applyProviders();
@@ -108,7 +108,7 @@ public final class ApiHandler {
             json(ctx, engine.memory().query(tags));
         });
         app.post("/api/memory", ctx -> {
-            Map<String, Object> body = (Map<String, Object>) JsonParser.parse(ctx.body());
+            Map<String, Object> body = JsonParser.parse(ctx.body()).toMap();
             List<String> tags = new java.util.ArrayList<>();
             if (body.get("tags") instanceof List<?> l) {
                 for (Object t : l) {
@@ -129,7 +129,7 @@ public final class ApiHandler {
             json(ctx, engine.listJians(agentId));
         });
         app.post("/api/jians", ctx -> {
-            Map<String, Object> body = (Map<String, Object>) JsonParser.parse(ctx.body());
+            Map<String, Object> body = JsonParser.parse(ctx.body()).toMap();
             Jian j = new Jian();
             if (body.get("id") != null) {
                 j.setId(String.valueOf(body.get("id")));

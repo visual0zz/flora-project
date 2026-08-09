@@ -35,6 +35,8 @@ module com.flora.root {
     exports com.flora.cache.interfaces;
     // 通用编解码门面
     exports com.flora.codec;
+    // JSON 核心数据模型(JsonObject 类族)
+    exports com.flora.codec.json;
     // ASN.1 编解码
     exports com.flora.codec.asn1;
     // JSONL 编解码

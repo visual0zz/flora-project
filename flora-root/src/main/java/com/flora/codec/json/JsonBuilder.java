@@ -70,6 +70,10 @@ public final class JsonBuilder {
             sb.append("null");
             return;
         }
+        if (obj instanceof JsonValue) {
+            serializeJsonValue((JsonValue) obj, sb, indent, visiting);
+            return;
+        }
         if (obj instanceof CharSequence || obj instanceof Enum || obj instanceof Character) {
             serializeString(obj.toString(), sb);
             return;
@@ -255,6 +259,36 @@ public final class JsonBuilder {
                                       IdentityHashMap<Object, Boolean> visiting) {
         Map<String, Object> fieldMap = collectProperties(obj);
         serializeMap(fieldMap, sb, indent, visiting);
+    }
+
+    /** 序列化 JsonValue 模型（对象/数组/标量）。 */
+    private static void serializeJsonValue(JsonValue value, StringBuilder sb, String indent,
+                                           IdentityHashMap<Object, Boolean> visiting) {
+        if (value.isObject()) {
+            serializeMap(value.asObject().toMap(), sb, indent, visiting);
+            return;
+        }
+        if (value.isArray()) {
+            serializeList(value.asArray().elements(), sb, indent, visiting);
+            return;
+        }
+        // 标量直接走既有分支：String/Boolean/Number/null
+        if (value.isNull()) {
+            sb.append("null");
+            return;
+        }
+        if (value.isString()) {
+            serializeString(value.asString(), sb);
+            return;
+        }
+        if (value.isBool()) {
+            sb.append(Boolean.toString(value.asBool()));
+            return;
+        }
+        if (value.isNumber()) {
+            serializeNumber(value.asNumber().value(), sb);
+            return;
+        }
     }
 
 

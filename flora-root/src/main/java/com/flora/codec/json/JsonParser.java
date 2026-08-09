@@ -2,18 +2,14 @@ package com.flora.codec.json;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 
 
 /**
- * JSON 解析器，将 JSON 格式的字符串解析为 Java 对象。
- * <p>支持解析 JSON Object（返回 {@code Map<String, Object>}）、
- * JSON Array（返回 {@code List<Object>}）以及基本类型值。
- * 数字根据精度返回 {@code Long}、{@code BigDecimal} 或 {@code BigInteger}。</p>
+ * JSON 解析器，将 JSON 格式的字符串解析为 {@link JsonValue} 模型。
+ * <p>顶层与非叶子对象产出 {@link JsonObject}，数组产出 {@link JsonArray}，标量为
+ * {@link JsonString} / {@link JsonNumber} / {@link JsonBool} / {@link JsonNull}。
+ * 数字根据精度返回包装 {@code Long}、{@code BigDecimal} 或 {@code BigInteger} 的 {@link JsonNumber}。</p>
  */
 public final class JsonParser {
     private static final Pattern JSON_NUMBER = Pattern.compile(
@@ -37,20 +33,20 @@ public final class JsonParser {
     }
 
     /**
-     * 解析 JSON 字符串为 Java 对象。
+     * 解析 JSON 字符串为 {@link JsonValue} 模型。
      * <p>自动识别 JSON Object、Array、字符串、数字、布尔值和 null。</p>
      *
      * @param src JSON 字符串
-     * @return 解析后的 Java 对象
+     * @return 解析后的 JsonValue
      * @throws IllegalStateException 如果输入格式不合法或解析后存在多余字符
      */
-    public static Object parse(String src) {
+    public static JsonValue parse(String src) {
         JsonParser j = new JsonParser(src);
 
         if (j.i < j.s.length() && j.s.charAt(0) == '\uFEFF') j.i++;
         j.skipWs();
         if (j.i >= j.s.length()) throw j.err("空白输入或仅含 BOM");
-        Object v = j.parseValue(0);
+        JsonValue v = j.parseValue(0);
         j.skipWs();
         if (j.i != j.s.length()) throw j.err("解析后存在多余字符");
         return v;
@@ -60,28 +56,26 @@ public final class JsonParser {
      * 解析 JSON 字符串并确保顶层为 JSON Object。
      *
      * @param src JSON 字符串
-     * @return 解析后的 Map
+     * @return 解析后的 JsonObject
      * @throws IllegalStateException 如果顶层不是 Object 或格式不合法
      */
-    @SuppressWarnings("unchecked")
-    public static Map<String, Object> parseObject(String src) {
-        Object v = parse(src);
-        if (!(v instanceof Map)) throw new IllegalStateException("顶层不是 JSON Object");
-        return (Map<String, Object>) v;
+    public static JsonObject parseObject(String src) {
+        JsonValue v = parse(src);
+        if (!v.isObject()) throw new IllegalStateException("顶层不是 JSON Object");
+        return v.asObject();
     }
 
     /**
      * 解析 JSON 字符串并确保顶层为 JSON Array。
      *
      * @param src JSON 字符串
-     * @return 解析后的 List
+     * @return 解析后的 JsonArray
      * @throws IllegalStateException 如果顶层不是 Array 或格式不合法
      */
-    @SuppressWarnings("unchecked")
-    public static List<Object> parseArray(String src) {
-        Object v = parse(src);
-        if (!(v instanceof List)) throw new IllegalStateException("顶层不是 JSON Array");
-        return (List<Object>) v;
+    public static JsonArray parseArray(String src) {
+        JsonValue v = parse(src);
+        if (!v.isArray()) throw new IllegalStateException("顶层不是 JSON Array");
+        return v.asArray();
     }
 
 
@@ -89,9 +83,9 @@ public final class JsonParser {
     /**
      * 解析下一个 JSON 值，根据首字符分发到具体解析方法。
      *
-     * @return 解析出的 Java 对象
+     * @return 解析出的 JsonValue
      */
-    private Object parseValue(int depth) {
+    private JsonValue parseValue(int depth) {
         // depth 为当前嵌套层级；超过上限即判定为过深 JSON，抛出 IllegalStateException（栈溢出防护）
         if (depth > MAX_DEPTH) throw err("JSON 嵌套层级过深 (超过 " + MAX_DEPTH + " 层)");
         skipWs();
@@ -100,37 +94,37 @@ public final class JsonParser {
         switch (c) {
             case '{': return parseObject(depth);
             case '[': return parseArray(depth);
-            case '"': return parseString();
-            case 't': case 'f': return parseBool();
+            case '"': return new JsonString(parseString());
+            case 't': case 'f': return new JsonBool(parseBool());
             case 'n': return parseNull();
             default:  return parseNumber();
         }
     }
 
-    private Map<String, Object> parseObject(int depth) {
+    private JsonObject parseObject(int depth) {
         expect('{');
         skipWs();
-        Map<String, Object> m = new LinkedHashMap<>();
-        if (peek() == '}') { i++; return m; }
+        JsonObject obj = new JsonObject();
+        if (peek() == '}') { i++; return obj; }
         while (true) {
             skipWs();
             String key = parseString();
             skipWs();
             expect(':');
             skipWs();
-            m.put(key, parseValue(depth + 1));
+            obj.put(key, parseValue(depth + 1));
             skipWs();
             char c = next();
             if (c == '}') break;
             if (c != ',') throw err("期望 ',' 或 '}'");
         }
-        return m;
+        return obj;
     }
 
-    private List<Object> parseArray(int depth) {
+    private JsonArray parseArray(int depth) {
         expect('[');
         skipWs();
-        List<Object> list = new ArrayList<>();
+        JsonArray list = new JsonArray();
         if (peek() == ']') { i++; return list; }
         while (true) {
             skipWs();
@@ -197,7 +191,7 @@ public final class JsonParser {
         return sb.toString();
     }
 
-    private Object parseNumber() {
+    private JsonNumber parseNumber() {
         int start = i;
         while (i < s.length() && "0123456789-.eE+".indexOf(s.charAt(i)) >= 0) i++;
         String num = s.substring(start, i);
@@ -208,24 +202,24 @@ public final class JsonParser {
         }
         if (num.indexOf('.') >= 0 || num.indexOf('e') >= 0 || num.indexOf('E') >= 0) {
 
-            return new BigDecimal(num);
+            return new JsonNumber(new BigDecimal(num));
         }
         try {
-            return Long.parseLong(num);
+            return new JsonNumber(Long.parseLong(num));
         } catch (NumberFormatException ex) {
 
-            return new BigInteger(num);
+            return new JsonNumber(new BigInteger(num));
         }
     }
 
-    private Boolean parseBool() {
-        if (s.startsWith("true", i)) { i += 4; return Boolean.TRUE; }
-        if (s.startsWith("false", i)) { i += 5; return Boolean.FALSE; }
+    private boolean parseBool() {
+        if (s.startsWith("true", i)) { i += 4; return true; }
+        if (s.startsWith("false", i)) { i += 5; return false; }
         throw err("期望 true / false");
     }
 
-    private Object parseNull() {
-        if (s.startsWith("null", i)) { i += 4; return null; }
+    private JsonNull parseNull() {
+        if (s.startsWith("null", i)) { i += 4; return JsonNull.INSTANCE; }
         throw err("期望 null");
     }
 

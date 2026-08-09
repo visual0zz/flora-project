@@ -16,9 +16,10 @@ public final class JsonPath {
 
     /**
      * 执行 JSONPath 表达式求值（向后兼容）。
-     * <p>查询结果有 0 个元素时返回 {@code null}，1 个时返回该元素，多个时返回 {@code List}。</p>
+     * <p>查询结果有 0 个元素时返回 {@code null}，1 个时返回该元素，多个时返回 {@code List}。
+     * 传入 {@link JsonValue} 时会先展开为原生树再求值。</p>
      *
-     * @param root 根对象（通常为 {@code Map} 或 {@code List}）
+     * @param root 根对象（可为 {@link JsonValue} 或原生 {@code Map}/{@code List}）
      * @param path JSONPath 表达式
      * @return 查询结果，或 {@code null}
      */
@@ -32,7 +33,7 @@ public final class JsonPath {
     /**
      * 执行 JSONPath 表达式求值，始终返回节点值列表。
      *
-     * @param root 根对象
+     * @param root 根对象（可为 {@link JsonValue} 或原生 {@code Map}/{@code List}）
      * @param path JSONPath 表达式
      * @return 匹配的节点值列表（永不 null）
      */
@@ -45,8 +46,9 @@ public final class JsonPath {
             throw new IllegalArgumentException("JSONPath 表达式必须以 '$' 开头");
         }
 
+        Object nativeRoot = (root instanceof JsonValue) ? ((JsonValue) root).toNative() : root;
         List<Token> tokens = JsonPathTokenizer.tokenize(expr);
         List<Selector> selectors = JsonPathParser.parse(tokens);
-        return JsonPathEvaluator.evaluate(root, selectors);
+        return JsonPathEvaluator.evaluate(nativeRoot, selectors);
     }
 }

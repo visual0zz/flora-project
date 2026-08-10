@@ -92,4 +92,4 @@ exit /b 1
 :have_token
 
 echo %ESC%[36m$ gradlew.bat publishPlugin%ESC%[0m
-call gradlew.bat publishPlugin && (echo %ESC%[32m    OK: Plugin published successfully!%ESC%[0m) || (echo %ESC%[31m    FAILED: Plugin publish failed (check the token / version errors above)%ESC%[0m & exit /b 1)
+call gradlew.bat publishPlugin && (echo %ESC%[32m    OK: Plugin published successfully%ESC%[0m) || (echo %ESC%[31m    FAILED: Plugin publish failed (check the token / version errors above)%ESC%[0m ^& exit /b 1)

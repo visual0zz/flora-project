@@ -44,7 +44,7 @@ import com.flora.crypto.core.interfaces.provider.EntropySource;
 import com.flora.crypto.core.interfaces.provider.ExtendedDigest;
 import com.flora.crypto.core.interfaces.provider.KEM;
 import com.flora.crypto.core.interfaces.provider.Mac;
-import com.flora.crypto.core.interfaces.provider.SP80090DRBG;
+import com.flora.crypto.core.interfaces.provider.DeterministicRandomBitGenerator;
 import com.flora.crypto.core.interfaces.provider.Xof;
 import com.flora.crypto.core.bridge.SecureRandomEntropySource;
 import com.flora.java.CheckUtil;
@@ -440,11 +440,11 @@ public final class CryptoProvider {
         return entropySource("default");
     }
 
-    public static SP80090DRBG hmacDrbg(String hmacAlgorithm, int securityStrengthBits,
+    public static DeterministicRandomBitGenerator hmacDrbg(String hmacAlgorithm, int securityStrengthBits,
                                         byte[] personalizationString) {
         CheckUtil.notEmpty(hmacAlgorithm, "HMAC algorithm name cannot be empty");
         // 按 HMAC 算法名构造 HMAC_DRBG（支持裸名如 "HmacSHA256" 或 DSL 形式 "HMac(SHA-256)"）。
-        // SP80090DRBG 族本身不注册具体实现，故直接以 HMAC 算法解析，避免在类型化查询中
+        // DeterministicRandomBitGenerator 族本身不注册具体实现，故直接以 HMAC 算法解析，避免在类型化查询中
         // 跨族拾取到不兼容类型。
         return new HMacDrbg(mac(hmacAlgorithm), new SecureRandomEntropySource(),
                 securityStrengthBits, personalizationString);

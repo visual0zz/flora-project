@@ -14,7 +14,7 @@ import com.flora.crypto.core.interfaces.provider.EntropySource;
 import com.flora.crypto.core.interfaces.provider.ExtendedDigest;
 import com.flora.crypto.core.interfaces.provider.KEM;
 import com.flora.crypto.core.interfaces.provider.Mac;
-import com.flora.crypto.core.interfaces.provider.SP80090DRBG;
+import com.flora.crypto.core.interfaces.provider.DeterministicRandomBitGenerator;
 import com.flora.crypto.core.interfaces.provider.Xof;
 
 /**
@@ -37,7 +37,7 @@ public enum AlgorithmKind {
     KEY_PAIR_GENERATOR(JdkKeyPairGenerator.class),
     ENTROPY_SOURCE(EntropySource.class),
     XOF(Xof.class),
-    DRBG(SP80090DRBG.class),
+    DRBG(DeterministicRandomBitGenerator.class),
     AEAD_BLOCK_CIPHER(AEADBlockCipher.class);
 
     private final Class<?> roleClass;

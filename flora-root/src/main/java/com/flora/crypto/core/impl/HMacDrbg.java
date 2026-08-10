@@ -4,7 +4,7 @@ import com.flora.tag.ThreadFragile;
 import com.flora.crypto.core.interfaces.provider.EntropySource;
 import com.flora.crypto.core.param.KeyParameter;
 import com.flora.crypto.core.interfaces.provider.Mac;
-import com.flora.crypto.core.interfaces.provider.SP80090DRBG;
+import com.flora.crypto.core.interfaces.provider.DeterministicRandomBitGenerator;
 
 import com.flora.java.CheckUtil;
 
@@ -18,7 +18,7 @@ import java.util.Arrays;
  * {@link #HMacDrbg(Mac, byte[], byte[], byte[])} 直接指定熵/nonce（测试可复现用）。</p>
  */
 @ThreadFragile
-public final class HMacDrbg implements SP80090DRBG {
+public final class HMacDrbg implements DeterministicRandomBitGenerator {
 
     private static final long MAX_BITS_REQUEST = 1L << 19;   // 单次请求上限 2^19 bits
     private static final long RESEED_INTERVAL = 1L << 48;   // 重播种前最大生成次数

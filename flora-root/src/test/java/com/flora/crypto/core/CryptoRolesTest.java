@@ -14,7 +14,7 @@ import com.flora.crypto.core.interfaces.Encapsulator;
 import com.flora.crypto.core.interfaces.provider.EntropySource;
 import com.flora.crypto.core.interfaces.provider.KEM;
 import com.flora.crypto.core.interfaces.provider.Mac;
-import com.flora.crypto.core.interfaces.provider.SP80090DRBG;
+import com.flora.crypto.core.interfaces.provider.DeterministicRandomBitGenerator;
 import com.flora.crypto.core.interfaces.SecretWithEncapsulation;
 import com.flora.crypto.core.interfaces.provider.Xof;
 import com.flora.crypto.core.keypair.AsymmetricCipherKeyPair;
@@ -391,7 +391,7 @@ class CryptoRolesTest {
 
     @Test
     void hmacDrbgFactoryGenerates() {
-        SP80090DRBG drbg = CryptoProvider.hmacDrbg("HmacSHA256", 256, null);
+        DeterministicRandomBitGenerator drbg = CryptoProvider.hmacDrbg("HmacSHA256", 256, null);
         assertEquals(32, drbg.getBlockSize());
         byte[] out = new byte[48];
         assertTrue(drbg.generate(out, null, false) > 0);

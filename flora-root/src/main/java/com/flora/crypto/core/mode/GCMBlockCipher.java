@@ -1,7 +1,7 @@
 package com.flora.crypto.core.mode;
 import com.flora.tag.ThreadFragile;
 
-import com.flora.crypto.core.interfaces.provider.AEADBlockCipher;
+import com.flora.crypto.core.interfaces.provider.AuthenticatedEncryptionWithAssociatedDataBlockCipher;
 import com.flora.crypto.core.interfaces.provider.BlockCipher;
 import com.flora.crypto.core.interfaces.CipherParameters;
 import com.flora.crypto.core.param.ParametersWithIV;
@@ -18,7 +18,7 @@ import java.security.MessageDigest;
  * AAD 认证、认证标签生成/校验。不依赖 JDK 的 {@code "AES/GCM/NoPadding"} 组合结构。</p>
  */
 @ThreadFragile
-public final class GCMBlockCipher implements AEADBlockCipher {
+public final class GCMBlockCipher implements AuthenticatedEncryptionWithAssociatedDataBlockCipher {
 
     /** GF(2^128) 约化多项式 R = x^7 + x^2 + x + 1 的高字节（0xE1 0^15） */
     private static final byte[] R = {(byte) 0xe1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};

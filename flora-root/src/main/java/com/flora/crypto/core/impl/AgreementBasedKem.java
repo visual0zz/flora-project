@@ -8,7 +8,7 @@ import com.flora.crypto.core.interfaces.Decapsulator;
 import com.flora.crypto.core.interfaces.provider.DerivationFunction;
 import com.flora.crypto.core.interfaces.Encapsulator;
 import com.flora.crypto.core.param.HkdfParameters;
-import com.flora.crypto.core.interfaces.provider.KEM;
+import com.flora.crypto.core.interfaces.provider.KeyEncapsulationMechanism;
 import com.flora.crypto.core.interfaces.SecretWithEncapsulation;
 import com.flora.crypto.core.impl.SecretWithEncapsulationImpl;
 
@@ -28,7 +28,7 @@ import java.security.spec.X509EncodedKeySpec;
  * 把临时公钥编码作为封装密文。解封装：从封装密文重建临时公钥，做相同协商 + 派生，得到同一密钥。
  * 适用于经典曲线（ECDH / X25519 / DH 等）；后量子算法需另实现。</p>
  */
-public final class AgreementBasedKem implements KEM {
+public final class AgreementBasedKem implements KeyEncapsulationMechanism {
 
     private static final int SECRET_LEN = 32;
     private static final byte[] KEM_INFO = "FLORA-KEM".getBytes();

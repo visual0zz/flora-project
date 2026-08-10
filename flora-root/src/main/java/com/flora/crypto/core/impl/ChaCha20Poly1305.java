@@ -2,7 +2,7 @@ package com.flora.crypto.core.impl;
 
 import com.flora.crypto.core.param.KeyParameter;
 import com.flora.crypto.core.param.ParametersWithIV;
-import com.flora.crypto.core.interfaces.provider.AEADBlockCipher;
+import com.flora.crypto.core.interfaces.provider.AuthenticatedEncryptionWithAssociatedDataBlockCipher;
 import com.flora.crypto.core.interfaces.CipherParameters;
 import java.io.ByteArrayOutputStream;
 import java.security.MessageDigest;
@@ -13,7 +13,7 @@ import java.util.Arrays;
  * <p>标准 IETF 构造：Poly1305 密钥取 ChaCha20 第 0 块前 32 字节，数据加解密用第 1 块起的
  * 密钥流；MAC 覆盖 {@code AAD‖pad16(AAD)‖密文‖pad16(密文)‖len64(AAD)‖len64(密文)}。</p>
  */
-public final class ChaCha20Poly1305 implements AEADBlockCipher {
+public final class ChaCha20Poly1305 implements AuthenticatedEncryptionWithAssociatedDataBlockCipher {
 
   private static final int TAG_LEN = 16;
 

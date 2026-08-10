@@ -42,10 +42,10 @@ import com.flora.crypto.core.interfaces.provider.DerivationFunction;
 import com.flora.crypto.core.interfaces.provider.Digest;
 import com.flora.crypto.core.interfaces.provider.EntropySource;
 import com.flora.crypto.core.interfaces.provider.ExtendedDigest;
-import com.flora.crypto.core.interfaces.provider.KEM;
+import com.flora.crypto.core.interfaces.provider.KeyEncapsulationMechanism;
 import com.flora.crypto.core.interfaces.provider.Mac;
 import com.flora.crypto.core.interfaces.provider.DeterministicRandomBitGenerator;
-import com.flora.crypto.core.interfaces.provider.Xof;
+import com.flora.crypto.core.interfaces.provider.ExtendableOutputFunction;
 import com.flora.crypto.core.bridge.SecureRandomEntropySource;
 import com.flora.java.CheckUtil;
 import com.flora.tag.ModuleEntry;
@@ -400,17 +400,17 @@ public final class CryptoProvider {
         }
     }
 
-    public static Xof xof(String expression) {
+    public static ExtendableOutputFunction xof(String expression) {
         try {
-            return (Xof) resolveByRole(AlgorithmKind.XOF, expression);
+            return (ExtendableOutputFunction) resolveByRole(AlgorithmKind.XOF, expression);
         } catch (UnregisteredAlgorithmException e) {
             return new PlaceholderXof();
         }
     }
 
-    public static KEM kem(String expression) {
+    public static KeyEncapsulationMechanism kem(String expression) {
         try {
-            return (KEM) resolveByRole(AlgorithmKind.KEM, expression);
+            return (KeyEncapsulationMechanism) resolveByRole(AlgorithmKind.KEM, expression);
         } catch (UnregisteredAlgorithmException e) {
             return new PlaceholderKem();
         }

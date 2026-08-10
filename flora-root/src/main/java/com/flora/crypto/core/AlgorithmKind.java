@@ -1,7 +1,7 @@
 package com.flora.crypto.core;
 
 import com.flora.crypto.core.bridge.JdkKeyPairGenerator;
-import com.flora.crypto.core.interfaces.provider.AEADBlockCipher;
+import com.flora.crypto.core.interfaces.provider.AuthenticatedEncryptionWithAssociatedDataBlockCipher;
 import com.flora.crypto.core.interfaces.provider.Agreement;
 import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;
 import com.flora.crypto.core.interfaces.provider.AsymmetricCipher;
@@ -12,10 +12,10 @@ import com.flora.crypto.core.interfaces.provider.DerivationFunction;
 import com.flora.crypto.core.interfaces.provider.Digest;
 import com.flora.crypto.core.interfaces.provider.EntropySource;
 import com.flora.crypto.core.interfaces.provider.ExtendedDigest;
-import com.flora.crypto.core.interfaces.provider.KEM;
+import com.flora.crypto.core.interfaces.provider.KeyEncapsulationMechanism;
 import com.flora.crypto.core.interfaces.provider.Mac;
 import com.flora.crypto.core.interfaces.provider.DeterministicRandomBitGenerator;
-import com.flora.crypto.core.interfaces.provider.Xof;
+import com.flora.crypto.core.interfaces.provider.ExtendableOutputFunction;
 
 /**
  * 算法族分类（枚举），替代 {@link CryptoProvider} 注册表中 {@code Class<?> role} 维度。
@@ -30,15 +30,15 @@ public enum AlgorithmKind {
     ASYMMETRIC_BLOCK_CIPHER(AsymmetricBlockCipher.class),
     ASYMMETRIC_CIPHER(AsymmetricCipher.class),
     AGREEMENT(Agreement.class),
-    KEM(KEM.class),
+    KEM(KeyEncapsulationMechanism.class),
     DERIVATION(DerivationFunction.class),
     BLOCK_CIPHER_PADDING(BlockCipherPadding.class),
     ASYMMETRIC_KEY_PAIR_GENERATOR(AsymmetricCipherKeyPairGenerator.class),
     KEY_PAIR_GENERATOR(JdkKeyPairGenerator.class),
     ENTROPY_SOURCE(EntropySource.class),
-    XOF(Xof.class),
+    XOF(ExtendableOutputFunction.class),
     DRBG(DeterministicRandomBitGenerator.class),
-    AEAD_BLOCK_CIPHER(AEADBlockCipher.class);
+    AEAD_BLOCK_CIPHER(AuthenticatedEncryptionWithAssociatedDataBlockCipher.class);
 
     private final Class<?> roleClass;
 

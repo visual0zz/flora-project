@@ -10,7 +10,7 @@ import com.flora.crypto.core.interfaces.Encapsulator;
  * <p>本项目的默认实现 {@code AgreementBasedKem} 用「密钥协商 + KDF」构造（ECDH / X25519 等经典曲线）；
  * 后量子算法（ML-KEM）需真实格密码引擎，未实现时走 {@code PlaceholderKem} 占位。</p>
  */
-public interface KEM extends AlgorithmFamily {
+public interface KeyEncapsulationMechanism extends AlgorithmFamily {
 
     /**
      * 创建封装器（发送方用）。

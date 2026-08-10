@@ -20,7 +20,7 @@ import java.util.Set;
  * 取代 {@code PlaceholderKem} 占位实现。</p>
  */
 @ThreadFragile
-public final class JdkKem implements com.flora.crypto.core.interfaces.provider.KEM {
+public final class JdkKem implements com.flora.crypto.core.interfaces.provider.KeyEncapsulationMechanism {
 
     private final String algorithm;
     private final KEM kem;

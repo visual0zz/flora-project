@@ -8,7 +8,7 @@ import com.flora.crypto.core.interfaces.CipherParameters;
  * 不同，这里把 {@code processAADBytes} / {@code getMac} 提升为一等成员，使调用方显式控制
  * 认证流程。</p>
  */
-public interface AEADBlockCipher extends AlgorithmFamily {
+public interface AuthenticatedEncryptionWithAssociatedDataBlockCipher extends AlgorithmFamily {
 
     void init(boolean forEncryption, CipherParameters params);
 

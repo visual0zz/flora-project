@@ -8,7 +8,7 @@ package com.flora.crypto.core.interfaces.provider;
  * 因此本接口对应 JDK 缺失的能力：默认提供最简占位实现 {@code PlaceholderXof}，
  * 真实引擎通过 {@code CryptoProvider.registerXof} 注册覆盖。</p>
  */
-public interface Xof extends Digest {
+public interface ExtendableOutputFunction extends Digest {
 
     /**
      * 完成计算并写入 {@code outLen} 字节（可变长输出）。

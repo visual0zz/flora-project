@@ -2,7 +2,7 @@ package com.flora.crypto.core;
 import com.flora.crypto.core.combinator.BufferedAsymmetricBlockCipher;
 import com.flora.crypto.core.combinator.PaddedAsymmetricBlockCipher;
 import com.flora.crypto.core.combinator.PaddedBufferedBlockCipher;
-import com.flora.crypto.core.interfaces.provider.AEADBlockCipher;
+import com.flora.crypto.core.interfaces.provider.AuthenticatedEncryptionWithAssociatedDataBlockCipher;
 import com.flora.crypto.core.interfaces.provider.Agreement;
 import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;
 import com.flora.crypto.core.interfaces.provider.AsymmetricCipher;
@@ -12,11 +12,11 @@ import com.flora.crypto.core.interfaces.Decapsulator;
 import com.flora.crypto.core.interfaces.provider.DerivationFunction;
 import com.flora.crypto.core.interfaces.Encapsulator;
 import com.flora.crypto.core.interfaces.provider.EntropySource;
-import com.flora.crypto.core.interfaces.provider.KEM;
+import com.flora.crypto.core.interfaces.provider.KeyEncapsulationMechanism;
 import com.flora.crypto.core.interfaces.provider.Mac;
 import com.flora.crypto.core.interfaces.provider.DeterministicRandomBitGenerator;
 import com.flora.crypto.core.interfaces.SecretWithEncapsulation;
-import com.flora.crypto.core.interfaces.provider.Xof;
+import com.flora.crypto.core.interfaces.provider.ExtendableOutputFunction;
 import com.flora.crypto.core.keypair.AsymmetricCipherKeyPair;
 import com.flora.crypto.core.keypair.AsymmetricKeyParameter;
 import com.flora.crypto.core.param.HkdfParameters;
@@ -63,7 +63,7 @@ class CryptoRolesTest {
 
     @Test
     void xofPlaceholderThrows() {
-        Xof xof = CryptoProvider.xof("SHAKE128");
+        ExtendableOutputFunction xof = CryptoProvider.xof("SHAKE128");
         assertThrows(UnsupportedOperationException.class, () -> xof.doFinal(new byte[8], 0, 8));
         assertThrows(UnsupportedOperationException.class, () -> xof.doOutput(new byte[8], 0, 8));
     }
@@ -160,7 +160,7 @@ class CryptoRolesTest {
         byte[] aad = "header".getBytes();
         byte[] plain = "authenticated encryption".getBytes();
 
-        AEADBlockCipher enc = new GCMBlockCipher(CryptoProvider.blockCipher("AES"));
+        AuthenticatedEncryptionWithAssociatedDataBlockCipher enc = new GCMBlockCipher(CryptoProvider.blockCipher("AES"));
         enc.init(true, new ParametersWithIV(new KeyParameter(key), iv));
         enc.processAADBytes(aad, 0, aad.length);
         byte[] ctBuf = new byte[enc.getOutputSize(plain.length)];
@@ -170,7 +170,7 @@ class CryptoRolesTest {
         System.arraycopy(ctBuf, 0, cipherWithTag, 0, n + m);
         assertNotNull(enc.getMac());
 
-        AEADBlockCipher dec = new GCMBlockCipher(CryptoProvider.blockCipher("AES"));
+        AuthenticatedEncryptionWithAssociatedDataBlockCipher dec = new GCMBlockCipher(CryptoProvider.blockCipher("AES"));
         dec.init(false, new ParametersWithIV(new KeyParameter(key), iv));
         dec.processAADBytes(aad, 0, aad.length);
         byte[] ptBuf = new byte[dec.getOutputSize(cipherWithTag.length)];
@@ -281,7 +281,7 @@ class CryptoRolesTest {
         gen.init(new KeyGenerationParameters(RANDOM, 256));
         AsymmetricCipherKeyPair kp = gen.generateKeyPair();
 
-        KEM kem = CryptoProvider.kem("ECDH");
+        KeyEncapsulationMechanism kem = CryptoProvider.kem("ECDH");
         Encapsulator enc = kem.newEncapsulator(kp.getPublic());
         SecretWithEncapsulation swc = enc.encapsulate();
         assertEquals(32, enc.getSecretLength());
@@ -301,7 +301,7 @@ class CryptoRolesTest {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("X25519");
         KeyPair kp = kpg.generateKeyPair();
 
-        KEM kem = CryptoProvider.kem("X25519");
+        KeyEncapsulationMechanism kem = CryptoProvider.kem("X25519");
         Encapsulator enc = kem.newEncapsulator(new AsymmetricKeyParameter(kp.getPublic()));
         SecretWithEncapsulation swc = enc.encapsulate();
 
@@ -319,7 +319,7 @@ class CryptoRolesTest {
         gen.init(new KeyGenerationParameters(RANDOM, 256));
         AsymmetricCipherKeyPair kp = gen.generateKeyPair();
 
-        KEM kem = CryptoProvider.kem("ECDH");
+        KeyEncapsulationMechanism kem = CryptoProvider.kem("ECDH");
         SecretWithEncapsulation swc = kem.newEncapsulator(kp.getPublic()).encapsulate();
         byte[] secretBefore = swc.getSecret().clone();
         assertNotEquals(0, secretBefore.length);
@@ -332,7 +332,7 @@ class CryptoRolesTest {
 
     @Test
     void kemPlaceholderThrows() {
-        KEM kem = CryptoProvider.kem("NONEXISTENT-KEM");
+        KeyEncapsulationMechanism kem = CryptoProvider.kem("NONEXISTENT-KEM");
         assertThrows(UnsupportedOperationException.class,
                 () -> kem.newEncapsulator(new AsymmetricKeyParameter(
                         CryptoProvider.keyPairGenerator("RSA").generate(2048).getPublic())));

@@ -1,13 +1,13 @@
 package com.flora.crypto.core;
-import com.flora.crypto.core.interfaces.provider.Xof;
+import com.flora.crypto.core.interfaces.provider.ExtendableOutputFunction;
 
 /**
  * XOF（可变长输出）的最简占位实现。
  * <p>JDK 没有「给我 N 字节输出」的概念槽位，因此默认以占位实现兜底：
  * 除名字外，可变长输出方法一律抛出 {@link UnsupportedOperationException}。
- * 待接入真实引擎（如 SHAKE128/256）后，通过 {@code CryptoProvider.register(Xof.class, ...)} 覆盖即可。</p>
+ * 待接入真实引擎（如 SHAKE128/256）后，通过 {@code CryptoProvider.register(ExtendableOutputFunction.class, ...)} 覆盖即可。</p>
  */
-public final class PlaceholderXof implements Xof {
+public final class PlaceholderXof implements ExtendableOutputFunction {
 
     @Override
     public String getAlgorithmName() {

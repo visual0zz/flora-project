@@ -3,7 +3,7 @@ package com.flora.crypto.core;
 import com.flora.crypto.core.bridge.JdkKem;
 import com.flora.crypto.core.interfaces.provider.DerivationFunction;
 import com.flora.crypto.core.interfaces.provider.Digest;
-import com.flora.crypto.core.interfaces.provider.KEM;
+import com.flora.crypto.core.interfaces.provider.KeyEncapsulationMechanism;
 import com.flora.crypto.core.interfaces.provider.Mac;
 import com.flora.crypto.core.PlaceholderKem;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,7 @@ class CryptoProviderAlgorithmsTest {
     // JdkKem 接入后 ML-KEM 是真实实现，而非无功能占位符
     @Test
     void mlKemIsRealImplementationNotPlaceholder() {
-        KEM kem = CryptoProvider.kem("ML-KEM");
+        KeyEncapsulationMechanism kem = CryptoProvider.kem("ML-KEM");
         assertNotNull(kem);
         assertFalse(kem instanceof PlaceholderKem);
         assertInstanceOf(JdkKem.class, kem);

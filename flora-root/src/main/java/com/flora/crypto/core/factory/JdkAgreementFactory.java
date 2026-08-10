@@ -13,14 +13,8 @@ public final class JdkAgreementFactory implements AlgorithmFactory {
 
     private String name;
 
-    public JdkAgreementFactory() {}
-
-    public JdkAgreementFactory(String name) {
-        this.name = name;
-    }
-
     @Override
-    public void setAlgorithm(String name) {
+    public void chooseAlgorithm(String name) {
         this.name = name;
     }
 

@@ -13,14 +13,8 @@ public final class JdkAsymmetricKeyPairGeneratorFactory implements AlgorithmFact
 
     private String name;
 
-    public JdkAsymmetricKeyPairGeneratorFactory() {}
-
-    public JdkAsymmetricKeyPairGeneratorFactory(String name) {
-        this.name = name;
-    }
-
     @Override
-    public void setAlgorithm(String name) {
+    public void chooseAlgorithm(String name) {
         this.name = name;
     }
 

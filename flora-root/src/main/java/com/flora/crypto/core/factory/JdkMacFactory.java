@@ -13,14 +13,8 @@ public final class JdkMacFactory implements AlgorithmFactory {
 
     private String name;
 
-    public JdkMacFactory() {}
-
-    public JdkMacFactory(String name) {
-        this.name = name;
-    }
-
     @Override
-    public void setAlgorithm(String name) {
+    public void chooseAlgorithm(String name) {
         this.name = name;
     }
 

@@ -13,14 +13,9 @@ public final class JdkAsymmetricBlockCipherFactory implements AlgorithmFactory {
 
     private String name;
 
-    public JdkAsymmetricBlockCipherFactory() {}
-
-    public JdkAsymmetricBlockCipherFactory(String name) {
-        this.name = name;
-    }
 
     @Override
-    public void setAlgorithm(String name) {
+    public void chooseAlgorithm(String name) {
         this.name = name;
     }
 

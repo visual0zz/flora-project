@@ -13,14 +13,8 @@ public final class JdkBlockCipherFactory implements AlgorithmFactory {
 
     private String name;
 
-    public JdkBlockCipherFactory() {}
-
-    public JdkBlockCipherFactory(String name) {
-        this.name = name;
-    }
-
     @Override
-    public void setAlgorithm(String name) {
+    public void chooseAlgorithm(String name) {
         this.name = name;
     }
 

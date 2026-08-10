@@ -14,14 +14,8 @@ public final class JdkDigestFactory implements AlgorithmFactory {
 
     private String name;
 
-    public JdkDigestFactory() {}
-
-    public JdkDigestFactory(String name) {
-        this.name = name;
-    }
-
     @Override
-    public void setAlgorithm(String name) {
+    public void chooseAlgorithm(String name) {
         this.name = name;
     }
 

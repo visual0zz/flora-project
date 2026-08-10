@@ -32,10 +32,6 @@ import com.flora.crypto.core.factory.ScryptFactory;
 import com.flora.crypto.core.factory.ZeroByteFactory;
 import com.flora.crypto.core.combinator.BufferedAsymmetricBlockCipher;
 import com.flora.crypto.core.impl.HMacDrbg;
-import com.flora.crypto.core.interfaces.CipherParameters;
-import com.flora.crypto.core.interfaces.Decapsulator;
-import com.flora.crypto.core.interfaces.Encapsulator;
-import com.flora.crypto.core.interfaces.provider.AEADBlockCipher;
 import com.flora.crypto.core.interfaces.provider.Agreement;
 import com.flora.crypto.core.interfaces.provider.AsymmetricBlockCipher;
 import com.flora.crypto.core.interfaces.provider.AsymmetricCipher;
@@ -51,9 +47,6 @@ import com.flora.crypto.core.interfaces.provider.Mac;
 import com.flora.crypto.core.interfaces.provider.SP80090DRBG;
 import com.flora.crypto.core.interfaces.provider.Xof;
 import com.flora.crypto.core.bridge.SecureRandomEntropySource;
-import com.flora.crypto.core.padding.ISO7816d4Padding;
-import com.flora.crypto.core.padding.PKCS7Padding;
-import com.flora.crypto.core.padding.ZeroBytePadding;
 import com.flora.java.CheckUtil;
 import com.flora.tag.ModuleEntry;
 
@@ -174,7 +167,7 @@ public final class CryptoProvider {
 
     /**
      * 按类注册一个算法工厂（一条语句完成多重注册）。
-     * <p>工厂类须提供可访问的无参构造与实例方法 {@link AlgorithmFactory#setAlgorithm(String)}，
+     * <p>工厂类须提供可访问的无参构造与实例方法 {@link AlgorithmFactory#chooseAlgorithm(String)}，
      * 且 {@link AlgorithmFactory#supportedAlgorithms()} 返回该类支持的全部 DSL 名（全集，与注入无关）。
      * 注册表先以无参构造创建一个原型实例取其全集，再为每个名字创建独立实例并注入算法名，
      * 最终委托 {@link #register(AlgorithmKind, AlgorithmFactory, String)} 逐名登记。</p>
@@ -203,7 +196,7 @@ public final class CryptoProvider {
                 throw new IllegalStateException(
                         clazz.getSimpleName() + " 缺少可访问的无参构造器", e);
             }
-            factory.setAlgorithm(name);
+            factory.chooseAlgorithm(name);
             register(role, factory, name);
         }
     }

@@ -15,7 +15,7 @@ import java.util.function.Function;
 public interface AlgorithmFactory {
 
     /**
-     * 自述本工厂类支持的算法 DSL 名集合（全集，与实例是否通过 {@link #setAlgorithm(String)} 注入无关）。
+     * 自述本工厂类支持的算法 DSL 名集合（全集，与实例是否通过 {@link #chooseAlgorithm(String)} 注入无关）。
      *
      * @return 该类可生产的所有算法名
      */
@@ -29,7 +29,7 @@ public interface AlgorithmFactory {
      *
      * @param name 算法 DSL 名
      */
-    default void setAlgorithm(String name) {
+    default void chooseAlgorithm(String name) {
         throw new UnsupportedOperationException(
                 getClass().getSimpleName() + " 不支持算法名注入");
     }

@@ -13,14 +13,8 @@ public final class AgreementBasedKemFactory implements AlgorithmFactory {
 
     private String name;
 
-    public AgreementBasedKemFactory() {}
-
-    public AgreementBasedKemFactory(String name) {
-        this.name = name;
-    }
-
     @Override
-    public void setAlgorithm(String name) {
+    public void chooseAlgorithm(String name) {
         this.name = name;
     }
 

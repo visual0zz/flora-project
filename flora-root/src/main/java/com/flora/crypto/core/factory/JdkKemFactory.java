@@ -13,14 +13,8 @@ public final class JdkKemFactory implements AlgorithmFactory {
 
     private String name;
 
-    public JdkKemFactory() {}
-
-    public JdkKemFactory(String name) {
-        this.name = name;
-    }
-
     @Override
-    public void setAlgorithm(String name) {
+    public void chooseAlgorithm(String name) {
         this.name = name;
     }
 

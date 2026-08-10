@@ -13,14 +13,8 @@ public final class JdkKeyPairGeneratorFactory implements AlgorithmFactory {
 
     private String name;
 
-    public JdkKeyPairGeneratorFactory() {}
-
-    public JdkKeyPairGeneratorFactory(String name) {
-        this.name = name;
-    }
-
     @Override
-    public void setAlgorithm(String name) {
+    public void chooseAlgorithm(String name) {
         this.name = name;
     }
 

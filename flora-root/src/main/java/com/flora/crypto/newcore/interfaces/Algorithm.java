@@ -8,7 +8,7 @@ import java.util.Set;
  * 使每个实现类直接通过族接口描述自己支持的算法集合与分发优先级。
  * CryptoProvider 按 {@code supportedAlgorithms()} 注册，分发时按「能实现 → 优先级 → 具体度」裁决。</p>
  */
-public interface Algorithm<T extends AlgorithmFactory<?>>{
+public interface Algorithm<T extends AlgorithmFactory<?>> extends AlgorithmComponent{
     T factory();
     String getAlgorithmName();
 }

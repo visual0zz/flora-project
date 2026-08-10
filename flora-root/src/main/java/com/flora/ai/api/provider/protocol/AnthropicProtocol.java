@@ -22,7 +22,8 @@ import java.util.Map;
  * <p>差异点：{@code system} 为顶层参数、content 为块数组、{@code max_tokens} 必填、
  * Extended Thinking 用 {@code thinking} 块、SSE 事件类型为 {@code content_block_delta}。
  * 工具调用用 {@code tool_use}/{@code tool_result} 块；JSON 模式通过强制单工具
- * （forced tool_use）保证结构化输出。</p>
+ * （forced tool_use）保证结构化输出。头部 {@code SYSTEM} 角色消息合并进顶层
+ * {@code system}，中途出现的 {@code SYSTEM} 消息转为 {@code mid_conv_system} 块。</p>
  */
 public final class AnthropicProtocol {
 
@@ -48,24 +49,29 @@ public final class AnthropicProtocol {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", modelId);
 
-        // 顶层 system：ChatRequest.system 字段 + SYSTEM 角色消息（按序合并；Anthropic 无 system 角色）
+        // 头部的 SYSTEM 角色消息：与 ChatRequest.system 字段合并进顶层 system。
+        // 中途出现的 SYSTEM 角色消息由 buildMessages 转为 mid_conv_system 块。
+        int headEnd = 0;
+        while (headEnd < req.messages().size()
+                && req.messages().get(headEnd).role() == Message.Role.SYSTEM) {
+            headEnd++;
+        }
         StringBuilder system = new StringBuilder();
         if (req.system() != null && !req.system().isBlank()) {
             system.append(req.system());
         }
-        for (Message m : req.messages()) {
-            if (m.role() == Message.Role.SYSTEM) {
-                if (!system.isEmpty()) {
-                    system.append("\n\n");
-                }
-                system.append(m.text());
+        for (int i = 0; i < headEnd; i++) {
+            Message m = req.messages().get(i);
+            if (!system.isEmpty()) {
+                system.append("\n\n");
             }
+            system.append(m.text());
         }
         if (!system.isEmpty()) {
             body.put("system", system.toString());
         }
 
-        body.put("messages", buildMessages(req.messages()));
+        body.put("messages", buildMessages(req.messages(), headEnd));
 
         // max_tokens 必填
         int maxTokens = DEFAULT_MAX_TOKENS;
@@ -124,12 +130,22 @@ public final class AnthropicProtocol {
         return tool;
     }
 
-    /** 构建 messages 数组（含 tool_use / tool_result 块）。 */
-    private static List<Object> buildMessages(List<Message> messages) {
+    /** 构建 messages 数组（含 tool_use / tool_result / 中途 system 块）。
+     *  @param headEnd 头部 SYSTEM 消息数量（已并入顶层 system，此处跳过）。 */
+    private static List<Object> buildMessages(List<Message> messages, int headEnd) {
         List<Object> list = new ArrayList<>();
-        for (Message m : messages) {
+        for (int i = 0; i < messages.size(); i++) {
+            Message m = messages.get(i);
+            if (i < headEnd) {
+                continue; // 头部 SYSTEM 已并入顶层 system
+            }
             if (m.role() == Message.Role.SYSTEM) {
-                continue; // 已并入顶层 system
+                // 中途 system 指令转为 mid_conv_system 块
+                Map<String, Object> block = new LinkedHashMap<>();
+                block.put("type", "mid_conv_system");
+                block.put("content", m.text());
+                list.add(block);
+                continue;
             }
             Map<String, Object> msg = new LinkedHashMap<>();
             if (m.role() == Message.Role.TOOL) {

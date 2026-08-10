@@ -72,9 +72,11 @@ public final class SecretCheck extends LineCheck {
      * <p>值含任一符号即结构上不可能是随机密钥——base64 / hex / UUID / slug 均不含这些
      * 符号（base64 的 {@code + / =} 与 base64url 的 {@code - _} 不在此列），
      * 故可按此将正则字面量、格式串、模板、路径与各类分隔结构安全排除。</p>
+     * <p>含中文（CJK 统一表意文字）的串亦在此列：中文异常消息、日志文案、注释性文本
+     * 不是随机密钥，含任一汉字即整体豁免，避免正常中文串被熵判定误报。</p>
      */
     private static final Pattern NON_SECRET_SYNTAX = Pattern.compile(
-            "[\\\\\\[\\]()|^$*?%{}<>&;:,']");
+            "[\\\\\\[\\]()|^$*?%{}<>&;:,'\u4E00-\u9FFF]");
 
     /** 通用候选：够长且由字母/数字/常见分隔符组成，再由熵与字符类别进一步判定。 */
     private static final Pattern GENERIC_ALNUM = Pattern.compile(

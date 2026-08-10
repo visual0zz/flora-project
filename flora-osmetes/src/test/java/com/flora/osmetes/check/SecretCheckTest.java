@@ -8,6 +8,7 @@ import com.flora.osmetes.FileCheck;
 import com.flora.osmetes.Severity;
 
 import java.io.IOException;
+import java.lang.SuppressWarnings;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,6 +59,7 @@ class SecretCheckTest {
     }
 
     @Test
+    @SuppressWarnings("osmetes:secret")
     void valueLikeSecretReportsError() throws IOException {
         // 值带典型厂商前缀（Stripe），即使键名普通也应 ERROR
         List<CheckIssue> issues = run("class C { String data = \"sk-aB3kF9xQ2mNpLr7tVcWz\"; }");
@@ -137,6 +139,7 @@ class SecretCheckTest {
     }
 
     @Test
+    @SuppressWarnings("osmetes:secret")
     void bareScalarInPropertiesReportsError() throws IOException {
         // .properties 允许裸标量，高熵裸值按值形态判 ERROR
         List<CheckIssue> issues = runAs("app.properties", "db.password=aB3kF9xQ2mNpLr7tVcWz");
@@ -145,6 +148,7 @@ class SecretCheckTest {
     }
 
     @Test
+    @SuppressWarnings("osmetes:secret")
     void bareScalarPrefixInYamlReportsError() throws IOException {
         // YAML 裸标量带厂商前缀 → ERROR
         List<CheckIssue> issues = runAs("app.yaml", "data: sk-aB3kF9xQ2mNpLr7tVcWz");
@@ -177,6 +181,7 @@ class SecretCheckTest {
     }
 
     @Test
+    @SuppressWarnings("osmetes:secret")
     void urlEmbeddingCredentialReportsError() throws IOException {
         // URL 内嵌 user:pass 是真泄露，提示性 negative lookahead 不豁免 → 报 ERROR
         List<CheckIssue> issues = run("class C { String url = \"https://admin:hunter2@internal.corp/api\"; }");
@@ -238,6 +243,7 @@ class SecretCheckTest {
     }
 
     @Test
+    @SuppressWarnings("osmetes:secret")
     void methodCallArgumentSecretReportsError() throws IOException {
         // 非赋值形态（方法参数）中的厂商前缀密钥也能被发现
         List<CheckIssue> issues = run("class C { void f() { client.setToken(\"sk-aB3kF9xQ2mNpLr7tVcWz\"); } }");

@@ -33,11 +33,38 @@ public final class JsonParser {
      */
     private static final int MAX_DEPTH = 512;
 
+    /**
+     * 重复键检测开关（默认关闭，与 Jackson/Fastjson 一致：重复键后者覆盖前者）。
+     * 开启后遇到重复键抛出 {@link IllegalStateException}，对应 Jackson 的
+     * {@code STRICT_DUPLICATE_DETECTION}。
+     */
+    private static volatile boolean STRICT_DUPLICATE_KEYS = false;
+
     private final String s;
     private int i;
 
     private JsonParser(String s) {
         this.s = s;
+    }
+
+    /**
+     * 设置是否对重复对象键启用严格检测。
+     * <p>默认关闭：重复键后者覆盖前者（RFC 8259 仅建议键唯一，未强制）。
+     * 开启后，解析遇到重复键立即抛出 {@link IllegalStateException}。</p>
+     *
+     * @param strict 是否严格检测重复键
+     */
+    public static void setStrictDuplicateKeys(boolean strict) {
+        STRICT_DUPLICATE_KEYS = strict;
+    }
+
+    /**
+     * 当前是否启用重复键严格检测。
+     *
+     * @return 是否严格检测
+     */
+    public static boolean isStrictDuplicateKeys() {
+        return STRICT_DUPLICATE_KEYS;
     }
 
     /**
@@ -120,6 +147,9 @@ public final class JsonParser {
             skipWs();
             expect(':');
             skipWs();
+            if (STRICT_DUPLICATE_KEYS && obj.containsKey(key)) {
+                throw err("重复的对象键: \"" + key + "\"");
+            }
             obj.put(key, parseValue(depth + 1));
             skipWs();
             char c = next();
@@ -246,7 +276,13 @@ public final class JsonParser {
     }
 
     private void skipWs() {
-        while (i < s.length() && Character.isWhitespace(s.charAt(i))) i++;
+        // RFC 8259 仅允许空格(0x20)、制表符(0x09)、LF(0x0A)、CR(0x0D) 作为空白；
+        // 不接受其他 Unicode 空白（如 U+00A0、U+2028），与 Jackson 一致。
+        while (i < s.length()) {
+            char c = s.charAt(i);
+            if (c == ' ' || c == '\t' || c == '\n' || c == '\r') i++;
+            else break;
+        }
     }
 
     private IllegalStateException err(String msg) {

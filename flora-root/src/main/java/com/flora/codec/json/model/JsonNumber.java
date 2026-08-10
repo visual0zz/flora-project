@@ -100,12 +100,16 @@ public final class JsonNumber implements JsonValue {
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof JsonNumber)) return false;
-        return decimalValue().compareTo(((JsonNumber) o).decimalValue()) == 0;
+        JsonNumber other = (JsonNumber) o;
+        // 类型敏感的精确相等（与 hashCode 保持一致，遵循 Jackson 各数值节点
+        // 仅与同类实例比较的约定）：不同 Number 子类型视为不相等，避免 equals
+        // 与 hashCode 契约冲突（如 BigDecimal("1.0") 与 Long(1) 不等）。
+        return value.getClass() == other.value.getClass() && value.equals(other.value);
     }
 
     @Override
     public int hashCode() {
-        return decimalValue().hashCode();
+        return value.hashCode();
     }
 
     @Override

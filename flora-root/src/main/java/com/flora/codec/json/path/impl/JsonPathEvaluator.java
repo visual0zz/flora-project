@@ -2,10 +2,8 @@ package com.flora.codec.json.path.impl;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * RFC 9535 JSONPath 评估引擎。
@@ -27,15 +25,10 @@ public final class JsonPathEvaluator {
 
     /** 对一个节点集应用一个选择器。 */
     private static List<Object> applySelector(List<Object> nodes, Selector sel, Object root) {
-        // 去重
-        Set<Object> seen = new LinkedHashSet<>();
+        // RFC 9535：Nodelist 保留所有匹配节点（含重复值）并按序排列，不做去重。
         List<Object> result = new ArrayList<>();
-
         for (Object node : nodes) {
-            List<Object> matched = matchSingle(node, sel, root);
-            for (Object m : matched) {
-                if (seen.add(m)) result.add(m);
-            }
+            result.addAll(matchSingle(node, sel, root));
         }
         return result;
     }
@@ -196,12 +189,13 @@ public final class JsonPathEvaluator {
                     yield 0L;
                 }
                 if ("count".equals(name)) {
-                    Object n = absolute ? root : current;
-                    if (!segs.isEmpty()) {
-                        List<Object> results = evaluate(n, segs);
-                        yield (long) results.size();
+                    // RFC 9535：count 必须带一个函数参数（nodelist）；无参数视为非法。
+                    if (segs.isEmpty()) {
+                        throw new IllegalStateException("JSONPath 函数 count() 必须带参数");
                     }
-                    yield 1L;
+                    Object n = absolute ? root : current;
+                    List<Object> results = evaluate(n, segs);
+                    yield (long) results.size();
                 }
                 yield 0L;
             }

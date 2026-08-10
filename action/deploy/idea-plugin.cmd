@@ -40,7 +40,7 @@
 #     higher than the last uploaded version on the Marketplace. If the same
 #     version already exists, bump the version first.
 # ===========================================================================
-cd "$(dirname "$0")/.." || exit 1
+cd "$(dirname "$0")/../.." || exit 1
 PLUGIN_DIR="plugins/idea-plugins/ramet-language-support"
 cd "$PLUGIN_DIR" || exit 1
 
@@ -72,19 +72,24 @@ exit 0
 @echo off
 setlocal
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
-cd /d "%~dp0.." || exit /b 1
+cd /d "%~dp0..\.." || exit /b 1
 cd /d "plugins\idea-plugins\ramet-language-support" || exit /b 1
 
 set "HAS_GRADLE_TOKEN=0"
 if exist "%USERPROFILE%\.gradle\gradle.properties" (
   findstr /R "^jetbrainsMarketplaceToken=." "%USERPROFILE%\.gradle\gradle.properties" >nul 2>&1 && set "HAS_GRADLE_TOKEN=1"
 )
-if "%JETBRAINS_MARKETPLACE_TOKEN%"=="" if "%HAS_GRADLE_TOKEN%"=="0" (
-  echo %ESC%[31mERROR: no JetBrains Marketplace publish token configured.%ESC%[0m
-  echo %ESC%[31m      Set JETBRAINS_MARKETPLACE_TOKEN, or add jetbrainsMarketplaceToken=^<token^>%ESC%[0m
-  echo %ESC%[31m      to %%USERPROFILE%%\.gradle\gradle.properties. Aborting before publish.%ESC%[0m
-  exit /b 1
-)
+if not "%JETBRAINS_MARKETPLACE_TOKEN%"=="" goto :have_token
+if "%HAS_GRADLE_TOKEN%"=="0" goto :no_token
+goto :have_token
+
+:no_token
+echo %ESC%[31mERROR: no JetBrains Marketplace publish token configured.%ESC%[0m
+echo %ESC%[31m      Set JETBRAINS_MARKETPLACE_TOKEN, or add jetbrainsMarketplaceToken=^<token^>%ESC%[0m
+echo %ESC%[31m      to %%USERPROFILE%%\.gradle\gradle.properties. Aborting before publish.%ESC%[0m
+exit /b 1
+
+:have_token
 
 echo %ESC%[36m$ gradlew.bat publishPlugin%ESC%[0m
 call gradlew.bat publishPlugin && (echo %ESC%[32m    OK: Plugin published successfully!%ESC%[0m) || (echo %ESC%[31m    FAILED: Plugin publish failed (check the token / version errors above)%ESC%[0m & exit /b 1)

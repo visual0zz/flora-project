@@ -2,7 +2,6 @@ package com.flora.codec.jsonschema;
 
 import com.flora.codec.json.JsonParser;
 import com.flora.codec.json.model.JsonBool;
-import com.flora.codec.json.model.JsonObject;
 import com.flora.codec.json.model.JsonValue;
 import com.flora.codec.jsonschema.impl.CompiledSchema;
 import com.flora.codec.jsonschema.impl.SchemaRegistry;
@@ -53,36 +52,21 @@ public final class JsonSchema {
         this.root = registry.root();
     }
 
-    /** 从解析后的 JSON 对象（{@link JsonObject} 或布尔 schema）构建 schema。
-     * 裸 {@code Map}/{@code List} 原生树不被接受，须先经 {@link JsonObject#fromMap} 等转换。 */
-    public static JsonSchema of(Object schemaObject) {
-        if (schemaObject instanceof Boolean b) {
-            return of(b);
-        }
-        if (!(schemaObject instanceof JsonObject)) {
-            throw new IllegalArgumentException("schema 须为 JsonObject 或 Boolean，实际为: "
-                    + (schemaObject == null ? "null" : schemaObject.getClass().getName()));
-        }
-        return of((JsonObject) schemaObject);
-    }
-
-    /** 从布尔 schema 构建（true→恒真，false→恒假）。 */
-    public static JsonSchema of(boolean schema) {
-        return of(new JsonBool(schema));
-    }
-
-    /** 从 JSON 对象（{@link JsonObject} 模型）构建 schema。 */
-    public static JsonSchema of(JsonObject schemaObject) {
+    /** 核心入口：schema 须为 {@link JsonValue} 模型（{@link JsonObject} 或 {@link JsonBool}）。
+     * 裸 {@code Map}/{@code List} 原生树不是 {@link JsonValue} 的子类，编译期即被类型系统拒绝，
+     * 须先经 {@link JsonObject#fromMap}/{@link JsonParser#parse} 等转换为模型后再传入。 */
+    public static JsonSchema of(JsonValue schemaObject) {
         return new JsonSchema(SchemaRegistry.of(schemaObject));
     }
 
-    private static JsonSchema of(JsonValue schemaObject) {
-        return new JsonSchema(SchemaRegistry.of(schemaObject));
-    }
-
-    /** 从 JSON 字符串构建 schema。 */
+    /** 便捷入口：从 JSON 字符串构建 schema。 */
     public static JsonSchema of(String schemaJson) {
         return of(JsonParser.parseObject(schemaJson));
+    }
+
+    /** 便捷入口：从布尔 schema 构建（true→恒真，false→恒假）。 */
+    public static JsonSchema of(boolean schema) {
+        return of(new JsonBool(schema));
     }
 
     /** 校验实例，返回是否通过。实例须为 {@link JsonValue} 模型（含裸标量亦经 unwrap 处理）。 */

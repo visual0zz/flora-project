@@ -2,7 +2,8 @@
 <idea-plugin>
     <id>io.gitee.visual0zz.ramet</id>
     <name>Ramet Language Support</name>
-    <version>0.8.2</version>
+    <!-- 占位版本：实际版本由构建时从 git tag 注入(见 build.gradle.kts pluginConfiguration.version)，此处字面量不参与发布产物。 -->
+    <version>0.0.0</version>
     <vendor email="indiancarriernoac@qq.com" url="https://gitee.com/visual0zz">flora</vendor>
 
     <icon main="pluginIcon.svg"/>

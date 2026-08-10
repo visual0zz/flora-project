@@ -4,9 +4,10 @@
 # deploy: publish ramet-language-support (IDEA plugin) to JetBrains Marketplace
 # ===========================================================================
 # Prerequisites:
-#   1) Publish token: configure ONE of the following, otherwise publishPlugin
-#      reports 'token' property must be specified for plugin publishing'
-#      (see "Security note / Method 1 / Method 2" below).
+#   1) Publish token: configure ONE of the following; if NEITHER is set the
+#      script aborts with an error before invoking Gradle (see "Method 1 /
+#      Method 2" below). publishPlugin itself would otherwise fail later with
+#      'token' property must be specified for plugin publishing'.
 #   2) Version comes from a git tag of the form ramet-idea-plugin-vX.Y.Z:
 #      - add the matching [X.Y.Z] section to CHANGELOG.md first;
 #      - then run `git tag ramet-idea-plugin-vX.Y.Z`;
@@ -45,9 +46,17 @@ cd "$PLUGIN_DIR" || exit 1
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
 
-if [ -z "$JETBRAINS_MARKETPLACE_TOKEN" ]; then
-  printf '%b\n' "${RED}WARN: environment variable JETBRAINS_MARKETPLACE_TOKEN is not set.${NC}"
-  printf '%b\n' "${RED}      Publishing may still work if jetbrainsMarketplaceToken is configured in ~/.gradle/gradle.properties; otherwise it will fail.${NC}"
+# Token check: one of the two sources must be present, else abort.
+GRADLE_PROPS="$HOME/.gradle/gradle.properties"
+HAS_GRADLE_TOKEN=0
+if [ -f "$GRADLE_PROPS" ] && grep -q '^jetbrainsMarketplaceToken=.' "$GRADLE_PROPS" 2>/dev/null; then
+  HAS_GRADLE_TOKEN=1
+fi
+if [ -z "$JETBRAINS_MARKETPLACE_TOKEN" ] && [ "$HAS_GRADLE_TOKEN" -eq 0 ]; then
+  printf '%b\n' "${RED}ERROR: no JetBrains Marketplace publish token configured.${NC}"
+  printf '%b\n' "${RED}      Set JETBRAINS_MARKETPLACE_TOKEN, or add jetbrainsMarketplaceToken=<token>${NC}"
+  printf '%b\n' "${RED}      to $GRADLE_PROPS. Aborting before publish.${NC}"
+  exit 1
 fi
 
 printf '%b\n' "${CYAN}\$ ./gradlew publishPlugin (${PLUGIN_DIR})${NC}"
@@ -66,9 +75,15 @@ for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 cd /d "%~dp0.." || exit /b 1
 cd /d "plugins\idea-plugins\ramet-language-support" || exit /b 1
 
-if "%JETBRAINS_MARKETPLACE_TOKEN%"=="" (
-  echo %ESC%[31mWARN: environment variable JETBRAINS_MARKETPLACE_TOKEN is not set.%ESC%[0m
-  echo %ESC%[31m      Publishing may still work if jetbrainsMarketplaceToken is configured in %%USERPROFILE%%\.gradle\gradle.properties; otherwise it will fail.%ESC%[0m
+set "HAS_GRADLE_TOKEN=0"
+if exist "%USERPROFILE%\.gradle\gradle.properties" (
+  findstr /R "^jetbrainsMarketplaceToken=." "%USERPROFILE%\.gradle\gradle.properties" >nul 2>&1 && set "HAS_GRADLE_TOKEN=1"
+)
+if "%JETBRAINS_MARKETPLACE_TOKEN%"=="" if "%HAS_GRADLE_TOKEN%"=="0" (
+  echo %ESC%[31mERROR: no JetBrains Marketplace publish token configured.%ESC%[0m
+  echo %ESC%[31m      Set JETBRAINS_MARKETPLACE_TOKEN, or add jetbrainsMarketplaceToken=^<token^>%ESC%[0m
+  echo %ESC%[31m      to %%USERPROFILE%%\.gradle\gradle.properties. Aborting before publish.%ESC%[0m
+  exit /b 1
 )
 
 echo %ESC%[36m$ gradlew.bat publishPlugin%ESC%[0m

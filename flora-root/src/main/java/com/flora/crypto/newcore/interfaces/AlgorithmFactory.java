@@ -18,8 +18,8 @@ public interface AlgorithmFactory<T extends Algorithm<?>>{
      *
      * @return 非空数组表示该算法须
      */
-    Class<? extends  Algorithm<?>>[] componentTypes();
+    Class<? extends  AlgorithmComponent>[] componentTypes();
 
     /** @return 将其他算法的实例注入算法来进行初始化 */
-    T construct(String algorithmName, Algorithm<?>[] components);
+    T construct(String algorithmName, AlgorithmComponent ... components);
 }

@@ -2,9 +2,11 @@ package com.flora.mock.jsonschema;
 
 import com.flora.codec.json.JsonBuilder;
 import com.flora.codec.json.JsonParser;
+import com.flora.codec.json.model.JsonValue;
 import com.flora.mock.jsonschema.impl.GenerationContext;
 import com.flora.mock.jsonschema.impl.GenerationNode;
 import com.flora.mock.jsonschema.impl.GeneratorCompiler;
+import com.flora.mock.jsonschema.impl.JsonConversionsBridge;
 import com.flora.mock.jsonschema.impl.RandomSupport;
 import com.flora.tag.ModuleEntry;
 import com.flora.tag.ThreadFragile;
@@ -15,9 +17,10 @@ import java.util.random.RandomGenerator;
 /**
  * JSON Schema 数据生成器门面。
  * <p>根据 2020-12 schema 生成随机且（尽力）符合约束的 JSON 实例。
- * 输入可为 JSON 字符串或已解析的 JSON Object（Map/List 嵌套）；
- * {@link #generate()} 返回 Map/List 嵌套对象，{@link #generateStr()} 返回 JSON 字符串。
- * 熵源通过 {@link #of(Object, RandomGenerator)} 注入，同一种子生成结果可复现。</p>
+ * 输入可为 JSON 字符串或已解析的 JSON 对象（{@link JsonValue} 模型）；
+ * {@link #generate()} 返回 {@link JsonValue} 模型实例（对象/数组/标量），
+ * {@link #generateStr()} 返回 JSON 字符串。熵源通过 {@link #of(Object, RandomGenerator)} 注入，
+ * 同一种子生成结果可复现。</p>
  *
  * <p><b>支持的语法</b>：
  * 类型 {@code type}（object/array/string/integer/number/boolean/null）、
@@ -57,7 +60,7 @@ public final class JsonGenerator {
     private final int targetLength;
     private final RandomGenerator entropy;
 
-    private JsonGenerator(Object schemaObject, int targetLength, RandomGenerator entropy) {
+    private JsonGenerator(JsonValue schemaObject, int targetLength, RandomGenerator entropy) {
         this.compiler = GeneratorCompiler.of(schemaObject);
         this.root = compiler.root();
         this.targetLength = targetLength;
@@ -66,43 +69,49 @@ public final class JsonGenerator {
 
     /** 从 JSON 字符串构建生成器，使用默认推荐长度。 */
     public static JsonGenerator of(String schemaJson) {
-        return of(JsonParser.parse(schemaJson).toMap(), DEFAULT_TARGET_LENGTH, null);
+        return of(JsonParser.parse(schemaJson), DEFAULT_TARGET_LENGTH, null);
     }
 
     /** 从 JSON 字符串构建生成器，指定推荐长度。 */
     public static JsonGenerator of(String schemaJson, int targetLength) {
-        return of(JsonParser.parse(schemaJson).toMap(), targetLength, null);
+        return of(JsonParser.parse(schemaJson), targetLength, null);
     }
 
     /** 从 JSON 字符串构建生成器，注入熵源（同一种子可复现）。 */
     public static JsonGenerator of(String schemaJson, RandomGenerator entropy) {
-        return of(JsonParser.parse(schemaJson).toMap(), DEFAULT_TARGET_LENGTH, entropy);
+        return of(JsonParser.parse(schemaJson), DEFAULT_TARGET_LENGTH, entropy);
     }
 
-    /** 从解析后的 Java 对象构建生成器，使用默认推荐长度。 */
-    public static JsonGenerator of(Object schemaObject) {
+    /** 从解析后的 JSON 对象构建生成器，使用默认推荐长度。 */
+    public static JsonGenerator of(JsonValue schemaObject) {
         return of(schemaObject, DEFAULT_TARGET_LENGTH, null);
     }
 
-    /** 从解析后的 Java 对象构建生成器，指定推荐长度。 */
-    public static JsonGenerator of(Object schemaObject, int targetLength) {
+    /** 从解析后的 JSON 对象构建生成器，指定推荐长度。 */
+    public static JsonGenerator of(JsonValue schemaObject, int targetLength) {
         return of(schemaObject, targetLength, null);
     }
 
-    /** 从解析后的 Java 对象构建生成器，注入熵源（同一种子可复现）。 */
-    public static JsonGenerator of(Object schemaObject, RandomGenerator entropy) {
+    /** 从解析后的 JSON 对象构建生成器，注入熵源（同一种子可复现）。 */
+    public static JsonGenerator of(JsonValue schemaObject, RandomGenerator entropy) {
         return of(schemaObject, DEFAULT_TARGET_LENGTH, entropy);
     }
 
-    /** 从解析后的 Java 对象构建生成器，指定推荐长度与熵源。 */
-    public static JsonGenerator of(Object schemaObject, int targetLength, RandomGenerator entropy) {
+    /** 从布尔 schema 构建生成器（true→恒真，false→恒假）。 */
+    public static JsonGenerator of(boolean schema) {
+        return of(new com.flora.codec.json.model.JsonBool(schema));
+    }
+
+    /** 从解析后的 JSON 对象构建生成器，指定推荐长度与熵源。 */
+    public static JsonGenerator of(JsonValue schemaObject, int targetLength, RandomGenerator entropy) {
         return new JsonGenerator(schemaObject, targetLength, entropy);
     }
 
-    /** 生成随机实例（Map/List 嵌套结构）。 */
-    public Object generate() {
+    /** 生成随机实例（{@link JsonValue} 模型：对象/数组/标量）。 */
+    public JsonValue generate() {
         RandomGenerator source = entropy != null ? entropy : new Random();
-        return root.generate(new GenerationContext(new RandomSupport(source), targetLength));
+        return JsonConversionsBridge.toValue(
+                root.generate(new GenerationContext(new RandomSupport(source), targetLength)));
     }
 
     /** 生成随机实例并序列化为紧凑 JSON 字符串。 */

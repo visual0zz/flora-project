@@ -1,5 +1,13 @@
 package com.flora.codec.jsonschema;
 
+import com.flora.codec.json.model.JsonArray;
+import com.flora.codec.json.model.JsonBool;
+import com.flora.codec.json.model.JsonNull;
+import com.flora.codec.json.model.JsonNumber;
+import com.flora.codec.json.model.JsonObject;
+import com.flora.codec.json.model.JsonString;
+import com.flora.codec.json.model.JsonValue;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
@@ -7,15 +15,30 @@ import java.util.Map;
 
 /**
  * JSON 值类型判定与数值归一化工具。
- * <p>JSON 值模型：object→Map、array→List、string→String、number→Long/BigInteger/BigDecimal、
- * boolean→Boolean、null→null。数字比较统一转 {@link BigDecimal} 用 {@code compareTo}。</p>
+ * <p>校验实例统一以 {@link JsonValue} 模型表达（object→{@link JsonObject}、
+ * array→{@link JsonArray}、string→{@link JsonString}、number→{@link JsonNumber}、
+ * boolean→{@link JsonBool}、null→{@link JsonNull}）。本工具在入口处经 {@link #unwrap(Object)}
+ * 将 {@code JsonValue} 剥离为原生树（Map/List/标量）后再做类型判定，从而同时兼容
+ * 直接传入原生值的内部调用（生成器工作副本）。数字比较统一转 {@link BigDecimal} 用 {@code compareTo}。</p>
  */
 public final class JsonTypes {
 
     private JsonTypes() {
     }
 
+    /**
+     * 将 {@link JsonValue} 模型剥离为原生值：对象→{@code Map}、数组→{@code List}、
+     * 标量→对应 Java 原生类型（{@code null}→{@code null}）。非 {@code JsonValue} 的原生值原样返回。
+     */
+    public static Object unwrap(Object value) {
+        if (value instanceof JsonValue jv) {
+            return jv.toNative();
+        }
+        return value;
+    }
+
     public static String typeOf(Object value) {
+        value = unwrap(value);
         if (value == null) {
             return "null";
         }
@@ -41,6 +64,7 @@ public final class JsonTypes {
 
     /** 是否整数值（type: "integer" 匹配，包括无小数部分的 BigDecimal）。 */
     public static boolean isInteger(Object value) {
+        value = unwrap(value);
         if (value instanceof Long || value instanceof BigInteger
                 || value instanceof Integer || value instanceof Short || value instanceof Byte) {
             return true;
@@ -56,6 +80,7 @@ public final class JsonTypes {
 
     /** 归一化为 BigDecimal（非数字返回 null）。 */
     public static BigDecimal decimalOf(Object value) {
+        value = unwrap(value);
         if (value instanceof BigDecimal bd) {
             return bd;
         }
@@ -88,6 +113,8 @@ public final class JsonTypes {
         if (a == null || b == null) {
             return false;
         }
+        a = unwrap(a);
+        b = unwrap(b);
         BigDecimal da = decimalOf(a);
         BigDecimal db = decimalOf(b);
         if (da != null && db != null) {

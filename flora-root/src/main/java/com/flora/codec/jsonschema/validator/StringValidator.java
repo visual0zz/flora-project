@@ -1,6 +1,7 @@
 package com.flora.codec.jsonschema.validator;
 
 import com.flora.codec.json.model.JsonObject;
+import com.flora.codec.jsonschema.JsonTypes;
 import com.flora.codec.jsonschema.impl.ValidationContext;
 
 import java.util.regex.Pattern;
@@ -40,7 +41,8 @@ public final class StringValidator implements KeywordValidator {
 
     @Override
     public void validate(Object instance, ValidationContext ctx) {
-        if (!(instance instanceof String s)) {
+        Object unwrapped = JsonTypes.unwrap(instance);
+        if (!(unwrapped instanceof String s)) {
             return; // 非字符串
         }
         if (minLength != null && s.length() < minLength) {

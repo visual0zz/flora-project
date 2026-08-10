@@ -1,5 +1,6 @@
 package com.flora.codec.jsonschema.validator;
 
+import com.flora.codec.jsonschema.JsonTypes;
 import com.flora.codec.jsonschema.impl.ValidationContext;
 import com.flora.codec.jsonschema.format.FormatValidators;
 
@@ -28,7 +29,8 @@ public final class FormatValidator implements KeywordValidator {
 
     @Override
     public void validate(Object instance, ValidationContext ctx) {
-        if (!(instance instanceof String s)) {
+        Object unwrapped = JsonTypes.unwrap(instance);
+        if (!(unwrapped instanceof String s)) {
             return; // format 只作用于字符串
         }
         if (!predicate.test(s)) {

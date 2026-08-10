@@ -1,7 +1,9 @@
 package com.flora.codec.jsonschema;
 
 import com.flora.codec.json.JsonParser;
+import com.flora.codec.json.model.JsonBool;
 import com.flora.codec.json.model.JsonObject;
+import com.flora.codec.json.model.JsonValue;
 import com.flora.codec.jsonschema.impl.CompiledSchema;
 import com.flora.codec.jsonschema.impl.SchemaRegistry;
 import com.flora.codec.jsonschema.impl.ValidationContext;
@@ -51,8 +53,30 @@ public final class JsonSchema {
         this.root = registry.root();
     }
 
-    /** 从解析后的 Java 对象构建 schema。 */
+    /** 从解析后的 JSON 对象（{@link JsonObject} 或布尔 schema）构建 schema。
+     * 裸 {@code Map}/{@code List} 原生树不被接受，须先经 {@link JsonObject#fromMap} 等转换。 */
     public static JsonSchema of(Object schemaObject) {
+        if (schemaObject instanceof Boolean b) {
+            return of(b);
+        }
+        if (!(schemaObject instanceof JsonObject)) {
+            throw new IllegalArgumentException("schema 须为 JsonObject 或 Boolean，实际为: "
+                    + (schemaObject == null ? "null" : schemaObject.getClass().getName()));
+        }
+        return of((JsonObject) schemaObject);
+    }
+
+    /** 从布尔 schema 构建（true→恒真，false→恒假）。 */
+    public static JsonSchema of(boolean schema) {
+        return of(new JsonBool(schema));
+    }
+
+    /** 从 JSON 对象（{@link JsonObject} 模型）构建 schema。 */
+    public static JsonSchema of(JsonObject schemaObject) {
+        return new JsonSchema(SchemaRegistry.of(schemaObject));
+    }
+
+    private static JsonSchema of(JsonValue schemaObject) {
         return new JsonSchema(SchemaRegistry.of(schemaObject));
     }
 
@@ -61,13 +85,13 @@ public final class JsonSchema {
         return of(JsonParser.parseObject(schemaJson));
     }
 
-    /** 校验实例，返回是否通过。 */
-    public boolean isValid(Object instance) {
+    /** 校验实例，返回是否通过。实例须为 {@link JsonValue} 模型（含裸标量亦经 unwrap 处理）。 */
+    public boolean isValid(JsonValue instance) {
         return validate(instance).isValid();
     }
 
     /** 校验实例，返回完整结果（含错误列表）。 */
-    public ValidationResult validate(Object instance) {
+    public ValidationResult validate(JsonValue instance) {
         ValidationContext ctx = new ValidationContext(registry);
         root.validate(instance, ctx);
         if (ctx.errorCount() == 0) {
@@ -77,7 +101,7 @@ public final class JsonSchema {
     }
 
     /** 校验实例，返回错误列表（空表示通过）。 */
-    public List<ValidationError> errors(Object instance) {
+    public List<ValidationError> errors(JsonValue instance) {
         return validate(instance).errors();
     }
 }

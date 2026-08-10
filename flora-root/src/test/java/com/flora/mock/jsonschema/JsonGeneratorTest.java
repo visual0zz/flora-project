@@ -2,6 +2,13 @@ package com.flora.mock.jsonschema;
 
 import com.flora.codec.json.JsonBuilder;
 import com.flora.codec.json.JsonParser;
+import com.flora.codec.json.model.JsonArray;
+import com.flora.codec.json.model.JsonBool;
+import com.flora.codec.json.model.JsonNull;
+import com.flora.codec.json.model.JsonNumber;
+import com.flora.codec.json.model.JsonObject;
+import com.flora.codec.json.model.JsonString;
+import com.flora.codec.json.model.JsonValue;
 import com.flora.codec.jsonschema.JsonSchema;
 import com.flora.codec.jsonschema.JsonTypes;
 import org.junit.jupiter.api.Test;
@@ -16,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * JSON Schema 数据生成器测试。
  * 核心策略：生成后用校验器验证（生成结果应通过 schema 校验）。
+ * 生成结果统一为 {@link JsonValue} 模型（{@link JsonObject}/{@link JsonArray}/标量）。
  */
 class JsonGeneratorTest {
 
@@ -55,9 +63,9 @@ class JsonGeneratorTest {
         JsonGenerator gen = JsonGenerator.of(
                 "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}},\"required\":[\"a\"]}");
         for (int i = 0; i < 20; i++) {
-            Object generated = gen.generate();
+            JsonValue generated = gen.generate();
             assertTrue(schema.isValid(generated));
-            assertTrue(((Map<?, ?>) generated).containsKey("a"));
+            assertTrue(((JsonObject) generated).containsKey("a"));
         }
     }
 
@@ -66,9 +74,9 @@ class JsonGeneratorTest {
         JsonSchema schema = JsonSchema.of("{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":1}");
         JsonGenerator gen = JsonGenerator.of("{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":1}");
         for (int i = 0; i < 20; i++) {
-            Object generated = gen.generate();
+            JsonValue generated = gen.generate();
             assertTrue(schema.isValid(generated));
-            assertFalse(((List<?>) generated).isEmpty());
+            assertFalse(((JsonArray) generated).isEmpty());
         }
     }
 
@@ -79,8 +87,10 @@ class JsonGeneratorTest {
         JsonSchema schema = JsonSchema.of("{\"enum\":[\"red\",\"green\",\"blue\"]}");
         JsonGenerator gen = JsonGenerator.of("{\"enum\":[\"red\",\"green\",\"blue\"]}");
         for (int i = 0; i < 20; i++) {
-            Object value = gen.generate();
-            assertTrue(List.of("red", "green", "blue").contains(value));
+            JsonValue value = gen.generate();
+            assertTrue(value instanceof JsonString);
+            String s = ((JsonString) value).value();
+            assertTrue(List.of("red", "green", "blue").contains(s));
             assertTrue(schema.isValid(value));
         }
     }
@@ -89,7 +99,7 @@ class JsonGeneratorTest {
     void generatesConst() {
         JsonGenerator gen = JsonGenerator.of("{\"const\":\"fixed\"}");
         for (int i = 0; i < 5; i++) {
-            assertEquals("fixed", gen.generate());
+            assertEquals("fixed", ((JsonString) gen.generate()).value());
         }
     }
 
@@ -120,8 +130,9 @@ class JsonGeneratorTest {
         JsonSchema schema = JsonSchema.of("{\"type\":\"string\",\"minLength\":3,\"maxLength\":8}");
         JsonGenerator gen = JsonGenerator.of("{\"type\":\"string\",\"minLength\":3,\"maxLength\":8}");
         for (int i = 0; i < 20; i++) {
-            String value = (String) gen.generate();
-            assertTrue(value.length() >= 3 && value.length() <= 8);
+            JsonValue value = gen.generate();
+            String s = ((JsonString) value).value();
+            assertTrue(s.length() >= 3 && s.length() <= 8);
             assertTrue(schema.isValid(value));
         }
     }
@@ -188,7 +199,7 @@ class JsonGeneratorTest {
                 "{\"type\":\"array\",\"items\":{\"type\":\"integer\"},"
                 + "\"minItems\":3,\"contains\":{\"type\":\"integer\",\"minimum\":100}}");
         for (int i = 0; i < 20; i++) {
-            Object generated = gen.generate();
+            JsonValue generated = gen.generate();
             assertTrue(schema.isValid(generated));
         }
     }
@@ -202,9 +213,9 @@ class JsonGeneratorTest {
         JsonGenerator gen = JsonGenerator.of(
                 "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"additionalProperties\":false}");
         for (int i = 0; i < 20; i++) {
-            Object generated = gen.generate();
+            JsonValue generated = gen.generate();
             assertTrue(schema.isValid(generated));
-            assertTrue(((Map<?, ?>) generated).keySet().stream().allMatch(k -> k.equals("name")));
+            assertTrue(((JsonObject) generated).keySet().stream().allMatch(k -> k.equals("name")));
         }
     }
 
@@ -217,7 +228,7 @@ class JsonGeneratorTest {
                 "{\"type\":\"object\",\"properties\":{\"credit_card\":{},\"billing_address\":{}},"
                 + "\"dependentRequired\":{\"credit_card\":[\"billing_address\"]}}");
         for (int i = 0; i < 20; i++) {
-            Map<?, ?> generated = (Map<?, ?>) gen.generate();
+            JsonObject generated = (JsonObject) gen.generate();
             if (generated.containsKey("credit_card")) {
                 assertTrue(generated.containsKey("billing_address"));
             }
@@ -236,9 +247,9 @@ class JsonGeneratorTest {
                 "{\"$defs\":{\"pos\":{\"type\":\"integer\",\"minimum\":1}},"
                 + "\"type\":\"object\",\"properties\":{\"n\":{\"$ref\":\"#/$defs/pos\"}},\"required\":[\"n\"]}");
         for (int i = 0; i < 20; i++) {
-            Object generated = gen.generate();
+            JsonValue generated = gen.generate();
             assertTrue(schema.isValid(generated));
-            assertTrue((Long) ((Map<?, ?>) generated).get("n") >= 1);
+            assertTrue(((JsonNumber) ((JsonObject) generated).get("n")).longValue() >= 1);
         }
     }
 
@@ -255,9 +266,9 @@ class JsonGeneratorTest {
                 + "\"value\":{\"type\":\"integer\"},\"child\":{\"$ref\":\"#/$defs/node\"}}}},"
                 + "\"$ref\":\"#/$defs/node\"}");
         // 应有限终止（深度限制），不会栈溢出
-        Object generated = gen.generate();
+        JsonValue generated = gen.generate();
         assertNotNull(generated);
-        assertInstanceOf(Map.class, generated);
+        assertInstanceOf(JsonObject.class, generated);
     }
 
     // ── 种子可复现 ──
@@ -265,10 +276,10 @@ class JsonGeneratorTest {
     @Test
     void seedIsReproducible() {
         String schemaJson = "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"integer\"},\"b\":{\"type\":\"string\"}}}";
-        JsonGenerator g1 = JsonGenerator.of(schemaJson, new Random(42L));
-        JsonGenerator g2 = JsonGenerator.of(schemaJson, new Random(42L));
-        Object v1 = g1.generate();
-        Object v2 = g2.generate();
+        JsonGenerator g1 = JsonGenerator.of(JsonParser.parse(schemaJson), new Random(42L));
+        JsonGenerator g2 = JsonGenerator.of(JsonParser.parse(schemaJson), new Random(42L));
+        JsonValue v1 = g1.generate();
+        JsonValue v2 = g2.generate();
         assertEquals(v1, v2);
     }
 
@@ -287,11 +298,11 @@ class JsonGeneratorTest {
                 + "\"required\":[\"name\",\"count\",\"ok\"]}");
         for (int i = 0; i < 20; i++) {
             String json = gen.generateStr();
-            Object parsed = JsonParser.parse(json).toNative();
+            JsonValue parsed = JsonParser.parse(json);
             assertTrue(schema.isValid(parsed));
             // round-trip：同一实例经 JsonBuilder 序列化后再解析应深度相等
-            Object generated = gen.generate();
-            assertTrue(JsonTypes.deepEquals(JsonParser.parse(JsonBuilder.toJsonString(generated)).toMap(), generated));
+            JsonValue generated = gen.generate();
+            assertTrue(JsonTypes.deepEquals(JsonParser.parse(JsonBuilder.toJsonString(generated)), generated));
         }
     }
 
@@ -332,7 +343,7 @@ class JsonGeneratorTest {
         JsonGenerator gen = JsonGenerator.of(
                 "{\"allOf\":[{\"type\":\"integer\"},{\"minimum\":5}]}");
         for (int i = 0; i < 20; i++) {
-            Object generated = gen.generate();
+            JsonValue generated = gen.generate();
             assertTrue(schema.isValid(generated));
         }
     }
@@ -352,9 +363,9 @@ class JsonGeneratorTest {
         JsonSchema schema = JsonSchema.of("{\"type\":\"number\",\"minimum\":1.5,\"maximum\":2.5}");
         JsonGenerator gen = JsonGenerator.of("{\"type\":\"number\",\"minimum\":1.5,\"maximum\":2.5}");
         for (int i = 0; i < 20; i++) {
-            Object value = gen.generate();
+            JsonValue value = gen.generate();
             assertTrue(schema.isValid(value));
-            assertInstanceOf(BigDecimal.class, value);
+            assertInstanceOf(JsonNumber.class, value);
         }
     }
 
@@ -362,13 +373,12 @@ class JsonGeneratorTest {
 
     @Test
     void targetLengthScalesOutput() {
-        String schemaJson = "{\"type\":\"string\"}";
-        Object schema = JsonParser.parse(schemaJson).toMap();
+        JsonValue schema = JsonParser.parse("{\"type\":\"string\"}");
         JsonGenerator small = JsonGenerator.of(schema, 8);
         JsonGenerator big = JsonGenerator.of(schema, 64);
         for (int i = 0; i < 30; i++) {
-            int smallLen = ((String) small.generate()).length();
-            int bigLen = ((String) big.generate()).length();
+            int smallLen = ((JsonString) small.generate()).value().length();
+            int bigLen = ((JsonString) big.generate()).value().length();
             assertTrue(bigLen > smallLen,
                     "大推荐长度应生成更长的串: small=" + smallLen + ", big=" + bigLen);
         }
@@ -380,12 +390,12 @@ class JsonGeneratorTest {
         JsonSchema schema = JsonSchema.of(
                 "{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":3}");
         JsonGenerator gen = JsonGenerator.of(
-                JsonParser.parse("{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":3}").toMap(),
+                JsonParser.parse("{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":3}"),
                 2);
         for (int i = 0; i < 20; i++) {
-            Object value = gen.generate();
+            JsonValue value = gen.generate();
             assertTrue(schema.isValid(value));
-            assertTrue(((List<?>) value).size() >= 3);
+            assertTrue(((JsonArray) value).size() >= 3);
         }
     }
 
@@ -396,13 +406,13 @@ class JsonGeneratorTest {
         String schemaJson = "{\"$defs\":{\"node\":{\"type\":\"object\",\"properties\":{"
                 + "\"value\":{\"type\":\"integer\"},\"child\":{\"$ref\":\"#/$defs/node\"}}}},"
                 + "\"$ref\":\"#/$defs/node\"}";
-        JsonGenerator shallow = JsonGenerator.of(schemaJson, 8);
-        JsonGenerator deep = JsonGenerator.of(schemaJson, 200);
+        JsonGenerator shallow = JsonGenerator.of(JsonParser.parse(schemaJson), 8);
+        JsonGenerator deep = JsonGenerator.of(JsonParser.parse(schemaJson), 200);
         long shallowSum = 0;
         long deepSum = 0;
         for (int i = 0; i < 30; i++) {
-            Object s = shallow.generate();
-            Object d = deep.generate();
+            JsonValue s = shallow.generate();
+            JsonValue d = deep.generate();
             assertNotNull(s);
             assertNotNull(d);
             shallowSum += depthOf(s);
@@ -414,17 +424,17 @@ class JsonGeneratorTest {
                 "大预算应生成更深的递归树: shallowAvg=" + shallowAvg + ", deepAvg=" + deepAvg);
     }
 
-    private static int depthOf(Object value) {
-        if (value instanceof Map<?, ?> m) {
+    private static int depthOf(JsonValue value) {
+        if (value instanceof JsonObject jo) {
             int max = 1;
-            for (Object v : m.values()) {
+            for (JsonValue v : jo.values()) {
                 max = Math.max(max, 1 + depthOf(v));
             }
             return max;
         }
-        if (value instanceof List<?> l) {
+        if (value instanceof JsonArray ja) {
             int max = 1;
-            for (Object v : l) {
+            for (JsonValue v : ja.elements()) {
                 max = Math.max(max, 1 + depthOf(v));
             }
             return max;
@@ -440,9 +450,9 @@ class JsonGeneratorTest {
         JsonGenerator gen = JsonGenerator.of(
                 "{\"allOf\":[{\"pattern\":\"^[a-z]+$\"},{\"pattern\":\"[bc]+\"}]}");
         for (int i = 0; i < 30; i++) {
-            Object value = gen.generate();
-            assertInstanceOf(String.class, value);
-            String s = (String) value;
+            JsonValue value = gen.generate();
+            assertInstanceOf(JsonString.class, value);
+            String s = ((JsonString) value).value();
             assertTrue(java.util.regex.Pattern.matches("^[a-z]+$", s),
                     "应满足 pattern1: " + s);
             assertTrue(java.util.regex.Pattern.matches("[bc]+", s),
@@ -466,9 +476,9 @@ class JsonGeneratorTest {
         String schemaJson = "{\"$defs\":{\"node\":{\"type\":\"object\",\"properties\":{"
                 + "\"value\":{\"type\":\"integer\"},\"child\":{\"$ref\":\"#/$defs/node\"}},"
                 + "\"required\":[\"value\"]}},\"$ref\":\"#/$defs/node\"}";
-        JsonGenerator gen = JsonGenerator.of(schemaJson, 4); // 小预算，容易触发截断
+        JsonGenerator gen = JsonGenerator.of(JsonParser.parse(schemaJson), 4); // 小预算，容易触发截断
         for (int i = 0; i < 50; i++) {
-            Object generated = gen.generate();
+            JsonValue generated = gen.generate();
             assertNotNull(generated);
             assertEveryNodeHasValue(generated);
         }
@@ -481,24 +491,24 @@ class JsonGeneratorTest {
                 "{\"type\":\"object\",\"minProperties\":2,\"properties\":{\"a\":{\"type\":\"integer\"},"
                         + "\"b\":{\"type\":\"integer\"}}}");
         for (int i = 0; i < 30; i++) {
-            Object generated = gen.generate();
-            assertInstanceOf(Map.class, generated);
-            assertTrue(((Map<?, ?>) generated).size() >= 2,
+            JsonValue generated = gen.generate();
+            assertInstanceOf(JsonObject.class, generated);
+            assertTrue(((JsonObject) generated).size() >= 2,
                     "应满足 minProperties:2");
         }
     }
 
-    private static void assertEveryNodeHasValue(Object value) {
-        if (value instanceof Map<?, ?> m) {
-            assertTrue(m.containsKey("value"),
-                    "递归 node 必须含 value: " + m);
-            for (Object v : m.values()) {
-                if (v instanceof Map || v instanceof List) {
+    private static void assertEveryNodeHasValue(JsonValue value) {
+        if (value instanceof JsonObject jo) {
+            assertTrue(jo.containsKey("value"),
+                    "递归 node 必须含 value: " + jo);
+            for (JsonValue v : jo.values()) {
+                if (v instanceof JsonObject || v instanceof JsonArray) {
                     assertEveryNodeHasValue(v);
                 }
             }
-        } else if (value instanceof List<?> l) {
-            for (Object v : l) {
+        } else if (value instanceof JsonArray ja) {
+            for (JsonValue v : ja.elements()) {
                 assertEveryNodeHasValue(v);
             }
         }

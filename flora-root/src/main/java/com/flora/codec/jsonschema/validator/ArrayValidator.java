@@ -72,10 +72,10 @@ public final class ArrayValidator implements KeywordValidator {
 
     @Override
     public void validate(Object instance, ValidationContext ctx) {
-        if (!(instance instanceof List<?> list)) {
-            return;
+        if (!(instance instanceof JsonArray array)) {
+            return; // 非数组实例（含裸 List）交由 type 校验器判错，此处跳过
         }
-        int size = list.size();
+        int size = array.size();
         if (minItems != null && size < minItems) {
             ctx.addError("minItems", "数组长度 " + size + " 小于 " + minItems);
         }
@@ -85,29 +85,29 @@ public final class ArrayValidator implements KeywordValidator {
         if (uniqueItems) {
             for (int i = 0; i < size; i++) {
                 for (int j = i + 1; j < size; j++) {
-                    if (JsonTypes.deepEquals(list.get(i), list.get(j))) {
+                    if (JsonTypes.deepEquals(array.get(i), array.get(j))) {
                         ctx.addError("uniqueItems", "数组元素重复（索引 " + i + " 与 " + j + "）");
                         break;
                     }
                 }
             }
         }
-        validateElements(list, ctx);
-        validateContains(list, ctx);
+        validateElements(array, ctx);
+        validateContains(array, ctx);
     }
 
-    private void validateElements(List<?> list, ValidationContext ctx) {
-        int size = list.size();
+    private void validateElements(JsonArray array, ValidationContext ctx) {
+        int size = array.size();
         int prefixLen = prefixItems.size();
         int i = 0;
         for (; i < size && i < prefixLen; i++) {
             ctx.evaluation.evaluateIndex(i);
-            prefixItems.get(i).validate(list.get(i), ctx.childIndex(i, "prefixItems/" + i));
+            prefixItems.get(i).validate(array.get(i), ctx.childIndex(i, "prefixItems/" + i));
         }
         if (items != null) {
             for (; i < size; i++) {
                 ctx.evaluation.evaluateIndex(i);
-                items.validate(list.get(i), ctx.childIndex(i, "items"));
+                items.validate(array.get(i), ctx.childIndex(i, "items"));
             }
         } else if (itemsForbidden && size > prefixLen) {
             for (int j = prefixLen; j < size; j++) {
@@ -116,14 +116,14 @@ public final class ArrayValidator implements KeywordValidator {
         }
     }
 
-    private void validateContains(List<?> list, ValidationContext ctx) {
+    private void validateContains(JsonArray array, ValidationContext ctx) {
         if (contains == null) {
             return;
         }
         int count = 0;
-        for (int i = 0; i < list.size(); i++) {
+        for (int i = 0; i < array.size(); i++) {
             int before = ctx.errorCount();
-            contains.validate(list.get(i), ctx.childIndex(i, "contains"));
+            contains.validate(array.get(i), ctx.childIndex(i, "contains"));
             if (ctx.errorCount() == before) {
                 count++;
                 ctx.evaluation.evaluateIndex(i);

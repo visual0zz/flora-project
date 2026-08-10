@@ -125,10 +125,10 @@ public final class ObjectValidator implements KeywordValidator {
 
     @Override
     public void validate(Object instance, ValidationContext ctx) {
-        if (!(instance instanceof Map<?, ?> map)) {
-            return;
+        if (!(instance instanceof JsonObject obj)) {
+            return; // 非对象实例（含裸 Map）交由 type 校验器判错，此处跳过
         }
-        int size = map.size();
+        int size = obj.size();
         if (minProperties != null && size < minProperties) {
             ctx.addError("minProperties", "属性数 " + size + " 小于 " + minProperties);
         }
@@ -136,18 +136,18 @@ public final class ObjectValidator implements KeywordValidator {
             ctx.addError("maxProperties", "属性数 " + size + " 大于 " + maxProperties);
         }
         for (String name : required) {
-            if (!map.containsKey(name)) {
+            if (!obj.containsKey(name)) {
                 ctx.addError("required", "缺少必需属性: " + name);
             }
         }
         if (propertyNames != null) {
-            for (Object key : map.keySet()) {
-                propertyNames.validate(String.valueOf(key), ctx.childProperty(String.valueOf(key), "propertyNames"));
+            for (String key : obj.keySet()) {
+                propertyNames.validate(key, ctx.childProperty(key, "propertyNames"));
             }
         }
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
-            String name = String.valueOf(entry.getKey());
-            Object value = entry.getValue();
+        for (Map.Entry<String, JsonValue> entry : obj.entrySet()) {
+            String name = entry.getKey();
+            JsonValue value = entry.getValue();
             boolean matched = false;
             CompiledSchema prop = properties.get(name);
             if (prop != null) {
@@ -172,17 +172,17 @@ public final class ObjectValidator implements KeywordValidator {
             }
         }
         for (Map.Entry<String, List<String>> dep : dependentRequired.entrySet()) {
-            if (map.containsKey(dep.getKey())) {
+            if (obj.containsKey(dep.getKey())) {
                 for (String need : dep.getValue()) {
-                    if (!map.containsKey(need)) {
+                    if (!obj.containsKey(need)) {
                         ctx.addError("dependentRequired", "属性 " + dep.getKey() + " 需要依赖属性: " + need);
                     }
                 }
             }
         }
         for (Map.Entry<String, CompiledSchema> dep : dependentSchemas.entrySet()) {
-            if (map.containsKey(dep.getKey())) {
-                dep.getValue().validate(instance, ctx.childProperty(dep.getKey(), "dependentSchemas"));
+            if (obj.containsKey(dep.getKey())) {
+                dep.getValue().validate(obj.get(dep.getKey()), ctx.childProperty(dep.getKey(), "dependentSchemas"));
             }
         }
     }

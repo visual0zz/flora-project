@@ -1,12 +1,11 @@
 package com.flora.codec.jsonschema.validator;
 
+import com.flora.codec.json.model.JsonArray;
 import com.flora.codec.json.model.JsonObject;
 import com.flora.codec.json.model.JsonValue;
 import com.flora.codec.jsonschema.impl.CompiledSchema;
 import com.flora.codec.jsonschema.impl.SchemaRegistry;
 import com.flora.codec.jsonschema.impl.ValidationContext;
-
-import java.util.Map;
 
 /**
  * {@code unevaluatedProperties}/{@code unevaluatedItems} 校验（2020-12）。
@@ -50,28 +49,27 @@ public final class UnevaluatedValidator implements KeywordValidator {
 
     @Override
     public void validate(Object instance, ValidationContext ctx) {
-        if (instance instanceof Map<?, ?> map) {
+        if (instance instanceof JsonObject obj) {
             if (propertiesForbidden || properties != null) {
-                for (Object key : map.keySet()) {
-                    String name = String.valueOf(key);
-                    if (!ctx.evaluation.isPropertyEvaluated(name)) {
+                for (String key : obj.keySet()) {
+                    if (!ctx.evaluation.isPropertyEvaluated(key)) {
                         if (propertiesForbidden) {
-                            ctx.addError("unevaluatedProperties", "未求值的属性: " + name);
+                            ctx.addError("unevaluatedProperties", "未求值的属性: " + key);
                         } else {
-                            properties.validate(map.get(key), ctx.childProperty(name, "unevaluatedProperties"));
+                            properties.validate(obj.get(key), ctx.childProperty(key, "unevaluatedProperties"));
                         }
                     }
                 }
             }
         }
-        if (instance instanceof java.util.List<?> list) {
+        if (instance instanceof JsonArray array) {
             if (itemsForbidden || items != null) {
-                for (int i = 0; i < list.size(); i++) {
+                for (int i = 0; i < array.size(); i++) {
                     if (!ctx.evaluation.isIndexEvaluated(i)) {
                         if (itemsForbidden) {
                             ctx.addError("unevaluatedItems", "未求值的数组索引: " + i);
                         } else {
-                            items.validate(list.get(i), ctx.childIndex(i, "unevaluatedItems"));
+                            items.validate(array.get(i), ctx.childIndex(i, "unevaluatedItems"));
                         }
                     }
                 }

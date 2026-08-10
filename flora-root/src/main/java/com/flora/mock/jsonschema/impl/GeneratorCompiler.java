@@ -1,5 +1,8 @@
 package com.flora.mock.jsonschema.impl;
 
+import com.flora.codec.json.model.JsonBool;
+import com.flora.codec.json.model.JsonObject;
+import com.flora.codec.json.model.JsonValue;
 import com.flora.codec.jsonschema.impl.SchemaRegistry;
 import com.flora.mock.jsonschema.JsonGenerationException;
 
@@ -11,19 +14,22 @@ import java.util.Map;
 /**
  * schema → 生成规则编译器。记忆化缓存节点，处理 {@code $ref}/{@code $defs}，
  * 编译期合并 {@code allOf} 分支约束（取交集）。
+ * <p>对外入口（{@link #of}）接受 {@link JsonValue} 模型（{@link JsonObject}/{@link JsonBool}）；
+ * 内部以 {@code Map<String,Object>} 工作副本承载合并后的 schema（实现细节，非对外 schema 输入），
+ * 故 {@link #compile(Object, String)} 同时接受 {@link JsonObject} 与裸 {@code Map} 工作副本。</p>
  */
 public final class GeneratorCompiler {
 
     private final SchemaRegistry registry;
     private final Map<Object, GenerationNode> cache = new IdentityHashMap<>();
-    private final Object rootNode;
+    private final JsonValue rootNode;
 
-    private GeneratorCompiler(SchemaRegistry registry, Object rootNode) {
+    private GeneratorCompiler(SchemaRegistry registry, JsonValue rootNode) {
         this.registry = registry;
         this.rootNode = rootNode;
     }
 
-    public static GeneratorCompiler of(Object rootNode) {
+    public static GeneratorCompiler of(JsonValue rootNode) {
         return new GeneratorCompiler(SchemaRegistry.of(rootNode), rootNode);
     }
 
@@ -32,10 +38,10 @@ public final class GeneratorCompiler {
     }
 
     GenerationNode compile(Object node, String baseUri) {
-        if (node instanceof Boolean b) {
-            return new GenerationNode(b, this);
+        if (node instanceof JsonBool b) {
+            return new GenerationNode(b.value(), this);
         }
-        if (!(node instanceof Map)) {
+        if (!(node instanceof JsonObject) && !(node instanceof Map<?, ?>)) {
             throw new JsonGenerationException("schema 必须是对象或布尔值: " + node);
         }
         GenerationNode cached = cache.get(node);
@@ -43,7 +49,8 @@ public final class GeneratorCompiler {
             return cached;
         }
         @SuppressWarnings("unchecked")
-        Map<String, Object> schema = (Map<String, Object>) node;
+        Map<String, Object> schema = node instanceof JsonObject jo ? jo.toMap()
+                : (Map<String, Object>) node;
         Map<String, Object> effective = mergeAllOf(schema, baseUri);
         GenerationNode gn = new GenerationNode(effective, baseUri, this);
         cache.put(node, gn);

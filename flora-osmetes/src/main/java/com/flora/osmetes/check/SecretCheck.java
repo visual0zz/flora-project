@@ -412,8 +412,17 @@ public final class SecretCheck extends LineCheck {
         if (!BASE64.matcher(v).matches()) {
             return false;
         }
+        // 纯字母串（无数字、无 +/= 符号）几乎不可能是 base64 密钥：真实 base64 凭据高度
+        // 混有数字与填充/符号。把纯字母标识符（如 exclusiveMaximum、addresses）误当 base64
+        // 解码会得到高熵随机观感的字节而被误判为密钥，故在此排除。
+        if (PURE_ALPHA.matcher(v).matches()) {
+            return false;
+        }
         return decodeBase64(v).length >= 8;
     }
+
+    /** 纯字母串（不含数字与 +/= 符号）：标识符/单词而非 base64。 */
+    private static final Pattern PURE_ALPHA = Pattern.compile("[A-Za-z]+");
 
     /** base64 解码；解码失败返回空数组（调用方已保证形态合法，此处兜底）。 */
     private static byte[] decodeBase64(String v) {

@@ -9,8 +9,7 @@
 
 ### Fixed
 -
-
-## [0.8.3]
+## [0.8.4]
 ### Changed
 - plugin.xml 版本号改为占位 `0.0.0`，实际版本由构建期从 git tag 注入，避免源码字面量与发布版本脱节
 - 部署脚本 `action/deploy/idea-plugin.cmd` 在缺失 Marketplace 发布密钥（环境变量与 gradle.properties 均无）时直接报错退出，不再带缺失 token 执行发布

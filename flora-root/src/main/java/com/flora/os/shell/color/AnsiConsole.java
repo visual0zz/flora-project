@@ -13,13 +13,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 需经 kernel32 的 {@code SetConsoleMode} 开启 {@code ENABLE_VIRTUAL_TERMINAL_PROCESSING}。</p>
  *
  * <p>本类持有一个进程级 {@link #initialized} 标志：首次调用 {@link #ensureVirtualTerminal()}
- * 时（通常在第一次彩色输出前由 {@link Style} 自动触发）检测 Windows 平台并开启 VT 模式，
- * 后续调用直接短路。非 Windows 平台或已初始化时均为无操作。VT 开启失败（如旧系统不支持）
+ * 时（通常在第一次彩色输出前由 {@link Style} 自动触发）检测 Windows 平台，并对本进程所绑定的
+ * 控制台（标准输出屏幕缓冲区）开启 VT 模式，后续调用直接短路。一个进程在生命周期内通常只连
+ * 一个控制台，故按进程去重开启一次即覆盖其全部彩色输出；新开的终端窗口是独立的控制台，不在此
+ * 进程的作用域内。非 Windows 平台或已初始化时均为无操作。VT 开启失败（如旧系统不支持）
  * 仅记录并忽略，退化为「转义码原样输出」，不会中断程序。</p>
  */
 public final class AnsiConsole {
 
-    /** 进程级初始化标志：保证 VT 模式至多开启一次。 */
+    /** 进程级初始化标志：保证对本进程绑定的控制台（标准输出屏幕缓冲区）VT 模式至多开启一次。 */
     private static final AtomicBoolean initialized = new AtomicBoolean(false);
 
     /** Windows 控制台标准输出句柄伪值（STD_OUTPUT_HANDLE = -11）。 */
@@ -32,8 +34,9 @@ public final class AnsiConsole {
     }
 
     /**
-     * 确保当前控制台能解释 ANSI 转义码（幂等）。
-     * <p>首次在未初始化的 Windows 平台上调用时开启 VT 模式；其余情况直接返回。
+     * 确保本进程绑定的控制台能解释 ANSI 转义码（幂等）。
+     * <p>首次在未初始化的 Windows 平台上调用时，对本进程的标准输出屏幕缓冲区开启 VT 模式；
+     * 其余情况直接返回。同一个进程通常只连一个控制台，故开启一次即覆盖全部彩色输出。
      * 调用方（如 {@link Style}）应在每次彩色输出前调用，本方法内部已做短路优化。</p>
      */
     public static void ensureVirtualTerminal() {

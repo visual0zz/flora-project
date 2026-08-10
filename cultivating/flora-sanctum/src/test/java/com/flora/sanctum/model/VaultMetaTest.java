@@ -2,11 +2,13 @@ package com.flora.sanctum.model;
 
 import org.junit.jupiter.api.Test;
 
+import java.lang.SuppressWarnings;
 import java.util.ArrayList;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@SuppressWarnings("osmetes:secret")
 class VaultMetaTest {
 
     @Test

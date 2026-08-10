@@ -1,6 +1,7 @@
 package com.flora.crypto.core.impl;
 
 import com.flora.crypto.core.param.ScryptParameters;
+import java.lang.SuppressWarnings;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 
@@ -9,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 /**
  * scrypt 已知答案测试（RFC 7914 §12 测试向量）。
  */
+@SuppressWarnings("osmetes:secret")
 class ScryptVectorTest {
 
   private static byte[] hex(String s) {

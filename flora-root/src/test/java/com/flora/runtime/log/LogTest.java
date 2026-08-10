@@ -25,11 +25,14 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.lang.SuppressWarnings;
+
 
 /**
  * 日志框架的完整单元测试。
  * 测试 Logger 工厂、消息格式化、布局格式、日志级别、Appender（控制台/文件）、级别继承、可加性、配置 API、参数化日志、MDC 及无配置场景。
  */
+@SuppressWarnings("osmetes:secret")
 class LogTest {
 
     @AfterEach

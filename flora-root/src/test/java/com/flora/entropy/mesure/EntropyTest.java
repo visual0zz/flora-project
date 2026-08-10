@@ -2,6 +2,7 @@ package com.flora.entropy.mesure;
 
 import org.junit.jupiter.api.Test;
 
+import java.lang.SuppressWarnings;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
@@ -13,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@link Entropy} 的度量契约测试：香农熵、归一化香农熵密度、按算法名取密度、
  * 压缩复杂度比、聚合 minDensity。
  */
+@SuppressWarnings("osmetes:secret")
 class EntropyTest {
 
     @Test

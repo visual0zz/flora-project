@@ -74,9 +74,12 @@ public final class SecretCheck extends LineCheck {
      * 故可按此将正则字面量、格式串、模板、路径与各类分隔结构安全排除。</p>
      * <p>含中文（CJK 统一表意文字）的串亦在此列：中文异常消息、日志文案、注释性文本
      * 不是随机密钥，含任一汉字即整体豁免，避免正常中文串被熵判定误报。</p>
+     * <p>斜杠 {@code /} 亦在此列：路径、类路径（如 {@code java/util/Base64}）、URL 路径段
+     * 含 {@code /} 而随机密钥不含，故含 {@code /} 的串整体豁免，避免路径/类路径标识符被误报。
+     * （含内嵌凭据的 URL {@code scheme://user:pass@host} 由前缀分支单独判定，不受影响。）</p>
      */
     private static final Pattern NON_SECRET_SYNTAX = Pattern.compile(
-            "[\\\\\\[\\]()|^$*?%{}<>&;:,'\u4E00-\u9FFF]");
+            "[\\\\\\[\\]()|^$*?%{}<>&;:/,'\u4E00-\u9FFF]");
 
     /** 通用候选：够长且由字母/数字/常见分隔符组成，再由熵与字符类别进一步判定。 */
     private static final Pattern GENERIC_ALNUM = Pattern.compile(

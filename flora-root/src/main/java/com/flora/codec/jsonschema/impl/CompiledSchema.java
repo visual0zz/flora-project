@@ -1,4 +1,4 @@
-package com.flora.codec.jsonschema;
+package com.flora.codec.jsonschema.impl;
 
 import com.flora.codec.jsonschema.validator.KeywordValidator;
 

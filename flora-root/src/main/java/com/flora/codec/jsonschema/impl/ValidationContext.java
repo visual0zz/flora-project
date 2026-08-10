@@ -1,4 +1,6 @@
-package com.flora.codec.jsonschema;
+package com.flora.codec.jsonschema.impl;
+
+import com.flora.codec.jsonschema.ValidationError;
 
 import java.util.ArrayList;
 import java.util.HashSet;

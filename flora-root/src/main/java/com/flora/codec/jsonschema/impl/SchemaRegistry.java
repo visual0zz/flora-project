@@ -1,4 +1,4 @@
-package com.flora.codec.jsonschema;
+package com.flora.codec.jsonschema.impl;
 
 import com.flora.codec.json.JsonArray;
 import com.flora.codec.json.JsonObject;

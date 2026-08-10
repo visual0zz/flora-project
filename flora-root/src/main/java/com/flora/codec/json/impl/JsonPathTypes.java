@@ -1,19 +1,6 @@
-package com.flora.codec.json;
+package com.flora.codec.json.impl;
 
 import java.util.List;
-
-// ====== 路径选择器 ======
-
-sealed interface Selector permits NameSelector, IndexSelector, MultiIndexSelector,
-        SliceSelector, WildcardSelector, DescendantSelector, FilterSelector {}
-
-record NameSelector(String name) implements Selector {}
-record IndexSelector(int index) implements Selector {}
-record MultiIndexSelector(List<Integer> indices) implements Selector {}
-record SliceSelector(Integer start, Integer end, Integer step) implements Selector {}
-record WildcardSelector() implements Selector {}
-record DescendantSelector(String memberName) implements Selector {}
-record FilterSelector(FilterExpr expr) implements Selector {}
 
 // ====== 过滤器表达式 ======
 

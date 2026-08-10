@@ -1,4 +1,4 @@
-package com.flora.codec.json;
+package com.flora.codec.json.impl;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -8,7 +8,7 @@ import java.util.List;
  * RFC 9535 JSONPath 语法分析器。
  * <p>递归下降解析 {@link Token} 流，构建 {@link Selector} 列表。</p>
  */
-final class JsonPathParser {
+public final class JsonPathParser {
 
     private final List<Token> tokens;
     private int pos;
@@ -17,7 +17,7 @@ final class JsonPathParser {
         this.tokens = tokens;
     }
 
-    static List<Selector> parse(List<Token> tokens) {
+    public static List<Selector> parse(List<Token> tokens) {
         JsonPathParser p = new JsonPathParser(tokens);
         p.expect(TokenType.ROOT);
         List<Selector> selectors = new ArrayList<>();
@@ -28,7 +28,7 @@ final class JsonPathParser {
     }
 
     /** 解析过滤器表达式（用于 FilterSelector 内部）。 */
-    static FilterExpr parseFilter(List<Token> tokens) {
+    public static FilterExpr parseFilter(List<Token> tokens) {
         JsonPathParser p = new JsonPathParser(tokens);
         FilterExpr expr = p.parseOr();
         if (p.peek().type() != TokenType.EOF) {

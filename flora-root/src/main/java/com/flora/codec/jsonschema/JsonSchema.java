@@ -2,6 +2,9 @@ package com.flora.codec.jsonschema;
 
 import com.flora.codec.json.JsonObject;
 import com.flora.codec.json.JsonParser;
+import com.flora.codec.jsonschema.impl.CompiledSchema;
+import com.flora.codec.jsonschema.impl.SchemaRegistry;
+import com.flora.codec.jsonschema.impl.ValidationContext;
 
 import java.util.List;
 

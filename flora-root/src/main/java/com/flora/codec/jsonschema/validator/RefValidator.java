@@ -1,8 +1,8 @@
 package com.flora.codec.jsonschema.validator;
 
-import com.flora.codec.jsonschema.CompiledSchema;
-import com.flora.codec.jsonschema.SchemaRegistry;
-import com.flora.codec.jsonschema.ValidationContext;
+import com.flora.codec.jsonschema.impl.CompiledSchema;
+import com.flora.codec.jsonschema.impl.SchemaRegistry;
+import com.flora.codec.jsonschema.impl.ValidationContext;
 
 /**
  * {@code $ref}/{@code $dynamicRef} 引用校验。

@@ -1,7 +1,7 @@
 package com.flora.codec.jsonschema.validator;
 
 import com.flora.codec.json.JsonObject;
-import com.flora.codec.jsonschema.ValidationContext;
+import com.flora.codec.jsonschema.impl.ValidationContext;
 
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;

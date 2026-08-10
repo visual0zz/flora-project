@@ -2,8 +2,8 @@ package com.flora.codec.jsonschema.validator;
 
 import com.flora.codec.json.JsonObject;
 import com.flora.codec.jsonschema.JsonTypes;
-import com.flora.codec.jsonschema.SchemaNumbers;
-import com.flora.codec.jsonschema.ValidationContext;
+import com.flora.codec.jsonschema.impl.SchemaNumbers;
+import com.flora.codec.jsonschema.impl.ValidationContext;
 
 import java.math.BigDecimal;
 

@@ -1,4 +1,4 @@
-package com.flora.codec.json;
+package com.flora.codec.json.impl;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -7,7 +7,7 @@ import java.util.List;
  * RFC 9535 JSONPath 词法分析器。
  * <p>单遍扫描，将 JSONPath 表达式字符串拆分为 {@link Token} 流。</p>
  */
-final class JsonPathTokenizer {
+public final class JsonPathTokenizer {
 
     private final String src;
     private int pos;
@@ -17,7 +17,7 @@ final class JsonPathTokenizer {
         this.pos = 0;
     }
 
-    static List<Token> tokenize(String src) {
+    public static List<Token> tokenize(String src) {
         JsonPathTokenizer t = new JsonPathTokenizer(src);
         List<Token> tokens = new ArrayList<>();
         while (t.pos < t.src.length()) {

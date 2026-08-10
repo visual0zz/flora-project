@@ -1,4 +1,4 @@
-package com.flora.codec.json;
+package com.flora.codec.json.impl;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -11,12 +11,12 @@ import java.util.Set;
  * RFC 9535 JSONPath 评估引擎。
  * <p>对输入值执行 {@link Selector} 列表，返回匹配节点列表。</p>
  */
-final class JsonPathEvaluator {
+public final class JsonPathEvaluator {
 
     private JsonPathEvaluator() {}
 
     /** 对单个 Selector 的路径片段列表求值。selectors 不含 ROOT（已隐含）。 */
-    static List<Object> evaluate(Object root, List<Selector> selectors) {
+    public static List<Object> evaluate(Object root, List<Selector> selectors) {
         List<Object> current = Collections.singletonList(root);
         for (Selector sel : selectors) {
             current = applySelector(current, sel, root);

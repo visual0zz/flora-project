@@ -1,6 +1,6 @@
 package com.flora.mock.jsonschema.impl;
 
-import com.flora.codec.jsonschema.SchemaRegistry;
+import com.flora.codec.jsonschema.impl.SchemaRegistry;
 import com.flora.mock.jsonschema.JsonGenerationException;
 
 import java.util.IdentityHashMap;

@@ -1,7 +1,7 @@
-package com.flora.codec.json;
+package com.flora.codec.json.impl;
 
 /** Token 类型枚举。 */
-enum TokenType {
+public enum TokenType {
     ROOT, CURRENT, DOT, DOT_DOT, STAR,
     LBRACKET, RBRACKET, LPAREN, RPAREN,
     NAME, STRING, NUMBER, COLON, COMMA, QUESTION,
@@ -10,6 +10,3 @@ enum TokenType {
     AND, OR, NOT,
     FUNCTION, EOF
 }
-
-/** Token 记录：类型、值、位置。 */
-record Token(TokenType type, String value, int pos) {}

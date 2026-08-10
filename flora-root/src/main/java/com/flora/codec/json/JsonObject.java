@@ -1,5 +1,7 @@
 package com.flora.codec.json;
 
+import com.flora.codec.json.impl.JsonConversions;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;

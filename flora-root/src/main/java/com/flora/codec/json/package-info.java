@@ -12,8 +12,10 @@
  * </ul>
  *
  * <p><b>包内实现细节（不应被外部直接依赖）</b>：
- * {@code JsonConversions} 是包级私有的原生值↔JsonValue 桥接类，调用方应经
+ * {@code com.flora.codec.json.impl} 子包承载内部实现：{@code JsonConversions} 是
+ * 原生值↔JsonValue 桥接类、{@code JsonPathTokenizer/JsonPathParser/JsonPathEvaluator}
+ * 是 JSONPath 引擎的词法/语法/求值内部类。调用方应经
  * {@link com.flora.codec.json.JsonObject#put(String, Object)} /
- * {@link com.flora.codec.json.JsonArray#add(Object)} 的自动包裹能力，而非直接使用它。</p>
+ * {@link com.flora.codec.json.JsonArray#add(Object)} 的自动包裹能力，而非直接使用它们。</p>
  */
 package com.flora.codec.json;

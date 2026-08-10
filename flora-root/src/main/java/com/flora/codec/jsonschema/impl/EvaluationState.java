@@ -1,4 +1,4 @@
-package com.flora.codec.jsonschema;
+package com.flora.codec.jsonschema.impl;
 
 import java.util.HashSet;
 import java.util.Set;

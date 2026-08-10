@@ -3,10 +3,10 @@ package com.flora.codec.jsonschema.validator;
 import com.flora.codec.json.JsonArray;
 import com.flora.codec.json.JsonObject;
 import com.flora.codec.json.JsonValue;
-import com.flora.codec.jsonschema.CompiledSchema;
-import com.flora.codec.jsonschema.SchemaNumbers;
-import com.flora.codec.jsonschema.SchemaRegistry;
-import com.flora.codec.jsonschema.ValidationContext;
+import com.flora.codec.jsonschema.impl.CompiledSchema;
+import com.flora.codec.jsonschema.impl.SchemaNumbers;
+import com.flora.codec.jsonschema.impl.SchemaRegistry;
+import com.flora.codec.jsonschema.impl.ValidationContext;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

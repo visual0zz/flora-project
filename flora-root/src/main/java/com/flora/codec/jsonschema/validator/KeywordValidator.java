@@ -1,6 +1,6 @@
 package com.flora.codec.jsonschema.validator;
 
-import com.flora.codec.jsonschema.ValidationContext;
+import com.flora.codec.jsonschema.impl.ValidationContext;
 
 /**
  * 单个关键字校验器。schema 编译阶段由各关键字构造，校验阶段按序执行。

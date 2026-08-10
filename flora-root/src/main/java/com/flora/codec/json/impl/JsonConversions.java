@@ -1,4 +1,12 @@
-package com.flora.codec.json;
+package com.flora.codec.json.impl;
+
+import com.flora.codec.json.JsonArray;
+import com.flora.codec.json.JsonBool;
+import com.flora.codec.json.JsonNull;
+import com.flora.codec.json.JsonNumber;
+import com.flora.codec.json.JsonObject;
+import com.flora.codec.json.JsonString;
+import com.flora.codec.json.JsonValue;
 
 import java.util.List;
 import java.util.Map;
@@ -11,13 +19,13 @@ import java.util.Map;
  * {@code Map} → {@link JsonObject}。其余类型（Bean 等）不适合直接包裹为标量值，
  * 调用方应先经 {@link JsonObject#fromBean} 转换。</p>
  */
-final class JsonConversions {
+public final class JsonConversions {
 
     private JsonConversions() {
     }
 
     /** 将原生值转为 {@link JsonValue}；已为 JsonValue 则原样返回。 */
-    static JsonValue toValue(Object value) {
+    public static JsonValue toValue(Object value) {
         if (value == null) return JsonNull.INSTANCE;
         if (value instanceof JsonValue) return (JsonValue) value;
         if (value instanceof String) return new JsonString((String) value);
@@ -42,7 +50,7 @@ final class JsonConversions {
     }
 
     /** 将 {@link JsonValue} 还原为原生值（深拷贝展开容器）。 */
-    static Object toNative(JsonValue value) {
+    public static Object toNative(JsonValue value) {
         return value.toNative();
     }
 }

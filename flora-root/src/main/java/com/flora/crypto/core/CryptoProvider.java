@@ -72,7 +72,7 @@ import java.util.function.Function;
  * {@code "CBC(AES)"}。以裸名（无参）查询一个需要参数的组合算法（如 {@code "HMac"}）会抛出
  * {@link IllegalArgumentException}，而不是用空参数数组调用工厂。</p>
  * <pre>{@code
- * CryptoProvider.register(AlgorithmKind.DERIVATION, new Pbkdf2Factory());
+ * CryptoProvider.register(AlgorithmKind.DERIVATION, Pbkdf2Factory.class);
  * // 查询时 DSL 自动解析依赖：
  * DerivationFunction kdf = CryptoProvider.derivationFunction("PBKDF2(HMac(SHA-256))");
  * }</pre>
@@ -114,56 +114,39 @@ public final class CryptoProvider {
         register(AlgorithmKind.KEM, JdkKemFactory.class);
 
         // ── KDF（依赖其他算法，DSL 自动解析）──
-        register(AlgorithmKind.DERIVATION, new Kdf2Factory());
-        register(AlgorithmKind.DERIVATION, new Pbkdf2Factory());
-        register(AlgorithmKind.DERIVATION, new HkdfFactory());
+        register(AlgorithmKind.DERIVATION, Kdf2Factory.class);
+        register(AlgorithmKind.DERIVATION, Pbkdf2Factory.class);
+        register(AlgorithmKind.DERIVATION, HkdfFactory.class);
 
         // ── 纯 Java 摘要实现 ──
-        register(AlgorithmKind.DIGEST, new Blake2bFactory());
-        register(AlgorithmKind.DIGEST, new Blake2b256Factory());
-        register(AlgorithmKind.DIGEST, new Blake2b512Factory());
-        register(AlgorithmKind.DIGEST, new Ripemd160Factory());
+        register(AlgorithmKind.DIGEST, Blake2bFactory.class);
+        register(AlgorithmKind.DIGEST, Blake2b256Factory.class);
+        register(AlgorithmKind.DIGEST, Blake2b512Factory.class);
+        register(AlgorithmKind.DIGEST, Ripemd160Factory.class);
 
         // ── 纯 Java MAC ──
-        register(AlgorithmKind.MAC, new Poly1305Factory());
-        register(AlgorithmKind.MAC, new HMacFactory());
+        register(AlgorithmKind.MAC, Poly1305Factory.class);
+        register(AlgorithmKind.MAC, HMacFactory.class);
 
         // ── 密码哈希 / KDF（盐、迭代、内存等参数经 init 传入）──
-        register(AlgorithmKind.DERIVATION, new Argon2Factory());
-        register(AlgorithmKind.DERIVATION, new BCryptFactory());
-        register(AlgorithmKind.DERIVATION, new ScryptFactory());
+        register(AlgorithmKind.DERIVATION, Argon2Factory.class);
+        register(AlgorithmKind.DERIVATION, BCryptFactory.class);
+        register(AlgorithmKind.DERIVATION, ScryptFactory.class);
 
         // ── 分组密码模式 ──
-        register(AlgorithmKind.BLOCK_CIPHER, new CbcFactory());
-        register(AlgorithmKind.BLOCK_CIPHER, new CfbFactory());
-        register(AlgorithmKind.BLOCK_CIPHER, new OfbFactory());
-        register(AlgorithmKind.BLOCK_CIPHER, new CtrFactory());
-        register(AlgorithmKind.BLOCK_CIPHER, new GcmFactory());
+        register(AlgorithmKind.BLOCK_CIPHER, CbcFactory.class);
+        register(AlgorithmKind.BLOCK_CIPHER, CfbFactory.class);
+        register(AlgorithmKind.BLOCK_CIPHER, OfbFactory.class);
+        register(AlgorithmKind.BLOCK_CIPHER, CtrFactory.class);
+        register(AlgorithmKind.BLOCK_CIPHER, GcmFactory.class);
 
         // ── 填充策略 ──
-        register(AlgorithmKind.BLOCK_CIPHER_PADDING, new Pkcs7Factory());
-        register(AlgorithmKind.BLOCK_CIPHER_PADDING, new Iso7816Factory());
-        register(AlgorithmKind.BLOCK_CIPHER_PADDING, new ZeroByteFactory());
+        register(AlgorithmKind.BLOCK_CIPHER_PADDING, Pkcs7Factory.class);
+        register(AlgorithmKind.BLOCK_CIPHER_PADDING, Iso7816Factory.class);
+        register(AlgorithmKind.BLOCK_CIPHER_PADDING, ZeroByteFactory.class);
     }
 
     // ── 注册 API ──
-
-    /**
-     * 注册一个算法工厂。
-     * <p>工厂自述 DSL 名、优先级、具体度与参数类型（见 {@link AlgorithmFactory}）；注册表会为工厂自述的
-     * 每个名字都登记同一条目。同名同优先级的多个候选按「具体度最小」裁决，平局报错。</p>
-     *
-     * @param role    算法族（如 {@link AlgorithmKind#DIGEST}）
-     * @param factory 自述型工厂
-     */
-    public static void register(AlgorithmKind role, AlgorithmFactory factory) {
-        CheckUtil.notNull(role, "算法族不能为空");
-        Set<String> names = factory.supportedAlgorithms();
-        CheckUtil.mustTrue(names != null && !names.isEmpty(), "算法名集合不能为空");
-        for (String name : names) {
-            register(role, factory, name);
-        }
-    }
 
     /**
      * 按类注册一个算法工厂（一条语句完成多重注册）。
@@ -243,9 +226,9 @@ public final class CryptoProvider {
         if (parsed instanceof String bareName) {
             return resolveName(bareName, hintFamily, new Object[0]);
         }
-        if (parsed instanceof DslParser.Invocation inv) {
-            Object[] args = resolveArgs(inv.args());
-            return resolveName(inv.name(), hintFamily, args);
+        if (parsed instanceof DslParser.Invocation(String name, Object[] args1)) {
+            Object[] args = resolveArgs(args1);
+            return resolveName(name, hintFamily, args);
         }
         // 字面量直接返回
         return parsed;

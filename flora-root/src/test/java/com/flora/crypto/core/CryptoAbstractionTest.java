@@ -1,5 +1,6 @@
 package com.flora.crypto.core;
 
+import com.flora.crypto.core.AlgorithmFactory;
 import com.flora.crypto.core.bridge.JdkDigest;
 import com.flora.crypto.core.interfaces.provider.Digest;
 import com.flora.crypto.core.interfaces.provider.Mac;
@@ -224,8 +225,7 @@ class CryptoAbstractionTest {
         assertInstanceOf(JdkDigest.class, CryptoProvider.digest("SHA-256"));
 
         // 注册自定义实现
-        CryptoProvider.register(AlgorithmKind.DIGEST,
-                AlgorithmFactory.of("MyHash", args -> new NoopDigest("MyHash", 7)));
+        CryptoProvider.register(AlgorithmKind.DIGEST, MyHashFactory.class);
         Digest custom = CryptoProvider.digest("MyHash");
         assertEquals("MyHash", custom.getAlgorithmName());
         assertEquals(7, custom.getDigestSize());
@@ -233,8 +233,7 @@ class CryptoAbstractionTest {
 
         // 覆盖同名 JDK 算法：注册 "SHA-1"（priority 100 > JdkDigest 的 0）后优先返回自定义。
         // 注意：注册表是 JVM 全局的，此处故意避开其它测试依赖的 "SHA-256" 以免污染。
-        CryptoProvider.register(AlgorithmKind.DIGEST,
-                AlgorithmFactory.of(Set.of("SHA-1"), 100, new Class<?>[0], args -> new NoopDigest("SHA-1", 9, 100)));
+        CryptoProvider.register(AlgorithmKind.DIGEST, Sha1OverrideFactory.class);
         Digest overridden = CryptoProvider.digest("SHA-1");
         assertInstanceOf(NoopDigest.class, overridden);
         assertEquals(9, overridden.getDigestSize());
@@ -242,61 +241,187 @@ class CryptoAbstractionTest {
 
     @Test
     void resolvesBySpecificity() {
-        String algo = "RESOLVE-SPEC-" + System.nanoTime();
         // 同 priority(0)：通用（specificity 3）vs 专用（specificity 1）→ 专用胜出
-        CryptoProvider.register(AlgorithmKind.DIGEST, new AlgorithmFactory() {
-            @Override
-            public Set<String> supportedAlgorithms() {
-                return Set.of(algo);
-            }
+        CryptoProvider.register(AlgorithmKind.DIGEST, SpecGenericFactory.class);
+        CryptoProvider.register(AlgorithmKind.DIGEST, SpecSpecialFactory.class);
 
-            @Override
-            public int priority() {
-                return 0;
-            }
-
-            @Override
-            public int specificity() {
-                return 3;
-            }
-
-            @Override
-            public Class<?>[] paramTypes() {
-                return new Class<?>[0];
-            }
-
-            @Override
-            public Object create(Object[] args) {
-                return new NoopDigest(algo, 1);
-            }
-        });
-        CryptoProvider.register(AlgorithmKind.DIGEST,
-                AlgorithmFactory.of(algo, args -> new NoopDigest(algo, 2)));
-
-        assertEquals(2, CryptoProvider.digest(algo).getDigestSize());
+        assertEquals(2, CryptoProvider.digest("RESOLVE-SPEC").getDigestSize());
     }
 
     @Test
     void resolvesByPriority() {
-        String algo = "RESOLVE-PRI-" + System.nanoTime();
-        // 同具体度（1 算法）：priority 0 vs 100 → 高者胜出
-        CryptoProvider.register(AlgorithmKind.DIGEST,
-                AlgorithmFactory.of(algo, args -> new NoopDigest(algo, 1)));
-        CryptoProvider.register(AlgorithmKind.DIGEST,
-                AlgorithmFactory.of(Set.of(algo), 100, new Class<?>[0], args -> new NoopDigest(algo, 2, 100)));
+        // 同具体度（1 名）：priority 0 vs 100 → 高者胜出
+        CryptoProvider.register(AlgorithmKind.DIGEST, PriLowFactory.class);
+        CryptoProvider.register(AlgorithmKind.DIGEST, PriHighFactory.class);
 
-        assertEquals(2, CryptoProvider.digest(algo).getDigestSize());
+        assertEquals(2, CryptoProvider.digest("RESOLVE-PRI").getDigestSize());
     }
 
     @Test
     void duplicateRegistrationThrows() {
-        String algo = "RESOLVE-DUP-" + System.nanoTime();
         // 同 priority 同具体度 → 平局报错
-        CryptoProvider.register(AlgorithmKind.DIGEST,
-                AlgorithmFactory.of(algo, args -> new NoopDigest(algo, 1)));
-        CryptoProvider.register(AlgorithmKind.DIGEST,
-                AlgorithmFactory.of(algo, args -> new NoopDigest(algo, 1)));
+        CryptoProvider.register(AlgorithmKind.DIGEST, DupFactory.class);
+        CryptoProvider.register(AlgorithmKind.DIGEST, DupFactory.class);
 
-        assertThrows(IllegalArgumentException.class, () -> CryptoProvider.digest(algo));
+        assertThrows(IllegalArgumentException.class, () -> CryptoProvider.digest("RESOLVE-DUP"));
+    }
+
+    public static final class MyHashFactory implements AlgorithmFactory {
+        @Override
+        public Set<String> supportedAlgorithms() {
+            return Set.of("MyHash");
+        }
+
+        @Override
+        public int priority() {
+            return 0;
+        }
+
+        @Override
+        public Class<?>[] paramTypes() {
+            return new Class<?>[0];
+        }
+
+        @Override
+        public Object create(Object[] args) {
+            return new NoopDigest("MyHash", 7);
+        }
+    }
+
+    public static final class Sha1OverrideFactory implements AlgorithmFactory {
+        @Override
+        public Set<String> supportedAlgorithms() {
+            return Set.of("SHA-1");
+        }
+
+        @Override
+        public int priority() {
+            return 100;
+        }
+
+        @Override
+        public Class<?>[] paramTypes() {
+            return new Class<?>[0];
+        }
+
+        @Override
+        public Object create(Object[] args) {
+            return new NoopDigest("SHA-1", 9, 100);
+        }
+    }
+
+    public static final class SpecGenericFactory implements AlgorithmFactory {
+        @Override
+        public Set<String> supportedAlgorithms() {
+            return Set.of("RESOLVE-SPEC");
+        }
+
+        @Override
+        public int priority() {
+            return 0;
+        }
+
+        @Override
+        public int specificity() {
+            return 3;
+        }
+
+        @Override
+        public Class<?>[] paramTypes() {
+            return new Class<?>[0];
+        }
+
+        @Override
+        public Object create(Object[] args) {
+            return new NoopDigest("RESOLVE-SPEC", 1);
+        }
+    }
+
+    public static final class SpecSpecialFactory implements AlgorithmFactory {
+        @Override
+        public Set<String> supportedAlgorithms() {
+            return Set.of("RESOLVE-SPEC");
+        }
+
+        @Override
+        public int priority() {
+            return 0;
+        }
+
+        @Override
+        public Class<?>[] paramTypes() {
+            return new Class<?>[0];
+        }
+
+        @Override
+        public Object create(Object[] args) {
+            return new NoopDigest("RESOLVE-SPEC", 2);
+        }
+    }
+
+    public static final class PriLowFactory implements AlgorithmFactory {
+        @Override
+        public Set<String> supportedAlgorithms() {
+            return Set.of("RESOLVE-PRI");
+        }
+
+        @Override
+        public int priority() {
+            return 0;
+        }
+
+        @Override
+        public Class<?>[] paramTypes() {
+            return new Class<?>[0];
+        }
+
+        @Override
+        public Object create(Object[] args) {
+            return new NoopDigest("RESOLVE-PRI", 1);
+        }
+    }
+
+    public static final class PriHighFactory implements AlgorithmFactory {
+        @Override
+        public Set<String> supportedAlgorithms() {
+            return Set.of("RESOLVE-PRI");
+        }
+
+        @Override
+        public int priority() {
+            return 100;
+        }
+
+        @Override
+        public Class<?>[] paramTypes() {
+            return new Class<?>[0];
+        }
+
+        @Override
+        public Object create(Object[] args) {
+            return new NoopDigest("RESOLVE-PRI", 2, 100);
+        }
+    }
+
+    public static final class DupFactory implements AlgorithmFactory {
+        @Override
+        public Set<String> supportedAlgorithms() {
+            return Set.of("RESOLVE-DUP");
+        }
+
+        @Override
+        public int priority() {
+            return 0;
+        }
+
+        @Override
+        public Class<?>[] paramTypes() {
+            return new Class<?>[0];
+        }
+
+        @Override
+        public Object create(Object[] args) {
+            return new NoopDigest("RESOLVE-DUP", 1);
+        }
     }
 }

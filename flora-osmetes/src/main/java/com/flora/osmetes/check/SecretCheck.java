@@ -5,7 +5,6 @@ import com.flora.osmetes.CheckIssue;
 import com.flora.osmetes.Severity;
 
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,8 +30,6 @@ import java.util.regex.Pattern;
  *   <li>值含非密钥语法符号（正则元字符、格式符、模板、路径、分隔符等，见
  *       {@link #NON_SECRET_SYNTAX}）或属常规公开结构（UUID、时间戳、十六进制摘要、URL、
  *       IPv4/IPv6、语义版本、算法名、路径、FQDN 等，见 {@link #KNOWN_FORMATS}）→ 按结构豁免；</li>
- *   <li>值形似 base64 → 解码后对字节求<b>熵密度</b>并辅以可打印比例判定
- *       （随机字节高熵 + 低可打印 → 密钥；编码文本高可打印 → 豁免）；</li>
  *   <li>其余值按长度 + 字符类别混合 + 香农熵评估，形似随机密钥 → 报告 <b>ERROR</b>。</li>
  * </ul>
  * 综合优先级：占位符整体豁免最优先；其次厂商前缀判 ERROR；其次语法/结构豁免；
@@ -40,7 +37,7 @@ import java.util.regex.Pattern;
  * <p>
  * 通用配置（经 {@link #configure(Map)} 传入）可调整阈值：阈值越低越激进（更易报），
  * 越高越保守。支持的子键（已剥离 {@code secret.} 前缀）：{@code minLength}、
- * {@code minClasses}、{@code minEntropy}、{@code minEntropyDensity}；
+ * {@code minClasses}、{@code minEntropy}；
  * 用户侧配置名分别为 {@code secret.minLength} 等。
  */
 public final class SecretCheck extends LineCheck {
@@ -82,9 +79,6 @@ public final class SecretCheck extends LineCheck {
     /** 通用候选：够长且由字母/数字/常见分隔符组成，再由熵与字符类别进一步判定。 */
     private static final Pattern GENERIC_ALNUM = Pattern.compile(
             "[A-Za-z0-9+/=_-]{16,}");
-
-    /** base64 形态（整值匹配）：标准字符集 + 可选 1~2 个 {@code =} 填充。 */
-    private static final Pattern BASE64 = Pattern.compile("[A-Za-z0-9+/]*={0,2}");
 
     /**
      * 值是显式的占位符 / 示例 / 假数据 → <b>整体豁免</b>，键名与值形态都不报。
@@ -191,12 +185,10 @@ public final class SecretCheck extends LineCheck {
 
     /** 通用候选被判定为密钥的最小长度。 */
     private int minLength = 16;
-    /** 非 base64 候选被判定为密钥所需的最少字母/数字类别（小写/大写/数字）数。 */
+    /** 候选被判定为密钥所需的最少字母/数字类别（小写/大写/数字）数。 */
     private int minClasses = 3;
-    /** 非 base64 候选被判定为密钥所需的最小归一化熵（{@code [0,1]}）。 */
+    /** 候选被判定为密钥所需的最小归一化熵（{@code [0,1]}）。 */
     private double minEntropy = 0.5;
-    /** base64 候选解码后的最小字节熵密度（{@code [0,1]}）。 */
-    private double minEntropyDensity = 0.7;
 
     @Override
     public String name() {
@@ -214,15 +206,12 @@ public final class SecretCheck extends LineCheck {
     static final String CONFIG_MIN_CLASSES = "minClasses";
     /** 通用配置子键（已剥离 {@code secret.} 前缀）：所需的最小归一化熵。 */
     static final String CONFIG_MIN_ENTROPY = "minEntropy";
-    /** 通用配置子键（已剥离 {@code secret.} 前缀）：base64 解码后的最小字节熵密度。 */
-    static final String CONFIG_MIN_ENTROPY_DENSITY = "minEntropyDensity";
 
     @Override
     public void configure(Map<String, String> properties) {
         applyInt(properties, CONFIG_MIN_LENGTH, v -> minLength = v);
         applyInt(properties, CONFIG_MIN_CLASSES, v -> minClasses = v);
         applyDouble(properties, CONFIG_MIN_ENTROPY, v -> minEntropy = v);
-        applyDouble(properties, CONFIG_MIN_ENTROPY_DENSITY, v -> minEntropyDensity = v);
     }
 
     @Override
@@ -362,8 +351,7 @@ public final class SecretCheck extends LineCheck {
 
     /**
      * 值内容是否像真实密钥：带典型厂商前缀直接判为密钥（前缀是高置信信号）；
-     * 形似 base64 则解码后按字节熵密度 + 可打印比例判定（随机字节高熵报，
-     * 编码文本高可打印豁免）；否则按"够长 + 字符类别混合 + 香农熵"判定。
+     * 否则按"够长 + 字符类别混合 + 香农熵"判定。
      */
     private boolean looksLikeSecret(String value) {
         if (!GENERIC_ALNUM.matcher(value).find()) {
@@ -371,11 +359,6 @@ public final class SecretCheck extends LineCheck {
         }
         if (value.length() < minLength) {
             return false;
-        }
-        if (isBase64(value)) {
-            byte[] bytes = decodeBase64(value);
-            return entropyDensity(bytes) >= minEntropyDensity
-                    && printableRatio(bytes) < 0.8;
         }
         if (alnumClasses(value) < minClasses) {
             return false;
@@ -402,74 +385,6 @@ public final class SecretCheck extends LineCheck {
             }
         }
         return Integer.bitCount(mask);
-    }
-
-    /** 值是否为合法 base64 形态（长度够、字符集正确、可解码、解码后至少 8 字节）。 */
-    private static boolean isBase64(String v) {
-        if (v.length() < 16 || v.length() % 4 == 1) {
-            return false;
-        }
-        if (!BASE64.matcher(v).matches()) {
-            return false;
-        }
-        // 纯字母串（无数字、无 +/= 符号）几乎不可能是 base64 密钥：真实 base64 凭据高度
-        // 混有数字与填充/符号。把纯字母标识符（如 exclusiveMaximum、addresses）误当 base64
-        // 解码会得到高熵随机观感的字节而被误判为密钥，故在此排除。
-        if (PURE_ALPHA.matcher(v).matches()) {
-            return false;
-        }
-        return decodeBase64(v).length >= 8;
-    }
-
-    /** 纯字母串（不含数字与 +/= 符号）：标识符/单词而非 base64。 */
-    private static final Pattern PURE_ALPHA = Pattern.compile("[A-Za-z]+");
-
-    /** base64 解码；解码失败返回空数组（调用方已保证形态合法，此处兜底）。 */
-    private static byte[] decodeBase64(String v) {
-        try {
-            return Base64.getDecoder().decode(v);
-        } catch (IllegalArgumentException e) {
-            return new byte[0];
-        }
-    }
-
-    /** 字节数组的归一化熵密度：香农熵 / log2(实际出现的不同字节数)，范围 {@code [0,1]}。 */
-    private static double entropyDensity(byte[] data) {
-        int[] freq = new int[256];
-        int distinct = 0;
-        for (byte b : data) {
-            int v = b & 0xFF;
-            if (freq[v]++ == 0) {
-                distinct++;
-            }
-        }
-        if (distinct <= 1) {
-            return 0;
-        }
-        double h = 0;
-        for (int f : freq) {
-            if (f == 0) {
-                continue;
-            }
-            double p = (double) f / data.length;
-            h -= p * (Math.log(p) / Math.log(2));
-        }
-        return h / (Math.log(distinct) / Math.log(2));
-    }
-
-    /** 可打印 ASCII（含空白）字节占解码数据的比例：文本高、随机字节低。 */
-    private static double printableRatio(byte[] data) {
-        if (data.length == 0) {
-            return 0;
-        }
-        int printable = 0;
-        for (byte b : data) {
-            int v = b & 0xFF;
-            if ((v >= 0x20 && v <= 0x7E) || v == '\n' || v == '\r' || v == '\t') {
-                printable++;
-            }
-        }
-        return (double) printable / data.length;
     }
 
     /**

@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@link SecretCheck} 的综合判定测试：扫描字符串字面量与裸标量候选，
- * 厂商前缀 / 熵 / base64 熵密度→ERROR，占位符 / 正则 / 格式串 / 常规结构→豁免。
+ * 厂商前缀 / 熵→ERROR，占位符 / 正则 / 格式串 / 常规结构→豁免。
  */
 class SecretCheckTest {
 
@@ -221,23 +221,6 @@ class SecretCheckTest {
         assertTrue(run("class C { String manifest = \"Manifest-Version: 1.0\\nMain-Class: X\\n\"; }")
                         .isEmpty(),
                 "多行文本不应报: ");
-    }
-
-    @Test
-    void base64RandomKeyReportsError() throws IOException {
-        // base64 形态值：解码后为随机字节（高熵 + 低可打印比例）→ 判为密钥
-        List<CheckIssue> issues = run("class C { String data = \"jxt9grYXCCNDUV/lJMiVUKkHQjr6r0vg\"; }");
-        assertEquals(1, issues.size(), "高熵 base64 应报 ERROR: " + issues);
-        assertEquals(Severity.ERROR, issues.getFirst().severity());
-    }
-
-    @Test
-    void base64EncodedTextIsSilent() throws IOException {
-        // base64 编码的普通文本：解码后可打印比例高 → 豁免
-        assertTrue(run("class C { String msg = "
-                        + "\"SGVsbG8gV29ybGQhIFRoaXMgaXMgYSByZWd1bGFyIHRleHQgbWVzc2FnZSBmb3IgZW50cm9weSB0ZXN0Lg==\"; }")
-                        .isEmpty(),
-                "base64 文本不应报告: ");
     }
 
     @Test

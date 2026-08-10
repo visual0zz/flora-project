@@ -39,6 +39,15 @@ class GeminiProtocolTest {
     }
 
     @Test
+    void buildRequestSystemRoleRejected() {
+        ChatRequest req = ChatRequest.builder()
+                .message(Message.of(Message.Role.SYSTEM, "you are gemini"))
+                .build();
+        assertThrows(IllegalArgumentException.class,
+                () -> GeminiProtocol.buildRequestMap(req, null));
+    }
+
+    @Test
     void buildRequestImageInlineData() {
         Message m = new Message(Message.Role.USER, List.of(
                 new ContentBlock.Text("look"),

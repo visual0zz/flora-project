@@ -39,6 +39,21 @@ class OpenAiProtocolTest {
     }
 
     @Test
+    void buildRequestSystemRolePassthrough() {
+        ChatRequest req = ChatRequest.builder()
+                .messages(List.of(
+                        Message.of(Message.Role.SYSTEM, "be nice"),
+                        Message.of(Message.Role.USER, "hello")))
+                .build();
+        Map<String, Object> body = OpenAiProtocol.buildRequestMap(req, MODEL, false);
+        List<?> messages = (List<?>) body.get("messages");
+        assertEquals(2, messages.size());
+        assertEquals("system", ((Map<?, ?>) messages.get(0)).get("role"));
+        assertEquals("be nice", ((Map<?, ?>) messages.get(0)).get("content"));
+        assertEquals("user", ((Map<?, ?>) messages.get(1)).get("role"));
+    }
+
+    @Test
     void buildRequestSampling() {
         ChatRequest req = ChatRequest.builder()
                 .message(Message.of(Message.Role.USER, "hi"))

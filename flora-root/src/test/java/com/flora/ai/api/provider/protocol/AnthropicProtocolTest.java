@@ -36,6 +36,21 @@ class AnthropicProtocolTest {
     }
 
     @Test
+    void buildRequestSystemRoleMergedToTopLevel() {
+        ChatRequest req = ChatRequest.builder()
+                .system("top level")
+                .messages(List.of(
+                        Message.of(Message.Role.SYSTEM, "role level"),
+                        Message.of(Message.Role.USER, "hi")))
+                .build();
+        Map<String, Object> body = AnthropicProtocol.buildRequestMap(req, MODEL, false, null);
+        assertEquals("top level\n\nrole level", body.get("system"), "顶层字段与 SYSTEM 消息按序合并");
+        List<?> messages = (List<?>) body.get("messages");
+        assertEquals(1, messages.size(), "SYSTEM 角色消息不应出现在 messages");
+        assertEquals("user", ((Map<?, ?>) messages.get(0)).get("role"));
+    }
+
+    @Test
     void buildRequestDefaultMaxTokens() {
         ChatRequest req = ChatRequest.builder()
                 .message(Message.of(Message.Role.USER, "hi"))

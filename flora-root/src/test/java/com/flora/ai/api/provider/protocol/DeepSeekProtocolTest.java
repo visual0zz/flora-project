@@ -30,6 +30,20 @@ class DeepSeekProtocolTest {
     }
 
     @Test
+    void buildRequestSystemRolePassthrough() {
+        ChatRequest req = ChatRequest.builder()
+                .messages(List.of(
+                        Message.of(Message.Role.SYSTEM, "be concise"),
+                        Message.of(Message.Role.USER, "hi")))
+                .build();
+        Map<String, Object> body = DeepSeekProtocol.buildRequestMap(req, MODEL, false, null);
+        List<?> messages = (List<?>) body.get("messages");
+        assertEquals(2, messages.size());
+        assertEquals("system", ((Map<?, ?>) messages.get(0)).get("role"));
+        assertEquals("be concise", ((Map<?, ?>) messages.get(0)).get("content"));
+    }
+
+    @Test
     void buildRequestJsonObject() {
         ChatRequest req = ChatRequest.builder()
                 .message(Message.of(Message.Role.USER, "hi"))

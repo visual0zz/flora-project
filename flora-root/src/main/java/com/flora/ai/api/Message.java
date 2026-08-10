@@ -4,8 +4,9 @@ import java.util.List;
 
 /**
  * 消息：角色 + 内容块列表 + 工具调用信息。
- * <p>系统提示不在此处表示，而是 {@link com.flora.ai.api.ChatRequest#system()} 顶层字段
- * （与 Anthropic/Gemini 的原生顶层 system 对齐，OpenAI 在协议层再合成 system 消息）。
+ * <p>系统提示既可由 {@link com.flora.ai.api.ChatRequest#system()} 顶层字段承载，
+ * 也可用角色 {@code SYSTEM} 的消息表示：OpenAI/DeepSeek 原生透传，Anthropic
+ * 在协议层提取进顶层 system（消息数组无 system 角色），Gemini 不支持（报错）。
  * 角色 {@code TOOL} 的消息用 {@code toolCallId} 回执对应调用；角色 {@code ASSISTANT}
  * 的消息可含 {@code toolCalls}（模型发起调用）；{@code name} 标记调用名（TOOL 消息用）。</p>
  */
@@ -20,7 +21,7 @@ public record Message(Role role, List<ContentBlock> content,
     }
 
     public enum Role {
-        USER, ASSISTANT, TOOL
+        USER, ASSISTANT, TOOL, SYSTEM
     }
 
     /** 便捷：拼接全部文本块的内容（忽略图片/音频/文件块）。 */

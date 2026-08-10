@@ -45,6 +45,10 @@ public final class GeminiProtocol {
         // contents：user → "user"、assistant → "model"；system 走顶层 systemInstruction
         List<Object> contents = new ArrayList<>();
         for (Message m : req.messages()) {
+            if (m.role() == Message.Role.SYSTEM) {
+                throw new IllegalArgumentException(
+                        "Gemini 不支持 SYSTEM 角色消息，请改用 ChatRequest.system() 顶层系统提示");
+            }
             Map<String, Object> content = new LinkedHashMap<>();
             String role = m.role() == Message.Role.ASSISTANT ? "model" : "user";
             // 工具结果回执：role=user + functionResponse part

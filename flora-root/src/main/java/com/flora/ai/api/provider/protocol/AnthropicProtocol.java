@@ -48,9 +48,21 @@ public final class AnthropicProtocol {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", modelId);
 
-        // 顶层 system（统一抽象中的 ChatRequest.system 字段）
+        // 顶层 system：ChatRequest.system 字段 + SYSTEM 角色消息（按序合并；Anthropic 无 system 角色）
+        StringBuilder system = new StringBuilder();
         if (req.system() != null && !req.system().isBlank()) {
-            body.put("system", req.system());
+            system.append(req.system());
+        }
+        for (Message m : req.messages()) {
+            if (m.role() == Message.Role.SYSTEM) {
+                if (!system.isEmpty()) {
+                    system.append("\n\n");
+                }
+                system.append(m.text());
+            }
+        }
+        if (!system.isEmpty()) {
+            body.put("system", system.toString());
         }
 
         body.put("messages", buildMessages(req.messages()));
@@ -116,6 +128,9 @@ public final class AnthropicProtocol {
     private static List<Object> buildMessages(List<Message> messages) {
         List<Object> list = new ArrayList<>();
         for (Message m : messages) {
+            if (m.role() == Message.Role.SYSTEM) {
+                continue; // 已并入顶层 system
+            }
             Map<String, Object> msg = new LinkedHashMap<>();
             if (m.role() == Message.Role.TOOL) {
                 // 工具结果：role=user + tool_result 块（content 支持 text/image 块数组）

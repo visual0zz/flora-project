@@ -1,4 +1,6 @@
-package com.flora.codec.json;
+package com.flora.codec.json.model;
+
+import com.flora.codec.json.JsonBuilder;
 
 /**
  * JSON 字符串值，包裹 {@link String}。

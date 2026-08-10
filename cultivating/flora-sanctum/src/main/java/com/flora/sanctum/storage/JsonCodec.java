@@ -1,8 +1,8 @@
 package com.flora.sanctum.storage;
 
 import com.flora.codec.JsonUtil;
-import com.flora.codec.json.JsonArray;
-import com.flora.codec.json.JsonObject;
+import com.flora.codec.json.model.JsonArray;
+import com.flora.codec.json.model.JsonObject;
 
 /**
  * JSON 编解码门面。

@@ -1,8 +1,8 @@
 package com.flora.codec.jsonschema.impl;
 
-import com.flora.codec.json.JsonArray;
-import com.flora.codec.json.JsonObject;
-import com.flora.codec.json.JsonValue;
+import com.flora.codec.json.model.JsonArray;
+import com.flora.codec.json.model.JsonObject;
+import com.flora.codec.json.model.JsonValue;
 import com.flora.codec.jsonschema.validator.ArrayValidator;
 import com.flora.codec.jsonschema.validator.CombinatorValidator;
 import com.flora.codec.jsonschema.validator.EnumValidator;

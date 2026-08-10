@@ -1,4 +1,6 @@
-package com.flora.codec.json;
+package com.flora.codec.json.model;
+
+import com.flora.codec.json.JsonBuilder;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;

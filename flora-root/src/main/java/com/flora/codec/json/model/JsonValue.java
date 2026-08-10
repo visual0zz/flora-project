@@ -1,11 +1,12 @@
-package com.flora.codec.json;
+package com.flora.codec.json.model;
 
 import java.util.Map;
 
 /**
  * JSON 值模型的根接口，统一表达 JSON 的六种类型（object / array / string / number / boolean / null）。
- * <p>解析器 {@link JsonParser} 直接产出实现本接口的类型，序列化器 {@link JsonBuilder} 与
- * 路径引擎 {@link JsonPath} 均基于本接口遍历与读写，使 {@code JsonValue} 成为整个 JSON 工具的内部核心数据。</p>
+ * <p>解析器 {@link com.flora.codec.json.JsonParser} 直接产出实现本接口的类型，序列化器
+ * {@link com.flora.codec.json.JsonBuilder} 与路径引擎 {@link com.flora.codec.json.path.JsonPath}
+ * 均基于本接口遍历与读写，使 {@code JsonValue} 成为整个 JSON 工具的内部核心数据。</p>
  * <p>各实现提供类型谓词（{@link #isObject()} 等）与强类型取值（{@link #asObject()} 等），
  * 取值不符合当前类型时抛出 {@link IllegalStateException}。标量值（{@link JsonString} /
  * {@link JsonNumber} / {@link JsonBool} / {@link JsonNull}）直接包裹原生 Java 类型，

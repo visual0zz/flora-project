@@ -1,4 +1,4 @@
-package com.flora.codec.json.impl;
+package com.flora.codec.json.path.impl;
 
 /** Token 类型枚举。 */
 public enum TokenType {

@@ -1,7 +1,7 @@
 package com.flora.codec.jsonschema.impl;
 
-import com.flora.codec.json.JsonNumber;
-import com.flora.codec.json.JsonValue;
+import com.flora.codec.json.model.JsonNumber;
+import com.flora.codec.json.model.JsonValue;
 
 import java.math.BigDecimal;
 

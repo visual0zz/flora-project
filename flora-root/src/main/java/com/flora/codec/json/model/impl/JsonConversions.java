@@ -1,12 +1,12 @@
-package com.flora.codec.json.impl;
+package com.flora.codec.json.model.impl;
 
-import com.flora.codec.json.JsonArray;
-import com.flora.codec.json.JsonBool;
-import com.flora.codec.json.JsonNull;
-import com.flora.codec.json.JsonNumber;
-import com.flora.codec.json.JsonObject;
-import com.flora.codec.json.JsonString;
-import com.flora.codec.json.JsonValue;
+import com.flora.codec.json.model.JsonArray;
+import com.flora.codec.json.model.JsonBool;
+import com.flora.codec.json.model.JsonNull;
+import com.flora.codec.json.model.JsonNumber;
+import com.flora.codec.json.model.JsonObject;
+import com.flora.codec.json.model.JsonString;
+import com.flora.codec.json.model.JsonValue;
 
 import java.util.List;
 import java.util.Map;

@@ -1,7 +1,7 @@
 package com.flora.codec.jsonl;
 
 import com.flora.codec.JsonUtil;
-import com.flora.codec.json.JsonObject;
+import com.flora.codec.json.model.JsonObject;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;

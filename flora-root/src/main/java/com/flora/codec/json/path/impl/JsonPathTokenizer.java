@@ -1,4 +1,4 @@
-package com.flora.codec.json.impl;
+package com.flora.codec.json.path.impl;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,7 +1,7 @@
 package com.flora.codec.jsonschema.validator;
 
-import com.flora.codec.json.JsonObject;
-import com.flora.codec.json.JsonValue;
+import com.flora.codec.json.model.JsonObject;
+import com.flora.codec.json.model.JsonValue;
 import com.flora.codec.jsonschema.impl.CompiledSchema;
 import com.flora.codec.jsonschema.impl.SchemaRegistry;
 import com.flora.codec.jsonschema.impl.ValidationContext;

@@ -3,7 +3,7 @@ package com.flora.codec.jsonl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import com.flora.codec.json.JsonObject;
+import com.flora.codec.json.model.JsonObject;
 
 import java.nio.file.Path;
 import java.util.Map;

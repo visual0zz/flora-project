@@ -34,7 +34,7 @@ public final class JsonStores {
                 return (T) parsed;
             }
             if (Map.class.isAssignableFrom(type) || List.class.isAssignableFrom(type)) {
-                Object nativeTree = ((com.flora.codec.json.JsonValue) parsed).toNative();
+                Object nativeTree = ((com.flora.codec.json.model.JsonValue) parsed).toNative();
                 if (type.isInstance(nativeTree)) {
                     return (T) nativeTree;
                 }

@@ -1,5 +1,8 @@
 package com.flora.codec.json;
 
+import com.flora.codec.json.model.JsonIgnore;
+import com.flora.codec.json.model.JsonValue;
+
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.InaccessibleObjectException;

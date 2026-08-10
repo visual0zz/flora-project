@@ -1,11 +1,11 @@
 package com.flora.codec;
 
-import com.flora.codec.json.JsonArray;
 import com.flora.codec.json.JsonBuilder;
-import com.flora.codec.json.JsonObject;
 import com.flora.codec.json.JsonParser;
-import com.flora.codec.json.JsonPath;
-import com.flora.codec.json.JsonValue;
+import com.flora.codec.json.model.JsonArray;
+import com.flora.codec.json.model.JsonObject;
+import com.flora.codec.json.model.JsonValue;
+import com.flora.codec.json.path.JsonPath;
 import com.flora.tag.ModuleEntry;
 
 import java.util.List;

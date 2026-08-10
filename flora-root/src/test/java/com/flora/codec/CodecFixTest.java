@@ -1,9 +1,9 @@
 package com.flora.codec;
 
 import com.flora.codec.json.JsonBuilder;
-import com.flora.codec.json.JsonIgnore;
-import com.flora.codec.json.JsonNumber;
 import com.flora.codec.json.JsonParser;
+import com.flora.codec.json.model.JsonIgnore;
+import com.flora.codec.json.model.JsonNumber;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

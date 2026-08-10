@@ -1,4 +1,4 @@
-package com.flora.codec.json;
+package com.flora.codec.json.model;
 
 /**
  * JSON 布尔值，包裹 {@code boolean}。

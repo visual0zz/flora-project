@@ -1,4 +1,4 @@
-package com.flora.codec.json;
+package com.flora.codec.json.model;
 
 /**
  * JSON null 值。单例 {@link #INSTANCE} 复用，无状态。

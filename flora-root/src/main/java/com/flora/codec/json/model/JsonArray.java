@@ -1,6 +1,7 @@
-package com.flora.codec.json;
+package com.flora.codec.json.model;
 
-import com.flora.codec.json.impl.JsonConversions;
+import com.flora.codec.json.JsonBuilder;
+import com.flora.codec.json.model.impl.JsonConversions;
 
 import java.util.ArrayList;
 import java.util.Collections;

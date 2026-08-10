@@ -1,4 +1,6 @@
-package com.flora.codec.json;
+package com.flora.codec.json.model;
+
+import com.flora.codec.json.JsonParser;
 
 import org.junit.jupiter.api.Test;
 

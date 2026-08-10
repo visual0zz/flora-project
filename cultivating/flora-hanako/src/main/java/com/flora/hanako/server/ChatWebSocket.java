@@ -52,8 +52,8 @@ public final class ChatWebSocket {
     private static Map<String, Object> asMap(String raw) {
         try {
             Object v = com.flora.codec.json.JsonParser.parse(raw);
-            if (v instanceof com.flora.codec.json.JsonObject) {
-                return ((com.flora.codec.json.JsonObject) v).toMap();
+            if (v instanceof com.flora.codec.json.model.JsonObject) {
+                return ((com.flora.codec.json.model.JsonObject) v).toMap();
             }
         } catch (RuntimeException ignored) {
             // 非法 JSON

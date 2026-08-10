@@ -1,10 +1,11 @@
-package com.flora.codec.json;
+package com.flora.codec.json.path;
 
-import com.flora.codec.json.impl.JsonPathEvaluator;
-import com.flora.codec.json.impl.JsonPathParser;
-import com.flora.codec.json.impl.JsonPathTokenizer;
-import com.flora.codec.json.impl.Selector;
-import com.flora.codec.json.impl.Token;
+import com.flora.codec.json.model.JsonValue;
+import com.flora.codec.json.path.impl.JsonPathEvaluator;
+import com.flora.codec.json.path.impl.JsonPathParser;
+import com.flora.codec.json.path.impl.JsonPathTokenizer;
+import com.flora.codec.json.path.impl.Selector;
+import com.flora.codec.json.path.impl.Token;
 
 import java.util.ArrayList;
 import java.util.Collections;

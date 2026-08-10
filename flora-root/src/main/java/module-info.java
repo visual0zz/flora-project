@@ -106,6 +106,8 @@ module com.flora.root {
     exports com.flora.mock.regex.automaton;
     // 操作系统与路径相关工具
     exports com.flora.os;
+    // 跨平台终端 ANSI 颜色与样式工具
+    exports com.flora.os.shell.color;
     // 基于 JDK FFM 的本地动态库调用封装
     exports com.flora.os.natives.ffm;
     // 运行时配置加载

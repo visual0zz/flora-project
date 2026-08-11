@@ -93,6 +93,20 @@ class NewCoreSmokeTest {
                 CryptoProvider.resolve("Poly1305"));
         assertInstanceOf(com.flora.crypto.newcore.impl.HMac.class,
                 CryptoProvider.resolve("HMac(SHA-256)"));
+
+        // 密钥派生 / 口令哈希
+        assertInstanceOf(com.flora.crypto.newcore.impl.Pbkdf2DerivationFunction.class,
+                CryptoProvider.resolve("PBKDF2(HMac(SHA-256))"));
+        assertInstanceOf(com.flora.crypto.newcore.impl.Kdf2DerivationFunction.class,
+                CryptoProvider.resolve("KDF2(SHA-256)"));
+        assertInstanceOf(com.flora.crypto.newcore.impl.HkdfDerivationFunction.class,
+                CryptoProvider.resolve("HKDF(HMac(SHA-256))"));
+        assertInstanceOf(com.flora.crypto.newcore.impl.Scrypt.class,
+                CryptoProvider.resolve("scrypt"));
+        assertInstanceOf(com.flora.crypto.newcore.impl.BCrypt.class,
+                CryptoProvider.resolve("bcrypt"));
+        assertInstanceOf(com.flora.crypto.newcore.impl.Argon2.class,
+                CryptoProvider.resolve("Argon2id"));
     }
 
     @Test

@@ -30,10 +30,16 @@ import com.flora.crypto.newcore.link.SICBlockCipher;
 import com.flora.crypto.newcore.bridge.JdkBlockCipher;
 import com.flora.crypto.newcore.bridge.JdkDigest;
 import com.flora.crypto.newcore.bridge.JdkMac;
+import com.flora.crypto.newcore.impl.Argon2;
+import com.flora.crypto.newcore.impl.BCrypt;
 import com.flora.crypto.newcore.impl.Blake2bDigest;
 import com.flora.crypto.newcore.impl.HMac;
+import com.flora.crypto.newcore.impl.HkdfDerivationFunction;
+import com.flora.crypto.newcore.impl.Kdf2DerivationFunction;
+import com.flora.crypto.newcore.impl.Pbkdf2DerivationFunction;
 import com.flora.crypto.newcore.impl.Poly1305Mac;
 import com.flora.crypto.newcore.impl.Ripemd160Digest;
+import com.flora.crypto.newcore.impl.Scrypt;
 import com.flora.crypto.newcore.wrapper.BufferedBlockCipherWrapper;
 import com.flora.crypto.newcore.wrapper.PaddedBufferedBlockCipherWrapper;
 import com.flora.crypto.newcore.padding.ISO7816d4Padding;
@@ -99,6 +105,13 @@ public final class CryptoProvider {
         REGISTRY.register(Ripemd160Digest.FACTORY);
         REGISTRY.register(Poly1305Mac.FACTORY);
         REGISTRY.register(HMac.FACTORY);
+        // 密钥派生 / 口令哈希
+        REGISTRY.register(Pbkdf2DerivationFunction.FACTORY);
+        REGISTRY.register(Kdf2DerivationFunction.FACTORY);
+        REGISTRY.register(HkdfDerivationFunction.FACTORY);
+        REGISTRY.register(Scrypt.FACTORY);
+        REGISTRY.register(BCrypt.FACTORY);
+        REGISTRY.register(Argon2.FACTORY);
         // 对称填充
         REGISTRY.register(PKCS7Padding.FACTORY);
         REGISTRY.register(ISO7816d4Padding.FACTORY);

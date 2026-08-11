@@ -107,6 +107,9 @@ class NewCoreSmokeTest {
                 CryptoProvider.resolve("bcrypt"));
         assertInstanceOf(com.flora.crypto.newcore.impl.Argon2.class,
                 CryptoProvider.resolve("Argon2id"));
+        // AEAD 流式密码
+        assertInstanceOf(com.flora.crypto.newcore.impl.ChaCha20Poly1305.class,
+                CryptoProvider.resolve("ChaCha20Poly1305"));
     }
 
     @Test

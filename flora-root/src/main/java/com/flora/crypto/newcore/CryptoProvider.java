@@ -33,13 +33,19 @@ import com.flora.crypto.newcore.bridge.JdkMac;
 import com.flora.crypto.newcore.impl.Argon2;
 import com.flora.crypto.newcore.impl.BCrypt;
 import com.flora.crypto.newcore.impl.Blake2bDigest;
+import com.flora.crypto.newcore.impl.ChaCha20Engine;
+import com.flora.crypto.newcore.impl.ChaCha20Poly1305;
 import com.flora.crypto.newcore.impl.HMac;
 import com.flora.crypto.newcore.impl.HkdfDerivationFunction;
 import com.flora.crypto.newcore.impl.Kdf2DerivationFunction;
 import com.flora.crypto.newcore.impl.Pbkdf2DerivationFunction;
+import com.flora.crypto.newcore.impl.PlaceholderDerivationFunction;
+import com.flora.crypto.newcore.impl.PlaceholderKem;
+import com.flora.crypto.newcore.impl.PlaceholderXof;
 import com.flora.crypto.newcore.impl.Poly1305Mac;
 import com.flora.crypto.newcore.impl.Ripemd160Digest;
 import com.flora.crypto.newcore.impl.Scrypt;
+import com.flora.crypto.newcore.impl.SecretWithEncapsulationImpl;
 import com.flora.crypto.newcore.wrapper.BufferedBlockCipherWrapper;
 import com.flora.crypto.newcore.wrapper.PaddedBufferedBlockCipherWrapper;
 import com.flora.crypto.newcore.padding.ISO7816d4Padding;
@@ -112,6 +118,12 @@ public final class CryptoProvider {
         REGISTRY.register(Scrypt.FACTORY);
         REGISTRY.register(BCrypt.FACTORY);
         REGISTRY.register(Argon2.FACTORY);
+        // AEAD 与流式密码原语
+        REGISTRY.register(ChaCha20Poly1305.FACTORY);
+        // 占位实现（未接入真实引擎的算法兜底）
+        REGISTRY.register(PlaceholderDerivationFunction.FACTORY);
+        REGISTRY.register(PlaceholderKem.FACTORY);
+        REGISTRY.register(PlaceholderXof.FACTORY);
         // 对称填充
         REGISTRY.register(PKCS7Padding.FACTORY);
         REGISTRY.register(ISO7816d4Padding.FACTORY);

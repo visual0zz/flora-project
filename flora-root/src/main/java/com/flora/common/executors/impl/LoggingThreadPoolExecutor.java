@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class LoggingThreadPoolExecutor extends ThreadPoolExecutor {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("com.flora.common.executors");
+    private static final Logger LOGGER = LoggerFactory.getLogger(LoggingThreadPoolExecutor.class);
 
     public LoggingThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime,
                                      TimeUnit unit, BlockingQueue<Runnable> workQueue,

@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class FloraThreadFactory implements ThreadFactory {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("com.flora.common.executors");
+    private static final Logger LOGGER = LoggerFactory.getLogger(FloraThreadFactory.class);
 
     private final String prefix;
     private final AtomicLong seq = new AtomicLong();

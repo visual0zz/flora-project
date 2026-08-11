@@ -16,7 +16,7 @@ import java.util.concurrent.ThreadFactory;
  */
 public class LoggingScheduledThreadPoolExecutor extends ScheduledThreadPoolExecutor {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("com.flora.common.executors");
+    private static final Logger LOGGER = LoggerFactory.getLogger(LoggingScheduledThreadPoolExecutor.class);
 
     public LoggingScheduledThreadPoolExecutor(int corePoolSize, ThreadFactory threadFactory,
                                               RejectedExecutionHandler handler) {

@@ -1,13 +1,13 @@
 package com.flora.crypto.newcore.interfaces.provider;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamily;
 
 /**
  * 摘要（散列）引擎接口。
  * <p>对应常见算法：SHA-256 / SHA-512 / MD5 等。仅暴露每族真正共有的操作：update / doFinal / reset。</p>
  */
-public interface Digest extends Algorithm<AlgorithmFactory<? extends Digest>> {
+public interface Digest extends Algorithm<AlgorithmFamily<? extends Digest>> {
 
     /** @return 摘要字节长度 */
     int getDigestSize();

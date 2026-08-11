@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore;
 
-import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.common.algorithm.AlgorithmRegistry;
+import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFamilyRegister;
 import com.flora.java.CheckUtil;
 import com.flora.tag.ModuleEntry;
 
@@ -10,34 +10,34 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 算法工厂注册中心。
- * <p>算法工厂通过 {@link #register(AlgorithmFactory)} 注册；约定所有算法全局不同名，
+ * <p>算法工厂通过 {@link #register(AlgorithmFamily)} 注册；约定所有算法全局不同名，
  * 重复注册同名算法视为错误。查询时按算法名 + 目标角色接口（继承 {@link Algorithm} 的接口）
  * 取回对应的算法对象。</p>
  */
 @ModuleEntry
-public final class AlgorithmFactoryRegistry implements AlgorithmRegistry {
+public final class CryptoAlgorithmFamilyRegister implements AlgorithmFamilyRegister {
 
-    private AlgorithmFactoryRegistry() {}
+    private CryptoAlgorithmFamilyRegister() {}
 
     /** 算法名 → 工厂。全局唯一，同名即冲突。 */
-    private final Map<String, AlgorithmFactory<?>> REGISTRY = new ConcurrentHashMap<>();
+    private final Map<String, AlgorithmFamily<?>> REGISTRY = new ConcurrentHashMap<>();
 
     /**
      * 注册一个算法工厂。
-     * <p>工厂自述 {@link AlgorithmFactory#supportedAlgorithms()} 返回其支持的全部算法名（全集），
+     * <p>工厂自述 {@link AlgorithmFamily#supportedAlgorithms()} 返回其支持的全部算法名（全集），
      * 每个名字在全局注册表中须唯一，重复注册同名算法将抛错。</p>
      *
      * @param factory 算法工厂实例
      * @throws IllegalArgumentException 工厂支持集合为空或包含已注册的同名算法
      */
-    public void register(AlgorithmFactory<?> factory) {
+    public void register(AlgorithmFamily<?> factory) {
         CheckUtil.notNull(factory, "算法工厂不能为空");
         var names = factory.supportedAlgorithms();
         CheckUtil.mustTrue(names != null && !names.isEmpty(),
                 factory.getClass().getSimpleName() + " 的 supportedAlgorithms() 返回空集合");
         for (String name : names) {
             CheckUtil.notEmpty(name, "算法名不能为空");
-            AlgorithmFactory<?> existing = REGISTRY.putIfAbsent(name, factory);
+            AlgorithmFamily<?> existing = REGISTRY.putIfAbsent(name, factory);
             if (existing != null) {
                 throw new IllegalArgumentException(
                         "算法名 '" + name + "' 已被 " + existing.getClass().getSimpleName()
@@ -58,10 +58,10 @@ public final class AlgorithmFactoryRegistry implements AlgorithmRegistry {
      * @throws UnregisteredAlgorithmException 该算法名未注册
      * @throws IllegalArgumentException       注册的工厂不是 {@code factoryType} 所指的类型
      */
-    public <F extends AlgorithmFactory<?>> F get(String name, Class<F> factoryType) {
+    public <F extends AlgorithmFamily<?>> F get(String name, Class<F> factoryType) {
         CheckUtil.notEmpty(name, "算法名不能为空");
         CheckUtil.notNull(factoryType, "工厂类型不能为空");
-        AlgorithmFactory<?> factory = REGISTRY.get(name);
+        AlgorithmFamily<?> factory = REGISTRY.get(name);
         if (factory == null) {
             throw new UnregisteredAlgorithmException(name);
         }

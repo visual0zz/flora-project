@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.interfaces.provider;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamily;
 import com.flora.crypto.newcore.interfaces.param.CipherParameters;
 
 /**
@@ -9,7 +9,7 @@ import com.flora.crypto.newcore.interfaces.param.CipherParameters;
  * <p>一次处理一个固定大小的块。对应常见算法：AES / SM4 / Blowfish 等。
  * 模式（CBC/CTR/GCM）与填充由具体适配器通过 transformation 字符串表达，而非放在该接口里。</p>
  */
-public interface BlockCipher extends Algorithm<AlgorithmFactory<? extends BlockCipher>> {
+public interface BlockCipher extends Algorithm<AlgorithmFamily<? extends BlockCipher>> {
 
     /**
      * 初始化。

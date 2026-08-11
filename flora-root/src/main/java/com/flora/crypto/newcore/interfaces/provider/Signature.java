@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.interfaces.provider;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamily;
 import com.flora.crypto.newcore.interfaces.param.CipherParameters;
 
 /**
@@ -9,7 +9,7 @@ import com.flora.crypto.newcore.interfaces.param.CipherParameters;
  * <p>对应常见方案：RSASSA / ECDSA / EdDSA。签名方用私钥对摘要签名，验签方用公钥校验。
  * 区别于 {@link Mac}（对称、共享密钥），签名是非对称的、可公开验签且不可抵赖。</p>
  */
-public interface Signature extends Algorithm<AlgorithmFactory<? extends Signature>> {
+public interface Signature extends Algorithm<AlgorithmFamily<? extends Signature>> {
 
     void init(boolean forSigning, CipherParameters params);
 

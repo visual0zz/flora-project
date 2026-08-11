@@ -1,14 +1,14 @@
 package com.flora.crypto.newcore.interfaces.provider;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamily;
 
 /**
  * 熵源（Entropy Source）接口。
  * <p>向确定性随机比特生成器（DRBG）供应不可预测的随机种子。
  * 典型实现从操作系统噪声（{@code SecureRandom}）取熵；也可由硬件 RNG 或测试固定向量支撑。</p>
  */
-public interface EntropySource extends Algorithm<AlgorithmFactory<? extends EntropySource>> {
+public interface EntropySource extends Algorithm<AlgorithmFamily<? extends EntropySource>> {
 
     /** @return 该源是否抗预测（如来自 OS 噪声而非软件伪随机） */
     boolean isPredictionResistant();

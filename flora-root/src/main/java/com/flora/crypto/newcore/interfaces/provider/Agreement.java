@@ -1,14 +1,14 @@
 package com.flora.crypto.newcore.interfaces.provider;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamily;
 import com.flora.crypto.newcore.interfaces.param.CipherParameters;
 
 /**
  * 密钥协商（Key Agreement）接口。
  * <p>对应常见方案：ECDH、DH、X25519/X448。双方各自持有私钥，用对方公钥计算出共享密钥材料。</p>
  */
-public interface Agreement extends Algorithm<AlgorithmFactory<? extends Agreement>> {
+public interface Agreement extends Algorithm<AlgorithmFamily<? extends Agreement>> {
 
     /**
      * 用本地私钥初始化协商。

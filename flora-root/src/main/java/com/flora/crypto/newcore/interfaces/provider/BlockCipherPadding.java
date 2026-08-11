@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.interfaces.provider;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamily;
 
 import java.security.SecureRandom;
 
@@ -10,7 +10,7 @@ import java.security.SecureRandom;
  * <p>把「填充」从算法中抽离为可组合的策略对象，配合缓冲分组密码包装器使用。
  * 代表实现：PKCS7Padding、ISO7816d4Padding、ZeroBytePadding。</p>
  */
-public interface BlockCipherPadding extends Algorithm<AlgorithmFactory<? extends BlockCipherPadding>> {
+public interface BlockCipherPadding extends Algorithm<AlgorithmFamily<? extends BlockCipherPadding>> {
 
     /**
      * 初始化（部分填充需要随机数）。

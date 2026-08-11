@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.interfaces.provider;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamily;
 import com.flora.crypto.newcore.interfaces.param.CipherParameters;
 import com.flora.crypto.newcore.interfaces.provider.kem.Encapsulator;
 import com.flora.crypto.newcore.interfaces.provider.kem.Decapsulator;
@@ -11,7 +11,7 @@ import com.flora.crypto.newcore.interfaces.provider.kem.Decapsulator;
  * <p>现代密钥交换范式：发送方用接收方公钥「封装」出一个临时对称密钥与一段密文（encapsulation），
  * 接收方用私钥「解封装」还原出同一个对称密钥。对称密钥从不下发明文，天然适配后量子算法（ML-KEM）。</p>
  */
-public interface KeyEncapsulationMechanism extends Algorithm<AlgorithmFactory<? extends KeyEncapsulationMechanism>> {
+public interface KeyEncapsulationMechanism extends Algorithm<AlgorithmFamily<? extends KeyEncapsulationMechanism>> {
 
     /**
      * 创建封装器（发送方用）。

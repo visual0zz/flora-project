@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.interfaces.provider;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamily;
 import com.flora.crypto.newcore.interfaces.param.CipherParameters;
 
 /**
@@ -10,7 +10,7 @@ import com.flora.crypto.newcore.interfaces.param.CipherParameters;
  * 加密时产出密文 + 认证标签，解密时校验标签以检测篡改。</p>
  */
 public interface AuthenticatedEncryptionWithAssociatedDataBlockCipher
-        extends Algorithm<AlgorithmFactory<? extends AuthenticatedEncryptionWithAssociatedDataBlockCipher>> {
+        extends Algorithm<AlgorithmFamily<? extends AuthenticatedEncryptionWithAssociatedDataBlockCipher>> {
 
     void init(boolean forEncryption, CipherParameters params);
 

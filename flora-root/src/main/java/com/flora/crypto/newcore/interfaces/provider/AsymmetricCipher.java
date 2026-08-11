@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.interfaces.provider;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamily;
 import com.flora.crypto.newcore.interfaces.param.CipherParameters;
 
 /**
@@ -10,7 +10,7 @@ import com.flora.crypto.newcore.interfaces.param.CipherParameters;
  * 用于 ECIES 等把非对称原语当流用、需缓冲分块的场景。底层由缓冲包装器包裹一个
  * {@link AsymmetricBlockCipher} 实现。</p>
  */
-public interface AsymmetricCipher extends Algorithm<AlgorithmFactory<? extends AsymmetricCipher>> {
+public interface AsymmetricCipher extends Algorithm<AlgorithmFamily<? extends AsymmetricCipher>> {
 
     void init(boolean forEncryption, CipherParameters params);
 

@@ -27,9 +27,16 @@ import com.flora.crypto.newcore.link.CFBBlockCipher;
 import com.flora.crypto.newcore.link.GCMBlockCipher;
 import com.flora.crypto.newcore.link.OFBBlockCipher;
 import com.flora.crypto.newcore.link.SICBlockCipher;
+import com.flora.crypto.newcore.bridge.JdkAgreement;
+import com.flora.crypto.newcore.bridge.JdkAsymmetricBlockCipher;
+import com.flora.crypto.newcore.bridge.JdkAsymmetricKeyPairGenerator;
 import com.flora.crypto.newcore.bridge.JdkBlockCipher;
 import com.flora.crypto.newcore.bridge.JdkDigest;
+import com.flora.crypto.newcore.bridge.JdkKem;
 import com.flora.crypto.newcore.bridge.JdkMac;
+import com.flora.crypto.newcore.bridge.JdkSignature;
+import com.flora.crypto.newcore.bridge.SecureRandomEntropySource;
+import com.flora.crypto.newcore.impl.AgreementBasedKem;
 import com.flora.crypto.newcore.impl.Argon2;
 import com.flora.crypto.newcore.impl.BCrypt;
 import com.flora.crypto.newcore.impl.Blake2bDigest;
@@ -106,6 +113,13 @@ public final class CryptoProvider {
         REGISTRY.register(JdkBlockCipher.FACTORY);
         REGISTRY.register(JdkDigest.FACTORY);
         REGISTRY.register(JdkMac.FACTORY);
+        // JDK 非对称桥接（Agreement / 非对称分组密码 / 密钥对生成 / KEM / 签名 / 熵源）
+        REGISTRY.register(JdkAgreement.FACTORY);
+        REGISTRY.register(JdkAsymmetricBlockCipher.FACTORY);
+        REGISTRY.register(JdkAsymmetricKeyPairGenerator.FACTORY);
+        REGISTRY.register(JdkKem.FACTORY);
+        REGISTRY.register(JdkSignature.FACTORY);
+        REGISTRY.register(SecureRandomEntropySource.FACTORY);
         // 纯 Java 摘要 / MAC 原语
         REGISTRY.register(Blake2bDigest.FACTORY);
         REGISTRY.register(Ripemd160Digest.FACTORY);
@@ -124,6 +138,8 @@ public final class CryptoProvider {
         REGISTRY.register(PlaceholderDerivationFunction.FACTORY);
         REGISTRY.register(PlaceholderKem.FACTORY);
         REGISTRY.register(PlaceholderXof.FACTORY);
+        // 基于 JDK 密钥协商的 KEM 封装（ECDH / X25519 / X448 / DH）
+        REGISTRY.register(AgreementBasedKem.FACTORY);
         // 对称填充
         REGISTRY.register(PKCS7Padding.FACTORY);
         REGISTRY.register(ISO7816d4Padding.FACTORY);

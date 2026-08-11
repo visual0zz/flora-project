@@ -16,6 +16,7 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * newcore 骨架冒烟测试：验证 DSL 注册中心、模式与填充组合器可真实运行。
@@ -110,6 +111,69 @@ class NewCoreSmokeTest {
         // AEAD 流式密码
         assertInstanceOf(com.flora.crypto.newcore.impl.ChaCha20Poly1305.class,
                 CryptoProvider.resolve("ChaCha20Poly1305"));
+        // JDK 非对称桥接（Agreement / 非对称分组密码 / 密钥对生成 / KEM / 签名 / 熵源）
+        assertInstanceOf(com.flora.crypto.newcore.bridge.JdkAgreement.class,
+                CryptoProvider.resolve("ECDH"));
+        assertInstanceOf(com.flora.crypto.newcore.bridge.JdkAsymmetricBlockCipher.class,
+                CryptoProvider.resolve("RSA"));
+        assertInstanceOf(com.flora.crypto.newcore.bridge.JdkAsymmetricKeyPairGenerator.class,
+                CryptoProvider.resolve("EC"));
+        assertInstanceOf(com.flora.crypto.newcore.bridge.JdkSignature.class,
+                CryptoProvider.resolve("SHA256withRSA"));
+        assertInstanceOf(com.flora.crypto.newcore.bridge.SecureRandomEntropySource.class,
+                CryptoProvider.resolve("SecureRandom"));
+        // JDK KEM 桥接（ML-KEM / Kyber 等 JDK 原生 KEM）
+        assertInstanceOf(com.flora.crypto.newcore.bridge.JdkKem.class,
+                CryptoProvider.resolve("ML-KEM"));
+        // 基于密钥协商的 KEM（与裸 Agreement 名区分，使用 -KEM 后缀）
+        assertInstanceOf(com.flora.crypto.newcore.impl.AgreementBasedKem.class,
+                CryptoProvider.resolve("ECDH-KEM"));
+        assertInstanceOf(com.flora.crypto.newcore.impl.AgreementBasedKem.class,
+                CryptoProvider.resolve("X25519-KEM"));
+    }
+
+    @Test
+    void agreementBasedKemRoundTrip() {
+        // 接收方生成 EC 密钥对，封装/解封装应得到一致的对称密钥
+        com.flora.crypto.newcore.bridge.JdkAsymmetricKeyPairGenerator gen =
+                com.flora.crypto.newcore.bridge.JdkAsymmetricKeyPairGenerator.of("EC");
+        gen.init(new com.flora.crypto.newcore.impl.KeyGenerationParameterImpl(256));
+        com.flora.crypto.newcore.interfaces.material.keypair.AsymmetricCipherKeyPair kp = gen.generateKeyPair();
+
+        com.flora.crypto.newcore.interfaces.material.param.AsymmetricPublicKeyParameter pub =
+                (com.flora.crypto.newcore.interfaces.material.param.AsymmetricPublicKeyParameter) kp.getPublic();
+        com.flora.crypto.newcore.interfaces.material.param.AsymmetricPrivateKeyParameter priv =
+                (com.flora.crypto.newcore.interfaces.material.param.AsymmetricPrivateKeyParameter) kp.getPrivate();
+
+        com.flora.crypto.newcore.interfaces.algorithm.KeyEncapsulationMechanism kem =
+                com.flora.crypto.newcore.impl.AgreementBasedKem.of("ECDH");
+        com.flora.crypto.newcore.interfaces.material.kem.Encapsulator enc = kem.newEncapsulator(pub);
+        com.flora.crypto.newcore.interfaces.material.kem.SecretWithEncapsulation swc = enc.encapsulate();
+        com.flora.crypto.newcore.interfaces.material.kem.Decapsulator dec = kem.newDecapsulator(priv);
+        byte[] secret2 = dec.decapsulate(swc.getEncapsulation());
+
+        assertArrayEquals(swc.getSecret(), secret2);
+    }
+
+    @Test
+    void jdkSignatureRoundTrip() {
+        com.flora.crypto.newcore.bridge.JdkAsymmetricKeyPairGenerator gen =
+                com.flora.crypto.newcore.bridge.JdkAsymmetricKeyPairGenerator.of("EC");
+        gen.init(new com.flora.crypto.newcore.impl.KeyGenerationParameterImpl(256));
+        com.flora.crypto.newcore.interfaces.material.keypair.AsymmetricCipherKeyPair kp = gen.generateKeyPair();
+
+        byte[] digest = new byte[32];
+        new java.security.SecureRandom().nextBytes(digest);
+
+        com.flora.crypto.newcore.interfaces.algorithm.Signature signer =
+                com.flora.crypto.newcore.bridge.JdkSignature.of("SHA256withECDSA");
+        signer.init(true, kp.getPrivate());
+        byte[] sig = signer.sign(digest);
+
+        com.flora.crypto.newcore.interfaces.algorithm.Signature verifier =
+                com.flora.crypto.newcore.bridge.JdkSignature.of("SHA256withECDSA");
+        verifier.init(false, kp.getPublic());
+        assertTrue(verifier.verify(digest, sig));
     }
 
     @Test

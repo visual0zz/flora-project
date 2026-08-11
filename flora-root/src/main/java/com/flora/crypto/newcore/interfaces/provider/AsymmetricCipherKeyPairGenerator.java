@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.interfaces.provider;
 
-import com.flora.crypto.newcore.interfaces.Algorithm;
-import com.flora.crypto.newcore.interfaces.AlgorithmFactory;
+import com.flora.common.algorithm.Algorithm;
+import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.crypto.newcore.interfaces.param.KeyGenerationParameters;
 import com.flora.crypto.newcore.interfaces.keypair.AsymmetricCipherKeyPair;
 

@@ -1,8 +1,5 @@
 package com.flora.crypto.newcore.interfaces.provider;
 
-import com.flora.crypto.newcore.interfaces.Algorithm;
-import com.flora.crypto.newcore.interfaces.AlgorithmFactory;
-
 /**
  * 可变长输出函数（Extendable-Output Function，XOF）接口。
  * <p>与定长 {@link Digest} 不同，XOF 可以按调用方需要吐出任意长度的字节，

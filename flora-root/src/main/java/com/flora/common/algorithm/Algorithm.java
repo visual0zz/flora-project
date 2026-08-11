@@ -1,6 +1,4 @@
-package com.flora.crypto.newcore.interfaces;
-
-import java.util.Set;
+package com.flora.common.algorithm;
 
 /**
  * 算法族自述接口。

@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.interfaces.provider;
 
-import com.flora.crypto.newcore.interfaces.Algorithm;
-import com.flora.crypto.newcore.interfaces.AlgorithmFactory;
+import com.flora.common.algorithm.Algorithm;
+import com.flora.common.algorithm.AlgorithmFactory;
 
 /**
  * 摘要（散列）引擎接口。

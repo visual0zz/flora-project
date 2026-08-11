@@ -1,8 +1,5 @@
 package com.flora.crypto.newcore.interfaces.provider;
 
-import com.flora.crypto.newcore.interfaces.Algorithm;
-import com.flora.crypto.newcore.interfaces.AlgorithmFactory;
-
 /**
  * 扩展摘要接口。
  * <p>在 {@link Digest} 基础上暴露内部压缩「块长度」，供 KDF / HMAC / 填充等需要

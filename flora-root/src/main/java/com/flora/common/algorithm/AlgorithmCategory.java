@@ -1,8 +1,8 @@
-package com.flora.crypto.newcore;
+package com.flora.common.algorithm;
 
 /**
  * 算法分类枚举。
- * <p>仅做顶层分类与展示（中文描述），所属分类由 {@link com.flora.crypto.newcore.interfaces.AlgorithmFactory#category()}
+ * <p>仅做顶层分类与展示（中文描述），所属分类由 {@link AlgorithmFactory#category()}
  * 反向声明。每个分类对应 {@code interfaces/provider} 下一个角色接口。</p>
  */
 public enum AlgorithmCategory {

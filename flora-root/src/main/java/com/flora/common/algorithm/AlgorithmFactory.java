@@ -1,10 +1,9 @@
-package com.flora.crypto.newcore.interfaces;
-
-import com.flora.crypto.newcore.AlgorithmCategory;
+package com.flora.common.algorithm;
 
 import java.util.Set;
 
 public interface AlgorithmFactory<T extends Algorithm<?>>{
+    Class<? extends AlgorithmRegistry> registerTo();
     AlgorithmCategory category();
 
     Set<String> supportedAlgorithms();

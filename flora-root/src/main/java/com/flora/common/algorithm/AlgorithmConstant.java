@@ -1,4 +1,4 @@
-package com.flora.crypto.newcore.interfaces;
+package com.flora.common.algorithm;
 
 /**
  * 常量型组件：组合算法构造时直接给定的标量取值（如输出长度、轮数、预设 IV 等）。

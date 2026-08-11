@@ -1,4 +1,4 @@
-package com.flora.crypto.newcore.interfaces;
+package com.flora.common.algorithm;
 
 /**
  * 构成一个算法的「组件」通用结构（标记接口）。

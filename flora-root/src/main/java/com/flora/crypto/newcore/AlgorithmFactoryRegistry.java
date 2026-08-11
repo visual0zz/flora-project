@@ -1,6 +1,7 @@
 package com.flora.crypto.newcore;
 
-import com.flora.crypto.newcore.interfaces.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmRegistry;
 import com.flora.java.CheckUtil;
 import com.flora.tag.ModuleEntry;
 
@@ -14,12 +15,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * 取回对应的算法对象。</p>
  */
 @ModuleEntry
-public final class AlgorithmFactoryRegistry {
+public final class AlgorithmFactoryRegistry implements AlgorithmRegistry {
 
     private AlgorithmFactoryRegistry() {}
 
     /** 算法名 → 工厂。全局唯一，同名即冲突。 */
-    private static final Map<String, AlgorithmFactory<?>> REGISTRY = new ConcurrentHashMap<>();
+    private final Map<String, AlgorithmFactory<?>> REGISTRY = new ConcurrentHashMap<>();
 
     /**
      * 注册一个算法工厂。
@@ -29,7 +30,7 @@ public final class AlgorithmFactoryRegistry {
      * @param factory 算法工厂实例
      * @throws IllegalArgumentException 工厂支持集合为空或包含已注册的同名算法
      */
-    public static void register(AlgorithmFactory<?> factory) {
+    public void register(AlgorithmFactory<?> factory) {
         CheckUtil.notNull(factory, "算法工厂不能为空");
         var names = factory.supportedAlgorithms();
         CheckUtil.mustTrue(names != null && !names.isEmpty(),
@@ -57,7 +58,7 @@ public final class AlgorithmFactoryRegistry {
      * @throws UnregisteredAlgorithmException 该算法名未注册
      * @throws IllegalArgumentException       注册的工厂不是 {@code factoryType} 所指的类型
      */
-    public static <F extends AlgorithmFactory<?>> F get(String name, Class<F> factoryType) {
+    public <F extends AlgorithmFactory<?>> F get(String name, Class<F> factoryType) {
         CheckUtil.notEmpty(name, "算法名不能为空");
         CheckUtil.notNull(factoryType, "工厂类型不能为空");
         AlgorithmFactory<?> factory = REGISTRY.get(name);

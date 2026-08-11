@@ -2,7 +2,7 @@ package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
 import com.flora.common.algorithm.AlgorithmFamily;
-import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
+import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 
 /**
  * 数字签名接口。
@@ -11,7 +11,7 @@ import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
  */
 public interface Signature extends Algorithm<AlgorithmFamily<? extends Signature>> {
 
-    void init(boolean forSigning, CipherParameters params);
+    void init(boolean forSigning, CipherParameter params);
 
     /** @return 算法名，如 {@code "SHA256withRSA"} */
     String getAlgorithmName();

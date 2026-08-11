@@ -1,6 +1,7 @@
 package com.flora.crypto.newcore.interfaces.material.kem;
 
-import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
+import com.flora.crypto.newcore.interfaces.material.param.AsymmetricPrivateKeyParameter;
+import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 
 /**
  * 密钥解封装器（接收方用）。
@@ -17,5 +18,5 @@ public interface Decapsulator {
     byte[] decapsulate(byte[] encapsulation);
 
     /** @return 接收方私钥参数（用于关联） */
-    CipherParameters getPrivateKey();
+    AsymmetricPrivateKeyParameter getPrivateKey();
 }

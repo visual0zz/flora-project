@@ -2,7 +2,7 @@ package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
 import com.flora.common.algorithm.AlgorithmFamily;
-import com.flora.crypto.newcore.interfaces.material.param.DerivationParameters;
+import com.flora.crypto.newcore.interfaces.material.param.DerivationParameter;
 
 /**
  * 密钥派生函数（KDF / 口令哈希）接口。
@@ -10,7 +10,7 @@ import com.flora.crypto.newcore.interfaces.material.param.DerivationParameters;
  */
 public interface DerivationFunction extends Algorithm<AlgorithmFamily<? extends DerivationFunction>> {
 
-    void init(DerivationParameters params);
+    void init(DerivationParameter params);
 
     void update(byte[] in, int inOff, int len);
 

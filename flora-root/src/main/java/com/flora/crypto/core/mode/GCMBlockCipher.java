@@ -65,7 +65,7 @@ public final class GCMBlockCipher implements AuthenticatedEncryptionWithAssociat
             iv = p.getIV();
             engine.init(true, p.getParameters());
         } else {
-            throw new IllegalArgumentException("GCM 需要 ParametersWithIV（IV + 密钥）");
+            throw new IllegalArgumentException("GCM 需要 ParameterWithIV（IV + 密钥）");
         }
         // H = E(K, 0^128)
         java.util.Arrays.fill(h, (byte) 0);

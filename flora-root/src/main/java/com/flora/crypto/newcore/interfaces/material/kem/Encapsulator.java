@@ -1,6 +1,6 @@
 package com.flora.crypto.newcore.interfaces.material.kem;
 
-import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
+import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 
 /**
  * 密钥封装器（发送方用）。
@@ -16,5 +16,5 @@ public interface Encapsulator {
     SecretWithEncapsulation encapsulate();
 
     /** @return 接收方公钥参数（用于关联） */
-    CipherParameters getPublicKey();
+    CipherParameter getPublicKey();
 }

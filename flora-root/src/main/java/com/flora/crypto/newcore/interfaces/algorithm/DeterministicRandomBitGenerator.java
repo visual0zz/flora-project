@@ -15,12 +15,10 @@ public interface DeterministicRandomBitGenerator
     /**
      * 生成随机比特到 {@code output}。
      *
-     * @param output             输出缓冲区（长度即请求字节数）
-     * @param additionalInput    附加输入（可为 {@code null}），参与本次生成
-     * @param predictionResistant 是否要求本次生成抗预测（触发内部重播种）
+     * @param output 输出缓冲区（长度即请求字节数）
      * @return 生成的比特数（即 {@code output.length * 8}）；返回 {@code -1} 表示需要先 {@link #reseed}
      */
-    int generate(byte[] output, byte[] additionalInput, boolean predictionResistant);
+    int generate(byte[] output);
 
     /** @return 单次生成块字节数（通常为底层原语输出长度） */
     int getBlockSize();
@@ -28,7 +26,8 @@ public interface DeterministicRandomBitGenerator
     /**
      * 重播种：拉取新熵并混入工作状态。
      *
-     * @param additionalInput 附加输入（可为 {@code null}）
+     * @param additionalInput 附加输入（可为 {@code null}），参与混入工作状态
      */
     void reseed(byte[] additionalInput);
+
 }

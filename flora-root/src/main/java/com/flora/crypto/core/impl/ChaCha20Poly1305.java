@@ -30,7 +30,7 @@ public final class ChaCha20Poly1305 implements AuthenticatedEncryptionWithAssoci
   @Override
   public void init(boolean forEncryption, CipherParameters params) {
     if (!(params instanceof ParametersWithIV p) || !(p.getParameters() instanceof KeyParameter)) {
-      throw new IllegalArgumentException("ChaCha20Poly1305 需要 ParametersWithIV(KeyParameter, nonce)");
+      throw new IllegalArgumentException("ChaCha20Poly1305 需要 ParameterWithIV(KeyParameter, nonce)");
     }
     this.encrypting = forEncryption;
     this.key = ((KeyParameter) p.getParameters()).getKey();

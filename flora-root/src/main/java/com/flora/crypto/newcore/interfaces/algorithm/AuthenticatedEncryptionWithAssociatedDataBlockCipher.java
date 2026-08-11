@@ -2,7 +2,7 @@ package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
 import com.flora.common.algorithm.AlgorithmFamily;
-import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
+import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 
 /**
  * 带关联数据的认证加密分组密码（AEAD）接口。
@@ -12,7 +12,7 @@ import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
 public interface AuthenticatedEncryptionWithAssociatedDataBlockCipher
         extends Algorithm<AlgorithmFamily<? extends AuthenticatedEncryptionWithAssociatedDataBlockCipher>> {
 
-    void init(boolean forEncryption, CipherParameters params);
+    void init(boolean forEncryption, CipherParameter params);
 
     /** @return 算法名 / transformation */
     String getAlgorithmName();

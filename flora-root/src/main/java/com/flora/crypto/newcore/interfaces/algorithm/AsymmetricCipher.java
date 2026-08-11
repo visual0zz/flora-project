@@ -2,7 +2,7 @@ package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
 import com.flora.common.algorithm.AlgorithmFamily;
-import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
+import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 
 /**
  * 流式非对称密码接口。
@@ -12,7 +12,7 @@ import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
  */
 public interface AsymmetricCipher extends Algorithm<AlgorithmFamily<? extends AsymmetricCipher>> {
 
-    void init(boolean forEncryption, CipherParameters params);
+    void init(boolean forEncryption, CipherParameter params);
 
     /**
      * 处理单个字节。

@@ -3,7 +3,7 @@ package com.flora.crypto.newcore.interfaces.algorithm;
 import com.flora.common.algorithm.Algorithm;
 import com.flora.common.algorithm.AlgorithmFamily;
 import com.flora.crypto.newcore.interfaces.material.keypair.AsymmetricCipherKeyPair;
-import com.flora.crypto.newcore.interfaces.material.param.KeyGenerationParameters;
+import com.flora.crypto.newcore.interfaces.material.param.KeyGenerationParameter;
 
 /**
  * 轻量级非对称密钥对生成器接口。
@@ -12,7 +12,7 @@ import com.flora.crypto.newcore.interfaces.material.param.KeyGenerationParameter
 public interface AsymmetricCipherKeyPairGenerator
         extends Algorithm<AlgorithmFamily<? extends AsymmetricCipherKeyPairGenerator>> {
 
-    void init(KeyGenerationParameters param);
+    void init(KeyGenerationParameter param);
 
     AsymmetricCipherKeyPair generateKeyPair();
 }

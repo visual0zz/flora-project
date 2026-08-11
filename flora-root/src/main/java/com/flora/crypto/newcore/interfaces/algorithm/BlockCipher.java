@@ -2,8 +2,8 @@ package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
 import com.flora.common.algorithm.AlgorithmFamily;
-import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
-import com.flora.crypto.newcore.interfaces.material.param.ParametersWithIV;
+import com.flora.crypto.newcore.interfaces.material.param.BlockCipherParameter;
+import com.flora.crypto.newcore.interfaces.material.param.ParameterWithIV;
 
 /**
  * 分组密码引擎接口。
@@ -16,12 +16,13 @@ public interface BlockCipher extends Algorithm<AlgorithmFamily<? extends BlockCi
      * 初始化。
      *
      * @param forEncryption 是否为加密方向
-     * @param params        参数（对称密钥，GCM/CBC 等还需 {@link ParametersWithIV}）
+     * @param params        参数（对称密钥，GCM/CBC 等还需 {@link ParameterWithIV}）
      */
-    void init(boolean forEncryption, CipherParameters params);
+    void init(boolean forEncryption,BlockCipherParameter params);
 
     /** @return 块大小（字节） */
     int getBlockSize();
+
 
     /**
      * 处理一个块。
@@ -34,11 +35,4 @@ public interface BlockCipher extends Algorithm<AlgorithmFamily<? extends BlockCi
      */
     int processBlock(byte[] in, int inOff, byte[] out, int outOff);
 
-    /**
-     * 便捷入口：一次性处理整段数据（含填充 / GCM 认证标签），由具体适配器实现。
-     *
-     * @param data 明文或密文
-     * @return 密文或明文
-     */
-    byte[] process(byte[] data);
 }

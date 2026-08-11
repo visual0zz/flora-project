@@ -3,9 +3,9 @@ package com.flora.crypto.newcore.interfaces.material.param;
 /**
  * 携带 IV 的密码参数（如 CBC/GCM/CTR 模式需要的初始化向量）。
  */
-public interface ParametersWithIV extends CipherParameters {
+public interface ParameterWithIV extends CipherParameter {
 
-    CipherParameters getParameters();
+    CipherParameter getParameters();
 
     byte[] getIV();
 }

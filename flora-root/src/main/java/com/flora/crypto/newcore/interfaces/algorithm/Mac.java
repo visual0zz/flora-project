@@ -2,7 +2,7 @@ package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
 import com.flora.common.algorithm.AlgorithmFamily;
-import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
+import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 
 /**
  * MAC（消息认证码）引擎接口。
@@ -10,7 +10,7 @@ import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
  */
 public interface Mac extends Algorithm<AlgorithmFamily<? extends Mac>> {
 
-    void init(CipherParameters params);
+    void init(CipherParameter params);
 
     /** @return MAC 字节长度 */
     int getMacSize();

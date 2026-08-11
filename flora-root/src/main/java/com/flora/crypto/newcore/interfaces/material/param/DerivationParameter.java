@@ -5,5 +5,5 @@ package com.flora.crypto.newcore.interfaces.material.param;
  * <p>具体形态由各派生算法表达：{@code HkdfParameters}、{@code Pbkdf2Parameters}、
  * {@code ScryptParameters}、{@code Argon2Parameters} 等。</p>
  */
-public interface DerivationParameters extends CipherParameters {
+public interface DerivationParameter extends CipherParameter {
 }

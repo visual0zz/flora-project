@@ -1,9 +1,9 @@
-package com.flora.crypto.newcore.interfaces.provider;
+package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
 import com.flora.common.algorithm.AlgorithmFamily;
-import com.flora.crypto.newcore.interfaces.param.KeyGenerationParameters;
-import com.flora.crypto.newcore.interfaces.keypair.AsymmetricCipherKeyPair;
+import com.flora.crypto.newcore.interfaces.material.keypair.AsymmetricCipherKeyPair;
+import com.flora.crypto.newcore.interfaces.material.param.KeyGenerationParameters;
 
 /**
  * 轻量级非对称密钥对生成器接口。

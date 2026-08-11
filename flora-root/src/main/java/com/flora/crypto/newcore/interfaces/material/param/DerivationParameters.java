@@ -1,4 +1,4 @@
-package com.flora.crypto.newcore.interfaces.param;
+package com.flora.crypto.newcore.interfaces.material.param;
 
 /**
  * 密钥派生（KDF / 口令哈希）参数根接口。

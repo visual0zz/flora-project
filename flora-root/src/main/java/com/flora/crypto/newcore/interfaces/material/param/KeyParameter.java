@@ -1,4 +1,4 @@
-package com.flora.crypto.newcore.interfaces.param;
+package com.flora.crypto.newcore.interfaces.material.param;
 
 /**
  * 对称密钥参数。

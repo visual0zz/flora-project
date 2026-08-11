@@ -1,6 +1,6 @@
-package com.flora.crypto.newcore.interfaces.keypair;
+package com.flora.crypto.newcore.interfaces.material.keypair;
 
-import com.flora.crypto.newcore.interfaces.param.CipherParameters;
+import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
 
 /**
  * 非对称密钥对（与具体密钥格式解耦的轻量级表达）。

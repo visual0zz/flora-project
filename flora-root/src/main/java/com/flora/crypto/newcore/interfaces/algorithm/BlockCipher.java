@@ -1,8 +1,9 @@
-package com.flora.crypto.newcore.interfaces.provider;
+package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
 import com.flora.common.algorithm.AlgorithmFamily;
-import com.flora.crypto.newcore.interfaces.param.CipherParameters;
+import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
+import com.flora.crypto.newcore.interfaces.material.param.ParametersWithIV;
 
 /**
  * 分组密码引擎接口。
@@ -15,7 +16,7 @@ public interface BlockCipher extends Algorithm<AlgorithmFamily<? extends BlockCi
      * 初始化。
      *
      * @param forEncryption 是否为加密方向
-     * @param params        参数（对称密钥，GCM/CBC 等还需 {@link com.flora.crypto.newcore.interfaces.param.ParametersWithIV}）
+     * @param params        参数（对称密钥，GCM/CBC 等还需 {@link ParametersWithIV}）
      */
     void init(boolean forEncryption, CipherParameters params);
 

@@ -1,8 +1,8 @@
-package com.flora.crypto.newcore.interfaces.provider;
+package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
 import com.flora.common.algorithm.AlgorithmFamily;
-import com.flora.crypto.newcore.interfaces.param.DerivationParameters;
+import com.flora.crypto.newcore.interfaces.material.param.DerivationParameters;
 
 /**
  * 密钥派生函数（KDF / 口令哈希）接口。

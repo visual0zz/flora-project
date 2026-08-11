@@ -1,4 +1,4 @@
-package com.flora.crypto.newcore.interfaces.provider;
+package com.flora.crypto.newcore.interfaces.algorithm;
 
 /**
  * 扩展摘要接口。

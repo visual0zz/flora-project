@@ -1,4 +1,4 @@
-package com.flora.crypto.newcore.interfaces.param;
+package com.flora.crypto.newcore.interfaces.material.param;
 
 /**
  * 携带 IV 的密码参数（如 CBC/GCM/CTR 模式需要的初始化向量）。

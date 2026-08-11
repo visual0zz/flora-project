@@ -1,4 +1,4 @@
-package com.flora.crypto.newcore.interfaces.param;
+package com.flora.crypto.newcore.interfaces.material.param;
 
 /**
  * 密钥生成参数根接口。

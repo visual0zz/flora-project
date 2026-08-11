@@ -1,6 +1,4 @@
-package com.flora.crypto.newcore.interfaces.provider.kem;
-
-import com.flora.crypto.newcore.interfaces.param.CipherParameters;
+package com.flora.crypto.newcore.interfaces.material.kem;
 
 /**
  * 封装产物：共享对称密钥 + 随附密文（encapsulation）。

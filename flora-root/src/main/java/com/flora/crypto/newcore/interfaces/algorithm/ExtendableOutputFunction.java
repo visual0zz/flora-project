@@ -1,4 +1,4 @@
-package com.flora.crypto.newcore.interfaces.provider;
+package com.flora.crypto.newcore.interfaces.algorithm;
 
 /**
  * 可变长输出函数（Extendable-Output Function，XOF）接口。

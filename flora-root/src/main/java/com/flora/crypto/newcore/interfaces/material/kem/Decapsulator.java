@@ -1,6 +1,6 @@
-package com.flora.crypto.newcore.interfaces.provider.kem;
+package com.flora.crypto.newcore.interfaces.material.kem;
 
-import com.flora.crypto.newcore.interfaces.param.CipherParameters;
+import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
 
 /**
  * 密钥解封装器（接收方用）。

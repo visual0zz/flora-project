@@ -1,8 +1,8 @@
-package com.flora.crypto.newcore.interfaces.provider;
+package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
 import com.flora.common.algorithm.AlgorithmFamily;
-import com.flora.crypto.newcore.interfaces.param.CipherParameters;
+import com.flora.crypto.newcore.interfaces.material.param.CipherParameters;
 
 /**
  * 带关联数据的认证加密分组密码（AEAD）接口。

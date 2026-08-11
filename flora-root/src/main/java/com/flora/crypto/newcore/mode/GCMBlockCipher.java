@@ -1,10 +1,10 @@
 package com.flora.crypto.newcore.mode;
 
 import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.common.algorithm.AlgorithmFamilyRegister;
 import com.flora.crypto.newcore.CryptoAlgorithmFamilyRegister;
-import com.flora.crypto.newcore.interfaces.algorithm.AuthenticatedEncryptionWithAssociatedDataBlockCipher;
+import com.flora.crypto.newcore.interfaces.algorithm.AEADBlockCipher;
 import com.flora.crypto.newcore.interfaces.algorithm.BlockCipher;
 import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 import com.flora.crypto.newcore.interfaces.material.param.ParameterWithIV;
@@ -25,7 +25,7 @@ import java.util.Set;
  * 或 {@link #processAADBytes} + {@link #doFinal} 分步输入。</p>
  */
 @ThreadFragile
-public final class GCMBlockCipher implements AuthenticatedEncryptionWithAssociatedDataBlockCipher {
+public final class GCMBlockCipher implements AEADBlockCipher {
 
     /** GF(2^128) 约化多项式 R = x^7 + x^2 + x + 1 的高字节（0xE1 0^15） */
     private static final byte[] R = {(byte) 0xe1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -296,12 +296,12 @@ public final class GCMBlockCipher implements AuthenticatedEncryptionWithAssociat
     }
 
     @Override
-    public AlgorithmFamily<? extends AuthenticatedEncryptionWithAssociatedDataBlockCipher> factory() {
-        return FAMILY;
+    public AlgorithmFactory<? extends AEADBlockCipher> factory() {
+        return FACTORY;
     }
 
-    public static final AlgorithmFamily<AuthenticatedEncryptionWithAssociatedDataBlockCipher> FAMILY =
-            new AlgorithmFamily<>() {
+    public static final AlgorithmFactory<AEADBlockCipher> FACTORY =
+            new AlgorithmFactory<>() {
                 @Override
                 public Class<? extends AlgorithmFamilyRegister> registerTo() {
                     return CryptoAlgorithmFamilyRegister.class;
@@ -323,7 +323,7 @@ public final class GCMBlockCipher implements AuthenticatedEncryptionWithAssociat
                 }
 
                 @Override
-                public AuthenticatedEncryptionWithAssociatedDataBlockCipher construct(
+                public AEADBlockCipher construct(
                         String algorithmName, AlgorithmComponent... components) {
                     return new GCMBlockCipher((BlockCipher) components[0]);
                 }

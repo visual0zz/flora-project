@@ -1,14 +1,14 @@
 package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 
 /**
  * 非对称分组密码引擎接口（如 RSA）。
  * <p>加密/解密输入块大小受限（受密钥长度与填充开销影响），输出块大小固定为密钥字节长度。</p>
  */
-public interface AsymmetricBlockCipher extends Algorithm<AlgorithmFamily<? extends AsymmetricBlockCipher>> {
+public interface AsymmetricBlockCipher extends Algorithm<AlgorithmFactory<? extends AsymmetricBlockCipher>> {
 
     void init(boolean forEncryption, CipherParameter params);
 

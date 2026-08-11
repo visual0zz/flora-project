@@ -2,7 +2,7 @@ package com.flora.common.algorithm;
 
 import java.util.Set;
 
-public interface AlgorithmFamily<T extends Algorithm<?>>{
+public interface AlgorithmFactory<T extends Algorithm<?>>{
     Class<? extends AlgorithmFamilyRegister> registerTo();
 
     Set<String> supportedAlgorithms();

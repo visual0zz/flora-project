@@ -1,16 +1,15 @@
 package com.flora.crypto.newcore;
 
-import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmConstant;
-import com.flora.common.algorithm.AlgorithmFamily;
-import com.flora.common.algorithm.UnregisteredAlgorithmException;
+import com.flora.common.algorithm.*;
+import com.flora.crypto.newcore.combinator.BufferedAsymmetricBlockCipher;
+import com.flora.crypto.newcore.combinator.PaddedAsymmetricBlockCipher;
 import com.flora.crypto.newcore.impl.DslParser;
 import com.flora.crypto.newcore.interfaces.algorithm.Agreement;
 import com.flora.crypto.newcore.interfaces.algorithm.AsymmetricBlockCipher;
 import com.flora.crypto.newcore.interfaces.algorithm.AsymmetricCipher;
 import com.flora.crypto.newcore.interfaces.algorithm.AsymmetricCipherKeyPairGenerator;
 import com.flora.crypto.newcore.interfaces.algorithm.AsymmetricScheme;
-import com.flora.crypto.newcore.interfaces.algorithm.AuthenticatedEncryptionWithAssociatedDataBlockCipher;
+import com.flora.crypto.newcore.interfaces.algorithm.AEADBlockCipher;
 import com.flora.crypto.newcore.interfaces.algorithm.BlockCipher;
 import com.flora.crypto.newcore.interfaces.algorithm.DerivationFunction;
 import com.flora.crypto.newcore.interfaces.algorithm.DeterministicRandomBitGenerator;
@@ -22,6 +21,17 @@ import com.flora.crypto.newcore.interfaces.algorithm.Mac;
 import com.flora.crypto.newcore.interfaces.algorithm.MaskGenerationFunction;
 import com.flora.crypto.newcore.interfaces.algorithm.Padding;
 import com.flora.crypto.newcore.interfaces.algorithm.Signature;
+import com.flora.crypto.newcore.mode.CBCBlockCipher;
+import com.flora.crypto.newcore.mode.CFBBlockCipher;
+import com.flora.crypto.newcore.mode.GCMBlockCipher;
+import com.flora.crypto.newcore.mode.OFBBlockCipher;
+import com.flora.crypto.newcore.mode.SICBlockCipher;
+import com.flora.crypto.newcore.padding.ISO7816d4Padding;
+import com.flora.crypto.newcore.padding.Mgf1Generator;
+import com.flora.crypto.newcore.padding.OAEPPadding;
+import com.flora.crypto.newcore.padding.PKCS1v15Padding;
+import com.flora.crypto.newcore.padding.PKCS7Padding;
+import com.flora.crypto.newcore.padding.ZeroBytePadding;
 import com.flora.java.CheckUtil;
 import com.flora.tag.ModuleEntry;
 
@@ -33,9 +43,10 @@ import com.flora.tag.ModuleEntry;
  * 字面量 = integer:数字 | float:小数 | string:文本 | bytes:十六进制
  * </pre>
  * <p>注册委托给 {@link CryptoAlgorithmFamilyRegister}（复用 common 的注册 / 归属校验 / 同名裁决 /
- * 按名查询能力）：算法族通过 {@link AlgorithmFamily#registerTo()} 自述注册到
+ * 按名查询能力）：算法族通过 {@link AlgorithmFactory#registerTo()} 自述注册到
  * {@link CryptoAlgorithmFamilyRegister}，经本类登记。每个算法名全局唯一，由裁决后胜出的唯一
- * {@link AlgorithmFamily} 负责生产实例（{@link AlgorithmFamily#construct}）。</p>
+ * {@link AlgorithmFactory} 负责生产实例（{@link AlgorithmFactory#construct}）。
+ * 本类静态初始化时注册当前内置的全部算法族，并经 SPI（{@code ServiceLoader}）自动发现其它算法族。</p>
  * <p>组合算法以 DSL 带参形式调用，例如 {@code "CBC(AES)"}、{@code "HMac(SHA-256)"}。
  * 参数中的算法实例（{@link AlgorithmComponent}）直接注入；字面量参数包装为 {@link AlgorithmConstant}。
  * 表达式无法解析到任何已注册算法时抛出 {@link UnregisteredAlgorithmException}（common 版）。</p>
@@ -61,20 +72,26 @@ public final class CryptoProvider {
 
     private CryptoProvider() {}
 
-    // ── 注册 API ──
-
-    /**
-     * 注册一个算法族（其 {@code supportedAlgorithms()} 中的每个名字分别登记）。
-     *
-     * @param factory 算法族实例，须已通过 {@link AlgorithmFamily#registerTo()} 自述注册到
-     *                {@link CryptoAlgorithmFamilyRegister}
-     */
-    public static void register(AlgorithmFamily<?> factory) {
-        REGISTRY.register(factory);
-    }
-
-    /** 通过 SPI 自动发现并注册所有自述为 {@link CryptoAlgorithmFamilyRegister} 的算法族。 */
-    public static void registerBySpi() {
+    static {
+        // ── 内置算法族（当前 newcore 已实现的全部算法）──
+        // 分组密码模式
+        REGISTRY.register(CBCBlockCipher.FACTORY);
+        REGISTRY.register(CFBBlockCipher.FACTORY);
+        REGISTRY.register(OFBBlockCipher.FACTORY);
+        REGISTRY.register(SICBlockCipher.FACTORY);
+        REGISTRY.register(GCMBlockCipher.FACTORY);
+        // 对称填充
+        REGISTRY.register(PKCS7Padding.FACTORY);
+        REGISTRY.register(ISO7816d4Padding.FACTORY);
+        REGISTRY.register(ZeroBytePadding.FACTORY);
+        // 非对称编码方案与掩码生成
+        REGISTRY.register(Mgf1Generator.FACTORY);
+        REGISTRY.register(OAEPPadding.FACTORY);
+        REGISTRY.register(PKCS1v15Padding.FACTORY);
+        // 组合器
+        REGISTRY.register(BufferedAsymmetricBlockCipher.FACTORY);
+        REGISTRY.register(PaddedAsymmetricBlockCipher.FACTORY);
+        // SPI 自动发现：其它模块（如后续实现模块）经 ServiceLoader 注册的算法族
         REGISTRY.registerBySpi();
     }
 
@@ -106,7 +123,7 @@ public final class CryptoProvider {
     }
 
     private static Object construct(String name, AlgorithmComponent[] components) {
-        AlgorithmFamily<?> family = REGISTRY.get(name, AlgorithmFamily.class);
+        AlgorithmFactory<?> family = REGISTRY.get(name, AlgorithmFactory.class);
         return family.construct(name, components);
     }
 
@@ -200,8 +217,8 @@ public final class CryptoProvider {
         return cast(Signature.class, expression);
     }
 
-    public static AuthenticatedEncryptionWithAssociatedDataBlockCipher aeadBlockCipher(String expression) {
-        return cast(AuthenticatedEncryptionWithAssociatedDataBlockCipher.class, expression);
+    public static AEADBlockCipher aeadBlockCipher(String expression) {
+        return cast(AEADBlockCipher.class, expression);
     }
 
     private static <T> T cast(Class<T> type, String expression) {

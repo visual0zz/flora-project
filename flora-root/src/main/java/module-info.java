@@ -48,7 +48,7 @@ module com.flora.root {
     // JSON Schema 处理
     exports com.flora.codec.jsonschema;
     exports com.flora.common;
-    // 通用算法抽象与注册中心（Algorithm/AlgorithmFamily/AbstractAlgorithmFamilyRegister）
+    // 通用算法抽象与注册中心（Algorithm/AlgorithmFactory/AbstractAlgorithmFamilyRegister）
     exports com.flora.common.algorithm;
     // 重试机制工具
     exports com.flora.concurrent.retry;

@@ -6,6 +6,6 @@
  * 以及概率型数据结构（{@code com.flora.entropy.probds}），
  * 包括布隆过滤器、布谷鸟过滤器、Count-Min Sketch、HyperLogLog。</p>
  * <p>压缩能力由 {@code com.flora.entropy.compress} 子包提供，
- * 采用与 {@code crypto.core} 相同的 AlgorithmFamily + Provider 注册分发模式。</p>
+ * 采用与 {@code crypto.core} 相同的 AlgorithmFactory + Provider 注册分发模式。</p>
  */
 package com.flora.entropy;

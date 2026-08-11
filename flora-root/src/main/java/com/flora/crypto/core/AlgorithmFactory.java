@@ -6,7 +6,7 @@ import java.util.Set;
  * 算法工厂自述接口。
  * <p>{@link CryptoProvider} 注册时由本工厂自述 DSL 名、优先级、具体度与参数类型，并负责生产算法实例。
  * 注意：本接口<b>不含</b> {@code getAlgorithmName()} —— 那是工厂<em>生产出的算法实现对象</em>才需要的
- * （见 {@code AlgorithmFamily}）。</p>
+ * （见 {@code AlgorithmFactory}）。</p>
  * <p>具体度（specificity）语义：值越小越优先，默认等于自述名字数量（与 {@code SchemeProvider} 一致，
  * 即支持算法越多越「通用」、具体度越低）。通用适配器（如 JDK 适配器覆盖多种算法）应覆写
  * {@link #specificity()} 返回其支持集合的大小，以在裁决中保持「通用让位于专用」的行为。</p>

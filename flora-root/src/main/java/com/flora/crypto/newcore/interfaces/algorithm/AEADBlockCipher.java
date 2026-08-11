@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 
 /**
@@ -9,8 +9,8 @@ import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
  * <p>在 {@link BlockCipher} 基础上增加认证标签与附加关联数据（AAD），对应 GCM / CCM / ChaCha20-Poly1305 等。
  * 加密时产出密文 + 认证标签，解密时校验标签以检测篡改。</p>
  */
-public interface AuthenticatedEncryptionWithAssociatedDataBlockCipher
-        extends Algorithm<AlgorithmFamily<? extends AuthenticatedEncryptionWithAssociatedDataBlockCipher>> {
+public interface AEADBlockCipher
+        extends Algorithm<AlgorithmFactory<? extends AEADBlockCipher>> {
 
     void init(boolean forEncryption, CipherParameter params);
 

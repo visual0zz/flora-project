@@ -1,6 +1,6 @@
 package com.flora.crypto.newcore;
 
-import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.crypto.newcore.combinator.PaddedBufferedBlockCipher;
 import com.flora.crypto.newcore.interfaces.algorithm.BlockCipher;
 import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
@@ -61,16 +61,14 @@ class NewCoreSmokeTest {
         }
 
         @Override
-        public AlgorithmFamily<? extends BlockCipher> factory() {
+        public AlgorithmFactory<? extends BlockCipher> factory() {
             throw new UnsupportedOperationException("测试桩不参与注册");
         }
     }
 
     @Test
     void dslRegistrationAndResolution() {
-        CryptoProvider.register(PKCS7Padding.FAMILY);
-        CryptoProvider.register(ZeroBytePadding.FAMILY);
-
+        // CryptoProvider 静态初始化时已注册内置算法族（含填充），此处直接按 DSL 解析
         Object pkcs7 = CryptoProvider.resolve("PKCS7");
         assertInstanceOf(PKCS7Padding.class, pkcs7);
         assertEquals("PKCS7", ((PKCS7Padding) pkcs7).getAlgorithmName());

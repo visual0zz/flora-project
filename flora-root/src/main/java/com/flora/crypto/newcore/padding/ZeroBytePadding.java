@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.padding;
 
 import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.common.algorithm.AlgorithmFamilyRegister;
 import com.flora.crypto.newcore.CryptoAlgorithmFamilyRegister;
 import com.flora.crypto.newcore.interfaces.algorithm.Padding;
@@ -58,11 +58,11 @@ public final class ZeroBytePadding implements Padding {
     }
 
     @Override
-    public AlgorithmFamily<? extends Padding> factory() {
-        return FAMILY;
+    public AlgorithmFactory<? extends Padding> factory() {
+        return FACTORY;
     }
 
-    public static final AlgorithmFamily<Padding> FAMILY = new AlgorithmFamily<>() {
+    public static final AlgorithmFactory<Padding> FACTORY = new AlgorithmFactory<>() {
         @Override
         public Class<? extends AlgorithmFamilyRegister> registerTo() {
             return CryptoAlgorithmFamilyRegister.class;

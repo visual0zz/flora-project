@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.crypto.newcore.interfaces.material.param.AsymmetricPrivateKeyParameter;
 import com.flora.crypto.newcore.interfaces.material.param.AsymmetricPublicKeyParameter;
 import com.flora.crypto.newcore.interfaces.material.kem.Decapsulator;
@@ -13,7 +13,7 @@ import com.flora.crypto.newcore.interfaces.material.kem.Encapsulator;
  * 接收方用私钥「解封装」还原出同一个对称密钥。对称密钥从不下发明文，天然适配后量子算法（ML-KEM）。</p>
  * <p>封装收公钥参数、解封装收私钥参数，公钥/私钥类型在签名层即区分（同 {@link Agreement}）。</p>
  */
-public interface KeyEncapsulationMechanism extends Algorithm<AlgorithmFamily<? extends KeyEncapsulationMechanism>> {
+public interface KeyEncapsulationMechanism extends Algorithm<AlgorithmFactory<? extends KeyEncapsulationMechanism>> {
 
     /**
      * 创建封装器（发送方用）。

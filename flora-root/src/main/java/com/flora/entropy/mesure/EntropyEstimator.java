@@ -85,7 +85,7 @@ public final class EntropyEstimator {
      */
     public static void registerMetric(EntropyMetric prototype, Function<String, ? extends EntropyMetric> factory) {
         if (!(prototype instanceof AlgorithmFamily family)) {
-            throw new IllegalArgumentException("原型实例必须实现 AlgorithmFamily: " + prototype.getClass());
+            throw new IllegalArgumentException("原型实例必须实现 AlgorithmFactory: " + prototype.getClass());
         }
         Set<String> algorithms = family.supportedAlgorithms();
         if (algorithms == null || algorithms.isEmpty()) {

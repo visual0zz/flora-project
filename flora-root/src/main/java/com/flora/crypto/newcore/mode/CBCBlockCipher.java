@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.mode;
 
 import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.common.algorithm.AlgorithmFamilyRegister;
 import com.flora.crypto.newcore.CryptoAlgorithmFamilyRegister;
 import com.flora.crypto.newcore.interfaces.algorithm.BlockCipher;
@@ -104,11 +104,11 @@ public final class CBCBlockCipher implements BlockCipher {
     }
 
     @Override
-    public AlgorithmFamily<? extends BlockCipher> factory() {
-        return FAMILY;
+    public AlgorithmFactory<? extends BlockCipher> factory() {
+        return FACTORY;
     }
 
-    public static final AlgorithmFamily<BlockCipher> FAMILY = new AlgorithmFamily<>() {
+    public static final AlgorithmFactory<BlockCipher> FACTORY = new AlgorithmFactory<>() {
         @Override
         public Class<? extends AlgorithmFamilyRegister> registerTo() {
             return CryptoAlgorithmFamilyRegister.class;

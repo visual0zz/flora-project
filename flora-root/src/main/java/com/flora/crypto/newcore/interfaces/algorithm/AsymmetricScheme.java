@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 
 import java.security.SecureRandom;
@@ -16,7 +16,7 @@ import java.security.SecureRandom;
  * {@code getInputBlockSize} / {@code getOutputBlockSize} 反映的是经方案编码后相对底层引擎块大小的净容量变化。</p>
  * <p>典型实现：OAEPEncoding（配 {@link MaskGenerationFunction} 作 MGF1）、PKCS1Encoding。</p>
  */
-public interface AsymmetricScheme extends Algorithm<AlgorithmFamily<? extends AsymmetricScheme>> {
+public interface AsymmetricScheme extends Algorithm<AlgorithmFactory<? extends AsymmetricScheme>> {
 
     /**
      * 初始化方案。

@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.crypto.newcore.interfaces.material.param.AsymmetricPrivateKeyParameter;
 import com.flora.crypto.newcore.interfaces.material.param.AsymmetricPublicKeyParameter;
 
@@ -13,7 +13,7 @@ import com.flora.crypto.newcore.interfaces.material.param.AsymmetricPublicKeyPar
  * 编译期即排除公私钥混用（设计参照 BouncyCastle 的
  * {@code AsymmetricPublicKeyParameter}/{@code AsymmetricPrivateKeyParameter} 拆分）。</p>
  */
-public interface Agreement extends Algorithm<AlgorithmFamily<? extends Agreement>> {
+public interface Agreement extends Algorithm<AlgorithmFactory<? extends Agreement>> {
 
     /**
      * 用本地私钥初始化协商。

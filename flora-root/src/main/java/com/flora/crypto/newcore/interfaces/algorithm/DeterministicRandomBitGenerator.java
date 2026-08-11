@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFactory;
 
 /**
  * 确定性随机比特生成器（Deterministic Random Bit Generator，DRBG）接口。
@@ -10,7 +10,7 @@ import com.flora.common.algorithm.AlgorithmFamily;
  * 但接口语义为通用 DRBG 抽象，不限定具体算法。</p>
  */
 public interface DeterministicRandomBitGenerator
-        extends Algorithm<AlgorithmFamily<? extends DeterministicRandomBitGenerator>> {
+        extends Algorithm<AlgorithmFactory<? extends DeterministicRandomBitGenerator>> {
 
     /**
      * 生成随机比特到 {@code output}。

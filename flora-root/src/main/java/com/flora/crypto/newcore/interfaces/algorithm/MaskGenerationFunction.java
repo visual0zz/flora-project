@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFactory;
 
 /**
  * 掩码生成函数（MGF）接口，对应 PKCS#1 的 mask generation function。
@@ -10,7 +10,7 @@ import com.flora.common.algorithm.AlgorithmFamily;
  * 分离：MGF 的语义是「以种子为输入的、有界长度的、方案专用的掩码生成」，调用方通常是
  * {@link AsymmetricScheme} 而非独立使用。</p>
  */
-public interface MaskGenerationFunction extends Algorithm<AlgorithmFamily<? extends MaskGenerationFunction>> {
+public interface MaskGenerationFunction extends Algorithm<AlgorithmFactory<? extends MaskGenerationFunction>> {
 
     /**
      * 将 {@code seed} 扩展为 {@code length} 字节掩码写入 {@code out}。

@@ -1,14 +1,14 @@
 package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.crypto.newcore.interfaces.material.param.DerivationParameter;
 
 /**
  * 密钥派生函数（KDF / 口令哈希）接口。
  * <p>对应常见方案：HKDF、KDF1/2、scrypt、bcrypt、Argon2 等。</p>
  */
-public interface DerivationFunction extends Algorithm<AlgorithmFamily<? extends DerivationFunction>> {
+public interface DerivationFunction extends Algorithm<AlgorithmFactory<? extends DerivationFunction>> {
 
     void init(DerivationParameter params);
 

@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore.combinator;
 
 import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.common.algorithm.AlgorithmFamilyRegister;
 import com.flora.crypto.newcore.CryptoAlgorithmFamilyRegister;
 import com.flora.crypto.newcore.interfaces.algorithm.AsymmetricBlockCipher;
@@ -64,11 +64,11 @@ public final class PaddedAsymmetricBlockCipher implements AsymmetricBlockCipher 
     }
 
     @Override
-    public AlgorithmFamily<? extends AsymmetricBlockCipher> factory() {
-        return FAMILY;
+    public AlgorithmFactory<? extends AsymmetricBlockCipher> factory() {
+        return FACTORY;
     }
 
-    public static final AlgorithmFamily<AsymmetricBlockCipher> FAMILY = new AlgorithmFamily<>() {
+    public static final AlgorithmFactory<AsymmetricBlockCipher> FACTORY = new AlgorithmFactory<>() {
         @Override
         public Class<? extends AlgorithmFamilyRegister> registerTo() {
             return CryptoAlgorithmFamilyRegister.class;

@@ -62,7 +62,7 @@ public final class CompressorProvider {
      */
     public static void registerCompressor(Compressor prototype, Function<String, ? extends Compressor> factory) {
         if (!(prototype instanceof AlgorithmFamily family)) {
-            throw new IllegalArgumentException("原型实例必须实现 AlgorithmFamily: " + prototype.getClass());
+            throw new IllegalArgumentException("原型实例必须实现 AlgorithmFactory: " + prototype.getClass());
         }
         Set<String> algorithms = family.supportedAlgorithms();
         if (algorithms == null || algorithms.isEmpty()) {

@@ -1,14 +1,14 @@
 package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 
 /**
  * MAC（消息认证码）引擎接口。
  * <p>对应常见算法：HmacSHA256 / HmacSHA1 / GMac 等。与 {@link Digest} 类似，但需密钥初始化。</p>
  */
-public interface Mac extends Algorithm<AlgorithmFamily<? extends Mac>> {
+public interface Mac extends Algorithm<AlgorithmFactory<? extends Mac>> {
 
     void init(CipherParameter params);
 

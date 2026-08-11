@@ -1,6 +1,6 @@
-package com.flora.cache;
+package com.flora.cache.interfaces;
 
-import com.flora.cache.interfaces.Cache;
+import com.flora.cache.Caches;
 import com.flora.cache.interfaces.MemoryCache;
 import org.junit.jupiter.api.Test;
 

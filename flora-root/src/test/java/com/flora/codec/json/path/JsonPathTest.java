@@ -1,4 +1,4 @@
-package com.flora.codec.json;
+package com.flora.codec.json.path;
 
 import com.flora.codec.JsonUtil;
 import org.junit.jupiter.api.BeforeAll;

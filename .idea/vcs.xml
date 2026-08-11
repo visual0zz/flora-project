@@ -5,6 +5,11 @@
   </component>
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/absent/jsch" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/absent/otherprojects/LLM-AIO-Gateway" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/absent/otherprojects/aider" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/absent/otherprojects/ben-manes-caffeine" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/absent/otherprojects/jgit" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/absent/otherprojects/openhanako" vcs="Git" />
   </component>
 </project>

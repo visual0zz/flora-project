@@ -30,6 +30,10 @@ import com.flora.crypto.newcore.link.SICBlockCipher;
 import com.flora.crypto.newcore.bridge.JdkBlockCipher;
 import com.flora.crypto.newcore.bridge.JdkDigest;
 import com.flora.crypto.newcore.bridge.JdkMac;
+import com.flora.crypto.newcore.impl.Blake2bDigest;
+import com.flora.crypto.newcore.impl.HMac;
+import com.flora.crypto.newcore.impl.Poly1305Mac;
+import com.flora.crypto.newcore.impl.Ripemd160Digest;
 import com.flora.crypto.newcore.wrapper.BufferedBlockCipherWrapper;
 import com.flora.crypto.newcore.wrapper.PaddedBufferedBlockCipherWrapper;
 import com.flora.crypto.newcore.padding.ISO7816d4Padding;
@@ -90,6 +94,11 @@ public final class CryptoProvider {
         REGISTRY.register(JdkBlockCipher.FACTORY);
         REGISTRY.register(JdkDigest.FACTORY);
         REGISTRY.register(JdkMac.FACTORY);
+        // 纯 Java 摘要 / MAC 原语
+        REGISTRY.register(Blake2bDigest.FACTORY);
+        REGISTRY.register(Ripemd160Digest.FACTORY);
+        REGISTRY.register(Poly1305Mac.FACTORY);
+        REGISTRY.register(HMac.FACTORY);
         // 对称填充
         REGISTRY.register(PKCS7Padding.FACTORY);
         REGISTRY.register(ISO7816d4Padding.FACTORY);

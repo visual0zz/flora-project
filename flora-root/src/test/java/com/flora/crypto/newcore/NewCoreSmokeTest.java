@@ -83,6 +83,16 @@ class NewCoreSmokeTest {
                 CryptoProvider.resolve("SHA-256"));
         assertInstanceOf(com.flora.crypto.newcore.bridge.JdkMac.class,
                 CryptoProvider.resolve("HmacSHA256"));
+
+        // 纯 Java 摘要 / MAC 原语
+        assertInstanceOf(com.flora.crypto.newcore.impl.Blake2bDigest.class,
+                CryptoProvider.resolve("BLAKE2B-256"));
+        assertInstanceOf(com.flora.crypto.newcore.impl.Ripemd160Digest.class,
+                CryptoProvider.resolve("RIPEMD160"));
+        assertInstanceOf(com.flora.crypto.newcore.impl.Poly1305Mac.class,
+                CryptoProvider.resolve("Poly1305"));
+        assertInstanceOf(com.flora.crypto.newcore.impl.HMac.class,
+                CryptoProvider.resolve("HMac(SHA-256)"));
     }
 
     @Test

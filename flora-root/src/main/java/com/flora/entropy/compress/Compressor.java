@@ -1,17 +1,27 @@
 package com.flora.entropy.compress;
 
-import com.flora.crypto.core.interfaces.provider.AlgorithmFamily;
+import com.flora.common.algorithm.Algorithm;
+import com.flora.common.algorithm.AlgorithmFactory;
+
+import java.util.Set;
 
 /**
  * 压缩引擎接口。
  * <p>对应常见算法：DEFLATE、GZIP 等。提供流式压缩/解压与一次性便捷入口。
- * 实现类通过 {@link AlgorithmFamily} 自述支持的算法集合与优先级，
+ * 实现类通过 {@link AlgorithmFactory} 自述支持的算法集合与优先级，
  * 由 {@link CompressorProvider} 按算法名注册与分发。</p>
  */
-public interface Compressor extends AlgorithmFamily {
+public interface Compressor extends Algorithm<AlgorithmFactory<? extends Compressor>> {
 
-    /** @return 算法名，如 {@code "DEFLATE"} */
-    String getAlgorithmName();
+    /** @return 支持的算法名集合，默认仅包含本实例的算法名 */
+    default Set<String> supportedAlgorithms() {
+        return Set.of(getAlgorithmName());
+    }
+
+    /** @return 分发优先级，数字越大越优先；通用适配器保持默认 {@code 0} */
+    default int priority() {
+        return 0;
+    }
 
     // ── 流式压缩 ──
 

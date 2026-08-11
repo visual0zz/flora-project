@@ -1,6 +1,10 @@
 package com.flora.entropy.mesure.engine;
 
+import com.flora.common.algorithm.AlgorithmComponent;
+import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamilyRegister;
 import com.flora.entropy.mesure.EntropyMetric;
+import com.flora.entropy.mesure.EntropyMetricAlgorithmFamilyRegister;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -110,6 +114,38 @@ public final class BaseAlphabetEntropy implements EntropyMetric {
         // 每字节熵 = (符号熵贡献 + 非字符集满熵) / 总长度
         return (h * symbolCount + 8.0 * otherCount) / data.length;
     }
+
+    @Override
+    public AlgorithmFactory<? extends EntropyMetric> factory() {
+        return FACTORY;
+    }
+
+    public static final AlgorithmFactory<EntropyMetric> FACTORY = new AlgorithmFactory<>() {
+        @Override
+        public Class<? extends AlgorithmFamilyRegister> registerTo() {
+            return EntropyMetricAlgorithmFamilyRegister.class;
+        }
+
+        @Override
+        public Set<String> supportedAlgorithms() {
+            return SUPPORTED;
+        }
+
+        @Override
+        public int priority() {
+            return 0;
+        }
+
+        @Override
+        public Class<? extends AlgorithmComponent>[] componentTypes() {
+            return new Class[0];
+        }
+
+        @Override
+        public EntropyMetric construct(String algorithmName, AlgorithmComponent... components) {
+            return BaseAlphabetEntropy.instance(algorithmName);
+        }
+    };
 
     private record Spec(String alphabet, boolean caseInsensitive, char pad) {
     }

@@ -1,6 +1,9 @@
 package com.flora.entropy.mesure;
 
-import com.flora.crypto.core.interfaces.provider.AlgorithmFamily;
+import com.flora.common.algorithm.Algorithm;
+import com.flora.common.algorithm.AlgorithmFactory;
+
+import java.util.Set;
 
 /**
  * 熵度量算法接口：把字节数据映射为一个<b>熵总量</b>标量。
@@ -10,10 +13,17 @@ import com.flora.crypto.core.interfaces.provider.AlgorithmFamily;
  * <p>新算法只需实现 {@link #measure(byte[])} 并注册到 {@link EntropyEstimator}，
  * 即可自动参与 {@link EntropyEstimator#minDensity} 聚合。</p>
  */
-public interface EntropyMetric extends AlgorithmFamily {
+public interface EntropyMetric extends Algorithm<AlgorithmFactory<? extends EntropyMetric>> {
 
-    /** @return 算法名，如 {@code "SHANNON"} */
-    String getAlgorithmName();
+    /** @return 支持的算法名集合，默认仅包含本实例的算法名 */
+    default Set<String> supportedAlgorithms() {
+        return Set.of(getAlgorithmName());
+    }
+
+    /** @return 分发优先级，数字越大越优先；通用适配器保持默认 {@code 0} */
+    default int priority() {
+        return 0;
+    }
 
     /**
      * 度量字节数据的熵总量（未归一化，语义由各实现自述，如 bit/字节）。

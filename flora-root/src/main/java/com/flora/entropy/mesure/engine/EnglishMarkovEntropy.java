@@ -1,6 +1,10 @@
 package com.flora.entropy.mesure.engine;
 
+import com.flora.common.algorithm.AlgorithmComponent;
+import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamilyRegister;
 import com.flora.entropy.mesure.EntropyMetric;
+import com.flora.entropy.mesure.EntropyMetricAlgorithmFamilyRegister;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -146,4 +150,36 @@ public final class EnglishMarkovEntropy implements EntropyMetric {
     private static boolean isHighBigram(int prev, int next) {
         return HIGH_BIGRAMS.contains("" + (char) ('a' + prev) + (char) ('a' + next));
     }
+
+    @Override
+    public AlgorithmFactory<? extends EntropyMetric> factory() {
+        return FACTORY;
+    }
+
+    public static final AlgorithmFactory<EntropyMetric> FACTORY = new AlgorithmFactory<>() {
+        @Override
+        public Class<? extends AlgorithmFamilyRegister> registerTo() {
+            return EntropyMetricAlgorithmFamilyRegister.class;
+        }
+
+        @Override
+        public Set<String> supportedAlgorithms() {
+            return SUPPORTED;
+        }
+
+        @Override
+        public int priority() {
+            return 0;
+        }
+
+        @Override
+        public Class<? extends AlgorithmComponent>[] componentTypes() {
+            return new Class[0];
+        }
+
+        @Override
+        public EntropyMetric construct(String algorithmName, AlgorithmComponent... components) {
+            return new EnglishMarkovEntropy();
+        }
+    };
 }

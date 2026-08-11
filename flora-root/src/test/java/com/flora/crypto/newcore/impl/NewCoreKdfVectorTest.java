@@ -126,7 +126,7 @@ class NewCoreKdfVectorTest {
     bcrypt.generateBytes(out, 0, dkLen);
 
     byte[] expected = new byte[dkLen];
-    new com.flora.crypto.core.impl.BCrypt().pbkdf(password, salt, rounds, expected);
+    new com.flora.crypto.newcore.impl.BCrypt().pbkdf(password, salt, rounds, expected);
     assertArrayEquals(expected, out);
   }
 }

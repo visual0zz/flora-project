@@ -1,8 +1,12 @@
 package com.flora.crypto.schemes.engine.kex;
 
-import com.flora.crypto.core.keypair.AsymmetricKeyParameter;
-import com.flora.crypto.core.bridge.JdkAgreement;
-import com.flora.crypto.core.interfaces.provider.Agreement;
+import com.flora.common.algorithm.AlgorithmComponent;
+import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamilyRegister;
+import com.flora.crypto.newcore.bridge.JdkAgreement;
+import com.flora.crypto.newcore.impl.AsymmetricKeyParameterImpl;
+import com.flora.crypto.newcore.interfaces.algorithm.Agreement;
+import com.flora.crypto.schemes.SchemeAlgorithmFamilyRegister;
 import com.flora.crypto.schemes.SchemeContext;
 import com.flora.crypto.schemes.SchemeException;
 import com.flora.crypto.schemes.keyexchange.KeyExchange;
@@ -12,6 +16,7 @@ import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
+import java.util.Set;
 import javax.crypto.interfaces.DHPrivateKey;
 import javax.crypto.spec.DHParameterSpec;
 import javax.crypto.spec.DHPublicKeySpec;
@@ -96,7 +101,7 @@ public final class DhGroup14 implements KeyExchange {
             gen.initialize(new DHParameterSpec(p, g));
             KeyPair kp = gen.generateKeyPair();
             this.agreement = JdkAgreement.of("DH");
-            this.agreement.init(new AsymmetricKeyParameter(kp.getPrivate()));
+            this.agreement.init(AsymmetricKeyParameterImpl.fromPrivate(kp.getPrivate()));
             this.e = ((javax.crypto.interfaces.DHPublicKey) kp.getPublic()).getY().toByteArray();
             this.complete = false;
             this.ownSent = false;
@@ -123,7 +128,7 @@ public final class DhGroup14 implements KeyExchange {
             BigInteger p = new BigInteger(1, P);
             BigInteger g = new BigInteger(1, G);
             this.agreement = JdkAgreement.of("DH");
-            this.agreement.init(new AsymmetricKeyParameter(privateKey));
+            this.agreement.init(AsymmetricKeyParameterImpl.fromPrivate(privateKey));
             BigInteger x = ((DHPrivateKey) privateKey).getX();
             this.e = g.modPow(x, p).toByteArray();
             this.complete = false;
@@ -149,7 +154,7 @@ public final class DhGroup14 implements KeyExchange {
             BigInteger g = new BigInteger(1, G);
             DHPublicKeySpec spec = new DHPublicKeySpec(new BigInteger(1, peerContribution), p, g);
             java.security.PublicKey peerPub = KeyFactory.getInstance("DH").generatePublic(spec);
-            this.sharedSecret = agreement.calculateAgreement(new AsymmetricKeyParameter(peerPub));
+            this.sharedSecret = agreement.calculateAgreement(AsymmetricKeyParameterImpl.fromPublic(peerPub));
             this.complete = true;
             // 若本方贡献尚未发出（响应方），则在本步一并发出；否则已无消息可发
             if (ownSent) {
@@ -174,4 +179,36 @@ public final class DhGroup14 implements KeyExchange {
         }
         return sharedSecret;
     }
+
+    @Override
+    public AlgorithmFactory<? extends KeyExchange> factory() {
+        return FACTORY;
+    }
+
+    public static final AlgorithmFactory<KeyExchange> FACTORY = new AlgorithmFactory<>() {
+        @Override
+        public Class<? extends AlgorithmFamilyRegister> registerTo() {
+            return SchemeAlgorithmFamilyRegister.class;
+        }
+
+        @Override
+        public Set<String> supportedAlgorithms() {
+            return Set.of("diffie-hellman-group14");
+        }
+
+        @Override
+        public int priority() {
+            return 0;
+        }
+
+        @Override
+        public Class<? extends AlgorithmComponent>[] componentTypes() {
+            return new Class[0];
+        }
+
+        @Override
+        public KeyExchange construct(String algorithmName, AlgorithmComponent... components) {
+            return new DhGroup14();
+        }
+    };
 }

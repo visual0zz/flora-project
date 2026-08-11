@@ -1,6 +1,9 @@
 package com.flora.entropy.mesure;
 
-import com.flora.crypto.core.interfaces.provider.AlgorithmFamily;
+import com.flora.common.algorithm.AlgorithmComponent;
+import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamilyRegister;
+import com.flora.common.algorithm.UnregisteredAlgorithmException;
 import com.flora.entropy.mesure.engine.BaseAlphabetEntropy;
 import com.flora.entropy.mesure.engine.ComplexityRatio;
 import com.flora.entropy.mesure.engine.EnglishMarkovEntropy;
@@ -11,19 +14,16 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
- * 熵度量算法注册表与归一化汇总层（模仿 JCA 的 {@code Provider} / BouncyCastleProvider 模式）。
- * <p>实现类通过 {@link AlgorithmFamily} 自述支持的算法集合与优先级。
- * 注册表按算法名索引，同一算法名可被多个实现类注册，分发时按
- * 「能实现 → 优先级（越大越优先）→ 具体度（算法数越少越优先）」裁决。</p>
+ * 熵度量算法注册表与归一化汇总层（复用 common 的注册机制）。
+ * <p>注册委托给 {@link EntropyMetricAlgorithmFamilyRegister}（复用 common 的注册 / 归属校验 / 同名裁决 /
+ * 按名查询能力）：实现类通过 {@link AlgorithmFactory} 自述支持的算法集合与优先级，
+ * 由本类按算法名注册与分发，分发时按「能实现 → 优先级（越大越优先）→ 具体度（算法数越少越优先）」裁决。</p>
  *
  * <p>算法只实现 {@code measure(byte[])} 输出熵总量；本层负责<b>密度归一化</b>：
  * 熵上限按输入字节长度推导（{@link #maxPerByte(int)}），密度 = 熵总量 / 上限；
@@ -47,15 +47,16 @@ public final class EntropyEstimator {
     private EntropyEstimator() {
     }
 
-    // ── 注册表：算法名 → 提供者条目列表 ──
+    // ── 注册表：算法名 → 工厂（common 注册中心） ──
+
+    /** 注册中心：每个实例即一个独立注册表。 */
+    private static final EntropyMetricAlgorithmFamilyRegister REGISTRY = new EntropyMetricAlgorithmFamilyRegister();
+
+    /** 已注册的算法名集合（供查询）。 */
+    private static final Set<String> REGISTERED_NAMES = ConcurrentHashMap.newKeySet();
 
     /** 记录每个原型类声明的算法名，用于 {@link #registeredMetrics()} 查询。 */
     private static final Map<Class<? extends EntropyMetric>, Set<String>> REGISTERED_PROTOTYPES = new LinkedHashMap<>();
-
-    private record Entry<T>(int priority, int specificity, Supplier<? extends T> factory) {
-    }
-
-    private static final Map<String, List<Entry<EntropyMetric>>> METRIC_REGISTRY = new ConcurrentHashMap<>();
 
     /**
      * 默认聚合的核心算法集合。
@@ -67,38 +68,67 @@ public final class EntropyEstimator {
     private static final Set<String> DEFAULT_AGGREGATION = Set.of("SHANNON", "COMPLEXITY_RATIO");
 
     static {
-        registerMetric(new ShannonEntropy(), name -> new ShannonEntropy());
-        registerMetric(new ComplexityRatio(), name -> new ComplexityRatio());
+        REGISTRY.register(ShannonEntropy.FACTORY);
+        REGISTRY.register(ComplexityRatio.FACTORY);
         // 常见 base 编码字符熵：BASE16/64/64URL，一个原型声明全部算法名，按名创建实例
-        registerMetric(BaseAlphabetEntropy.instance("BASE16"), BaseAlphabetEntropy::instance);
+        REGISTRY.register(BaseAlphabetEntropy.FACTORY);
         // 一阶英文马尔可夫（与英文的交叉熵，同为每字节熵，统一参与聚合）
-        registerMetric(new EnglishMarkovEntropy(), name -> new EnglishMarkovEntropy());
+        REGISTRY.register(EnglishMarkovEntropy.FACTORY);
+        track(ShannonEntropy.class, ShannonEntropy.FACTORY.supportedAlgorithms());
+        track(ComplexityRatio.class, ComplexityRatio.FACTORY.supportedAlgorithms());
+        track(BaseAlphabetEntropy.class, BaseAlphabetEntropy.FACTORY.supportedAlgorithms());
+        track(EnglishMarkovEntropy.class, EnglishMarkovEntropy.FACTORY.supportedAlgorithms());
     }
 
     // ── 注册入口 ──
 
     /**
-     * 注册熵度量算法。原型实例须实现 {@link AlgorithmFamily} 以自述支持的算法集合与优先级。
+     * 注册熵度量算法（原型实例自述支持的算法集合与优先级）。
      *
-     * @param prototype 原型实例
+     * @param prototype 原型实例（经 {@link EntropyMetric} 自述支持的算法名）
      * @param factory   按算法名创建新实例的工厂
      */
     public static void registerMetric(EntropyMetric prototype, Function<String, ? extends EntropyMetric> factory) {
-        if (!(prototype instanceof AlgorithmFamily family)) {
-            throw new IllegalArgumentException("原型实例必须实现 AlgorithmFactory: " + prototype.getClass());
-        }
-        Set<String> algorithms = family.supportedAlgorithms();
+        Set<String> algorithms = prototype.supportedAlgorithms();
         if (algorithms == null || algorithms.isEmpty()) {
             throw new IllegalArgumentException("supportedAlgorithms() 不能为空: " + prototype.getClass());
         }
-        int priority = family.priority();
-        int specificity = algorithms.size();
-        @SuppressWarnings("unchecked")
-        Class<? extends EntropyMetric> clazz = (Class<? extends EntropyMetric>) prototype.getClass();
-        REGISTERED_PROTOTYPES.computeIfAbsent(clazz, k -> new LinkedHashSet<>()).addAll(algorithms);
-        for (String name : algorithms) {
-            METRIC_REGISTRY.computeIfAbsent(name, k -> new CopyOnWriteArrayList<>())
-                    .add(new Entry<>(priority, specificity, () -> factory.apply(name)));
+        int priority = prototype.priority();
+        AlgorithmFactory<? extends EntropyMetric> adapter = new AlgorithmFactory<>() {
+            @Override
+            public Class<? extends AlgorithmFamilyRegister> registerTo() {
+                return EntropyMetricAlgorithmFamilyRegister.class;
+            }
+
+            @Override
+            public Set<String> supportedAlgorithms() {
+                return algorithms;
+            }
+
+            @Override
+            public int priority() {
+                return priority;
+            }
+
+            @Override
+            public Class<? extends AlgorithmComponent>[] componentTypes() {
+                return new Class[0];
+            }
+
+            @Override
+            public EntropyMetric construct(String algorithmName, AlgorithmComponent... components) {
+                return factory.apply(algorithmName);
+            }
+        };
+        REGISTRY.register(adapter);
+        track(prototype.getClass(), algorithms);
+    }
+
+    /** 收集已注册算法名与原型类映射（供查询入口使用）。 */
+    private static void track(Class<? extends EntropyMetric> clazz, Set<String> algorithms) {
+        REGISTERED_NAMES.addAll(algorithms);
+        synchronized (REGISTERED_PROTOTYPES) {
+            REGISTERED_PROTOTYPES.computeIfAbsent(clazz, k -> new LinkedHashSet<>()).addAll(algorithms);
         }
     }
 
@@ -111,17 +141,15 @@ public final class EntropyEstimator {
      * @return 度量实例
      * @throws IllegalArgumentException 若算法未注册
      */
+    @SuppressWarnings("unchecked")
     public static EntropyMetric metric(String name) {
         CheckUtil.notEmpty(name, "算法名不能为空");
-        List<Entry<EntropyMetric>> list = METRIC_REGISTRY.get(name);
-        if (list == null || list.isEmpty()) {
-            throw new IllegalArgumentException("未注册的熵度量算法: " + name);
+        try {
+            AlgorithmFactory<?> factory = REGISTRY.get(name, AlgorithmFactory.class);
+            return (EntropyMetric) factory.construct(name, new AlgorithmComponent[0]);
+        } catch (UnregisteredAlgorithmException e) {
+            throw new IllegalArgumentException("未注册的熵度量算法: " + name, e);
         }
-        EntropyMetric result = pick(list);
-        if (result == null) {
-            throw new IllegalArgumentException("算法重复注册: " + name + " 存在多个同优先级同具体度的提供者");
-        }
-        return result;
     }
 
     // ── 上限与归一化 ──
@@ -222,7 +250,7 @@ public final class EntropyEstimator {
      * @return 算法名集合
      */
     public static Set<String> registeredAlgorithms() {
-        return Collections.unmodifiableSet(METRIC_REGISTRY.keySet());
+        return Collections.unmodifiableSet(REGISTERED_NAMES);
     }
 
     /**
@@ -232,26 +260,11 @@ public final class EntropyEstimator {
      *
      * @return 实现类 → 算法名的不可变映射
      */
-    public static Map<Class<? extends EntropyMetric>, Set<String>> registeredMetrics() {
+    public static synchronized Map<Class<? extends EntropyMetric>, Set<String>> registeredMetrics() {
         Map<Class<? extends EntropyMetric>, Set<String>> result = new LinkedHashMap<>();
         for (var entry : REGISTERED_PROTOTYPES.entrySet()) {
             result.put(entry.getKey(), Collections.unmodifiableSet(entry.getValue()));
         }
         return Collections.unmodifiableMap(result);
-    }
-
-    /** 按「优先级最大 → 具体度最小」裁决，多个并列返回 null。 */
-    private static <T> T pick(List<Entry<T>> list) {
-        int maxPri = list.stream().mapToInt(Entry::priority).max().orElse(0);
-        var byPri = list.stream().filter(e -> e.priority() == maxPri).toList();
-        if (byPri.size() == 1) {
-            return byPri.get(0).factory().get();
-        }
-        int minSpec = byPri.stream().mapToInt(Entry::specificity).min().orElse(0);
-        var bySpec = byPri.stream().filter(e -> e.specificity() == minSpec).toList();
-        if (bySpec.size() == 1) {
-            return bySpec.get(0).factory().get();
-        }
-        return null;
     }
 }

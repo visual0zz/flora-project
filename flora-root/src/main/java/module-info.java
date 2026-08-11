@@ -54,26 +54,6 @@ module com.flora.root {
     exports com.flora.concurrent.retry;
     // 通用元组类型
     exports com.flora.container.tuple;
-    // 加密核心抽象与基础类型
-    exports com.flora.crypto.core;
-    // 加密原语桥接层
-    exports com.flora.crypto.core.bridge;
-    // 加密组件组合器
-    exports com.flora.crypto.core.combinator;
-    // 加密核心默认实现
-    exports com.flora.crypto.core.impl;
-    // 加密核心接口定义
-    exports com.flora.crypto.core.interfaces;
-    // 加密算法提供方 SPI
-    exports com.flora.crypto.core.interfaces.provider;
-    // 密钥对生成与管理
-    exports com.flora.crypto.core.keypair;
-    // 加密工作模式（如 CBC/GCM）
-    exports com.flora.crypto.core.mode;
-    // 填充方案
-    exports com.flora.crypto.core.padding;
-    // 算法参数封装
-    exports com.flora.crypto.core.param;
     // 新加密抽象层（newcore）入口与注册中心
     exports com.flora.crypto.newcore;
     // 新加密抽象层常量（如 AsymmetricKeyType）

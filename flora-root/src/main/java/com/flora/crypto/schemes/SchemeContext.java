@@ -1,6 +1,6 @@
 package com.flora.crypto.schemes;
 
-import com.flora.crypto.core.interfaces.provider.EntropySource;
+import com.flora.crypto.newcore.interfaces.algorithm.EntropySource;
 
 /**
  * 方案运行环境。

@@ -129,7 +129,7 @@ class DhGroup14Test {
 
         SchemeContext ctx = new SchemeContext() {
             @Override
-            public com.flora.crypto.core.interfaces.provider.EntropySource entropy() {
+            public com.flora.crypto.newcore.interfaces.algorithm.EntropySource entropy() {
                 return null; // DhGroup14 使用 JDK KeyPairGenerator 自管随机性，无需外部熵
             }
         };

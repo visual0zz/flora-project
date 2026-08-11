@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore;
 
 import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.crypto.newcore.wrapper.PaddedBufferedBlockCipher;
+import com.flora.crypto.newcore.wrapper.PaddedBufferedBlockCipherWrapper;
 import com.flora.crypto.newcore.interfaces.algorithm.BlockCipher;
 import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 import com.flora.crypto.newcore.link.CBCBlockCipher;
@@ -127,11 +127,34 @@ class NewCoreSmokeTest {
         new SecureRandom().nextBytes(key);
         byte[] plain = new byte[30]; // 非块对齐，需要填充
 
-        PaddedBufferedBlockCipher enc = new PaddedBufferedBlockCipher(new XorBlockCipher(key));
+        PaddedBufferedBlockCipherWrapper enc = new PaddedBufferedBlockCipherWrapper(new XorBlockCipher(key));
         enc.init(true, new TestKeyParameter(key));
         byte[] cipher = enc.process(plain);
 
-        PaddedBufferedBlockCipher dec = new PaddedBufferedBlockCipher(new XorBlockCipher(key));
+        PaddedBufferedBlockCipherWrapper dec = new PaddedBufferedBlockCipherWrapper(new XorBlockCipher(key));
+        dec.init(false, new TestKeyParameter(key));
+        byte[] back = dec.process(cipher);
+
+        assertArrayEquals(plain, back);
+    }
+
+    @Test
+    void paddedBufferedFactoryWiring() {
+        byte[] key = new byte[16];
+        new SecureRandom().nextBytes(key);
+        byte[] plain = new byte[37]; // 非块对齐
+        new SecureRandom().nextBytes(plain);
+
+        // 验证 DSL 组合器接线：construct 注入底层 BlockCipher，缺省填充时用 PKCS7
+        com.flora.crypto.newcore.interfaces.algorithm.BufferedBlockCipher enc =
+                PaddedBufferedBlockCipherWrapper.FACTORY.construct(
+                        "PaddedBuffered", new XorBlockCipher(key));
+        enc.init(true, new TestKeyParameter(key));
+        byte[] cipher = enc.process(plain);
+
+        com.flora.crypto.newcore.interfaces.algorithm.BufferedBlockCipher dec =
+                PaddedBufferedBlockCipherWrapper.FACTORY.construct(
+                        "PaddedBuffered", new XorBlockCipher(key));
         dec.init(false, new TestKeyParameter(key));
         byte[] back = dec.process(cipher);
 

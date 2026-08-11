@@ -10,6 +10,7 @@ import com.flora.crypto.newcore.interfaces.algorithm.AsymmetricCipher;
 import com.flora.crypto.newcore.interfaces.algorithm.AsymmetricCipherKeyPairGenerator;
 import com.flora.crypto.newcore.interfaces.algorithm.AsymmetricScheme;
 import com.flora.crypto.newcore.interfaces.algorithm.AEADBlockCipher;
+import com.flora.crypto.newcore.interfaces.algorithm.BufferedBlockCipher;
 import com.flora.crypto.newcore.interfaces.algorithm.LinkedBlockCipher;
 import com.flora.crypto.newcore.interfaces.algorithm.DerivationFunction;
 import com.flora.crypto.newcore.interfaces.algorithm.DeterministicRandomBitGenerator;
@@ -26,6 +27,8 @@ import com.flora.crypto.newcore.link.CFBBlockCipher;
 import com.flora.crypto.newcore.link.GCMBlockCipher;
 import com.flora.crypto.newcore.link.OFBBlockCipher;
 import com.flora.crypto.newcore.link.SICBlockCipher;
+import com.flora.crypto.newcore.wrapper.BufferedBlockCipherWrapper;
+import com.flora.crypto.newcore.wrapper.PaddedBufferedBlockCipherWrapper;
 import com.flora.crypto.newcore.padding.ISO7816d4Padding;
 import com.flora.crypto.newcore.padding.Mgf1Generator;
 import com.flora.crypto.newcore.padding.OAEPPadding;
@@ -91,6 +94,9 @@ public final class CryptoProvider {
         // 组合器
         REGISTRY.register(BufferedAsymmetricBlockCipher.FACTORY);
         REGISTRY.register(PaddedAsymmetricBlockCipher.FACTORY);
+        // 原语层缓冲组合器（整段处理，非模式层）
+        REGISTRY.register(BufferedBlockCipherWrapper.FACTORY);
+        REGISTRY.register(PaddedBufferedBlockCipherWrapper.FACTORY);
         // SPI 自动发现：其它模块（如后续实现模块）经 ServiceLoader 注册的算法族
         REGISTRY.registerBySpi();
     }
@@ -159,6 +165,10 @@ public final class CryptoProvider {
 
     public static LinkedBlockCipher blockCipher(String expression) {
         return cast(LinkedBlockCipher.class, expression);
+    }
+
+    public static BufferedBlockCipher bufferedBlockCipher(String expression) {
+        return cast(BufferedBlockCipher.class, expression);
     }
 
     public static Mac mac(String expression) {

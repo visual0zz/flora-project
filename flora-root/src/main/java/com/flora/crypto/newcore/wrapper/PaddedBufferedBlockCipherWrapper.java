@@ -1,6 +1,11 @@
 package com.flora.crypto.newcore.wrapper;
 
+import com.flora.common.algorithm.AlgorithmComponent;
+import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamilyRegister;
+import com.flora.crypto.newcore.CryptoAlgorithmFamilyRegister;
 import com.flora.crypto.newcore.interfaces.algorithm.BlockCipher;
+import com.flora.crypto.newcore.interfaces.algorithm.BufferedBlockCipher;
 import com.flora.crypto.newcore.interfaces.algorithm.Padding;
 import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 import com.flora.crypto.newcore.padding.PKCS7Padding;
@@ -9,6 +14,7 @@ import com.flora.tag.ThreadFragile;
 
 import java.io.ByteArrayOutputStream;
 import java.security.SecureRandom;
+import java.util.Set;
 
 /**
  * 带填充的分组密码缓冲装饰器。
@@ -16,14 +22,14 @@ import java.security.SecureRandom;
  * 任意长度数据：加密时在末块加填充，解密时从末块去除填充。默认使用 PKCS7 填充。</p>
  */
 @ThreadFragile
-public final class PaddedBufferedBlockCipher {
+public final class PaddedBufferedBlockCipherWrapper implements BufferedBlockCipher {
 
     private final BlockCipher cipher;
     private final Padding padding;
     private final int blockSize;
     private boolean forEncryption;
 
-    public PaddedBufferedBlockCipher(BlockCipher cipher, Padding padding) {
+    public PaddedBufferedBlockCipherWrapper(BlockCipher cipher, Padding padding) {
         CheckUtil.notNull(cipher, "底层分组密码不能为空");
         CheckUtil.notNull(padding, "填充策略不能为空");
         this.cipher = cipher;
@@ -31,7 +37,7 @@ public final class PaddedBufferedBlockCipher {
         this.blockSize = cipher.getBlockSize();
     }
 
-    public PaddedBufferedBlockCipher(BlockCipher cipher) {
+    public PaddedBufferedBlockCipherWrapper(BlockCipher cipher) {
         this(cipher, new PKCS7Padding());
     }
 
@@ -88,4 +94,52 @@ public final class PaddedBufferedBlockCipher {
         }
         return out.toByteArray();
     }
+
+    /**
+     * 收尾。本组合器在 {@link #process(byte[])} 中已一次性完成末块填充 / 去填充，
+     * 整段处理后无遗留缓冲，故此处恒返回空数组。
+     *
+     * @return 空数组
+     */
+    @Override
+    public byte[] doFinal() {
+        return new byte[0];
+    }
+
+    @Override
+    public AlgorithmFactory<? extends BufferedBlockCipher> factory() {
+        return FACTORY;
+    }
+
+    public static final AlgorithmFactory<BufferedBlockCipher> FACTORY = new AlgorithmFactory<>() {
+        @Override
+        public Class<? extends AlgorithmFamilyRegister> registerTo() {
+            return CryptoAlgorithmFamilyRegister.class;
+        }
+
+        @Override
+        public Set<String> supportedAlgorithms() {
+            return Set.of("PaddedBuffered");
+        }
+
+        @Override
+        public int priority() {
+            return 0;
+        }
+
+        @Override
+        public Class<? extends AlgorithmComponent>[] componentTypes() {
+            return new Class[]{BlockCipher.class, Padding.class};
+        }
+
+        @Override
+        public BufferedBlockCipher construct(
+                String algorithmName, AlgorithmComponent... components) {
+            BlockCipher cipher = (BlockCipher) components[0];
+            Padding padding = components.length > 1
+                    ? (Padding) components[1]
+                    : new PKCS7Padding();
+            return new PaddedBufferedBlockCipherWrapper(cipher, padding);
+        }
+    };
 }

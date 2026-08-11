@@ -1,11 +1,17 @@
 package com.flora.crypto.newcore.wrapper;
 
+import com.flora.common.algorithm.AlgorithmComponent;
+import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.algorithm.AlgorithmFamilyRegister;
+import com.flora.crypto.newcore.CryptoAlgorithmFamilyRegister;
 import com.flora.crypto.newcore.interfaces.algorithm.BlockCipher;
+import com.flora.crypto.newcore.interfaces.algorithm.BufferedBlockCipher;
 import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 import com.flora.java.CheckUtil;
 import com.flora.tag.ThreadFragile;
 
 import java.io.ByteArrayOutputStream;
+import java.util.Set;
 
 /**
  * 分组密码缓冲装饰器。
@@ -13,17 +19,17 @@ import java.io.ByteArrayOutputStream;
  * 也能直接处理整段数据。这是组合模式的典型示范：模式、填充等变化点通过
  * 可叠加的包装器表达，而非放进统一的算法接口。</p>
  * <p>本装饰器只做缓冲，不实现任何加密逻辑。对于 {@code NoPadding} 引擎，要求输入长度为
- * 块大小的整数倍；非对齐数据请改用带填充的 {@link PaddedBufferedBlockCipher}。</p>
+ * 块大小的整数倍；非对齐数据请改用 {@link PaddedBufferedBlockCipherWrapper}。</p>
  */
 @ThreadFragile
-public final class BufferedBlockCipher {
+public final class BufferedBlockCipherWrapper implements BufferedBlockCipher {
 
     private final BlockCipher cipher;
     private final int blockSize;
     private final byte[] buffer;
     private int bufOff;
 
-    public BufferedBlockCipher(BlockCipher cipher) {
+    public BufferedBlockCipherWrapper(BlockCipher cipher) {
         CheckUtil.notNull(cipher, "底层分组密码不能为空");
         this.cipher = cipher;
         this.blockSize = cipher.getBlockSize();
@@ -87,4 +93,38 @@ public final class BufferedBlockCipher {
         bufOff = 0;
         return block;
     }
+
+    @Override
+    public AlgorithmFactory<? extends BufferedBlockCipher> factory() {
+        return FACTORY;
+    }
+
+    public static final AlgorithmFactory<BufferedBlockCipher> FACTORY =
+            new AlgorithmFactory<>() {
+                @Override
+                public Class<? extends AlgorithmFamilyRegister> registerTo() {
+                    return CryptoAlgorithmFamilyRegister.class;
+                }
+
+                @Override
+                public Set<String> supportedAlgorithms() {
+                    return Set.of("Buffered");
+                }
+
+                @Override
+                public int priority() {
+                    return 0;
+                }
+
+                @Override
+                public Class<? extends AlgorithmComponent>[] componentTypes() {
+                    return new Class[]{BlockCipher.class};
+                }
+
+                @Override
+                public BufferedBlockCipher construct(
+                        String algorithmName, AlgorithmComponent... components) {
+                    return new BufferedBlockCipherWrapper((BlockCipher) components[0]);
+                }
+            };
 }

@@ -58,7 +58,7 @@ public final class OFBBlockCipher implements LinkedBlockCipher {
 
     @Override
     public String getAlgorithmName() {
-        return cipher.getAlgorithmName() + "/OFB";
+        return "OFB";
     }
 
     @Override

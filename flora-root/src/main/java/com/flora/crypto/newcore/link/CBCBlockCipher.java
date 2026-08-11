@@ -63,7 +63,7 @@ public final class CBCBlockCipher implements LinkedBlockCipher {
 
     @Override
     public String getAlgorithmName() {
-        return cipher.getAlgorithmName() + "/CBC";
+        return "CBC";
     }
 
     @Override

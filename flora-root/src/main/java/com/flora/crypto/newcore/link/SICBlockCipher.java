@@ -58,7 +58,7 @@ public final class SICBlockCipher implements LinkedBlockCipher {
 
     @Override
     public String getAlgorithmName() {
-        return cipher.getAlgorithmName() + "/CTR";
+        return "CTR";
     }
 
     @Override

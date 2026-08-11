@@ -43,7 +43,7 @@ public final class BufferedAsymmetricBlockCipher implements AsymmetricCipher {
 
     @Override
     public String getAlgorithmName() {
-        return cipher.getAlgorithmName();
+        return "BufferedAsymmetricBlockCipher";
     }
 
     @Override

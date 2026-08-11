@@ -40,7 +40,7 @@ public final class PaddedAsymmetricBlockCipher implements AsymmetricBlockCipher 
 
     @Override
     public String getAlgorithmName() {
-        return engine.getAlgorithmName() + "/" + scheme.getAlgorithmName();
+        return "PaddedAsymmetricBlockCipher";
     }
 
     @Override

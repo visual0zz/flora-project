@@ -60,7 +60,7 @@ public final class CFBBlockCipher implements LinkedBlockCipher {
 
     @Override
     public String getAlgorithmName() {
-        return cipher.getAlgorithmName() + "/CFB";
+        return "CFB";
     }
 
     @Override

@@ -84,7 +84,7 @@ public final class GCMBlockCipher implements AEADBlockCipher {
 
     @Override
     public String getAlgorithmName() {
-        return engine.getAlgorithmName() + "/GCM";
+        return "GCM";
     }
 
     @Override

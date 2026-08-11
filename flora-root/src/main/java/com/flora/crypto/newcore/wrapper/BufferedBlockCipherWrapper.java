@@ -43,7 +43,7 @@ public final class BufferedBlockCipherWrapper implements BufferedBlockCipher {
     }
 
     public String getAlgorithmName() {
-        return cipher.getAlgorithmName();
+        return "Buffered";
     }
 
     public int getBlockSize() {

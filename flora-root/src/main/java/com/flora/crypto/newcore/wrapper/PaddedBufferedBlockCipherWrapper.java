@@ -48,7 +48,7 @@ public final class PaddedBufferedBlockCipherWrapper implements BufferedBlockCiph
     }
 
     public String getAlgorithmName() {
-        return cipher.getAlgorithmName();
+        return "PaddedBuffered";
     }
 
     public int getBlockSize() {

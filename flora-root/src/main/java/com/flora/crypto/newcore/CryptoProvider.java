@@ -44,6 +44,7 @@ import com.flora.crypto.newcore.impl.ChaCha20Engine;
 import com.flora.crypto.newcore.impl.ChaCha20Poly1305;
 import com.flora.crypto.newcore.impl.HMac;
 import com.flora.crypto.newcore.impl.HkdfDerivationFunction;
+import com.flora.crypto.newcore.impl.HMacDrbg;
 import com.flora.crypto.newcore.impl.Kdf2DerivationFunction;
 import com.flora.crypto.newcore.impl.Pbkdf2DerivationFunction;
 import com.flora.crypto.newcore.impl.PlaceholderDerivationFunction;
@@ -120,6 +121,8 @@ public final class CryptoProvider {
         REGISTRY.register(JdkKem.FACTORY);
         REGISTRY.register(JdkSignature.FACTORY);
         REGISTRY.register(SecureRandomEntropySource.FACTORY);
+        // 确定性随机比特生成器（SP800-90A HMAC_DRBG）
+        REGISTRY.register(HMacDrbg.FACTORY);
         // 纯 Java 摘要 / MAC 原语
         REGISTRY.register(Blake2bDigest.FACTORY);
         REGISTRY.register(Ripemd160Digest.FACTORY);

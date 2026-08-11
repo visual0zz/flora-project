@@ -130,6 +130,9 @@ class NewCoreSmokeTest {
                 CryptoProvider.resolve("ECDH-KEM"));
         assertInstanceOf(com.flora.crypto.newcore.impl.AgreementBasedKem.class,
                 CryptoProvider.resolve("X25519-KEM"));
+        // 确定性随机比特生成器（SP800-90A HMAC_DRBG）
+        assertInstanceOf(com.flora.crypto.newcore.impl.HMacDrbg.class,
+                CryptoProvider.resolve("HMAC_DRBG(HMac(SHA-256))"));
     }
 
     @Test
@@ -174,6 +177,35 @@ class NewCoreSmokeTest {
                 com.flora.crypto.newcore.bridge.JdkSignature.of("SHA256withECDSA");
         verifier.init(false, kp.getPublic());
         assertTrue(verifier.verify(digest, sig));
+    }
+
+    @Test
+    void hmacDrbgDeterministic() {
+        // 同熵同 nonce 应可复现；不同熵应产生不同输出
+        com.flora.crypto.newcore.interfaces.algorithm.Mac mac =
+                com.flora.crypto.newcore.bridge.JdkMac.of("HmacSHA256");
+        byte[] entropy = new byte[32];
+        byte[] nonce = new byte[16];
+        new java.security.SecureRandom().nextBytes(entropy);
+        new java.security.SecureRandom().nextBytes(nonce);
+
+        com.flora.crypto.newcore.interfaces.algorithm.DeterministicRandomBitGenerator g1 =
+                new com.flora.crypto.newcore.impl.HMacDrbg(mac, entropy.clone(), nonce.clone(), null);
+        com.flora.crypto.newcore.interfaces.algorithm.DeterministicRandomBitGenerator g2 =
+                new com.flora.crypto.newcore.impl.HMacDrbg(mac, entropy.clone(), nonce.clone(), null);
+        byte[] out1 = new byte[64];
+        byte[] out2 = new byte[64];
+        assertEquals(512, g1.generate(out1));
+        assertEquals(512, g2.generate(out2));
+        assertArrayEquals(out1, out2);
+
+        byte[] otherEntropy = entropy.clone();
+        otherEntropy[0] ^= (byte) 0xFF;
+        com.flora.crypto.newcore.interfaces.algorithm.DeterministicRandomBitGenerator g3 =
+                new com.flora.crypto.newcore.impl.HMacDrbg(mac, otherEntropy, nonce.clone(), null);
+        byte[] out3 = new byte[64];
+        g3.generate(out3);
+        assertFalse(java.util.Arrays.equals(out1, out3));
     }
 
     @Test

@@ -27,6 +27,9 @@ import com.flora.crypto.newcore.link.CFBBlockCipher;
 import com.flora.crypto.newcore.link.GCMBlockCipher;
 import com.flora.crypto.newcore.link.OFBBlockCipher;
 import com.flora.crypto.newcore.link.SICBlockCipher;
+import com.flora.crypto.newcore.bridge.JdkBlockCipher;
+import com.flora.crypto.newcore.bridge.JdkDigest;
+import com.flora.crypto.newcore.bridge.JdkMac;
 import com.flora.crypto.newcore.wrapper.BufferedBlockCipherWrapper;
 import com.flora.crypto.newcore.wrapper.PaddedBufferedBlockCipherWrapper;
 import com.flora.crypto.newcore.padding.ISO7816d4Padding;
@@ -83,6 +86,10 @@ public final class CryptoProvider {
         REGISTRY.register(OFBBlockCipher.FACTORY);
         REGISTRY.register(SICBlockCipher.FACTORY);
         REGISTRY.register(GCMBlockCipher.FACTORY);
+        // JDK 裸原语桥接（DSL 裸名入口：AES / SHA-256 / HmacSHA256 等）
+        REGISTRY.register(JdkBlockCipher.FACTORY);
+        REGISTRY.register(JdkDigest.FACTORY);
+        REGISTRY.register(JdkMac.FACTORY);
         // 对称填充
         REGISTRY.register(PKCS7Padding.FACTORY);
         REGISTRY.register(ISO7816d4Padding.FACTORY);

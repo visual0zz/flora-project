@@ -75,6 +75,14 @@ class NewCoreSmokeTest {
 
         Object zero = CryptoProvider.resolve("ZeroByte");
         assertInstanceOf(ZeroBytePadding.class, zero);
+
+        // JDK 裸原语桥接：AES / SHA-256 / HmacSHA256 现可通过 DSL 解析
+        assertInstanceOf(com.flora.crypto.newcore.bridge.JdkBlockCipher.class,
+                CryptoProvider.resolve("AES"));
+        assertInstanceOf(com.flora.crypto.newcore.bridge.JdkDigest.class,
+                CryptoProvider.resolve("SHA-256"));
+        assertInstanceOf(com.flora.crypto.newcore.bridge.JdkMac.class,
+                CryptoProvider.resolve("HmacSHA256"));
     }
 
     @Test

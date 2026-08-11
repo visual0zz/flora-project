@@ -9,8 +9,12 @@ import com.flora.common.algorithm.AlgorithmFamily;
  */
 public interface Digest extends Algorithm<AlgorithmFamily<? extends Digest>> {
 
-    /** @return 摘要字节长度 */
-    int getDigestSize();
+    /** @return 输出摘要的字节长度 */
+    int getDigestResultSize();
+    /**
+     * @return 摘要算法的内部块长度（字节），如 SHA-256 为 64、SHA-512 为 128
+     */
+    int getInternalBlockLength();
 
     void update(byte in);
 

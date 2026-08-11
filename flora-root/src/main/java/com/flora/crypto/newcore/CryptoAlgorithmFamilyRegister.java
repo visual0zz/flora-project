@@ -3,6 +3,8 @@ package com.flora.crypto.newcore;
 import com.flora.common.algorithm.AlgorithmFamily;
 import com.flora.common.algorithm.AlgorithmFamilyRegister;
 import com.flora.java.CheckUtil;
+import com.flora.runtime.log.Logger;
+import com.flora.runtime.log.LoggerFactory;
 import com.flora.tag.ModuleEntry;
 
 import java.util.Map;
@@ -10,25 +12,33 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 算法工厂注册中心。
- * <p>算法工厂通过 {@link #register(AlgorithmFamily)} 注册；约定所有算法全局不同名，
- * 重复注册同名算法视为错误。查询时按算法名 + 目标角色接口（继承 {@link Algorithm} 的接口）
- * 取回对应的算法对象。</p>
+ * <p>算法工厂通过 {@link #register(AlgorithmFamily)} 注册；同名冲突按优先级 / 支持集合大小裁决，
+ * 查询时按算法名 + 目标角色接口取回对应的算法工厂。</p>
  */
 @ModuleEntry
 public final class CryptoAlgorithmFamilyRegister implements AlgorithmFamilyRegister {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(CryptoAlgorithmFamilyRegister.class);
+
     private CryptoAlgorithmFamilyRegister() {}
 
-    /** 算法名 → 工厂。全局唯一，同名即冲突。 */
+    /** 算法名 → 工厂。每个算法名由裁决后胜出的唯一工厂负责。 */
     private final Map<String, AlgorithmFamily<?>> REGISTRY = new ConcurrentHashMap<>();
 
     /**
      * 注册一个算法工厂。
      * <p>工厂自述 {@link AlgorithmFamily#supportedAlgorithms()} 返回其支持的全部算法名（全集），
-     * 每个名字在全局注册表中须唯一，重复注册同名算法将抛错。</p>
+     * 每个名字在全局注册表中须唯一。同名冲突时按以下裁决规则逐名处理：</p>
+     * <ul>
+     *   <li>新工厂优先级更高 → 替换该名字对应的旧工厂；</li>
+     *   <li>新工厂优先级更低 → 放弃（保留旧工厂）；</li>
+     *   <li>优先级相同时，比较 {@code supportedAlgorithms()} 集合大小：
+     *       新的更小（更具体）→ 替换；新的更大 → 不替换；
+     *       二者相等 → 视为算法族重复，记录错误日志并抛异常。</li>
+     * </ul>
      *
      * @param factory 算法工厂实例
-     * @throws IllegalArgumentException 工厂支持集合为空或包含已注册的同名算法
+     * @throws IllegalArgumentException 工厂支持集合为空、包含空算法名，或算法族重复无法区分
      */
     public void register(AlgorithmFamily<?> factory) {
         CheckUtil.notNull(factory, "算法工厂不能为空");
@@ -37,12 +47,49 @@ public final class CryptoAlgorithmFamilyRegister implements AlgorithmFamilyRegis
                 factory.getClass().getSimpleName() + " 的 supportedAlgorithms() 返回空集合");
         for (String name : names) {
             CheckUtil.notEmpty(name, "算法名不能为空");
-            AlgorithmFamily<?> existing = REGISTRY.putIfAbsent(name, factory);
-            if (existing != null) {
-                throw new IllegalArgumentException(
-                        "算法名 '" + name + "' 已被 " + existing.getClass().getSimpleName()
-                                + " 注册，重复注册视为错误");
+            AlgorithmFamily<?> existing = REGISTRY.get(name);
+            if (existing == null) {
+                REGISTRY.put(name, factory);
+                continue;
             }
+            resolveConflict(name, factory, existing);
+        }
+    }
+
+    /**
+     * 裁决单个算法名上旧、新工厂的冲突归属。
+     * <p>比较依据是工厂整体（优先级、支持集合大小），裁决结果仅作用于该算法名这一个 key，
+     * 不影响两个工厂各自支持的其他名字。优先级与支持集合大小均相同（无法区分）时，
+     * 先记录错误日志再抛 {@link IllegalArgumentException} 中断注册。</p>
+     */
+    private void resolveConflict(String name, AlgorithmFamily<?> candidate, AlgorithmFamily<?> current) {
+        int priCmp = Integer.compare(candidate.priority(), current.priority());
+        if (priCmp > 0) {
+            // 新工厂优先级更高，替换
+            REGISTRY.put(name, candidate);
+            return;
+        }
+        if (priCmp < 0) {
+            // 新工厂优先级更低，放弃
+            return;
+        }
+        // 优先级相同，比较支持集合大小
+        int candidateSize = candidate.supportedAlgorithms().size();
+        int currentSize = current.supportedAlgorithms().size();
+        if (candidateSize < currentSize) {
+            // 新的更具体，替换
+            REGISTRY.put(name, candidate);
+        } else if (candidateSize > currentSize) {
+            // 新的更宽泛，不替换，保持现状
+        } else {
+            LOGGER.error("算法族重复：算法名 '{}' 已由 {} 注册，优先级({})与支持算法数({})均相同，"
+                            + "与 {} 冲突",
+                    name, current.getClass().getSimpleName(), current.priority(), currentSize,
+                    candidate.getClass().getSimpleName());
+            throw new IllegalArgumentException(
+                    "算法族重复：算法名 '" + name + "' 已由 " + current.getClass().getSimpleName()
+                            + " 注册，优先级与支持算法数均相同，无法与 "
+                            + candidate.getClass().getSimpleName() + " 区分");
         }
     }
 

@@ -21,11 +21,6 @@ public final class PKCS7Padding implements Padding {
     }
 
     @Override
-    public String getPaddingName() {
-        return "PKCS7";
-    }
-
-    @Override
     public String getAlgorithmName() {
         return "PKCS7";
     }

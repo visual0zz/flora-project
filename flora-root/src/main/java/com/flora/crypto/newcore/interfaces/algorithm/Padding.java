@@ -19,9 +19,6 @@ public interface Padding extends Algorithm<AlgorithmFactory<? extends Padding>> 
      */
     void init(SecureRandom random) throws IllegalArgumentException;
 
-    /** @return 填充算法名，如 {@code "PKCS7"} */
-    String getPaddingName();
-
     /** @return 块大小 */
     int getBlockSize();
 

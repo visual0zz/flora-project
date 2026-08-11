@@ -20,11 +20,6 @@ public final class ISO7816d4Padding implements Padding {
     }
 
     @Override
-    public String getPaddingName() {
-        return "ISO7816-4";
-    }
-
-    @Override
     public String getAlgorithmName() {
         return "ISO7816-4";
     }

@@ -22,11 +22,6 @@ public final class ZeroBytePadding implements Padding {
     }
 
     @Override
-    public String getPaddingName() {
-        return "ZeroByte";
-    }
-
-    @Override
     public String getAlgorithmName() {
         return "ZeroByte";
     }

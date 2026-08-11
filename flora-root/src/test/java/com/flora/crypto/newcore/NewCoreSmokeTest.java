@@ -1,7 +1,7 @@
 package com.flora.crypto.newcore;
 
 import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.crypto.newcore.combinator.PaddedBufferedBlockCipher;
+import com.flora.crypto.newcore.wrapper.PaddedBufferedBlockCipher;
 import com.flora.crypto.newcore.interfaces.algorithm.BlockCipher;
 import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 import com.flora.crypto.newcore.mode.CBCBlockCipher;

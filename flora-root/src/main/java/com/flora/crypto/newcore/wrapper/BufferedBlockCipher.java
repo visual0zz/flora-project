@@ -1,4 +1,4 @@
-package com.flora.crypto.newcore.combinator;
+package com.flora.crypto.newcore.wrapper;
 
 import com.flora.crypto.newcore.interfaces.algorithm.BlockCipher;
 import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;

@@ -156,6 +156,7 @@ module com.flora.root {
     exports com.flora.syntax.peg;
     // 语义/目的标注注解（如 ModuleEntry）
     exports com.flora.tag;
+    exports com.flora.crypto.newcore.wrapper;
 
     uses Converter;
     uses AiProvider;

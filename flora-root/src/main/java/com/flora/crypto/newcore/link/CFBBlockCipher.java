@@ -1,10 +1,11 @@
-package com.flora.crypto.newcore.mode;
+package com.flora.crypto.newcore.link;
 
 import com.flora.common.algorithm.AlgorithmComponent;
 import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.common.algorithm.AlgorithmFamilyRegister;
 import com.flora.crypto.newcore.CryptoAlgorithmFamilyRegister;
 import com.flora.crypto.newcore.interfaces.algorithm.BlockCipher;
+import com.flora.crypto.newcore.interfaces.algorithm.LinkedBlockCipher;
 import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 import com.flora.crypto.newcore.interfaces.material.param.ParameterWithIV;
 import com.flora.java.CheckUtil;
@@ -18,13 +19,15 @@ import java.util.Set;
  * IV 作为初始状态。{@link #process(byte[])} 要求输入块对齐。</p>
  */
 @ThreadFragile
-public final class CFBBlockCipher implements BlockCipher {
+public final class CFBBlockCipher implements LinkedBlockCipher {
 
     private final BlockCipher cipher;
     private final int blockSize;
     private final byte[] IV;
     private final byte[] cfbV;
     private final byte[] cfbOutV;
+    private final byte[] buf;
+    private int bufOff;
     private boolean encrypting;
 
     public CFBBlockCipher(BlockCipher cipher) {
@@ -33,6 +36,8 @@ public final class CFBBlockCipher implements BlockCipher {
         this.IV = new byte[blockSize];
         this.cfbV = new byte[blockSize];
         this.cfbOutV = new byte[blockSize];
+        this.buf = new byte[blockSize];
+        this.bufOff = 0;
     }
 
     @Override
@@ -50,6 +55,7 @@ public final class CFBBlockCipher implements BlockCipher {
             System.arraycopy(iv, 0, IV, 0, blockSize);
         }
         System.arraycopy(IV, 0, cfbV, 0, blockSize);
+        bufOff = 0;
     }
 
     @Override
@@ -62,8 +68,7 @@ public final class CFBBlockCipher implements BlockCipher {
         return blockSize;
     }
 
-    @Override
-    public int processBlock(byte[] in, int inOff, byte[] out, int outOff) {
+    private int processBlock(byte[] in, int inOff, byte[] out, int outOff) {
         cipher.processBlock(cfbV, 0, cfbOutV, 0);
         for (int i = 0; i < blockSize; i++) {
             out[outOff + i] = (byte) (in[inOff + i] ^ cfbOutV[i]);
@@ -76,25 +81,44 @@ public final class CFBBlockCipher implements BlockCipher {
         return blockSize;
     }
 
-    /** 便捷入口：一次性处理整段块对齐数据。 */
-    public byte[] process(byte[] data) {
+    @Override
+    public byte[] update(byte[] data) {
         CheckUtil.notNull(data, "数据不能为空");
-        if (data.length % blockSize != 0) {
-            throw new IllegalStateException("CFB 模式要求输入块对齐");
-        }
-        byte[] out = new byte[data.length];
-        for (int off = 0; off < data.length; off += blockSize) {
-            processBlock(data, off, out, off);
-        }
-        return out;
+        return update(data, 0, data.length);
     }
 
     @Override
-    public AlgorithmFactory<? extends BlockCipher> factory() {
+    public byte[] update(byte[] data, int off, int len) {
+        CheckUtil.notNull(data, "数据不能为空");
+        byte[] out = new byte[len];
+        int outPos = 0;
+        int pos = off;
+        int end = off + len;
+        while (pos < end) {
+            buf[bufOff++] = data[pos++];
+            if (bufOff == blockSize) {
+                processBlock(buf, 0, out, outPos);
+                outPos += blockSize;
+                bufOff = 0;
+            }
+        }
+        return outPos == 0 ? new byte[0] : java.util.Arrays.copyOf(out, outPos);
+    }
+
+    @Override
+    public byte[] doFinal() {
+        if (bufOff != 0) {
+            throw new IllegalStateException("CFB 模式要求输入块对齐");
+        }
+        return new byte[0];
+    }
+
+    @Override
+    public AlgorithmFactory<? extends LinkedBlockCipher> factory() {
         return FACTORY;
     }
 
-    public static final AlgorithmFactory<BlockCipher> FACTORY = new AlgorithmFactory<>() {
+    public static final AlgorithmFactory<LinkedBlockCipher> FACTORY = new AlgorithmFactory<>() {
         @Override
         public Class<? extends AlgorithmFamilyRegister> registerTo() {
             return CryptoAlgorithmFamilyRegister.class;
@@ -116,7 +140,7 @@ public final class CFBBlockCipher implements BlockCipher {
         }
 
         @Override
-        public BlockCipher construct(String algorithmName, AlgorithmComponent... components) {
+        public LinkedBlockCipher construct(String algorithmName, AlgorithmComponent... components) {
             return new CFBBlockCipher((BlockCipher) components[0]);
         }
     };

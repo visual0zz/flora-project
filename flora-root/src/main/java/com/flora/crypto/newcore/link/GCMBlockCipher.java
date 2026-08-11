@@ -1,4 +1,4 @@
-package com.flora.crypto.newcore.mode;
+package com.flora.crypto.newcore.link;
 
 import com.flora.common.algorithm.AlgorithmComponent;
 import com.flora.common.algorithm.AlgorithmFactory;
@@ -20,9 +20,9 @@ import java.util.Set;
  * <p>包裹裸分组密码原语（如 {@code BlockCipher("AES")}），完整自研 GCM：
  * GHASH（GF(2^128) 乘法，约化多项式 {@code x^128+x^7+x^2+x+1}）、计数器模式（inc32）、
  * AAD 认证、认证标签生成/校验。不依赖 JDK 的 {@code "AES/GCM/NoPadding"} 组合结构。</p>
- * <p>GCM 是缓冲式整体认证的 AEAD，不支持逐块 {@link #processBlock}（调用抛
- * {@link UnsupportedOperationException}）；请使用 {@link #process(byte[])} 一次性处理整段输入，
- * 或 {@link #processAADBytes} + {@link #doFinal} 分步输入。</p>
+ * <p>GCM 自遵循其自然的 AEAD 算法形态，不强求与链式模式一致：以 {@link #processAADBytes} 流式喂入 AAD，
+ * 以整段 {@link #process(byte[])} 累积主数据，末尾 {@link #doFinal()} 产出「密文 ‖ 认证标签」
+ * （加密）或校验标签后产出明文（解密）。</p>
  */
 @ThreadFragile
 public final class GCMBlockCipher implements AEADBlockCipher {
@@ -92,26 +92,22 @@ public final class GCMBlockCipher implements AEADBlockCipher {
         return blockSize;
     }
 
-    @Override
-    public int processBlock(byte[] in, int inOff, byte[] out, int outOff) {
-        throw new UnsupportedOperationException(
-                "GCM 是缓冲式整体认证的 AEAD，不支持逐块处理；请使用 process(byte[]) 或 doFinal");
-    }
-
-    /** 一次性处理整段数据：加密返回密文‖标签，解密返回明文（校验标签）。 */
+    /** 累积整段主数据；加密/解密的实际产出与标签在 {@link #doFinal()} 交付。 */
     @Override
     public byte[] process(byte[] in) {
         CheckUtil.notNull(in, "数据不能为空");
-        byte[] out = new byte[getOutputSize(in.length)];
-        int len = doFinalInto(in, 0, in.length, out, 0);
-        if (len == out.length) {
-            return out;
-        }
-        return java.util.Arrays.copyOf(out, len);
+        data.write(in, 0, in.length);
+        return new byte[0];
     }
 
     private int getOutputSize(int len) {
         return encrypting ? len + tagLen : Math.max(0, len - tagLen);
+    }
+
+    @Override
+    public void processAADBytes(byte[] in) {
+        CheckUtil.notNull(in, "AAD 不能为空");
+        aad.write(in, 0, in.length);
     }
 
     @Override
@@ -121,10 +117,11 @@ public final class GCMBlockCipher implements AEADBlockCipher {
     }
 
     @Override
-    public int doFinal(byte[] out, int outOff) {
-        CheckUtil.notNull(out, "输出不能为空");
+    public byte[] doFinal() {
         byte[] input = data.toByteArray();
-        return doFinalInto(input, 0, input.length, out, outOff);
+        byte[] out = new byte[getOutputSize(input.length)];
+        int n = doFinalInto(input, 0, input.length, out, 0);
+        return java.util.Arrays.copyOf(out, n);
     }
 
     /** 核心：对 {@code in[inOff..inOff+len)} 执行 GCM 加解密并写 {@code out[outOff..]}。 */

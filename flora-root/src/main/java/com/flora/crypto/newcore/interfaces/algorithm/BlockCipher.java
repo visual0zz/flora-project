@@ -8,7 +8,9 @@ import com.flora.crypto.newcore.interfaces.material.param.ParameterWithIV;
 /**
  * 分组密码引擎接口。
  * <p>一次处理一个固定大小的块。对应常见算法：AES / SM4 / Blowfish 等。
- * 模式（CBC/CTR/GCM）与填充由具体适配器通过 transformation 字符串表达，而非放在该接口里。</p>
+ * 分组密码模式（CBC / CFB / OFB / CTR / GCM / SIC）与填充不作为 transformation 字符串，
+ * 而是各自实现本接口的独立 {@code BlockCipher}（见 {@code mode/} 组合器与 {@code padding/} 策略），
+ * 通过 {@code AlgorithmFactory.componentTypes()} 声明依赖的底层分组密码后按需注入组合。</p>
  */
 public interface BlockCipher extends Algorithm<AlgorithmFactory<? extends BlockCipher>> {
 

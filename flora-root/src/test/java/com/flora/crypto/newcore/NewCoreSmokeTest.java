@@ -4,8 +4,8 @@ import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.crypto.newcore.wrapper.PaddedBufferedBlockCipher;
 import com.flora.crypto.newcore.interfaces.algorithm.BlockCipher;
 import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
-import com.flora.crypto.newcore.mode.CBCBlockCipher;
-import com.flora.crypto.newcore.mode.SICBlockCipher;
+import com.flora.crypto.newcore.link.CBCBlockCipher;
+import com.flora.crypto.newcore.link.SICBlockCipher;
 import com.flora.crypto.newcore.padding.PKCS7Padding;
 import com.flora.crypto.newcore.padding.ZeroBytePadding;
 import org.junit.jupiter.api.Test;
@@ -88,11 +88,13 @@ class NewCoreSmokeTest {
 
         CBCBlockCipher cbc = new CBCBlockCipher(new XorBlockCipher(key));
         cbc.init(true, new TestParameterWithIV(key, iv));
-        byte[] cipher = cbc.process(plain);
+        byte[] cipher = cbc.update(plain);
+        cbc.doFinal();
 
         CBCBlockCipher dec = new CBCBlockCipher(new XorBlockCipher(key));
         dec.init(false, new TestParameterWithIV(key, iv));
-        byte[] back = dec.process(cipher);
+        byte[] back = dec.update(cipher);
+        dec.doFinal();
 
         assertArrayEquals(plain, back);
     }
@@ -108,11 +110,13 @@ class NewCoreSmokeTest {
 
         SICBlockCipher ctr = new SICBlockCipher(new XorBlockCipher(key));
         ctr.init(true, new TestParameterWithIV(key, iv));
-        byte[] cipher = ctr.process(plain);
+        byte[] cipher = ctr.update(plain);
+        ctr.doFinal();
 
         SICBlockCipher dec = new SICBlockCipher(new XorBlockCipher(key));
         dec.init(false, new TestParameterWithIV(key, iv));
-        byte[] back = dec.process(cipher);
+        byte[] back = dec.update(cipher);
+        dec.doFinal();
 
         assertArrayEquals(plain, back);
     }

@@ -87,7 +87,7 @@ module com.flora.root {
     // 新加密抽象层组合器
     exports com.flora.crypto.newcore.combinator;
     // 新加密抽象层模式（CBC/CFB/OFB/CTR/GCM）
-    exports com.flora.crypto.newcore.mode;
+    exports com.flora.crypto.newcore.link;
     // 新加密抽象层填充与编码方案
     exports com.flora.crypto.newcore.padding;
     // 高层加密方案门面

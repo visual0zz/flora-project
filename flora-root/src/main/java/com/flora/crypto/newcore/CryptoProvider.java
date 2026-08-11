@@ -10,7 +10,7 @@ import com.flora.crypto.newcore.interfaces.algorithm.AsymmetricCipher;
 import com.flora.crypto.newcore.interfaces.algorithm.AsymmetricCipherKeyPairGenerator;
 import com.flora.crypto.newcore.interfaces.algorithm.AsymmetricScheme;
 import com.flora.crypto.newcore.interfaces.algorithm.AEADBlockCipher;
-import com.flora.crypto.newcore.interfaces.algorithm.BlockCipher;
+import com.flora.crypto.newcore.interfaces.algorithm.LinkedBlockCipher;
 import com.flora.crypto.newcore.interfaces.algorithm.DerivationFunction;
 import com.flora.crypto.newcore.interfaces.algorithm.DeterministicRandomBitGenerator;
 import com.flora.crypto.newcore.interfaces.algorithm.Digest;
@@ -21,11 +21,11 @@ import com.flora.crypto.newcore.interfaces.algorithm.Mac;
 import com.flora.crypto.newcore.interfaces.algorithm.MaskGenerationFunction;
 import com.flora.crypto.newcore.interfaces.algorithm.Padding;
 import com.flora.crypto.newcore.interfaces.algorithm.Signature;
-import com.flora.crypto.newcore.mode.CBCBlockCipher;
-import com.flora.crypto.newcore.mode.CFBBlockCipher;
-import com.flora.crypto.newcore.mode.GCMBlockCipher;
-import com.flora.crypto.newcore.mode.OFBBlockCipher;
-import com.flora.crypto.newcore.mode.SICBlockCipher;
+import com.flora.crypto.newcore.link.CBCBlockCipher;
+import com.flora.crypto.newcore.link.CFBBlockCipher;
+import com.flora.crypto.newcore.link.GCMBlockCipher;
+import com.flora.crypto.newcore.link.OFBBlockCipher;
+import com.flora.crypto.newcore.link.SICBlockCipher;
 import com.flora.crypto.newcore.padding.ISO7816d4Padding;
 import com.flora.crypto.newcore.padding.Mgf1Generator;
 import com.flora.crypto.newcore.padding.OAEPPadding;
@@ -157,8 +157,8 @@ public final class CryptoProvider {
         return cast(Digest.class, expression);
     }
 
-    public static BlockCipher blockCipher(String expression) {
-        return cast(BlockCipher.class, expression);
+    public static LinkedBlockCipher blockCipher(String expression) {
+        return cast(LinkedBlockCipher.class, expression);
     }
 
     public static Mac mac(String expression) {

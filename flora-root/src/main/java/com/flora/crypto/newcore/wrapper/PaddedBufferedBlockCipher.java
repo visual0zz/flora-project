@@ -12,7 +12,7 @@ import java.security.SecureRandom;
 
 /**
  * 带填充的分组密码缓冲装饰器。
- * <p>组合一个 {@link BlockCipher} 与一个 {@link Padding}，使「逐块」引擎也能直接处理
+ * <p>组合一个 {@link BlockCipher}（底层原语）与一个 {@link Padding}，使「逐块」引擎也能直接处理
  * 任意长度数据：加密时在末块加填充，解密时从末块去除填充。默认使用 PKCS7 填充。</p>
  */
 @ThreadFragile

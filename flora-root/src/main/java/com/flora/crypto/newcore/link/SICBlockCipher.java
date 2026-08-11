@@ -1,10 +1,11 @@
-package com.flora.crypto.newcore.mode;
+package com.flora.crypto.newcore.link;
 
 import com.flora.common.algorithm.AlgorithmComponent;
 import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.common.algorithm.AlgorithmFamilyRegister;
 import com.flora.crypto.newcore.CryptoAlgorithmFamilyRegister;
 import com.flora.crypto.newcore.interfaces.algorithm.BlockCipher;
+import com.flora.crypto.newcore.interfaces.algorithm.LinkedBlockCipher;
 import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 import com.flora.crypto.newcore.interfaces.material.param.ParameterWithIV;
 import com.flora.java.CheckUtil;
@@ -18,13 +19,15 @@ import java.util.Set;
  * 加密与解密操作相同。{@link #process(byte[])} 要求输入块对齐。</p>
  */
 @ThreadFragile
-public final class SICBlockCipher implements BlockCipher {
+public final class SICBlockCipher implements LinkedBlockCipher {
 
     private final BlockCipher cipher;
     private final int blockSize;
     private final byte[] IV;
     private final byte[] counter;
     private final byte[] cfbOutV;
+    private final byte[] buf;
+    private int bufOff;
 
     public SICBlockCipher(BlockCipher cipher) {
         this.cipher = cipher;
@@ -32,6 +35,8 @@ public final class SICBlockCipher implements BlockCipher {
         this.IV = new byte[blockSize];
         this.counter = new byte[blockSize];
         this.cfbOutV = new byte[blockSize];
+        this.buf = new byte[blockSize];
+        this.bufOff = 0;
     }
 
     @Override
@@ -48,6 +53,7 @@ public final class SICBlockCipher implements BlockCipher {
             System.arraycopy(iv, 0, IV, 0, blockSize);
         }
         System.arraycopy(IV, 0, counter, 0, blockSize);
+        bufOff = 0;
     }
 
     @Override
@@ -60,8 +66,7 @@ public final class SICBlockCipher implements BlockCipher {
         return blockSize;
     }
 
-    @Override
-    public int processBlock(byte[] in, int inOff, byte[] out, int outOff) {
+    private int processBlock(byte[] in, int inOff, byte[] out, int outOff) {
         cipher.processBlock(counter, 0, cfbOutV, 0);
         for (int i = 0; i < blockSize; i++) {
             out[outOff + i] = (byte) (in[inOff + i] ^ cfbOutV[i]);
@@ -78,25 +83,44 @@ public final class SICBlockCipher implements BlockCipher {
         }
     }
 
-    /** 便捷入口：一次性处理整段块对齐数据。 */
-    public byte[] process(byte[] data) {
+    @Override
+    public byte[] update(byte[] data) {
         CheckUtil.notNull(data, "数据不能为空");
-        if (data.length % blockSize != 0) {
-            throw new IllegalStateException("CTR 模式要求输入块对齐");
-        }
-        byte[] out = new byte[data.length];
-        for (int off = 0; off < data.length; off += blockSize) {
-            processBlock(data, off, out, off);
-        }
-        return out;
+        return update(data, 0, data.length);
     }
 
     @Override
-    public AlgorithmFactory<? extends BlockCipher> factory() {
+    public byte[] update(byte[] data, int off, int len) {
+        CheckUtil.notNull(data, "数据不能为空");
+        byte[] out = new byte[len];
+        int outPos = 0;
+        int pos = off;
+        int end = off + len;
+        while (pos < end) {
+            buf[bufOff++] = data[pos++];
+            if (bufOff == blockSize) {
+                processBlock(buf, 0, out, outPos);
+                outPos += blockSize;
+                bufOff = 0;
+            }
+        }
+        return outPos == 0 ? new byte[0] : java.util.Arrays.copyOf(out, outPos);
+    }
+
+    @Override
+    public byte[] doFinal() {
+        if (bufOff != 0) {
+            throw new IllegalStateException("CTR 模式要求输入块对齐");
+        }
+        return new byte[0];
+    }
+
+    @Override
+    public AlgorithmFactory<? extends LinkedBlockCipher> factory() {
         return FACTORY;
     }
 
-    public static final AlgorithmFactory<BlockCipher> FACTORY = new AlgorithmFactory<>() {
+    public static final AlgorithmFactory<LinkedBlockCipher> FACTORY = new AlgorithmFactory<>() {
         @Override
         public Class<? extends AlgorithmFamilyRegister> registerTo() {
             return CryptoAlgorithmFamilyRegister.class;
@@ -118,7 +142,7 @@ public final class SICBlockCipher implements BlockCipher {
         }
 
         @Override
-        public BlockCipher construct(String algorithmName, AlgorithmComponent... components) {
+        public LinkedBlockCipher construct(String algorithmName, AlgorithmComponent... components) {
             return new SICBlockCipher((BlockCipher) components[0]);
         }
     };

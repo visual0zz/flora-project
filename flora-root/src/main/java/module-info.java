@@ -74,6 +74,22 @@ module com.flora.root {
     exports com.flora.crypto.core.padding;
     // 算法参数封装
     exports com.flora.crypto.core.param;
+    // 新加密抽象层（newcore）入口与注册中心
+    exports com.flora.crypto.newcore;
+    // 新加密抽象层常量（如 AsymmetricKeyType）
+    exports com.flora.crypto.newcore.constant;
+    // 新加密抽象层算法接口
+    exports com.flora.crypto.newcore.interfaces.algorithm;
+    // 新加密抽象层材料接口（KEM / 密钥对 / 参数）
+    exports com.flora.crypto.newcore.interfaces.material.kem;
+    exports com.flora.crypto.newcore.interfaces.material.keypair;
+    exports com.flora.crypto.newcore.interfaces.material.param;
+    // 新加密抽象层组合器
+    exports com.flora.crypto.newcore.combinator;
+    // 新加密抽象层模式（CBC/CFB/OFB/CTR/GCM）
+    exports com.flora.crypto.newcore.mode;
+    // 新加密抽象层填充与编码方案
+    exports com.flora.crypto.newcore.padding;
     // 高层加密方案门面
     exports com.flora.crypto.schemes;
     // 密钥交换引擎实现

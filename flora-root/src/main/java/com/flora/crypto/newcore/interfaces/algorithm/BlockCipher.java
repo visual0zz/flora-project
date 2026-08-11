@@ -2,7 +2,7 @@ package com.flora.crypto.newcore.interfaces.algorithm;
 
 import com.flora.common.algorithm.Algorithm;
 import com.flora.common.algorithm.AlgorithmFamily;
-import com.flora.crypto.newcore.interfaces.material.param.BlockCipherParameter;
+import com.flora.crypto.newcore.interfaces.material.param.CipherParameter;
 import com.flora.crypto.newcore.interfaces.material.param.ParameterWithIV;
 
 /**
@@ -18,7 +18,7 @@ public interface BlockCipher extends Algorithm<AlgorithmFamily<? extends BlockCi
      * @param forEncryption 是否为加密方向
      * @param params        参数（对称密钥，GCM/CBC 等还需 {@link ParameterWithIV}）
      */
-    void init(boolean forEncryption,BlockCipherParameter params);
+    void init(boolean forEncryption,CipherParameter params);
 
     /** @return 块大小（字节） */
     int getBlockSize();

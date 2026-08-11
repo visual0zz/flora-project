@@ -5,12 +5,13 @@ import com.flora.runtime.log.Logger;
 import com.flora.runtime.log.LoggerFactory;
 
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 算法工厂注册中心的通用抽象实现。
- * <p>承载与具体算法领域无关的注册 / 同名裁决 / 按名查询逻辑，供各领域（加密、解析、存储等）
- * 复用。子类继承本类并自定义实例化方式即可获得一套完整的异构算法注册能力。</p>
+ * <p>每个具体注册类（如加密域的注册中心）继承本类，其每个实例即一个独立的算法注册表。
+ * 承载与具体算法领域无关的注册 / 同名裁决 / 按名查询逻辑，供各领域（加密、解析、存储等）复用。</p>
  * <p>注册规则：工厂通过 {@link AlgorithmFamily#supportedAlgorithms()} 自述其支持的全部算法名（全集），
  * 每个名字在注册表中唯一。同名冲突时按以下规则逐名裁决：</p>
  * <ul>
@@ -20,6 +21,10 @@ import java.util.concurrent.ConcurrentHashMap;
  *       新的更小（更具体）→ 替换；新的更大 → 不替换；
  *       二者相等 → 视为算法族重复，记录错误日志并抛异常。</li>
  * </ul>
+ * <p>归属校验：注册时读取 {@link AlgorithmFamily#registerTo()}，仅当算法自述的注册类
+ * 与当前注册实例的类型一致时才放行；否则视为算法不属于当前注册中心而拒绝。</p>
+ * <p>幂等性：同名冲突时，若待注册工厂与已注册工厂属于同一个类，视为重复注册而直接忽略，
+ * 不参与裁决；只有不同类的同名冲突才走优先级 / 支持集合大小裁决。</p>
  *
  * <p>本类使用可变的 {@link ConcurrentHashMap} 作为注册表；如需不可变或其它并发策略，
  * 子类可覆写 {@link #newRegistry()} 提供。</p>
@@ -41,6 +46,18 @@ public abstract class AbstractAlgorithmFamilyRegister implements AlgorithmFamily
     @Override
     public void register(AlgorithmFamily<?> factory) {
         CheckUtil.notNull(factory, "算法工厂不能为空");
+        Class<? extends AlgorithmFamilyRegister> target = factory.registerTo();
+        if (target == null) {
+            throw new IllegalArgumentException(
+                    "算法族 " + factory.getClass().getSimpleName()
+                            + " 未通过 registerTo() 声明注册目标注册类");
+        }
+        if (target != getClass()) {
+            throw new IllegalArgumentException(
+                    "算法族 " + factory.getClass().getSimpleName() + " 声明注册到 "
+                            + target.getSimpleName() + "，不属于当前注册中心 "
+                            + getClass().getSimpleName());
+        }
         var names = factory.supportedAlgorithms();
         CheckUtil.mustTrue(names != null && !names.isEmpty(),
                 factory.getClass().getSimpleName() + " 的 supportedAlgorithms() 返回空集合");
@@ -49,6 +66,10 @@ public abstract class AbstractAlgorithmFamilyRegister implements AlgorithmFamily
             AlgorithmFamily<?> existing = registry.get(name);
             if (existing == null) {
                 registry.put(name, factory);
+                continue;
+            }
+            // 同一个工厂类的重复注册视为幂等，忽略
+            if (existing.getClass() == factory.getClass()) {
                 continue;
             }
             resolveConflict(name, factory, existing);
@@ -72,23 +93,39 @@ public abstract class AbstractAlgorithmFamilyRegister implements AlgorithmFamily
             // 新工厂优先级更低，放弃
             return;
         }
-        // 优先级相同，比较支持集合大小
+        // 优先级相同，比较支持集合大小；新的更宽泛时不替换，保持现状
         int candidateSize = candidate.supportedAlgorithms().size();
         int currentSize = current.supportedAlgorithms().size();
+        if (candidateSize > currentSize) {
+            return;
+        }
         if (candidateSize < currentSize) {
             // 新的更具体，替换
             registry.put(name, candidate);
-        } else if (candidateSize > currentSize) {
-            // 新的更宽泛，不替换，保持现状
-        } else {
-            LOGGER.error("算法族重复：算法名 '{}' 已由 {} 注册，优先级({})与支持算法数({})均相同，"
-                            + "与 {} 冲突",
-                    name, current.getClass().getSimpleName(), current.priority(), currentSize,
-                    candidate.getClass().getSimpleName());
-            throw new IllegalArgumentException(
-                    "算法族重复：算法名 '" + name + "' 已由 " + current.getClass().getSimpleName()
-                            + " 注册，优先级与支持算法数均相同，无法与 "
-                            + candidate.getClass().getSimpleName() + " 区分");
+            return;
+        }
+        LOGGER.error("算法族重复：算法名 '{}' 已由 {} 注册，优先级({})与支持算法数({})均相同，"
+                        + "与 {} 冲突",
+                name, current.getClass().getSimpleName(), current.priority(), currentSize,
+                candidate.getClass().getSimpleName());
+        throw new IllegalArgumentException(
+                "算法族重复：算法名 '" + name + "' 已由 " + current.getClass().getSimpleName()
+                        + " 注册，优先级与支持算法数均相同，无法与 "
+                        + candidate.getClass().getSimpleName() + " 区分");
+    }
+
+    /**
+     * 通过 SPI 自动发现并注册所有自述为当前注册类的算法族。
+     * <p>用 {@link ServiceLoader} 加载全部 {@link AlgorithmFamily} 提供方，仅将
+     * {@link AlgorithmFamily#registerTo()} 指向当前注册类（{@code getClass()}）的实现纳入注册。
+     * 属于其它注册类的算法族会被跳过。</p>
+     */
+    @Override
+    public void registerBySpi() {
+        for (AlgorithmFamily<?> factory : ServiceLoader.load(AlgorithmFamily.class)) {
+            if (factory.registerTo() == getClass()) {
+                register(factory);
+            }
         }
     }
 

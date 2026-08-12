@@ -18,6 +18,11 @@ public enum ShellColor {
     SKY("36"),
     WHITE("37");
 
+    /** ANSI 转义引导符（ESC，八进制 033）。 */
+    private static final String ESC = "\u001B[";
+    /** SGR 重置码（恢复默认样式）。 */
+    private static final String RESET = "\u001B[0m";
+
     /** SGR 参数（不含转义前缀与后缀），如 {@code "31"}。 */
     private final String sgr;
 
@@ -32,6 +37,6 @@ public enum ShellColor {
 
     /** 以本前景色包装文本：{@code ESC[<sgr>m<text>ESC[0m}。 */
     public String wrap(String text) {
-        return Ansi.wrap(text, sgr);
+        return ESC + sgr + "m" + text + RESET;
     }
 }

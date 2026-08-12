@@ -18,6 +18,11 @@ import java.util.List;
  */
 public final class Style {
 
+    /** ANSI 转义引导符（ESC，八进制 033）。 */
+    private static final String ESC = "\u001B[";
+    /** SGR 重置码（恢复默认样式）。 */
+    private static final String RESET = "\u001B[0m";
+
     private ShellColor foreground;
     private ShellBackgroundColor background;
     private final List<ShellStyle> styles = new ArrayList<>();
@@ -68,6 +73,10 @@ public final class Style {
         for (ShellStyle st : styles) {
             parts.add(st.sgr());
         }
-        return Ansi.wrap(text, AnsiConsole.joinSgr(parts));
+        String joined = AnsiConsole.joinSgr(parts);
+        if (joined.isEmpty()) {
+            return text;
+        }
+        return ESC + joined + "m" + text + RESET;
     }
 }

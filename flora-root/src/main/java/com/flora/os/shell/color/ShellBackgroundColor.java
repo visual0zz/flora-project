@@ -16,6 +16,12 @@ public enum ShellBackgroundColor {
     DEEP_GREEN("46"),
     WHITE("47");
 
+    /** ANSI 转义引导符（ESC，八进制 033）。 */
+    private static final String ESC = "\u001B[";
+    /** SGR 重置码（恢复默认样式）。 */
+    private static final String RESET = "\u001B[0m";
+
+    /** SGR 参数（不含转义前缀与后缀），如 {@code "41"}。 */
     private final String sgr;
 
     ShellBackgroundColor(String sgr) {
@@ -28,6 +34,6 @@ public enum ShellBackgroundColor {
 
     /** 以本背景色包装文本：{@code ESC[<sgr>m<text>ESC[0m}。 */
     public String wrap(String text) {
-        return Ansi.wrap(text, sgr);
+        return ESC + sgr + "m" + text + RESET;
     }
 }

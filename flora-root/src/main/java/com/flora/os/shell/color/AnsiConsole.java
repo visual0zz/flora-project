@@ -74,7 +74,7 @@ public final class AnsiConsole {
         return com.flora.os.OsUtil.isWindows();
     }
 
-    /** 组装 SGR 参数序列（各参数以 {@code ;} 分隔），供 {@link Ansi} 拼接完整转义序列。 */
+    /** 组装 SGR 参数序列（各参数以 {@code ;} 分隔），供 {@link Style} 拼接完整转义序列。 */
     static String joinSgr(List<String> parts) {
         List<String> nonEmpty = new ArrayList<>(parts.size());
         for (String p : parts) {

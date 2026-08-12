@@ -17,6 +17,7 @@ public enum ShellStyle {
     /** 隐藏（SGR 8）。 */
     HIDE("8");
 
+    /** SGR 参数（不含转义前缀与后缀），如 {@code "1"}。 */
     private final String sgr;
 
     ShellStyle(String sgr) {

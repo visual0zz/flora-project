@@ -30,7 +30,7 @@
 ## 远端配置与凭据存放
 
 - **远端列表（名称、URL、key 引用）**：存为 vault 内 SECRET 对象（随机 UUID，内容自描述，见 05），解锁后扫描定位并应用到 jgit 配置——多设备一致，无手动重复配置；URL 会泄露托管商，故不落明文。key 引用指向 vault 内密钥 UUID 或系统 key 名。
-- **SSH 私钥默认存 vault 内**（SECRET 对象，key = `secret/<密钥UUID>`，见 05）：与条目同级加密保护，解锁后在内存持有，经 sshd 的 KeyProvider 直接提供 jgit 使用（或可选暴露本地 ssh-agent 供外部工具），**不落明文盘、锁定即弃**。主密码即所有凭据的单点，需保持强口令并做好归档备份。
+- **SSH 私钥默认存 vault 内**（SECRET 对象，key = `<密钥UUID>`，见 05）：与条目同级加密保护，解锁后在内存持有，经 sshd 的 KeyProvider 直接提供 jgit 使用（或可选暴露本地 ssh-agent 供外部工具），**不落明文盘、锁定即弃**。主密码即所有凭据的单点，需保持强口令并做好归档备份。
 - 备选：系统 ssh-agent / OS keychain（远端配置的 key 提示指向系统 key 或 vault 内密钥 UUID，二选一）。
 - known_hosts 由 jgit 按标准位置（`~/.ssh/known_hosts`）管理，不随 vault 同步。
 - HTTPS 备用传输的 token 同样放 OS keychain，不入 vault。
@@ -40,10 +40,10 @@
 - 仓库根维护明文日志 `change.log`（路径只含 UUID，无敏感信息），每次提交追加本次改动行：`A <path>`（新增）/ `M <path>`（修改）/ `D <path>`（删除）。
 
   ```
-  A secret/550e8400-e29b-41d4-a716-446655440000
-  M secret/f47ac10b-58cc-4372-a567-0e02b2c3d479
-  D secret/c81e728d-9d4c-4b3f-9a6e-3c1f8b2a0d5e
-  M plain/0b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d6e  9f86d081884c7d65…（可选内容哈希）
+  A data/550e8400-e29b-41d4-a716-446655440000
+  M data/f47ac10b-58cc-4372-a567-0e02b2c3d479
+  D data/c81e728d-9d4c-4b3f-9a6e-3c1f8b2a0d5e
+  M data/0b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d6e  9f86d081884c7d65…（可选内容哈希）
   ```
 
   - 纯追加、无 commit 分隔标记：commit 边界由 git 版本化天然提供（相邻 commit 的 log 差集即当次改动）；编码固定 UTF-8 + LF，`l` 按文件原始字节哈希；未来压缩旧行随一次 commit 发生，哈希照常衔接。

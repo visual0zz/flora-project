@@ -1,9 +1,9 @@
 package com.flora.crypto.core.padding;
 
-import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.common.algorithm.AlgorithmFamilyRegister;
-import com.flora.crypto.core.CryptoAlgorithmFamilyRegister;
+import com.flora.common.register.AlgorithmComponent;
+import com.flora.common.register.AlgorithmFactory;
+import com.flora.common.register.AlgorithmFactoryRegister;
+import com.flora.crypto.core.CryptoAlgorithmFactoryRegister;
 import com.flora.crypto.core.interfaces.algorithm.AsymmetricScheme;
 import com.flora.crypto.core.interfaces.algorithm.Digest;
 import com.flora.crypto.core.interfaces.material.param.AsymmetricPrivateKeyParameter;
@@ -201,8 +201,8 @@ public final class OAEPPadding implements AsymmetricScheme {
 
     public static final AlgorithmFactory<AsymmetricScheme> FACTORY = new AlgorithmFactory<>() {
         @Override
-        public Class<? extends AlgorithmFamilyRegister> registerTo() {
-            return CryptoAlgorithmFamilyRegister.class;
+        public Class<? extends AlgorithmFactoryRegister> registerTo() {
+            return CryptoAlgorithmFactoryRegister.class;
         }
 
         @Override

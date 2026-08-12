@@ -1,11 +1,11 @@
 package com.flora.crypto.core.impl;
 
+import com.flora.common.register.AlgorithmFactoryRegister;
 import com.flora.tag.ThreadFragile;
 
-import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.common.algorithm.AlgorithmFamilyRegister;
-import com.flora.crypto.core.CryptoAlgorithmFamilyRegister;
+import com.flora.common.register.AlgorithmComponent;
+import com.flora.common.register.AlgorithmFactory;
+import com.flora.crypto.core.CryptoAlgorithmFactoryRegister;
 import com.flora.crypto.core.bridge.SecureRandomEntropySource;
 import com.flora.crypto.core.interfaces.algorithm.DeterministicRandomBitGenerator;
 import com.flora.crypto.core.interfaces.algorithm.EntropySource;
@@ -197,8 +197,8 @@ public final class HMacDrbg implements DeterministicRandomBitGenerator {
 
     public static final AlgorithmFactory<DeterministicRandomBitGenerator> FACTORY = new AlgorithmFactory<>() {
         @Override
-        public Class<? extends AlgorithmFamilyRegister> registerTo() {
-            return CryptoAlgorithmFamilyRegister.class;
+        public Class<? extends AlgorithmFactoryRegister> registerTo() {
+            return CryptoAlgorithmFactoryRegister.class;
         }
 
         @Override

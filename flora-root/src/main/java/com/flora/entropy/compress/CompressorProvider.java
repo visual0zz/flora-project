@@ -1,9 +1,6 @@
 package com.flora.entropy.compress;
 
-import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.common.algorithm.AlgorithmFamilyRegister;
-import com.flora.common.algorithm.UnregisteredAlgorithmException;
+import com.flora.common.register.*;
 import com.flora.entropy.compress.engine.DeflateCompressor;
 import com.flora.java.CheckUtil;
 
@@ -17,7 +14,7 @@ import java.util.function.Function;
 
 /**
  * 压缩组件注册表（复用 common 的注册机制）。
- * <p>注册委托给 {@link CompressorAlgorithmFamilyRegister}（复用 common 的注册 / 归属校验 / 同名裁决 /
+ * <p>注册委托给 {@link CompressorAlgorithmFactoryRegister}（复用 common 的注册 / 归属校验 / 同名裁决 /
  * 按名查询能力）：实现类通过 {@link AlgorithmFactory} 自述支持的算法集合与优先级，
  * 由本类按算法名注册与分发，分发时按「能实现 → 优先级（越大越优先）→ 具体度（算法数越少越优先）」裁决。</p>
  *
@@ -41,7 +38,7 @@ public final class CompressorProvider {
     // ── 注册表：算法名 → 工厂（common 注册中心） ──
 
     /** 注册中心：每个实例即一个独立注册表。 */
-    private static final CompressorAlgorithmFamilyRegister REGISTRY = new CompressorAlgorithmFamilyRegister();
+    private static final CompressorAlgorithmFactoryRegister REGISTRY = new CompressorAlgorithmFactoryRegister();
 
     /** 已注册的算法名集合（供查询）。 */
     private static final Set<String> REGISTERED_NAMES = ConcurrentHashMap.newKeySet();
@@ -70,8 +67,8 @@ public final class CompressorProvider {
         int priority = prototype.priority();
         AlgorithmFactory<? extends Compressor> adapter = new AlgorithmFactory<>() {
             @Override
-            public Class<? extends AlgorithmFamilyRegister> registerTo() {
-                return CompressorAlgorithmFamilyRegister.class;
+            public Class<? extends AlgorithmFactoryRegister> registerTo() {
+                return CompressorAlgorithmFactoryRegister.class;
             }
 
             @Override
@@ -139,7 +136,7 @@ public final class CompressorProvider {
      *
      * @param name 算法名（如 {@code "DEFLATE"}）
      * @return 压缩器实例
-     * @throws com.flora.common.algorithm.UnregisteredAlgorithmException 若算法未注册
+     * @throws com.flora.common.register.UnregisteredAlgorithmException 若算法未注册
      */
     @SuppressWarnings("unchecked")
     public static Compressor compressor(String name) {

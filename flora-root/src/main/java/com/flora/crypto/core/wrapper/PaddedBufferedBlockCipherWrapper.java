@@ -1,9 +1,9 @@
 package com.flora.crypto.core.wrapper;
 
-import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.common.algorithm.AlgorithmFamilyRegister;
-import com.flora.crypto.core.CryptoAlgorithmFamilyRegister;
+import com.flora.common.register.AlgorithmComponent;
+import com.flora.common.register.AlgorithmFactory;
+import com.flora.common.register.AlgorithmFactoryRegister;
+import com.flora.crypto.core.CryptoAlgorithmFactoryRegister;
 import com.flora.crypto.core.interfaces.algorithm.BlockCipher;
 import com.flora.crypto.core.interfaces.algorithm.BufferedBlockCipher;
 import com.flora.crypto.core.interfaces.algorithm.Padding;
@@ -113,8 +113,8 @@ public final class PaddedBufferedBlockCipherWrapper implements BufferedBlockCiph
 
     public static final AlgorithmFactory<BufferedBlockCipher> FACTORY = new AlgorithmFactory<>() {
         @Override
-        public Class<? extends AlgorithmFamilyRegister> registerTo() {
-            return CryptoAlgorithmFamilyRegister.class;
+        public Class<? extends AlgorithmFactoryRegister> registerTo() {
+            return CryptoAlgorithmFactoryRegister.class;
         }
 
         @Override

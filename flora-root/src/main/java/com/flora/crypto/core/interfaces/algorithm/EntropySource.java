@@ -1,7 +1,7 @@
 package com.flora.crypto.core.interfaces.algorithm;
 
-import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.register.Algorithm;
+import com.flora.common.register.AlgorithmFactory;
 
 /**
  * 熵源（Entropy Source）接口。

@@ -1,10 +1,10 @@
 package com.flora.entropy.compress.engine;
 
-import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.common.algorithm.AlgorithmFamilyRegister;
+import com.flora.common.register.AlgorithmComponent;
+import com.flora.common.register.AlgorithmFactory;
+import com.flora.common.register.AlgorithmFactoryRegister;
 import com.flora.entropy.compress.Compressor;
-import com.flora.entropy.compress.CompressorAlgorithmFamilyRegister;
+import com.flora.entropy.compress.CompressorAlgorithmFactoryRegister;
 import com.flora.java.CheckUtil;
 import com.flora.tag.ThreadFragile;
 
@@ -158,8 +158,8 @@ public final class DeflateCompressor implements Compressor {
 
     public static final AlgorithmFactory<Compressor> FACTORY = new AlgorithmFactory<>() {
         @Override
-        public Class<? extends AlgorithmFamilyRegister> registerTo() {
-            return CompressorAlgorithmFamilyRegister.class;
+        public Class<? extends AlgorithmFactoryRegister> registerTo() {
+            return CompressorAlgorithmFactoryRegister.class;
         }
 
         @Override

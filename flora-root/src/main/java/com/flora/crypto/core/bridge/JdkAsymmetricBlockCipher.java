@@ -1,5 +1,6 @@
 package com.flora.crypto.core.bridge;
 
+import com.flora.common.register.AlgorithmFactoryRegister;
 import com.flora.tag.ThreadFragile;
 
 import com.flora.crypto.core.impl.AsymmetricKeyParameterImpl;
@@ -12,10 +13,9 @@ import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAKey;
-import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.common.algorithm.AlgorithmFamilyRegister;
-import com.flora.crypto.core.CryptoAlgorithmFamilyRegister;
+import com.flora.common.register.AlgorithmComponent;
+import com.flora.common.register.AlgorithmFactory;
+import com.flora.crypto.core.CryptoAlgorithmFactoryRegister;
 import java.util.Set;
 
 /**
@@ -106,8 +106,8 @@ public final class JdkAsymmetricBlockCipher implements AsymmetricBlockCipher {
 
     public static final AlgorithmFactory<AsymmetricBlockCipher> FACTORY = new AlgorithmFactory<>() {
         @Override
-        public Class<? extends AlgorithmFamilyRegister> registerTo() {
-            return CryptoAlgorithmFamilyRegister.class;
+        public Class<? extends AlgorithmFactoryRegister> registerTo() {
+            return CryptoAlgorithmFactoryRegister.class;
         }
 
         @Override

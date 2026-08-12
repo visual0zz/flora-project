@@ -1,5 +1,6 @@
 package com.flora.crypto.core.bridge;
 
+import com.flora.common.register.AlgorithmFactoryRegister;
 import com.flora.tag.ThreadFragile;
 
 import com.flora.crypto.core.impl.AsymmetricKeyParameterImpl;
@@ -15,10 +16,9 @@ import com.flora.java.CheckUtil;
 import javax.crypto.KEM;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
-import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.common.algorithm.AlgorithmFamilyRegister;
-import com.flora.crypto.core.CryptoAlgorithmFamilyRegister;
+import com.flora.common.register.AlgorithmComponent;
+import com.flora.common.register.AlgorithmFactory;
+import com.flora.crypto.core.CryptoAlgorithmFactoryRegister;
 import java.util.Set;
 
 /**
@@ -138,8 +138,8 @@ public final class JdkKem implements KeyEncapsulationMechanism {
 
     public static final AlgorithmFactory<KeyEncapsulationMechanism> FACTORY = new AlgorithmFactory<>() {
         @Override
-        public Class<? extends AlgorithmFamilyRegister> registerTo() {
-            return CryptoAlgorithmFamilyRegister.class;
+        public Class<? extends AlgorithmFactoryRegister> registerTo() {
+            return CryptoAlgorithmFactoryRegister.class;
         }
 
         @Override

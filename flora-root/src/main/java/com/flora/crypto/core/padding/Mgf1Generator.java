@@ -1,9 +1,9 @@
 package com.flora.crypto.core.padding;
 
-import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.common.algorithm.AlgorithmFamilyRegister;
-import com.flora.crypto.core.CryptoAlgorithmFamilyRegister;
+import com.flora.common.register.AlgorithmComponent;
+import com.flora.common.register.AlgorithmFactory;
+import com.flora.common.register.AlgorithmFactoryRegister;
+import com.flora.crypto.core.CryptoAlgorithmFactoryRegister;
 import com.flora.crypto.core.interfaces.algorithm.Digest;
 import com.flora.crypto.core.interfaces.algorithm.MaskGenerationFunction;
 import com.flora.java.CheckUtil;
@@ -65,8 +65,8 @@ public final class Mgf1Generator implements MaskGenerationFunction {
 
     public static final AlgorithmFactory<MaskGenerationFunction> FACTORY = new AlgorithmFactory<>() {
         @Override
-        public Class<? extends AlgorithmFamilyRegister> registerTo() {
-            return CryptoAlgorithmFamilyRegister.class;
+        public Class<? extends AlgorithmFactoryRegister> registerTo() {
+            return CryptoAlgorithmFactoryRegister.class;
         }
 
         @Override

@@ -1,10 +1,10 @@
 package com.flora.entropy.mesure.engine;
 
-import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.common.algorithm.AlgorithmFamilyRegister;
+import com.flora.common.register.AlgorithmComponent;
+import com.flora.common.register.AlgorithmFactory;
+import com.flora.common.register.AlgorithmFactoryRegister;
 import com.flora.entropy.mesure.EntropyMetric;
-import com.flora.entropy.mesure.EntropyMetricAlgorithmFamilyRegister;
+import com.flora.entropy.mesure.EntropyMetricAlgorithmFactoryRegister;
 
 import java.util.Set;
 
@@ -55,8 +55,8 @@ public final class ShannonEntropy implements EntropyMetric {
 
     public static final AlgorithmFactory<EntropyMetric> FACTORY = new AlgorithmFactory<>() {
         @Override
-        public Class<? extends AlgorithmFamilyRegister> registerTo() {
-            return EntropyMetricAlgorithmFamilyRegister.class;
+        public Class<? extends AlgorithmFactoryRegister> registerTo() {
+            return EntropyMetricAlgorithmFactoryRegister.class;
         }
 
         @Override

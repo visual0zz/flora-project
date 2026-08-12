@@ -1,4 +1,4 @@
-package com.flora.common.algorithm;
+package com.flora.common.register;
 
 import com.flora.java.CheckUtil;
 import com.flora.runtime.log.Logger;
@@ -29,9 +29,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>本类使用可变的 {@link ConcurrentHashMap} 作为注册表；如需不可变或其它并发策略，
  * 子类可覆写 {@link #newRegistry()} 提供。</p>
  */
-public abstract class AbstractAlgorithmFamilyRegister implements AlgorithmFamilyRegister {
+public abstract class AbstractAlgorithmFactoryRegister implements AlgorithmFactoryRegister {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractAlgorithmFamilyRegister.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractAlgorithmFactoryRegister.class);
 
     /** 算法名 → 工厂。每个算法名由裁决后胜出的唯一工厂负责。 */
     private final Map<String, AlgorithmFactory<?>> registry = newRegistry();
@@ -46,7 +46,7 @@ public abstract class AbstractAlgorithmFamilyRegister implements AlgorithmFamily
     @Override
     public void register(AlgorithmFactory<?> factory) {
         CheckUtil.notNull(factory, "算法工厂不能为空");
-        Class<? extends AlgorithmFamilyRegister> target = factory.registerTo();
+        Class<? extends AlgorithmFactoryRegister> target = factory.registerTo();
         if (target == null) {
             throw new IllegalArgumentException(
                     "算法族 " + factory.getClass().getSimpleName()

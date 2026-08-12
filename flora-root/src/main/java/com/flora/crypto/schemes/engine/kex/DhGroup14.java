@@ -1,12 +1,12 @@
 package com.flora.crypto.schemes.engine.kex;
 
-import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.common.algorithm.AlgorithmFamilyRegister;
+import com.flora.common.register.AlgorithmComponent;
+import com.flora.common.register.AlgorithmFactory;
+import com.flora.common.register.AlgorithmFactoryRegister;
 import com.flora.crypto.core.bridge.JdkAgreement;
 import com.flora.crypto.core.impl.AsymmetricKeyParameterImpl;
 import com.flora.crypto.core.interfaces.algorithm.Agreement;
-import com.flora.crypto.schemes.SchemeAlgorithmFamilyRegister;
+import com.flora.crypto.schemes.SchemeAlgorithmFactoryRegister;
 import com.flora.crypto.schemes.SchemeContext;
 import com.flora.crypto.schemes.SchemeException;
 import com.flora.crypto.schemes.keyexchange.KeyExchange;
@@ -187,8 +187,8 @@ public final class DhGroup14 implements KeyExchange {
 
     public static final AlgorithmFactory<KeyExchange> FACTORY = new AlgorithmFactory<>() {
         @Override
-        public Class<? extends AlgorithmFamilyRegister> registerTo() {
-            return SchemeAlgorithmFamilyRegister.class;
+        public Class<? extends AlgorithmFactoryRegister> registerTo() {
+            return SchemeAlgorithmFactoryRegister.class;
         }
 
         @Override

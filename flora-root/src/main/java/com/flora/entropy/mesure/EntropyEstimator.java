@@ -1,9 +1,6 @@
 package com.flora.entropy.mesure;
 
-import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.common.algorithm.AlgorithmFamilyRegister;
-import com.flora.common.algorithm.UnregisteredAlgorithmException;
+import com.flora.common.register.*;
 import com.flora.entropy.mesure.engine.BaseAlphabetEntropy;
 import com.flora.entropy.mesure.engine.ComplexityRatio;
 import com.flora.entropy.mesure.engine.EnglishMarkovEntropy;
@@ -21,7 +18,7 @@ import java.util.function.Function;
 
 /**
  * 熵度量算法注册表与归一化汇总层（复用 common 的注册机制）。
- * <p>注册委托给 {@link EntropyMetricAlgorithmFamilyRegister}（复用 common 的注册 / 归属校验 / 同名裁决 /
+ * <p>注册委托给 {@link EntropyMetricAlgorithmFactoryRegister}（复用 common 的注册 / 归属校验 / 同名裁决 /
  * 按名查询能力）：实现类通过 {@link AlgorithmFactory} 自述支持的算法集合与优先级，
  * 由本类按算法名注册与分发，分发时按「能实现 → 优先级（越大越优先）→ 具体度（算法数越少越优先）」裁决。</p>
  *
@@ -50,7 +47,7 @@ public final class EntropyEstimator {
     // ── 注册表：算法名 → 工厂（common 注册中心） ──
 
     /** 注册中心：每个实例即一个独立注册表。 */
-    private static final EntropyMetricAlgorithmFamilyRegister REGISTRY = new EntropyMetricAlgorithmFamilyRegister();
+    private static final EntropyMetricAlgorithmFactoryRegister REGISTRY = new EntropyMetricAlgorithmFactoryRegister();
 
     /** 已注册的算法名集合（供查询）。 */
     private static final Set<String> REGISTERED_NAMES = ConcurrentHashMap.newKeySet();
@@ -96,8 +93,8 @@ public final class EntropyEstimator {
         int priority = prototype.priority();
         AlgorithmFactory<? extends EntropyMetric> adapter = new AlgorithmFactory<>() {
             @Override
-            public Class<? extends AlgorithmFamilyRegister> registerTo() {
-                return EntropyMetricAlgorithmFamilyRegister.class;
+            public Class<? extends AlgorithmFactoryRegister> registerTo() {
+                return EntropyMetricAlgorithmFactoryRegister.class;
             }
 
             @Override

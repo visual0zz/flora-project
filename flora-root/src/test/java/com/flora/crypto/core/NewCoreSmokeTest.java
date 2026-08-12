@@ -1,6 +1,6 @@
 package com.flora.crypto.core;
 
-import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.register.AlgorithmFactory;
 import com.flora.crypto.core.wrapper.PaddedBufferedBlockCipherWrapper;
 import com.flora.crypto.core.interfaces.algorithm.BlockCipher;
 import com.flora.crypto.core.interfaces.material.param.CipherParameter;

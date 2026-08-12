@@ -1,9 +1,9 @@
 package com.flora.crypto.schemes;
 
-import com.flora.common.algorithm.AlgorithmComponent;
-import com.flora.common.algorithm.AlgorithmFactory;
-import com.flora.common.algorithm.AlgorithmFamilyRegister;
-import com.flora.common.algorithm.UnregisteredAlgorithmException;
+import com.flora.common.register.AlgorithmComponent;
+import com.flora.common.register.AlgorithmFactory;
+import com.flora.common.register.AlgorithmFactoryRegister;
+import com.flora.common.register.UnregisteredAlgorithmException;
 import com.flora.crypto.schemes.engine.kex.DhGroup14;
 import com.flora.crypto.schemes.keyexchange.KeyExchange;
 
@@ -16,9 +16,9 @@ import java.util.function.Function;
 
 /**
  * 方案注册与分发器。
- * <p>注册委托给 {@link SchemeAlgorithmFamilyRegister}（复用 common 的注册 / 归属校验 / 同名裁决 /
+ * <p>注册委托给 {@link SchemeAlgorithmFactoryRegister}（复用 common 的注册 / 归属校验 / 同名裁决 /
  * 按名查询能力）：算法族通过 {@link AlgorithmFactory#registerTo()} 自述注册到
- * {@link SchemeAlgorithmFamilyRegister}，经本类登记与分发。协议名与原语名属不同命名空间，分族持有注册表。</p>
+ * {@link SchemeAlgorithmFactoryRegister}，经本类登记与分发。协议名与原语名属不同命名空间，分族持有注册表。</p>
  */
 @ModuleEntry
 public final class SchemeProvider {
@@ -27,7 +27,7 @@ public final class SchemeProvider {
     }
 
     /** 注册中心：每个实例即一个独立注册表。 */
-    private static final SchemeAlgorithmFamilyRegister REGISTRY = new SchemeAlgorithmFamilyRegister();
+    private static final SchemeAlgorithmFactoryRegister REGISTRY = new SchemeAlgorithmFactoryRegister();
 
     /** 已注册的方案名集合（供查询）。 */
     private static final Set<String> REGISTERED_NAMES = ConcurrentHashMap.newKeySet();
@@ -55,8 +55,8 @@ public final class SchemeProvider {
         int priority = scheme.priority();
         AlgorithmFactory<? extends KeyExchange> adapter = new AlgorithmFactory<>() {
             @Override
-            public Class<? extends AlgorithmFamilyRegister> registerTo() {
-                return SchemeAlgorithmFamilyRegister.class;
+            public Class<? extends AlgorithmFactoryRegister> registerTo() {
+                return SchemeAlgorithmFactoryRegister.class;
             }
 
             @Override

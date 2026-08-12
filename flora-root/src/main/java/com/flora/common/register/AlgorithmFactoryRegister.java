@@ -1,6 +1,6 @@
-package com.flora.common.algorithm;
+package com.flora.common.register;
 
-public interface AlgorithmFamilyRegister {
+public interface AlgorithmFactoryRegister {
     void register(AlgorithmFactory<?> factory);
 
     <F extends AlgorithmFactory<?>> F get(String name, Class<F> factoryType);

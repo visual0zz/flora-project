@@ -1,6 +1,6 @@
 package com.flora.crypto.core;
 
-import com.flora.common.algorithm.*;
+import com.flora.common.register.*;
 import com.flora.crypto.core.combinator.BufferedAsymmetricBlockCipher;
 import com.flora.crypto.core.combinator.PaddedAsymmetricBlockCipher;
 import com.flora.crypto.core.impl.DslParser;
@@ -70,9 +70,9 @@ import com.flora.tag.ModuleEntry;
  * 表达式 = 裸名 | 裸名(表达式, ...) | 字面量
  * 字面量 = integer:数字 | float:小数 | string:文本 | bytes:十六进制
  * </pre>
- * <p>注册委托给 {@link CryptoAlgorithmFamilyRegister}（复用 common 的注册 / 归属校验 / 同名裁决 /
+ * <p>注册委托给 {@link CryptoAlgorithmFactoryRegister}（复用 common 的注册 / 归属校验 / 同名裁决 /
  * 按名查询能力）：算法族通过 {@link AlgorithmFactory#registerTo()} 自述注册到
- * {@link CryptoAlgorithmFamilyRegister}，经本类登记。每个算法名全局唯一，由裁决后胜出的唯一
+ * {@link CryptoAlgorithmFactoryRegister}，经本类登记。每个算法名全局唯一，由裁决后胜出的唯一
  * {@link AlgorithmFactory} 负责生产实例（{@link AlgorithmFactory#construct}）。
  * 本类静态初始化时注册当前内置的全部算法族，并经 SPI（{@code ServiceLoader}）自动发现其它算法族。</p>
  * <p>组合算法以 DSL 带参形式调用，例如 {@code "CBC(AES)"}、{@code "HMac(SHA-256)"}。
@@ -83,7 +83,7 @@ import com.flora.tag.ModuleEntry;
 public final class CryptoProvider {
 
     /** 注册中心：每个实例即一个独立注册表。 */
-    private static final CryptoAlgorithmFamilyRegister REGISTRY = new CryptoAlgorithmFamilyRegister();
+    private static final CryptoAlgorithmFactoryRegister REGISTRY = new CryptoAlgorithmFactoryRegister();
 
     /** 字面量参数的常量组件包装。 */
     private record ConstantImpl<T>(T value, Class<T> type) implements AlgorithmConstant<T> {

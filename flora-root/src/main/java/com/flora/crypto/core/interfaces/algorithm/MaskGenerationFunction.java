@@ -1,7 +1,7 @@
 package com.flora.crypto.core.interfaces.algorithm;
 
-import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.register.Algorithm;
+import com.flora.common.register.AlgorithmFactory;
 
 /**
  * 掩码生成函数（MGF）接口，对应 PKCS#1 的 mask generation function。

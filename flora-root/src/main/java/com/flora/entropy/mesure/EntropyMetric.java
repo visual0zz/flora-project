@@ -1,7 +1,7 @@
 package com.flora.entropy.mesure;
 
-import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.register.Algorithm;
+import com.flora.common.register.AlgorithmFactory;
 
 import java.util.Set;
 

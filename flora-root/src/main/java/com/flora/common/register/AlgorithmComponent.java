@@ -1,4 +1,4 @@
-package com.flora.common.algorithm;
+package com.flora.common.register;
 
 /**
  * 构成一个算法的「组件」通用结构（标记接口）。

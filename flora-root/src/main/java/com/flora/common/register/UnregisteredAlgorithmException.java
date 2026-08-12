@@ -1,4 +1,4 @@
-package com.flora.common.algorithm;
+package com.flora.common.register;
 
 /**
  * 算法未注册异常。

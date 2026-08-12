@@ -1,7 +1,7 @@
 package com.flora.crypto.core.interfaces.algorithm;
 
-import com.flora.common.algorithm.Algorithm;
-import com.flora.common.algorithm.AlgorithmFactory;
+import com.flora.common.register.Algorithm;
+import com.flora.common.register.AlgorithmFactory;
 
 /**
  * 确定性随机比特生成器（Deterministic Random Bit Generator，DRBG）接口。

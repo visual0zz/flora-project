@@ -1,7 +1,7 @@
 package com.flora.hanako.storage;
 
 import com.flora.hanako.core.model.MemoryFact;
-import com.flora.tag.ModuleEntry;
+import com.flora.root.tag.ModuleEntry;
 
 import java.util.ArrayList;
 import java.util.Comparator;

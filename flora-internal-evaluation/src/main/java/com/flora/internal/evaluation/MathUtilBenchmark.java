@@ -1,6 +1,6 @@
 package com.flora.internal.evaluation;
 
-import com.flora.algebra.MathUtil;
+import com.flora.root.algebra.MathUtil;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

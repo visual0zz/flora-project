@@ -1,6 +1,6 @@
 package com.flora.shell;
 
-import com.flora.java.CheckUtil;
+import com.flora.root.java.CheckUtil;
 import com.flora.shell.output.Output;
 import com.flora.shell.spec.ParsedArgs;
 

@@ -4,141 +4,141 @@
  * 零依赖核心工具库，导出大量底层 API 包，并声明对 {@code Converter} 与
  * {@code AiProvider} SPI 的使用。各导出包的定位见下方注释。
  */
-import com.flora.ai.api.spi.AiProvider;
-import com.flora.java.Converter;
+import com.flora.root.ai.api.spi.AiProvider;
+import com.flora.root.java.Converter;
 
 module com.flora.root {
     // AI 能力门面
-    exports com.flora.ai;
+    exports com.flora.root.ai;
     // AI API 接口定义
-    exports com.flora.ai.api;
+    exports com.flora.root.ai.api;
     // AI API 默认实现
-    exports com.flora.ai.api.impl;
+    exports com.flora.root.ai.api.impl;
     // AI 提供方抽象
-    exports com.flora.ai.api.provider;
+    exports com.flora.root.ai.api.provider;
     // AI 客户端实现
-    exports com.flora.ai.api.provider.client;
+    exports com.flora.root.ai.api.provider.client;
     // AI 通信协议
-    exports com.flora.ai.api.provider.protocol;
+    exports com.flora.root.ai.api.provider.protocol;
     // AI 提供方 SPI
-    exports com.flora.ai.api.spi;
+    exports com.flora.root.ai.api.spi;
     // AI 编排流程
-    exports com.flora.ai.orchestration;
+    exports com.flora.root.ai.orchestration;
     // 代数与数学工具（如 MathUtil）
-    exports com.flora.algebra;
+    exports com.flora.root.algebra;
     // 缓存抽象与实现
-    exports com.flora.cache;
+    exports com.flora.root.cache;
     // 缓存淘汰策略实现（FIFO / LFU / LRU / W-TinyLFU）
-    exports com.flora.cache.eviction;
+    exports com.flora.root.cache.eviction;
     // 缓存存储引擎与可观测装饰器（ConcurrentHashMapCache / CacheListenerAdapter）
-    exports com.flora.cache.impl;
-    exports com.flora.cache.interfaces;
+    exports com.flora.root.cache.impl;
+    exports com.flora.root.cache.interfaces;
     // 通用编解码门面
-    exports com.flora.codec;
+    exports com.flora.root.codec;
     // JSON 编解码门面(JsonParser/JsonBuilder)
-    exports com.flora.codec.json;
+    exports com.flora.root.codec.json;
     // JSON 值模型(JsonObject 类族)
-    exports com.flora.codec.json.model;
+    exports com.flora.root.codec.json.model;
     // JSONPath 表达式引擎
-    exports com.flora.codec.json.path;
+    exports com.flora.root.codec.json.path;
     // ASN.1 编解码
-    exports com.flora.codec.asn1;
+    exports com.flora.root.codec.asn1;
     // JSONL 编解码
-    exports com.flora.codec.jsonl;
+    exports com.flora.root.codec.jsonl;
     // JSON Schema 处理
-    exports com.flora.codec.jsonschema;
-    exports com.flora.common;
+    exports com.flora.root.codec.jsonschema;
+    exports com.flora.root.common;
     // 通用算法抽象与注册中心（Algorithm/AlgorithmFactory/AbstractAlgorithmFactoryRegister）
-    exports com.flora.common.register;
+    exports com.flora.root.common.register;
     // 英文单词列表与 Diceware 口令生成（WordList/PassphraseGenerator）
-    exports com.flora.common.words;
+    exports com.flora.root.common.words;
     // 重试机制工具
-    exports com.flora.concurrent.retry;
+    exports com.flora.root.concurrent.retry;
     // 通用元组类型
-    exports com.flora.container.tuple;
+    exports com.flora.root.container.tuple;
     // 新加密抽象层（newcore）入口与注册中心
-    exports com.flora.crypto.core;
+    exports com.flora.root.crypto.core;
     // 新加密抽象层常量（如 AsymmetricKeyType）
-    exports com.flora.crypto.core.constant;
+    exports com.flora.root.crypto.core.constant;
     // 新加密抽象层算法接口
-    exports com.flora.crypto.core.interfaces.algorithm;
+    exports com.flora.root.crypto.core.interfaces.algorithm;
     // 新加密抽象层材料接口（KEM / 密钥对 / 参数）
-    exports com.flora.crypto.core.interfaces.material.kem;
-    exports com.flora.crypto.core.interfaces.material.keypair;
-    exports com.flora.crypto.core.interfaces.material.param;
+    exports com.flora.root.crypto.core.interfaces.material.kem;
+    exports com.flora.root.crypto.core.interfaces.material.keypair;
+    exports com.flora.root.crypto.core.interfaces.material.param;
     // 新加密抽象层组合器
-    exports com.flora.crypto.core.combinator;
+    exports com.flora.root.crypto.core.combinator;
     // 新加密抽象层模式（CBC/CFB/OFB/CTR/GCM）
-    exports com.flora.crypto.core.link;
+    exports com.flora.root.crypto.core.link;
     // 新加密抽象层填充与编码方案
-    exports com.flora.crypto.core.padding;
+    exports com.flora.root.crypto.core.padding;
     // 高层加密方案门面
-    exports com.flora.crypto.schemes;
+    exports com.flora.root.crypto.schemes;
     // 密钥交换引擎实现
-    exports com.flora.crypto.schemes.engine.kex;
+    exports com.flora.root.crypto.schemes.engine.kex;
     // 密钥交换方案
-    exports com.flora.crypto.schemes.keyexchange;
+    exports com.flora.root.crypto.schemes.keyexchange;
     // 熵度量门面与聚合
-    exports com.flora.entropy;
+    exports com.flora.root.entropy;
     // 压缩复杂度熵度量
-    exports com.flora.entropy.compress;
+    exports com.flora.root.entropy.compress;
     // 压缩熵引擎实现
-    exports com.flora.entropy.compress.engine;
+    exports com.flora.root.entropy.compress.engine;
     // 基于 zlib 的压缩熵
-    exports com.flora.entropy.compress.zlib;
+    exports com.flora.root.entropy.compress.zlib;
     // 熵度量汇总与归一化（EntropyEstimator）
-    exports com.flora.entropy.mesure;
+    exports com.flora.root.entropy.mesure;
     // 熵度量算法引擎
-    exports com.flora.entropy.mesure.engine;
+    exports com.flora.root.entropy.mesure.engine;
     // 高性能容器消费者
-    exports com.flora.fast.container.consumer;
+    exports com.flora.root.fast.container.consumer;
     // 高性能映射容器
-    exports com.flora.fast.container.map;
+    exports com.flora.root.fast.container.map;
     // 高性能元组容器
-    exports com.flora.fast.container.tuple;
+    exports com.flora.root.fast.container.tuple;
     // Java 基础工具类（Converter 与各 *Util）
-    exports com.flora.java;
+    exports com.flora.root.java;
     // JSON Schema 数据生成 mock
-    exports com.flora.mock.jsonschema;
+    exports com.flora.root.mock.jsonschema;
     // 正则字符串生成 mock
-    exports com.flora.mock.regex;
+    exports com.flora.root.mock.regex;
     // 正则自动机实现
-    exports com.flora.mock.regex.automaton;
+    exports com.flora.root.mock.regex.automaton;
     // 操作系统与路径相关工具
-    exports com.flora.os;
+    exports com.flora.root.os;
     // 跨平台终端 ANSI 颜色与样式工具
-    exports com.flora.os.shell.color;
+    exports com.flora.root.os.shell.color;
     // 基于 JDK FFM 的本地动态库调用封装
-    exports com.flora.os.natives.ffm;
+    exports com.flora.root.os.natives.ffm;
     // 运行时配置加载
-    exports com.flora.runtime.config;
+    exports com.flora.root.runtime.config;
     // 配置加载实现
-    exports com.flora.runtime.config.impl;
-    exports com.flora.runtime.config.interfaces;
-    exports com.flora.runtime.config.source;
+    exports com.flora.root.runtime.config.impl;
+    exports com.flora.root.runtime.config.interfaces;
+    exports com.flora.root.runtime.config.source;
     // 运行时日志门面
-    exports com.flora.runtime.log;
+    exports com.flora.root.runtime.log;
     // 日志实现 SPI
-    exports com.flora.runtime.log.spi;
+    exports com.flora.root.runtime.log.spi;
     // 虚拟文件系统抽象
-    exports com.flora.runtime.virtual.filesys;
+    exports com.flora.root.runtime.virtual.filesys;
     // 虚拟文件系统后端实现
-    exports com.flora.runtime.virtual.filesys.backend;
+    exports com.flora.root.runtime.virtual.filesys.backend;
     // 括号匹配分析
-    exports com.flora.syntax.bracket;
+    exports com.flora.root.syntax.bracket;
     // 语法解析公共类型
-    exports com.flora.syntax.common;
+    exports com.flora.root.syntax.common;
     // 语法定义模型
-    exports com.flora.syntax.common.definition;
+    exports com.flora.root.syntax.common.definition;
     // 语法解析公共异常
-    exports com.flora.syntax.common.exceptions;
+    exports com.flora.root.syntax.common.exceptions;
     // 表达式解析
-    exports com.flora.syntax.expr;
+    exports com.flora.root.syntax.expr;
     // PEG 语法解析器
-    exports com.flora.syntax.peg;
+    exports com.flora.root.syntax.peg;
     // 语义/目的标注注解（如 ModuleEntry）
-    exports com.flora.tag;
-    exports com.flora.crypto.core.wrapper;
+    exports com.flora.root.tag;
+    exports com.flora.root.crypto.core.wrapper;
 
     uses Converter;
     uses AiProvider;

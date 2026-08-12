@@ -1,6 +1,6 @@
 package com.flora.shell;
 
-import com.flora.java.CheckUtil;
+import com.flora.root.java.CheckUtil;
 import com.flora.shell.builtin.HelpCommand;
 import com.flora.shell.help.HelpRenderer;
 import com.flora.shell.output.OutputMultiplexer;

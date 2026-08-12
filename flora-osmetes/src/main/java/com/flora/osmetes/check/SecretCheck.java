@@ -1,6 +1,6 @@
 package com.flora.osmetes.check;
 
-import com.flora.entropy.mesure.Entropy;
+import com.flora.root.entropy.mesure.Entropy;
 import com.flora.osmetes.CheckIssue;
 import com.flora.osmetes.Severity;
 

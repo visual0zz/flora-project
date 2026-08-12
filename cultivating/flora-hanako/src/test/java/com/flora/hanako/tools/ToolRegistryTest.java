@@ -1,6 +1,6 @@
 package com.flora.hanako.tools;
 
-import com.flora.ai.api.ToolSpec;
+import com.flora.root.ai.api.ToolSpec;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;

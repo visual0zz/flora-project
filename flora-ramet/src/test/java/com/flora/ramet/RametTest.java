@@ -1,8 +1,8 @@
 package com.flora.ramet;
 
 import com.flora.ramet.engine.CodeGenException;
-import com.flora.runtime.virtual.filesys.backend.MemoryFileSystem;
-import com.flora.runtime.virtual.filesys.VfsFileSystem;
+import com.flora.root.runtime.virtual.filesys.backend.MemoryFileSystem;
+import com.flora.root.runtime.virtual.filesys.VfsFileSystem;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

@@ -1,6 +1,6 @@
 package com.flora.hanako.tools;
 
-import com.flora.ai.api.ToolSpec;
+import com.flora.root.ai.api.ToolSpec;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

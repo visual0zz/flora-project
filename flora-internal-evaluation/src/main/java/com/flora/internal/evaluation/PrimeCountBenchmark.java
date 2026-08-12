@@ -1,6 +1,6 @@
 package com.flora.internal.evaluation;
 
-import com.flora.algebra.MathUtil;
+import com.flora.root.algebra.MathUtil;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;

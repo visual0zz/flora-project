@@ -1,15 +1,9 @@
 package com.flora.hanako.core;
 
-import com.flora.ai.AiApi;
-import com.flora.ai.api.ChatRequest;
-import com.flora.ai.api.Message;
-import com.flora.ai.api.StreamEvent;
-import com.flora.ai.api.StreamIterator;
-import com.flora.ai.api.StreamingClient;
-import com.flora.ai.api.ToolCall;
-import com.flora.ai.api.ToolSpec;
-import com.flora.ai.api.spi.TaskContext;
-import com.flora.codec.json.JsonBuilder;
+import com.flora.root.ai.AiApi;
+import com.flora.root.ai.api.*;
+import com.flora.root.ai.api.spi.TaskContext;
+import com.flora.root.codec.json.JsonBuilder;
 import com.flora.hanako.core.model.Agent;
 import com.flora.hanako.core.model.ChatMessage;
 import com.flora.hanako.core.model.Jian;
@@ -21,7 +15,6 @@ import com.flora.hanako.storage.TaggedFactStore;
 import com.flora.hanako.tools.ReadFileTool;
 import com.flora.hanako.tools.TerminalTool;
 import com.flora.hanako.tools.TodoTool;
-import com.flora.hanako.tools.Tool;
 import com.flora.hanako.tools.ToolRegistry;
 import com.flora.hanako.tools.WebFetchTool;
 import com.flora.hanako.tools.WriteFileTool;
@@ -93,8 +86,8 @@ public final class HanakoEngine {
                 return null;
             }
             String want = cfg.getEndpointId();
-            for (com.flora.ai.api.Endpoint e : endpoints) {
-                if (e.id().equals(want) && e.capability() == com.flora.ai.api.IOMode.STREAM) {
+            for (Endpoint e : endpoints) {
+                if (e.id().equals(want) && e.capability() == IOMode.STREAM) {
                     return e;
                 }
             }

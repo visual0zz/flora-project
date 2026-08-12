@@ -1,7 +1,7 @@
 package com.flora.internal.evaluation;
 
-import com.flora.mock.jsonschema.JsonGenerator;
-import com.flora.mock.regex.RegexStringGenerator;
+import com.flora.root.mock.jsonschema.JsonGenerator;
+import com.flora.root.mock.regex.RegexStringGenerator;
 
 /**
  * 字符串/JSON 生成器的人工评估入口。

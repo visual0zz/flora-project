@@ -1,6 +1,7 @@
 package com.flora.hanako.server;
 
 import com.flora.hanako.core.HanakoEngine;
+import com.flora.root.codec.json.JsonBuilder;
 import io.javalin.Javalin;
 
 import java.nio.file.Path;
@@ -39,7 +40,7 @@ public final class HanakoServer {
                             .map(a -> a.getName()).orElse("Hanako"),
                     "model", "未配置"
             );
-            ctx.contentType("application/json").result(com.flora.codec.json.JsonBuilder.toJsonString(body));
+            ctx.contentType("application/json").result(JsonBuilder.toJsonString(body));
         });
 
         app.start(port);

@@ -1,11 +1,11 @@
 package com.flora.internal.evaluation;
 
-import com.flora.os.OsUtil;
-import com.flora.os.shell.color.AnsiConsole;
-import com.flora.os.shell.color.ShellBackgroundColor;
-import com.flora.os.shell.color.ShellColor;
-import com.flora.os.shell.color.ShellStyle;
-import com.flora.os.shell.color.Style;
+import com.flora.root.os.OsUtil;
+import com.flora.root.os.shell.color.AnsiConsole;
+import com.flora.root.os.shell.color.ShellBackgroundColor;
+import com.flora.root.os.shell.color.ShellColor;
+import com.flora.root.os.shell.color.ShellStyle;
+import com.flora.root.os.shell.color.Style;
 
 /**
  * 跨平台 ANSI 颜色工具的人工验证入口。

@@ -1,7 +1,8 @@
 package com.flora.hanako.storage;
 
-import com.flora.codec.json.JsonBuilder;
-import com.flora.codec.json.JsonParser;
+import com.flora.root.codec.json.JsonBuilder;
+import com.flora.root.codec.json.JsonParser;
+import com.flora.root.codec.json.model.JsonValue;
 
 import java.io.IOException;
 import java.util.List;
@@ -34,7 +35,7 @@ public final class JsonStores {
                 return (T) parsed;
             }
             if (Map.class.isAssignableFrom(type) || List.class.isAssignableFrom(type)) {
-                Object nativeTree = ((com.flora.codec.json.model.JsonValue) parsed).toNative();
+                Object nativeTree = ((JsonValue) parsed).toNative();
                 if (type.isInstance(nativeTree)) {
                     return (T) nativeTree;
                 }

@@ -1,8 +1,10 @@
 package com.flora.hanako.server;
 
-import com.flora.codec.json.JsonBuilder;
+import com.flora.root.codec.json.JsonBuilder;
 import com.flora.hanako.core.HanakoEngine;
 import com.flora.hanako.core.HanakoEngine.EventSink;
+import com.flora.root.codec.json.JsonParser;
+import com.flora.root.codec.json.model.JsonObject;
 import io.javalin.Javalin;
 
 import java.util.Map;
@@ -51,9 +53,9 @@ public final class ChatWebSocket {
     @SuppressWarnings("unchecked")
     private static Map<String, Object> asMap(String raw) {
         try {
-            Object v = com.flora.codec.json.JsonParser.parse(raw);
-            if (v instanceof com.flora.codec.json.model.JsonObject) {
-                return ((com.flora.codec.json.model.JsonObject) v).toMap();
+            Object v = JsonParser.parse(raw);
+            if (v instanceof JsonObject) {
+                return ((JsonObject) v).toMap();
             }
         } catch (RuntimeException ignored) {
             // 非法 JSON

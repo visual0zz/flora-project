@@ -1,6 +1,6 @@
 package com.flora.shell.entry;
 
-import com.flora.java.CheckUtil;
+import com.flora.root.java.CheckUtil;
 import com.flora.shell.ChannelId;
 import com.flora.shell.Command;
 import com.flora.shell.CommandComponent;

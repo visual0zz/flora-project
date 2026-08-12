@@ -1,6 +1,6 @@
 package com.flora.hanako.tools;
 
-import com.flora.tag.WorkInProgress;
+import com.flora.root.tag.WorkInProgress;
 
 import java.net.URI;
 import java.net.http.HttpClient;

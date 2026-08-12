@@ -1,6 +1,6 @@
 package com.flora.shell.spec;
 
-import com.flora.java.CheckUtil;
+import com.flora.root.java.CheckUtil;
 
 import java.util.ArrayList;
 import java.util.List;

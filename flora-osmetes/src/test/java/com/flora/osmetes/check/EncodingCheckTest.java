@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -98,5 +99,58 @@ class EncodingCheckTest {
         FileCheck check = new EncodingCheck();
         assertEquals("encoding", check.name());
         assertFalse(check.fileExtensions().isEmpty(), "应声明参与检查的后缀名");
+        assertTrue(check.fileExtensions().contains(".pom"), "默认扩展名应包含 .pom");
+    }
+
+    @Test
+    void configuredExtensionsOverrideDefaults() {
+        EncodingCheck check = new EncodingCheck();
+        check.configure(Map.of(EncodingCheck.CONFIG_EXTENSIONS, ".java;.xml"));
+        assertEquals(Set.of(".java", ".xml"), check.fileExtensions(),
+                "配置扩展名后应只针对配置的扩展名");
+    }
+
+    @Test
+    void configuredExtensionsAcceptBareNames() {
+        EncodingCheck check = new EncodingCheck();
+        check.configure(Map.of(EncodingCheck.CONFIG_EXTENSIONS, "pom,gradle"));
+        assertEquals(Set.of(".pom", ".gradle"), check.fileExtensions(),
+                "未带点的扩展名应自动补点");
+    }
+
+    @Test
+    void unknownExtensionsFallBackToDefaults() {
+        EncodingCheck check = new EncodingCheck();
+        check.configure(Map.of(EncodingCheck.CONFIG_EXTENSIONS, " ,; "));
+        assertEquals(EncodingCheck.DEFAULT_EXTENSIONS, check.fileExtensions(),
+                "空配置应回退到默认扩展名");
+    }
+
+    @Test
+    void errorMessageIncludesProbedEncoding() throws IOException {
+        // UTF-16LE BOM + 一个空字节模式：合法 UTF-16 但非法 UTF-8，应报错并探测到 UTF-16LE。
+        byte[] utf16 = {(byte) 0xFF, (byte) 0xFE, 'A', 0, 'B', 0};
+        List<CheckIssue> issues = run(configured(), utf16);
+        assertEquals(1, issues.size(), "UTF-16LE 文件在仅 UTF-8 下应报错: " + issues);
+        assertTrue(issues.getFirst().message().contains("UTF-16LE"),
+                "报错应包含启发式探测到的编码: " + issues.getFirst().message());
+    }
+
+    @Test
+    void probeEncodingDetectsBom() {
+        assertEquals("UTF-8 (BOM)", EncodingCheck.probeEncoding(
+                new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF, 'a'}));
+        assertEquals("UTF-16LE (BOM)", EncodingCheck.probeEncoding(
+                new byte[]{(byte) 0xFF, (byte) 0xFE, 'a', 0}));
+        assertEquals("UTF-16BE (BOM)", EncodingCheck.probeEncoding(
+                new byte[]{(byte) 0xFE, (byte) 0xFF, 0, 'a'}));
+    }
+
+    @Test
+    void probeEncodingDetectsUtf16WithoutBom() {
+        assertEquals("UTF-16 (未带 BOM)", EncodingCheck.probeEncoding(
+                new byte[]{'a', 0, 'b', 0, 'c', 0}));
+        assertEquals("unknown", EncodingCheck.probeEncoding(
+                "plain ascii".getBytes(StandardCharsets.UTF_8)));
     }
 }

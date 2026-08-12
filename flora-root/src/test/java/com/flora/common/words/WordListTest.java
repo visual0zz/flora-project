@@ -30,9 +30,9 @@ class WordListTest {
     @Test
     void chineseLoadsExpectedSize() {
         WordList words = WordList.chinese();
-        assertEquals(8191, words.size(), "中文词表应为 8191 词");
+        assertEquals(8192, words.size(), "中文词表应为 8192 词");
         assertEquals("阿爸", words.wordAt(0));
-        assertEquals("足足", words.wordAt(words.size() - 1));
+        assertEquals("西瓜", words.wordAt(words.size() - 1));
     }
 
     @Test

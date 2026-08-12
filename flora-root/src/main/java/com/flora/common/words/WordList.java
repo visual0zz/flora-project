@@ -18,7 +18,7 @@ import java.util.function.Predicate;
  * <p>内置两套词表，规模均为 8192（= 2^13，软件按索引取词均匀）：
  * <ul>
  *   <li>{@link #english()}：英文小写词表（源自 heartsucker diceware 8192 词表，纯 a-z）；</li>
- *   <li>{@link #chinese()}：中文常用双字词表（源自 cfbao pinyin8k，8191 词）。</li>
+ *   <li>{@link #chinese()}：中文常用双字词表（源自 cfbao pinyin8k，8192 词）。</li>
  * </ul></p>
  * <p>词表同时服务两类用途：口令生成（{@link PassphraseGenerator} 随机取词）与
  * 口令/文本的 diceware 熵评估（按词匹配估算）。</p>
@@ -33,7 +33,7 @@ public final class WordList {
 
     private static final WordList ENGLISH = new WordList(EN_RESOURCE, 8192, WordList::isEnglishWord);
 
-    private static final WordList CHINESE = new WordList(ZH_RESOURCE, 8191, WordList::isChineseWord);
+    private static final WordList CHINESE = new WordList(ZH_RESOURCE, 8192, WordList::isChineseWord);
 
     private final String resourcePath;
     private final Predicate<String> validator;
@@ -59,7 +59,7 @@ public final class WordList {
         return ENGLISH;
     }
 
-    /** @return 中文词表单例（8191 词，常用汉字） */
+    /** @return 中文词表单例（8192 词，常用汉字） */
     public static WordList chinese() {
         return CHINESE;
     }

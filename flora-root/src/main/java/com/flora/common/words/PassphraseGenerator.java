@@ -16,9 +16,9 @@ public final class PassphraseGenerator {
     private final WordList wordList;
     private final SecureRandom random;
 
-    /** 使用默认词表（EFF Large）与默认随机源。 */
+    /** 使用默认词表（英文 8192）与默认随机源。 */
     public PassphraseGenerator() {
-        this(WordList.large(), new SecureRandom());
+        this(WordList.english(), new SecureRandom());
     }
 
     /**

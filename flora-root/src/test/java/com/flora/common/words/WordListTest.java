@@ -8,56 +8,70 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * {@link WordList}（EFF Large Wordlist）加载与校验测试。
+ * {@link WordList}（英文/中文 8192 词表）加载与校验测试。
  */
 class WordListTest {
 
-    private final WordList words = WordList.large();
-
     @Test
-    void loadsExpectedSize() {
-        assertEquals(7776, words.size(), "EFF Large 词表应为 7776 词");
-        assertEquals(7776, WordList.EXPECTED_SIZE);
+    void englishLoadsExpectedSize() {
+        WordList words = WordList.english();
+        assertEquals(8192, words.size(), "英文词表应为 8192 词");
+        assertEquals("aaron", words.wordAt(0));
+        assertEquals("zurich", words.wordAt(words.size() - 1));
     }
 
     @Test
-    void firstAndLastWordsMatchEfficientData() {
-        assertEquals("abacus", words.wordAt(0), "词表首词应为 abacus");
-        assertEquals("zoom", words.wordAt(words.size() - 1), "词表末词应为 zoom");
-    }
-
-    @Test
-    void wordsAreAllLowercase() {
-        for (String word : words.words()) {
-            assertTrue(word.matches("[a-z-]+"), "词表含非法词: '" + word + "'");
+    void englishWordsAreAllLowercase() {
+        for (String word : WordList.english().words()) {
+            assertTrue(word.matches("[a-z]+"), "英文词表含非法词: '" + word + "'");
         }
     }
 
     @Test
-    void lookupRoundTrip() {
+    void chineseLoadsExpectedSize() {
+        WordList words = WordList.chinese();
+        assertEquals(8191, words.size(), "中文词表应为 8191 词");
+        assertEquals("阿爸", words.wordAt(0));
+        assertEquals("足足", words.wordAt(words.size() - 1));
+    }
+
+    @Test
+    void chineseWordsAreAllHan() {
+        for (String word : WordList.chinese().words()) {
+            assertTrue(word.matches("[\\u4e00-\\u9fff]+"), "中文词表含非法词: '" + word + "'");
+        }
+    }
+
+    @Test
+    void englishLookupRoundTrip() {
+        WordList words = WordList.english();
         String probe = "abacus";
         int idx = words.indexOf(probe);
-        assertTrue(idx >= 0, "abacus 应在词表中");
+        assertTrue(idx >= 0, "abacus 应在英文词表中");
         assertEquals(probe, words.wordAt(idx));
         assertTrue(words.contains(probe));
     }
 
     @Test
-    void hyphenatedWordsAreKept() {
-        // EFF Large 含 4 个带连字符的官方词，应完整保留以维持 7776 总数
-        assertTrue(words.contains("t-shirt"));
-        assertTrue(words.contains("drop-down"));
+    void chineseLookupRoundTrip() {
+        WordList words = WordList.chinese();
+        String probe = "阿爸";
+        int idx = words.indexOf(probe);
+        assertTrue(idx >= 0, "阿爸 应在中文词表中");
+        assertEquals(probe, words.wordAt(idx));
+        assertTrue(words.contains(probe));
     }
 
     @Test
     void unknownWordsAreRejected() {
-        assertFalse(words.contains("flora"));
-        assertFalse(words.contains("abacus123"));
-        assertEquals(-1, words.indexOf("zzzzzz"));
+        assertFalse(WordList.english().contains("zzzzzz"));
+        assertFalse(WordList.english().contains("abacus123"));
+        assertEquals(-1, WordList.english().indexOf("zzzzzz"));
     }
 
     @Test
     void indexOutOfRangeThrows() {
+        WordList words = WordList.english();
         assertThrows(IllegalArgumentException.class, () -> words.wordAt(-1));
         assertThrows(IllegalArgumentException.class, () -> words.wordAt(words.size()));
     }

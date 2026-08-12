@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class PassphraseGeneratorTest {
 
-    private final WordList words = WordList.large();
+    private final WordList words = WordList.english();
     private final PassphraseGenerator generator = new PassphraseGenerator(words, new java.security.SecureRandom());
 
     @Test
@@ -25,6 +25,14 @@ class PassphraseGeneratorTest {
     void allWordsComeFromWordList() {
         for (String word : generator.generate(6).split("-")) {
             assertTrue(words.contains(word), "口令词应在词表中: '" + word + "'");
+        }
+    }
+
+    @Test
+    void chinesePassphraseWordsComeFromChineseList() {
+        PassphraseGenerator zh = new PassphraseGenerator(WordList.chinese(), new java.security.SecureRandom());
+        for (String word : zh.generate(4, "-").split("-")) {
+            assertTrue(WordList.chinese().contains(word), "口令词应在中文词表中: '" + word + "'");
         }
     }
 
@@ -47,9 +55,9 @@ class PassphraseGeneratorTest {
 
     @Test
     void entropyBitsMatchesDicewareFormula() {
-        // EFF Large 每词 log2(7776) ≈ 12.925 bit；4 词 ≈ 51.7 bit
-        double perWord = PassphraseGenerator.entropyBits(1, 7776);
-        assertEquals(12.925, perWord, 0.01);
-        assertEquals(perWord * 4, PassphraseGenerator.entropyBits(4, 7776), 1e-9);
+        // 8192 词表每词 log2(8192) = 13.0 bit
+        double perWord = PassphraseGenerator.entropyBits(1, 8192);
+        assertEquals(13.0, perWord, 1e-9);
+        assertEquals(perWord * 4, PassphraseGenerator.entropyBits(4, 8192), 1e-9);
     }
 }

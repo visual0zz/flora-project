@@ -19,7 +19,6 @@
         <module>flora-internal-evaluation</module>
         <module>flora-tangle</module>
         <module>flora-tangle/testbed</module>
-        <module>cultivating/flora-sanctum</module>
         <module>cultivating/flora-hanako</module>
     </modules>
 

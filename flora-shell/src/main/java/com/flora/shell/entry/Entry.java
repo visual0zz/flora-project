@@ -1,11 +1,7 @@
 package com.flora.shell.entry;
 
 import com.flora.root.java.CheckUtil;
-import com.flora.shell.ChannelId;
-import com.flora.shell.Command;
-import com.flora.shell.CommandService;
-import com.flora.shell.CommandResult;
-import com.flora.shell.InputEvent;
+import com.flora.shell.*;
 import com.flora.shell.help.HelpRenderer;
 
 import java.util.Arrays;
@@ -55,9 +51,9 @@ public final class Entry {
             return CommandResult.SUCCESS;
         }
 
-        // CliView 前置校验
+        // CliCommand 前置校验
         Command command = service.find(commandName);
-        if (command instanceof Command.CliView cliView) {
+        if (command instanceof CliCommand cliView) {
             String err = cliView.beforeExecute(rest);
             if (err != null) {
                 System.err.println(err);

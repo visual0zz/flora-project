@@ -12,7 +12,7 @@ import java.util.Set;
  * 读参数、写输出，不直接触碰 {@code System.out}。</p>
  * <p>命令应无状态：领域状态由业务代码通过 {@link ScopedValue} 在调用前绑定，
  * 命令在 {@code execute} 内用 {@code ScopedValue.get(...)} 读取，不存于命令或框架内。</p>
- * <p>可选的接入方式特化接口见 {@link CliView}、{@link AgentView}、{@link SourceRestricted}。
+ * <p>可选的接入方式特化接口见 {@link CliCommand}、{@link AgentToolCommand}、{@link SourceRestricted}。
  * "不实现任何特化接口"= 各接入方式通用。</p>
  */
 public interface Command {
@@ -60,39 +60,11 @@ public interface Command {
     CommandResult execute(Invocation ctx) throws Exception;
 
     /**
-     * 批量入口专属特化：argv 级前置校验 / 定制错误输出。
-     * <p>实现此接口只对批量入口生效；{@code beforeExecute} 返回 {@code null} 表示通过，
-     * 返回非 null 字符串表示错误消息（框架据此报错并置非零退出码）。</p>
-     */
-    interface CliView {
-        /**
-         * @param rawArgs 原始 argv（不含命令名）
-         * @return {@code null} 表示校验通过；否则返回错误消息
-         */
-        default String beforeExecute(List<String> rawArgs) {
-            return null;
-        }
-    }
-
-    /**
-     * Agent 专属特化：定制工具描述 / 返回值 schema。
-     * <p>实现此接口只对 Agent 接入生效；未实现时框架由声明自动生成工具描述。</p>
-     */
-    interface AgentView {
-        /**
-         * @return 该命令的 Agent 工具 schema 描述文本
-         */
-        default String toolSchema() {
-            return "";
-        }
-    }
-
-    /**
      * 来源限制：声明允许触发本命令的渠道白名单。
      * <p>空集合表示不限制。例如 {@code gui}/{@code exit} 不允许微信触发时在此声明白名单。
      * 实现此接口后，组件在分派前检查来源，来源不在白名单时拒绝执行。</p>
      */
-    interface SourceRestricted {
+    interface SourceRestricted extends Command{
         /**
          * @return 允许触发本命令的渠道集合；空表示不限制
          */

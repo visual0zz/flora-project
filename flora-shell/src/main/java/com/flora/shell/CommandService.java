@@ -129,13 +129,11 @@ public final class CommandService {
                 out.error("未知命令: " + event.commandName() + "（输入 help 查看可用命令）");
                 return CommandResult.exit(CommandResult.FAILURE);
             }
-            // 来源限制检查
-            if (command instanceof Command.SourceRestricted restricted) {
-                var allowed = restricted.allowedSources();
-                if (!allowed.isEmpty() && !allowed.contains(event.source())) {
-                    out.error("命令 " + event.commandName() + " 不允许来自来源 " + event.source());
-                    return CommandResult.exit(CommandResult.FAILURE);
-                }
+            // 来源限制检查：命令声明的正则对来源 id 做全匹配，不匹配则拒绝
+            String pattern = command.allowedSourcePattern();
+            if (pattern != null && !event.source().id().matches(pattern)) {
+                out.error("命令 " + event.commandName() + " 不允许来自来源 " + event.source());
+                return CommandResult.exit(CommandResult.FAILURE);
             }
             ParsedArgs parsed;
             try {

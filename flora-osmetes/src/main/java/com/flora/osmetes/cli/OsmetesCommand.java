@@ -34,6 +34,11 @@ public final class OsmetesCommand implements Command {
     }
 
     @Override
+    public String allowedSourcePattern() {
+        return ".*";
+    }
+
+    @Override
     public List<ArgSpec> args() {
         return List.of(ArgSpec.builder()
                 .kind(ArgSpec.Kind.POSITIONAL)

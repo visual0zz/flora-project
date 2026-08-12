@@ -28,6 +28,11 @@ public final class TangleCommand implements Command {
     }
 
     @Override
+    public String allowedSourcePattern() {
+        return ".*";
+    }
+
+    @Override
     public List<ArgSpec> args() {
         return List.of(
                 ArgSpec.builder()

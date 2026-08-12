@@ -50,6 +50,11 @@ public final class HelpCommand implements Command {
     }
 
     @Override
+    public String allowedSourcePattern() {
+        return ".*";
+    }
+
+    @Override
     public CommandResult execute(Invocation ctx) {
         ParsedArgs args = ctx.args();
         String cmd = args.get("cmd");

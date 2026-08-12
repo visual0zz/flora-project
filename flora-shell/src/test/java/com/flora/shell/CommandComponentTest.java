@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -25,6 +24,11 @@ class CommandComponentTest {
         @Override
         public String description() {
             return "回显文本";
+        }
+
+        @Override
+        public String allowedSourcePattern() {
+            return ".*";
         }
 
         @Override
@@ -92,13 +96,13 @@ class CommandComponentTest {
     }
 
     @Test
-    void sourceRestrictedRejectsDisallowedSource() {
+    void sourcePatternRejectsDisallowedSource() {
         CommandService component = new CommandService();
         component.register(new RestrictedCommand());
-        // AGENT 在白名单内，允许
+        // AGENT 匹配命令声明的正则，允许
         assertEquals(CommandResult.SUCCESS, component.submit(
                 InputEvent.ofStructured(ChannelId.AGENT, "restricted", java.util.Map.of())).exitCode());
-        // ARGV 不在白名单内，拒绝
+        // ARGV 不匹配命令声明的正则，拒绝
         assertEquals(CommandResult.FAILURE, component.submit(
                 InputEvent.ofArgv(ChannelId.ARGV, "restricted", List.of())).exitCode());
     }
@@ -142,6 +146,11 @@ class CommandComponentTest {
         }
 
         @Override
+        public String allowedSourcePattern() {
+            return ".*";
+        }
+
+        @Override
         public int priority() {
             return 0;
         }
@@ -152,7 +161,7 @@ class CommandComponentTest {
         }
     }
 
-    private static final class RestrictedCommand implements Command, Command.SourceRestricted {
+    private static final class RestrictedCommand implements Command {
         @Override
         public String name() {
             return "restricted";
@@ -164,8 +173,8 @@ class CommandComponentTest {
         }
 
         @Override
-        public Set<ChannelId> allowedSources() {
-            return Set.of(ChannelId.AGENT);
+        public String allowedSourcePattern() {
+            return "agent";
         }
 
         @Override

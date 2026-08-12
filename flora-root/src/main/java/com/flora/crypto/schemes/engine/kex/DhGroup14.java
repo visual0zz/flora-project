@@ -3,9 +3,9 @@ package com.flora.crypto.schemes.engine.kex;
 import com.flora.common.algorithm.AlgorithmComponent;
 import com.flora.common.algorithm.AlgorithmFactory;
 import com.flora.common.algorithm.AlgorithmFamilyRegister;
-import com.flora.crypto.newcore.bridge.JdkAgreement;
-import com.flora.crypto.newcore.impl.AsymmetricKeyParameterImpl;
-import com.flora.crypto.newcore.interfaces.algorithm.Agreement;
+import com.flora.crypto.core.bridge.JdkAgreement;
+import com.flora.crypto.core.impl.AsymmetricKeyParameterImpl;
+import com.flora.crypto.core.interfaces.algorithm.Agreement;
 import com.flora.crypto.schemes.SchemeAlgorithmFamilyRegister;
 import com.flora.crypto.schemes.SchemeContext;
 import com.flora.crypto.schemes.SchemeException;
@@ -202,7 +202,7 @@ public final class DhGroup14 implements KeyExchange {
         }
 
         @Override
-        public Class<? extends AlgorithmComponent>[] componentTypes() {
+        public Class<AlgorithmComponent>[] componentTypes() {
             return new Class[0];
         }
 

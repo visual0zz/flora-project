@@ -24,7 +24,7 @@ public interface AlgorithmFactory<T extends Algorithm<?>>{
      *
      * @return 组件类型数组（按下标有序）；空数组表示该算法无需注入组件（无参原语）
      */
-    Class<? extends  AlgorithmComponent>[] componentTypes();
+    Class<AlgorithmComponent>[] componentTypes();
 
     /**
      * 将其他算法的实例（或常量组件）注入算法来进行初始化。

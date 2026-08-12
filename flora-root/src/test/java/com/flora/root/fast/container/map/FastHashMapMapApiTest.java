@@ -1,7 +1,7 @@
 
 package com.flora.root.fast.container.map;
 
-import com.flora.fast.container.consumer.*;
+import com.flora.root.fast.container.consumer.*;
 import com.flora.root.fast.container.consumer.Byte2ByteConsumer;
 import com.flora.root.fast.container.consumer.Int2IntConsumer;
 import com.flora.root.fast.container.consumer.Object2LongConsumer;

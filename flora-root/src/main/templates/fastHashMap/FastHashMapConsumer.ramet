@@ -1,6 +1,6 @@
 <#meta>
 @Param{
-  package: "com.flora.fast.container.consumer",
+  package: "com.flora.root.fast.container.consumer",
   Byte: { name: "Byte", type: "byte" },
   Short: { name: "Short", type: "short" },
   Int: { name: "Int", type: "int" },

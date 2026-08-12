@@ -1,7 +1,7 @@
 package com.flora.root.ai.orchestration;
 
 import com.flora.root.ai.api.*;
-import com.root.ai.api.*;
+import com.flora.root.ai.api.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

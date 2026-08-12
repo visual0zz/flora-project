@@ -1,14 +1,13 @@
 <#meta>
 @Param{
-  pkg: "com.flora.container.tuple",
-  pathPrefix: "com/flora/container/tuple"
+  pkg: "com.flora.root.container.tuple"
 }
-@Path{ concat(pathPrefix, "/Tuple.java") }
+@Path{ concat(javaPackageToPath(pkg), "/Tuple.java") }
 </#meta>
 
 package ${pkg};
 
-import com.flora.tag.ReadOnly;
+import com.flora.root.tag.ReadOnly;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Arrays;

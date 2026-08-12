@@ -5,7 +5,6 @@
 
 package com.flora.root.fast.container.map;
 
-import com.flora.root.fast.container.consumer.Long2DoubleConsumer;
 import com.flora.root.tag.ThreadFragile;
 import com.flora.root.entropy.HashUtil;
 import java.util.AbstractMap;
@@ -16,7 +15,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
-import com.flora.fast.container.consumer.*;
+import com.flora.root.fast.container.consumer.*;
 /**
  * Long→Double 类型专用开地址哈希映射。
  * <p>使用开放寻址法 + 线性探测，零值作为空槽标记。

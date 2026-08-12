@@ -1,17 +1,16 @@
 <#meta>
 @Param{
-  pathPrefix: "com/flora/container/tuple",
-  pkg: "com.flora.container.tuple"
+  pkg: "com.flora.root.container.tuple"
 }
 @Cartesian{
   N: range(1, 20)
 }
-@Path{ concat(pathPrefix, "/Tuple", N, ".java") }
+@Path{ concat(javaPackageToPath(pkg), "/Tuple", N, ".java") }
 </#meta>
 
 package ${pkg};
 
-import com.flora.tag.ReadOnly;
+import com.flora.root.tag.ReadOnly;
 import java.io.Serial;
 
 /**

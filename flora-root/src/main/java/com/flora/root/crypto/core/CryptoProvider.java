@@ -1,6 +1,6 @@
 package com.flora.root.crypto.core;
 
-import com.flora.common.register.*;
+import com.flora.root.common.register.*;
 import com.flora.root.common.register.AlgorithmComponent;
 import com.flora.root.common.register.AlgorithmConstant;
 import com.flora.root.common.register.AlgorithmFactory;

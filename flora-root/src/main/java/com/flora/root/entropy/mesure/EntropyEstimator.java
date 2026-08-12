@@ -1,6 +1,6 @@
 package com.flora.root.entropy.mesure;
 
-import com.flora.common.register.*;
+import com.flora.root.common.register.*;
 import com.flora.root.common.register.AlgorithmComponent;
 import com.flora.root.common.register.AlgorithmFactory;
 import com.flora.root.common.register.AlgorithmFactoryRegister;

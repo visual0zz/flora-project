@@ -5,7 +5,6 @@
 
 package com.flora.root.fast.container.map;
 
-import com.flora.root.fast.container.consumer.Byte2FloatConsumer;
 import com.flora.root.tag.ThreadFragile;
 import com.flora.root.entropy.HashUtil;
 import java.util.AbstractMap;
@@ -16,7 +15,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
-import com.flora.fast.container.consumer.*;
+import com.flora.root.fast.container.consumer.*;
 
 /**
  * byte→Float 类型专用开地址哈希映射。

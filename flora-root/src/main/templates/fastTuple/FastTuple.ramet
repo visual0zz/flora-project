@@ -1,6 +1,6 @@
 <#meta>
 @Param{
-  pkg: "com.flora.fast.container.tuple",
+  pkg: "com.flora.root.fast.container.tuple",
   Integer: { type: "int", letter: "I", hashFn: "Integer.hashCode", cmp: false },
   Long: { type: "long", letter: "L", hashFn: "Long.hashCode", cmp: false },
   Float: { type: "float", letter: "F", hashFn: "Float.hashCode", cmp: "Float.compare" },

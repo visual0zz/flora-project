@@ -1,6 +1,6 @@
 <#meta>
 @Param{
-  pkg: "com.flora.fast.container.tuple",
+  pkg: "com.flora.root.fast.container.tuple",
   Integer: { type: "int", letter: "I", hashFn: "Integer.hashCode", cmpFn: "Integer.compare", cmp: false },
   Long: { type: "long", letter: "L", hashFn: "Long.hashCode", cmpFn: "Long.compare", cmp: false },
   Float: { type: "float", letter: "F", hashFn: "Float.hashCode", cmpFn: "Float.compare", cmp: "Float.compare" },
@@ -21,7 +21,7 @@
 
 package ${pkg};
 
-import com.flora.tag.ReadOnly;
+import com.flora.root.tag.ReadOnly;
 import java.io.Serial;
 import java.io.Serializable;
 

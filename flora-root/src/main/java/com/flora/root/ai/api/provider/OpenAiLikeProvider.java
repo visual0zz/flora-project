@@ -1,6 +1,6 @@
 package com.flora.root.ai.api.provider;
 
-import com.flora.ai.api.*;
+import com.flora.root.ai.api.*;
 import com.flora.root.ai.api.ApiSchema;
 import com.flora.root.ai.api.ChatClient;
 import com.flora.root.ai.api.Endpoint;

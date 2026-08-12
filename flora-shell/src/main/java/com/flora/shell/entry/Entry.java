@@ -29,13 +29,13 @@ public final class Entry {
      *   <li>第一个参数是命令名，其余是其参数；</li>
      *   <li>{@code help} 或 {@code --help} 作为唯一参数 → 全局帮助到 stdout、退出码 0。</li>
      * </ul>
+     * <p>领域状态不由本方法传递：业务代码通过 {@link ScopedValue} 在调用前自行绑定。</p>
      *
      * @param service 指令组件
      * @param args      进程参数（不含命令名本身）
-     * @param state     调用方领域状态
      * @return 进程退出码
      */
-    public static int run(CommandService service, String[] args, Object state) {
+    public static int run(CommandService service, String[] args) {
         CheckUtil.notNull(service, "指令组件不能为空");
         List<String> argv = args == null ? List.of() : Arrays.asList(args);
 
@@ -66,6 +66,6 @@ public final class Entry {
         }
 
         InputEvent event = InputEvent.ofArgv(ChannelId.ARGV, commandName, rest);
-        return service.submit(event, state).exitCode();
+        return service.submit(event).exitCode();
     }
 }

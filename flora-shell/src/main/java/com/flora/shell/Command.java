@@ -10,7 +10,8 @@ import java.util.Set;
  * <p>声明层（{@code name}/{@code description}/{@code args}/{@code usage}）是 help、
  * 参数解析、Agent schema 的共同来源；执行层（{@code execute}）通过 {@link Invocation}
  * 读参数、写输出，不直接触碰 {@code System.out}。</p>
- * <p>命令应无状态：状态一律放调用方传入的 {@code Invocation.state()} 或组件外的领域对象。</p>
+ * <p>命令应无状态：领域状态由业务代码通过 {@link ScopedValue} 在调用前绑定，
+ * 命令在 {@code execute} 内用 {@code ScopedValue.get(...)} 读取，不存于命令或框架内。</p>
  * <p>可选的接入方式特化接口见 {@link CliView}、{@link AgentView}、{@link SourceRestricted}。
  * "不实现任何特化接口"= 各接入方式通用。</p>
  */

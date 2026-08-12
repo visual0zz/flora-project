@@ -45,7 +45,7 @@ class CommandComponentTest {
         CommandService component = new CommandService();
         component.register(new EchoCommand());
         CommandResult result = component.submit(
-                InputEvent.ofArgv(ChannelId.ARGV, "echo", List.of("hello")), null);
+                InputEvent.ofArgv(ChannelId.ARGV, "echo", List.of("hello")));
         assertEquals(CommandResult.SUCCESS, result.exitCode());
         assertEquals("echo:hello", result.data());
     }
@@ -54,7 +54,7 @@ class CommandComponentTest {
     void unknownCommandFails() {
         CommandService component = new CommandService();
         CommandResult result = component.submit(
-                InputEvent.ofArgv(ChannelId.ARGV, "nope", List.of()), null);
+                InputEvent.ofArgv(ChannelId.ARGV, "nope", List.of()));
         assertEquals(CommandResult.FAILURE, result.exitCode());
     }
 
@@ -87,7 +87,7 @@ class CommandComponentTest {
             public void emitError(String text) {
             }
         });
-        component.submit(InputEvent.ofArgv(ChannelId.ARGV, "echo", List.of("fan")), null);
+        component.submit(InputEvent.ofArgv(ChannelId.ARGV, "echo", List.of("fan")));
         assertEquals(List.of("echo: fan\n"), received);
     }
 
@@ -97,36 +97,36 @@ class CommandComponentTest {
         component.register(new RestrictedCommand());
         // AGENT 在白名单内，允许
         assertEquals(CommandResult.SUCCESS, component.submit(
-                InputEvent.ofStructured(ChannelId.AGENT, "restricted", java.util.Map.of()), null).exitCode());
+                InputEvent.ofStructured(ChannelId.AGENT, "restricted", java.util.Map.of())).exitCode());
         // ARGV 不在白名单内，拒绝
         assertEquals(CommandResult.FAILURE, component.submit(
-                InputEvent.ofArgv(ChannelId.ARGV, "restricted", List.of()), null).exitCode());
+                InputEvent.ofArgv(ChannelId.ARGV, "restricted", List.of())).exitCode());
     }
 
     @Test
     void entryRunsAndReturnsExitCode() {
         CommandService component = new CommandService();
         component.register(new EchoCommand());
-        assertEquals(CommandResult.SUCCESS, Entry.run(component, new String[]{"echo", "x"}, null));
+        assertEquals(CommandResult.SUCCESS, Entry.run(component, new String[]{"echo", "x"}));
     }
 
     @Test
     void entryEmptyArgsFailsWithNonZero() {
         CommandService component = new CommandService();
-        assertEquals(CommandResult.FAILURE, Entry.run(component, new String[]{}, null));
+        assertEquals(CommandResult.FAILURE, Entry.run(component, new String[]{}));
     }
 
     @Test
     void entryHelpFlagPrintsGlobalHelp() {
         CommandService component = new CommandService();
         component.register(new EchoCommand());
-        assertEquals(CommandResult.SUCCESS, Entry.run(component, new String[]{"--help"}, null));
+        assertEquals(CommandResult.SUCCESS, Entry.run(component, new String[]{"--help"}));
     }
 
     @Test
     void unknownCommandReturnsFailure() {
         CommandService component = new CommandService();
-        assertEquals(CommandResult.FAILURE, Entry.run(component, new String[]{"nope"}, null));
+        assertEquals(CommandResult.FAILURE, Entry.run(component, new String[]{"nope"}));
     }
 
     /** 低优先级覆写内置 help 的命令（本应高于 -100）。 */

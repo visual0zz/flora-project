@@ -42,7 +42,7 @@ public final class Ramet {
         String[] argv = new String[args.length + 1];
         argv[0] = "ramet.gen";
         System.arraycopy(args, 0, argv, 1, args.length);
-        int exitCode = com.flora.shell.entry.Entry.run(component, argv, null);
+        int exitCode = com.flora.shell.entry.Entry.run(component, argv);
         if (exitCode != 0) {
             System.exit(exitCode);
         }

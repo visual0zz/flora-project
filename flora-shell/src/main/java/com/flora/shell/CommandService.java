@@ -114,12 +114,13 @@ public final class CommandService {
 
     /**
      * 提交一次调用并串行执行。
+     * <p>领域状态不由本方法传递：业务代码通过 {@link ScopedValue} 在调用前自行绑定，
+     * 命令在 {@code execute} 内读取。框架只负责路由与执行，不持有状态。</p>
      *
      * @param event 归一化输入
-     * @param state 调用方领域状态（可传 {@code null}）
      * @return 执行结果
      */
-    public CommandResult submit(InputEvent event, Object state) {
+    public CommandResult submit(InputEvent event) {
         CheckUtil.notNull(event, "输入事件不能为空");
         dispatchLock.lock();
         try {
@@ -143,7 +144,7 @@ public final class CommandService {
                 out.error(e.getMessage());
                 return CommandResult.exit(CommandResult.FAILURE);
             }
-            Invocation inv = new Invocation(command, parsed, out, event.source(), state);
+            Invocation inv = new Invocation(command, parsed, out, event.source());
             try {
                 return command.execute(inv);
             } catch (Exception e) {

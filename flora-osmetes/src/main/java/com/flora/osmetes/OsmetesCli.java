@@ -34,7 +34,7 @@ public final class OsmetesCli {
         String[] argv = new String[args.length + 1];
         argv[0] = "osmetes.check";
         System.arraycopy(args, 0, argv, 1, args.length);
-        int exitCode = Entry.run(component, argv, null);
+        int exitCode = Entry.run(component, argv);
         if (exitCode != 0) {
             System.exit(exitCode);
         }

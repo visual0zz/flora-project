@@ -42,7 +42,7 @@
   → InputEvent（来源 + 命令调用描述）
   → CommandComponent.submit（串行队列）
   → 分词 + 查找命令 + ArgParser 校验（→ ParsedArgs）
-  → Invocation（命令 + ParsedArgs + Output + 调用方状态）
+  → Invocation（命令 + ParsedArgs + Output + 来源）
   → execute → CommandResult
   → Output 扇出到所有已挂载的 OutputSink
 ```
@@ -75,7 +75,7 @@
 com.flora.shell
 ├── Command                  # 命令接口（声明 + 执行 + 特化入口）
 ├── CommandComponent         # 指令组件：注册、串行分派、输出扇出（零状态、无 UI）
-├── Invocation               # 调用上下文：命令 + 参数 + Output + 调用方状态（组件透传）
+├── Invocation               # 调用上下文：命令 + 参数 + Output + 来源
 ├── InputEvent               # 归一化输入（来源 + 命令调用描述：文本或结构化）
 ├── CommandResult            # 执行结果（退出码 / 结构化数据）
 ├── builtin/                 # 内置指令（预制）：help / gui
@@ -117,7 +117,7 @@ interface Command {
 - `args()` 是**声明**不是代码：解析、help 生成、Agent 的 JSON schema 都从这同一份声明推导，保证"一处定义、处处一致"。
 - `execute()` 不直接碰 `System.out`，而是通过 `Invocation` 里的 `Output` 写输出，因此同一份实现可同时跑在批量打印与未来 TUI 面板、微信回写上。
 - `priority()` 只用于**同名冲突裁决**：内置指令（help/gui）以低优先级注册，用户定义同名命令可覆写内置指令；用户命令之间同名冲突直接抛异常（视为 bug），不裁决。
-- **命令应无状态**：状态一律放调用方传入的 `Invocation.state()`（或组件外的领域对象），保证同一命令在多个组件中重复注册（各 `registerBySpi()`）时行为一致。
+- **命令应无状态**：领域状态由业务代码通过 `ScopedValue` 在调用前绑定，命令在 `execute` 内读取，不存于命令或框架内。保证同一命令在多个组件中重复注册（各 `registerBySpi()`）时行为一致。
 
 ### 4.1 内置指令（预制）
 
@@ -196,7 +196,7 @@ interface SourceRestricted { // 来源限制：声明允许触发本命令的渠
   → InputEvent（来源 + 命令调用描述）
   → CommandComponent.submit（串行队列）
   → 分词 + 查找命令 + ArgParser 校验（→ ParsedArgs）
-  → Invocation（命令 + ParsedArgs + Output + 调用方状态）
+  → Invocation（命令 + ParsedArgs + Output + 来源）
   → execute → CommandResult
   → Output 扇出到所有已挂载的 OutputSink
 ```
@@ -227,9 +227,9 @@ class OutputMultiplexer implements Output {
 
 - **UI 状态**（光标、窗格、布局、当前视图）——归 `TuiComponent`（未来增量）；
 - **领域状态**（当前文件、buffer、打开的会话）——归调用方（TUI/用户代码）持有；
-- `Invocation.state()` 是调用方传入的对象，组件原样透传，命令侧通过它读写领域状态。
+- **领域状态经 `ScopedValue` 传递**：框架不承载、不透传状态。业务代码在调用前用 `ScopedValue` 绑定领域对象，命令在 `execute` 内用 `ScopedValue.get(...)` 读取。`Invocation` 只含 command/args/out/source，不含状态。
 
-**领域状态访问契约（本期澄清）**：本期批量/Agent 场景是单次调用，`Invocation.state()` 直接返回调用方传入对象即可，无并发。对未来多渠道共享场景（微信+键盘同时访问领域状态），框架**不承诺对裸 `Object` 的线程安全**——串行队列（§7.1）保证命令间不并发抢占，但同一命令内部的领域对象若跨命令共享，状态一致性由宿主通过不可变状态或加锁自行保证。本期不引入领域状态的锁/快照机制，留到多渠道场景落地时再定（§13）。
+**领域状态访问契约（本期澄清）**：本期批量/Agent 场景是单次调用，命令在自身执行线程内 `ScopedValue.get(...)` 即读到绑定值，无并发。对未来多渠道共享场景（微信+键盘同时访问领域状态），由各渠道在各自的执行作用域绑定领域对象；框架**不承诺跨渠道并发下的线程安全**——串行队列（§7.1）保证命令间不并发抢占，但同一领域对象若跨调用共享，状态一致性由宿主通过不可变状态或加锁自行保证。本期不引入领域状态的锁/快照机制，留到多渠道场景落地时再定（§13）。
 
 ### 7.5 入口壳（一次性执行）
 

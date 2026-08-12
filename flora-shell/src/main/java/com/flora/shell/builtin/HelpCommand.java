@@ -1,9 +1,6 @@
 package com.flora.shell.builtin;
 
-import com.flora.shell.Command;
-import com.flora.shell.CommandComponent;
-import com.flora.shell.CommandResult;
-import com.flora.shell.Invocation;
+import com.flora.shell.*;
 import com.flora.shell.help.HelpRenderer;
 import com.flora.shell.spec.ArgSpec;
 import com.flora.shell.spec.ParsedArgs;
@@ -16,14 +13,14 @@ import java.util.List;
  */
 public final class HelpCommand implements Command {
 
-    private final CommandComponent component;
+    private final CommandService component;
     private final HelpRenderer renderer;
 
     /**
      * @param component 指令组件（用于读取注册表）
      * @param renderer  帮助渲染器
      */
-    public HelpCommand(CommandComponent component, HelpRenderer renderer) {
+    public HelpCommand(CommandService component, HelpRenderer renderer) {
         this.component = component;
         this.renderer = renderer;
     }

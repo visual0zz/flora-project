@@ -42,7 +42,7 @@ class CommandComponentTest {
 
     @Test
     void registersAndDispatches() {
-        CommandComponent component = new CommandComponent();
+        CommandService component = new CommandService();
         component.register(new EchoCommand());
         CommandResult result = component.submit(
                 InputEvent.ofArgv(ChannelId.ARGV, "echo", List.of("hello")), null);
@@ -52,7 +52,7 @@ class CommandComponentTest {
 
     @Test
     void unknownCommandFails() {
-        CommandComponent component = new CommandComponent();
+        CommandService component = new CommandService();
         CommandResult result = component.submit(
                 InputEvent.ofArgv(ChannelId.ARGV, "nope", List.of()), null);
         assertEquals(CommandResult.FAILURE, result.exitCode());
@@ -60,13 +60,13 @@ class CommandComponentTest {
 
     @Test
     void builtinHelpIsRegistered() {
-        CommandComponent component = new CommandComponent();
+        CommandService component = new CommandService();
         assertNotNull(component.find("help"));
     }
 
     @Test
     void userCommandOverridesBuiltinByPriority() {
-        CommandComponent component = new CommandComponent();
+        CommandService component = new CommandService();
         Command override = new HelpOverride();
         component.register(override);
         assertEquals(override, component.find("help"));
@@ -74,7 +74,7 @@ class CommandComponentTest {
 
     @Test
     void outputFansOutToSinks() {
-        CommandComponent component = new CommandComponent();
+        CommandService component = new CommandService();
         component.register(new EchoCommand());
         List<String> received = new ArrayList<>();
         component.attach(new OutputSink() {
@@ -93,7 +93,7 @@ class CommandComponentTest {
 
     @Test
     void sourceRestrictedRejectsDisallowedSource() {
-        CommandComponent component = new CommandComponent();
+        CommandService component = new CommandService();
         component.register(new RestrictedCommand());
         // AGENT 在白名单内，允许
         assertEquals(CommandResult.SUCCESS, component.submit(
@@ -105,27 +105,27 @@ class CommandComponentTest {
 
     @Test
     void entryRunsAndReturnsExitCode() {
-        CommandComponent component = new CommandComponent();
+        CommandService component = new CommandService();
         component.register(new EchoCommand());
         assertEquals(CommandResult.SUCCESS, Entry.run(component, new String[]{"echo", "x"}, null));
     }
 
     @Test
     void entryEmptyArgsFailsWithNonZero() {
-        CommandComponent component = new CommandComponent();
+        CommandService component = new CommandService();
         assertEquals(CommandResult.FAILURE, Entry.run(component, new String[]{}, null));
     }
 
     @Test
     void entryHelpFlagPrintsGlobalHelp() {
-        CommandComponent component = new CommandComponent();
+        CommandService component = new CommandService();
         component.register(new EchoCommand());
         assertEquals(CommandResult.SUCCESS, Entry.run(component, new String[]{"--help"}, null));
     }
 
     @Test
     void unknownCommandReturnsFailure() {
-        CommandComponent component = new CommandComponent();
+        CommandService component = new CommandService();
         assertEquals(CommandResult.FAILURE, Entry.run(component, new String[]{"nope"}, null));
     }
 

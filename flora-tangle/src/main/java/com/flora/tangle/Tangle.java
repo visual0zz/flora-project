@@ -1,5 +1,7 @@
 package com.flora.tangle;
 
+import com.flora.shell.CommandService;
+
 /**
  * 命令行入口：把一个 jar 混淆成另一个 jar。
  *
@@ -15,7 +17,7 @@ package com.flora.tangle;
 public final class Tangle {
 
     public static void main(String[] args) {
-        com.flora.shell.CommandComponent component = new com.flora.shell.CommandComponent();
+        CommandService component = new CommandService();
         component.register(new com.flora.tangle.cli.TangleCommand());
         // 本工具以命令名作为首参，保持原有 "Tangle <in> <out> ..." 的命令行契约
         String[] argv = new String[args.length + 1];

@@ -24,7 +24,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>同名冲突裁决：用户命令与内置指令冲突时按 {@code priority()} 高者胜出（内置指令为负，
  * 用户命令可覆写内置指令）；用户命令之间同名冲突直接抛异常（视为 bug），不裁决。</p>
  */
-public final class CommandComponent {
+public final class CommandService {
 
     private final Map<String, Command> commands = new LinkedHashMap<>();
     private final Map<String, ArgParser> parsers = new LinkedHashMap<>();
@@ -35,7 +35,7 @@ public final class CommandComponent {
     /**
      * 创建指令组件，并注册内置 {@code help} 指令。
      */
-    public CommandComponent() {
+    public CommandService() {
         register(new HelpCommand(this, help));
     }
 

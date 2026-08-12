@@ -1,7 +1,7 @@
 package com.flora.osmetes;
 
 import com.flora.osmetes.cli.OsmetesCommand;
-import com.flora.shell.CommandComponent;
+import com.flora.shell.CommandService;
 import com.flora.shell.entry.Entry;
 
 import java.io.FileDescriptor;
@@ -28,7 +28,7 @@ public final class OsmetesCli {
      */
     public static void main(String[] args) throws IOException {
         forceUtf8Output();
-        CommandComponent component = new CommandComponent();
+        CommandService component = new CommandService();
         component.register(new OsmetesCommand());
         // 本工具以命令名作为首参，保持原有 "OsmetesCli <sourceRoot>" 的命令行契约
         String[] argv = new String[args.length + 1];

@@ -3,7 +3,7 @@ package com.flora.shell.entry;
 import com.flora.root.java.CheckUtil;
 import com.flora.shell.ChannelId;
 import com.flora.shell.Command;
-import com.flora.shell.CommandComponent;
+import com.flora.shell.CommandService;
 import com.flora.shell.CommandResult;
 import com.flora.shell.InputEvent;
 import com.flora.shell.help.HelpRenderer;
@@ -30,19 +30,19 @@ public final class Entry {
      *   <li>{@code help} 或 {@code --help} 作为唯一参数 → 全局帮助到 stdout、退出码 0。</li>
      * </ul>
      *
-     * @param component 指令组件
+     * @param service 指令组件
      * @param args      进程参数（不含命令名本身）
      * @param state     调用方领域状态
      * @return 进程退出码
      */
-    public static int run(CommandComponent component, String[] args, Object state) {
-        CheckUtil.notNull(component, "指令组件不能为空");
+    public static int run(CommandService service, String[] args, Object state) {
+        CheckUtil.notNull(service, "指令组件不能为空");
         List<String> argv = args == null ? List.of() : Arrays.asList(args);
 
         // 无参数：报错 + 帮助到 stderr
         if (argv.isEmpty()) {
             System.err.println("缺少命令（输入 help 查看可用命令）");
-            System.err.print(new HelpRenderer().renderGlobal(component.commands()));
+            System.err.print(new HelpRenderer().renderGlobal(service.commands()));
             return CommandResult.FAILURE;
         }
 
@@ -51,12 +51,12 @@ public final class Entry {
 
         // --help 拦截：转为全局帮助（本期批量的两条 help 入口：help / --help）
         if ("--help".equals(commandName) || "-h".equals(commandName)) {
-            System.out.print(new HelpRenderer().renderGlobal(component.commands()));
+            System.out.print(new HelpRenderer().renderGlobal(service.commands()));
             return CommandResult.SUCCESS;
         }
 
         // CliView 前置校验
-        Command command = component.find(commandName);
+        Command command = service.find(commandName);
         if (command instanceof Command.CliView cliView) {
             String err = cliView.beforeExecute(rest);
             if (err != null) {
@@ -66,6 +66,6 @@ public final class Entry {
         }
 
         InputEvent event = InputEvent.ofArgv(ChannelId.ARGV, commandName, rest);
-        return component.submit(event, state).exitCode();
+        return service.submit(event, state).exitCode();
     }
 }

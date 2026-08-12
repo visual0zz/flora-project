@@ -10,17 +10,12 @@
         <version>0.1</version>
     </parent>
 
-    <artifactId>flora-osmetes</artifactId>
+    <artifactId>flora-shell</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>io.gitee.visual0zz</groupId>
             <artifactId>flora-root</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.gitee.visual0zz</groupId>
-            <artifactId>flora-shell</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

@@ -5,6 +5,7 @@
  */
 module com.flora.tangle {
     requires com.flora.root;
+    requires com.flora.shell;
     requires static java.compiler; // 仅在测试编译时使用 javax.tools
 
     // 字节码（class 文件）解析与混淆公开 API

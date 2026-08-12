@@ -34,31 +34,17 @@ public final class Ramet {
     private Ramet() {
     }
 
-    public static void main(String[] args) throws IOException {
-        boolean dryRun = false;
-        Path templatesDir = null;
-        Path outputDir = null;
-
-        for (String arg : args) {
-            if ("--help".equals(arg) || "-h".equals(arg)) {
-                printHelp();
-                return;
-            } else if ("--dry-run".equals(arg)) {
-                dryRun = true;
-            } else if (templatesDir == null) {
-                templatesDir = Paths.get(arg).toAbsolutePath();
-            } else if (outputDir == null) {
-                outputDir = Paths.get(arg).toAbsolutePath();
-            }
+    public static void main(String[] args) {
+        com.flora.shell.CommandComponent component = new com.flora.shell.CommandComponent();
+        component.register(new com.flora.ramet.cli.RametCommand());
+        // 本工具以命令名作为首参，保持原有 "Ramet <templatesDir> <outputDir> [--dry-run]" 的命令行契约
+        String[] argv = new String[args.length + 1];
+        argv[0] = "ramet.gen";
+        System.arraycopy(args, 0, argv, 1, args.length);
+        int exitCode = com.flora.shell.entry.Entry.run(component, argv, null);
+        if (exitCode != 0) {
+            System.exit(exitCode);
         }
-
-        if (templatesDir == null || outputDir == null) {
-            System.err.println("用法: Ramet <templatesDir> <outputDir> [--dry-run]");
-            System.exit(2);
-            return;
-        }
-
-        run(templatesDir, outputDir, dryRun);
     }
 
     /**
@@ -120,65 +106,6 @@ public final class Ramet {
         }
 
         System.out.println((dryRun ? "[dry-run] " : "done: ") + count + " file(s)");
-    }
-
-    /**
-     * 打印帮助信息到标准输出。
-     */
-    private static void printHelp() {
-        System.out.println("""
-                用法: Ramet <templatesDir> <outputDir> [--dry-run] [--help]
-
-                flora-ramet 模板代码生成引擎
-                ================================
-
-                基本语法:
-                  ${expr}           变量插值，输出表达式值
-                  ${a.b.c}          属性链访问
-                  func(args...)     函数调用（可用于 ${} 和 <#if> 等指令表达式中）
-                  <#if cond>...</#if>         条件分支（支持 <#else> 和 <#elseif>）
-                  <#for x:items>...</#for>     循环（支持 <#else>）
-                  <#continue>                 跳过当前迭代（可选 [depth:][cond]）
-                  <#break>                    退出循环（可选 [depth:][cond]）
-                  <#macro name:p1,p2=default>...</#macro>   宏定义（:分隔宏名和参数，逗号分隔参数，=指定默认值）
-                  <@name args/>              宏调用
-                  <#include "path">          引入子模板
-                  <#meta>...</#meta>         元数据块
-                  <#-- comment -->           注释
-
-                说明:
-                  - 模板分为被动区域（普通文本）和逻辑区域（<#...> / ${...}）。
-                  - 被动区域零转义，所有字符原样输出。
-                    如需输出 ${ 或 <#，使用 ${"${"} 或 ${"<#"}。
-                  - 逻辑区域中，字符串字面量 "..." 内部支持 Java 风格转义：
-                    \\" \\\\ \\n \\r \\t \\b \\f \\' \\uXXXX
-                  - 中缀表达式: a greaterThan b        → greaterThan(a, b)
-                  - 中缀无优先级: a greaterThan b and c greaterThan d      需用括号: (a greaterThan b) and (c greaterThan d)
-
-                Meta 标签（写在 <#meta>...</#meta> 中）:
-                  @Param{ ... }      模板参数定义（键: 值, ...）
-                  @Cartesian{ ... }    笛卡尔积轴定义（轴名 → 值列表或函数调用）
-                  @Path{ ... }       输出路径模板（支持 ${} 插值和 Lson 表达式）
-                  @SkipWhen{ ... }    跳过条件（布尔表达式，为 true 时跳过本组合的生成）
-                  @Config{ ... }     模板级行为配置
-
-                内置函数:
-                  [比较逻辑] greaterThan, lessThan, greaterThanOrEquals,
-                            lessThanOrEquals, equals, notEquals, and, or, not
-                  [字符串]   capitalize, lowercase, uppercase, javaString, concat, contains,
-                            replace, startsWith, repeat, join
-                  [判空]     notNull, isNull, isEmpty, isBlank
-                  [算术]     plus, minus
-                  [范围序列] range, sequenceJoin
-                  [工具]     firstNonNull, length, now, javaPackageToPath, numberFormat
-                  [组合生成] selfCartesian, permutation, combination, multiCombination,
-                            cartesian, concatList, concatField, sortBy
-
-                配置项（写在 @Config{ ... } 中）:
-                  autoWarning  [boolean]  默认 true
-                    生成文件头部自动注入"此文件由模板生成"的警告注释。
-                    设为 false 可关闭。
-                """);
     }
 
     /**

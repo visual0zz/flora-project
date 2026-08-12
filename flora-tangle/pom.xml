@@ -18,6 +18,11 @@
             <artifactId>flora-root</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>io.gitee.visual0zz</groupId>
+            <artifactId>flora-shell</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

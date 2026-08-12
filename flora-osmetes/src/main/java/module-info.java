@@ -9,6 +9,7 @@
  */
 module com.flora.osmetes {
     requires com.flora.root;
+    requires com.flora.shell;
 
     // 检查项接口、问题模型与引擎门面（公开 API）
     exports com.flora.osmetes;

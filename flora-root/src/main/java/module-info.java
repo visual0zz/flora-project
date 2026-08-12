@@ -55,21 +55,21 @@ module com.flora.root {
     // 通用元组类型
     exports com.flora.container.tuple;
     // 新加密抽象层（newcore）入口与注册中心
-    exports com.flora.crypto.newcore;
+    exports com.flora.crypto.core;
     // 新加密抽象层常量（如 AsymmetricKeyType）
-    exports com.flora.crypto.newcore.constant;
+    exports com.flora.crypto.core.constant;
     // 新加密抽象层算法接口
-    exports com.flora.crypto.newcore.interfaces.algorithm;
+    exports com.flora.crypto.core.interfaces.algorithm;
     // 新加密抽象层材料接口（KEM / 密钥对 / 参数）
-    exports com.flora.crypto.newcore.interfaces.material.kem;
-    exports com.flora.crypto.newcore.interfaces.material.keypair;
-    exports com.flora.crypto.newcore.interfaces.material.param;
+    exports com.flora.crypto.core.interfaces.material.kem;
+    exports com.flora.crypto.core.interfaces.material.keypair;
+    exports com.flora.crypto.core.interfaces.material.param;
     // 新加密抽象层组合器
-    exports com.flora.crypto.newcore.combinator;
+    exports com.flora.crypto.core.combinator;
     // 新加密抽象层模式（CBC/CFB/OFB/CTR/GCM）
-    exports com.flora.crypto.newcore.link;
+    exports com.flora.crypto.core.link;
     // 新加密抽象层填充与编码方案
-    exports com.flora.crypto.newcore.padding;
+    exports com.flora.crypto.core.padding;
     // 高层加密方案门面
     exports com.flora.crypto.schemes;
     // 密钥交换引擎实现
@@ -136,7 +136,7 @@ module com.flora.root {
     exports com.flora.syntax.peg;
     // 语义/目的标注注解（如 ModuleEntry）
     exports com.flora.tag;
-    exports com.flora.crypto.newcore.wrapper;
+    exports com.flora.crypto.core.wrapper;
 
     uses Converter;
     uses AiProvider;

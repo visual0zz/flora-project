@@ -85,7 +85,7 @@ public final class CompressorProvider {
             }
 
             @Override
-            public Class<? extends AlgorithmComponent>[] componentTypes() {
+            public Class<AlgorithmComponent>[] componentTypes() {
                 return new Class[0];
             }
 

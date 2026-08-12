@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import com.flora.crypto.schemes.SchemeContext;
 import com.flora.crypto.schemes.SchemeProvider;
-import com.flora.crypto.schemes.engine.kex.DhGroup14;
 import com.flora.crypto.schemes.keyexchange.KeyExchange;
 
 import javax.crypto.interfaces.DHPrivateKey;
@@ -129,7 +128,7 @@ class DhGroup14Test {
 
         SchemeContext ctx = new SchemeContext() {
             @Override
-            public com.flora.crypto.newcore.interfaces.algorithm.EntropySource entropy() {
+            public com.flora.crypto.core.interfaces.algorithm.EntropySource entropy() {
                 return null; // DhGroup14 使用 JDK KeyPairGenerator 自管随机性，无需外部熵
             }
         };

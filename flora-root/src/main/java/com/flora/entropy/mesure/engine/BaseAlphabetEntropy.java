@@ -137,7 +137,7 @@ public final class BaseAlphabetEntropy implements EntropyMetric {
         }
 
         @Override
-        public Class<? extends AlgorithmComponent>[] componentTypes() {
+        public Class<AlgorithmComponent>[] componentTypes() {
             return new Class[0];
         }
 

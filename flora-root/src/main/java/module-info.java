@@ -50,6 +50,8 @@ module com.flora.root {
     exports com.flora.common;
     // 通用算法抽象与注册中心（Algorithm/AlgorithmFactory/AbstractAlgorithmFactoryRegister）
     exports com.flora.common.register;
+    // 英文单词列表与 Diceware 口令生成（WordList/PassphraseGenerator）
+    exports com.flora.common.words;
     // 重试机制工具
     exports com.flora.concurrent.retry;
     // 通用元组类型

@@ -14,8 +14,6 @@ module com.flora.shell {
     exports com.flora.shell.spec;
     // 内置指令
     exports com.flora.shell.builtin;
-    // 帮助聚合与渲染
-    exports com.flora.shell.help;
     // 输出接口与扇出
     exports com.flora.shell.output;
 }

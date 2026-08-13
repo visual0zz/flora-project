@@ -38,7 +38,25 @@ public interface Command {
      * @return 手写一行用法覆盖自动生成的用法；{@code null} 表示自动生成
      */
     default String usage() {
-        return null;
+        StringBuilder sb = new StringBuilder(name());
+        for (ArgSpec a : args()) {
+            if (a.kind() == ArgSpec.Kind.POSITIONAL) {
+                if (!a.required()) {
+                    sb.append(" [<").append(a.name()).append('>');
+                } else {
+                    sb.append(" <").append(a.name()).append('>');
+                }
+                if (a.variadic()) {
+                    sb.append("...");
+                }
+                if (!a.required()) {
+                    sb.append(']');
+                }
+            } else if (a.required()) {
+                sb.append(" --").append(a.name());
+            }
+        }
+        return sb.toString();
     }
 
     /**

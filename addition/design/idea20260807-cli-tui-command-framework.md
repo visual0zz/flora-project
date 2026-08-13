@@ -79,14 +79,11 @@ com.flora.shell
 ├── Invocation               # 调用上下文：命令 + 参数 + Output + 来源 + 转发入口
 ├── InputEvent               # 归一化输入（来源 + 命令调用描述：argv / 结构化 / cliArgs）
 ├── CommandResult            # 执行结果（退出码 / 结构化数据）
-├── builtin/                 # 内置指令（预制）：help / alias / gui
+├── builtin/                 # 内置指令（预制）：help / alias / gui（HelpRenderer 内嵌于 HelpCommand）
 ├── spec/
 │   ├── ArgSpec              # 参数/选项声明（声明式，非解析代码）
 │   ├── ParsedArgs           # 解析结果
 │   └── ArgParser            # 零依赖解析器（cli 串 / 列表 / JSON 输入）
-├── help/
-│   ├── HelpProvider         # 命令向 help 聚合层提供数据
-│   └── HelpRenderer         # 渲染成文本树 / Agent 工具描述
 └── output/
     ├── OutputSink           # 输出汇接口（唯一）
     └── Output               # 命令写输出用的门面（扇出到所有 sink）

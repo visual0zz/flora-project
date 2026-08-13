@@ -3,7 +3,6 @@ package com.flora.shell;
 import com.flora.root.java.CheckUtil;
 import com.flora.shell.builtin.AliasCommand;
 import com.flora.shell.builtin.HelpCommand;
-import com.flora.shell.help.HelpRenderer;
 import com.flora.shell.output.OutputMultiplexer;
 import com.flora.shell.spec.ArgParser;
 import com.flora.shell.spec.ParsedArgs;
@@ -37,7 +36,6 @@ public final class CommandService implements Dispatcher {
     private final Map<String, ArgParser> parsers = new LinkedHashMap<>();
     private final Map<String, Alias> aliases = new LinkedHashMap<>();
     private final OutputMultiplexer out = new OutputMultiplexer();
-    private final HelpRenderer help = new HelpRenderer();
     private final ReentrantLock dispatchLock = new ReentrantLock();
     private int depth;
 
@@ -45,7 +43,7 @@ public final class CommandService implements Dispatcher {
      * 创建指令组件，并注册内置 {@code help} 与 {@code alias} 指令。
      */
     public CommandService() {
-        register(new HelpCommand(this, help));
+        register(new HelpCommand(this));
         register(new AliasCommand(this));
     }
 

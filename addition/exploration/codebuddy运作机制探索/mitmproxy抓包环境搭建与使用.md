@@ -59,16 +59,28 @@ mitmproxy 首次启动时在 `C:\Users\shutie.zhao\.mitmproxy\` 生成 CA 证书
 已执行：`certutil -user -addstore Root C:\Users\shutie.zhao\.mitmproxy\mitmproxy-ca-cert.cer`
 作用：把 mitmproxy 证书装入 Windows 当前用户"受信任的根证书颁发机构"，使本机程序（Python、浏览器等走系统证书库的程序）信任它，从而能解密 HTTPS。
 
-### 4. 系统代理
-已设置（HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings）：
-- `ProxyEnable = 1`
-- `ProxyServer = 127.0.0.1:9090`
-- `ProxyOverride = <local>`
+### 4. 系统代理（PAC 白名单方案）
+为避免全局代理把微信、飞书等不信任 mitmproxy 证书的应用全部劫持（曾导致 CodeBuddy 假死），改用 **PAC 文件**只路由目标域名，其余直连。
 
-原配置已备份到 `C:\Users\shutie.zhao\.mitmproxy-capture\proxy-backup.json`（原为未开启代理）。
+PAC 文件：`C:\Users\shutie.zhao\.mitmproxy-capture\proxy.pac`，内容：
+
+```js
+function FindProxyForURL(url, host) {
+    if (host === "api.deepseek.com" || host.endsWith(".deepseek.com")) {
+        return "PROXY 127.0.0.1:9090";
+    }
+    return "DIRECT";
+}
+```
+
+注册表设置（HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings）：
+- `AutoConfigURL = file://C:/Users/shutie.zhao/.mitmproxy-capture/proxy.pac`
+- `ProxyEnable = 0`
+
+作用：浏览器、WinINET/.NET 类应用只把 api.deepseek.com 的流量送进代理，其它域名直连，互不影响。
 
 ### 5. Node.js 环境变量（针对 CodeBuddy）
-CodeBuddy 是 Node CLI，**不走 Windows 系统代理、也不认 Windows 证书库**，必须单独配环境变量（已用 `setx` 持久化）：
+CodeBuddy 是 Node CLI，**不走 Windows 系统代理/PAC、也不认 Windows 证书库**，必须单独配环境变量（已用 `setx` 持久化，**对 CodeBuddy 进程启动时生效**）：
 
 ```
 HTTP_PROXY        = http://127.0.0.1:9090
@@ -77,18 +89,20 @@ NODE_EXTRA_CA_CERTS = C:\Users\shutie.zhao\.mitmproxy\mitmproxy-ca-cert.pem
 NODE_USE_ENV_PROXY  = 1
 ```
 
+注意：`NODE_USE_ENV_PROXY` 只在 **Node 进程启动时**读取，运行时设置无效；改环境变量后必须**重启 CodeBuddy** 才生效（已实测：启动时带这些变量的 Node 请求会被代理正常抓取）。
+
 ---
 
 ## 四、日常使用
 
 ### 启动
 双击 `C:\Users\shutie.zhao\.mitmproxy-capture\start-capture.bat`
-- 代理端口：`127.0.0.1:9090`
+- 代理端口：`127.0.0.1:9090`（仅 api.deepseek.com 走代理）
 - 网页界面：`http://127.0.0.1:9091`
 
 ### 使用流程
-1. 浏览器打开 http://127.0.0.1:9091 常驻（实时流量列表 + 过滤框）
-2. **重启 CodeBuddy**（让它读到新的代理环境变量）
+1. 运行 `start-capture.bat`
+2. **重启 CodeBuddy**（让它读到新的 Node 代理环境变量）
 3. 在 CodeBuddy 里正常对话/提问
 4. 网页界面看实时包；或看 `C:\Users\shutie.zhao\.mitmproxy-capture\capture.log`
 5. 网页顶部过滤框可输入 `~u api.deepseek.com` 之类表达式做显示过滤（只影响显示，不影响日志）
@@ -96,8 +110,10 @@ NODE_USE_ENV_PROXY  = 1
 ### 停止
 双击 `C:\Users\shutie.zhao\.mitmproxy-capture\stop-capture.bat`
 - 杀掉 mitmweb
-- 恢复系统代理（从 backup 还原）
+- 移除 PAC 系统代理（AutoConfigURL）
 - 清空 Node 代理环境变量
+
+> 变更记录：2026-08-13 曾用全局系统代理方案，导致微信/飞书等应用 TLS 握手失败、CodeBuddy 反复重试假死；已改用 PAC 白名单方案修复。
 
 ---
 
@@ -116,6 +132,6 @@ Node 端验证：`node fetch` 走代理 + NODE_EXTRA_CA_CERTS 正常访问 DeepS
 ## 六、注意事项
 
 1. **`capture.log` 包含明文 API Key**（Authorization 头）——不要外传、不要提交 git。
-2. 代理是全局的，浏览器等其它流量也走 9090；证书已受信，一般不影响使用；做证书固定的软件会连不上，属正常现象。
-3. 抓完记得 `stop-capture.bat` 恢复环境。
-4. 若 CodeBuddy 改用了不走环境变量的 HTTP 客户端，或做证书固定，需要另想办法（Frida 等），此处不展开。
+2. PAC 方案下其它应用不受影响；CodeBuddy 的 Node 环境变量是全局的，其**所有** Node 流量都会经代理（因 NODE_EXTRA_CA_CERTS 已信任证书，通常不影响使用；若 CodeBuddy 对某些端点做证书固定会连不上，属正常现象）。
+3. 抓完记得 `stop-capture.bat` 恢复环境；下次再抓先 `start-capture.bat` 并**重启 CodeBuddy**。
+4. 修改 `capture-hosts.txt` 或 `proxy.pac` 后需重启 mitmweb（先 stop 再 start）。

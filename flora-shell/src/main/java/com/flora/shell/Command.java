@@ -11,7 +11,7 @@ import java.util.List;
  * 读参数、写输出，不直接触碰 {@code System.out}。</p>
  * <p>命令应无状态：领域状态由业务代码通过 {@link ScopedValue} 在调用前绑定，
  * 命令在 {@code execute} 内用 {@code ScopedValue.get(...)} 读取，不存于命令或框架内。</p>
- * <p>可选的接入方式特化接口见 {@link CliCommand}、{@link AgentToolCommand}。
+ * <p>可选的接入方式特化接口见 {@link AgentToolCommand}。
  * "不实现任何特化接口"= 各接入方式通用。每个命令必须声明允许触发它的来源渠道
  * （见 {@link #allowedSourcePattern()}）。</p>
  */

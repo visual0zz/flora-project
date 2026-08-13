@@ -54,6 +54,25 @@ public final class InputEvent {
     }
 
     /**
+     * 创建一条命令行入口的调用：把完整命令行参数（含命令名）切成命令名 + 剩余参数。
+     * <p>来源固定为 {@link ChannelId#ARGV}。第一个元素是命令名，其余是其参数。
+     * 空参数（无命令名）无法构成一次调用，抛 {@link IllegalArgumentException}；
+     * 需要"无命令"报错的工具应在调用前自行判断。</p>
+     *
+     * @param cliArgs 完整命令行参数（第一个是命令名，不含进程名）
+     * @return ARGV 形态的 InputEvent
+     */
+    public static InputEvent ofCliArgs(List<String> cliArgs) {
+        CheckUtil.notNull(cliArgs, "命令行参数不能为空");
+        if (cliArgs.isEmpty()) {
+            throw new IllegalArgumentException("缺少命令名");
+        }
+        String commandName = cliArgs.get(0);
+        List<String> rest = List.copyOf(cliArgs.subList(1, cliArgs.size()));
+        return new InputEvent(ChannelId.ARGV, commandName, Kind.ARGV, rest, null);
+    }
+
+    /**
      * 创建一条结构化调用（来自 Agent JSON / 快捷键绑定）。
      *
      * @param source      来源渠道

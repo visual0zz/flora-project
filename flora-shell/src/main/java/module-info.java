@@ -3,7 +3,7 @@
  * <p>
  * 零依赖的 CLI 命令框架：一个命令 = 一个 {@code Command} 类，自描述名称、参数与帮助；
  * {@code CommandService} 负责注册、串行分派与输出扇出，无状态、无 UI。
- * 同时服务于批量调用（{@code Entry}）与 AI Agent 结构化调用。
+ * 同时服务于命令行批量调用（经 {@code InputEvent.ofCliArgs}）与 AI Agent 结构化调用。
  */
 module com.flora.shell {
     requires com.flora.root;
@@ -18,6 +18,4 @@ module com.flora.shell {
     exports com.flora.shell.help;
     // 输出接口与扇出
     exports com.flora.shell.output;
-    // 一次性入口壳
-    exports com.flora.shell.entry;
 }

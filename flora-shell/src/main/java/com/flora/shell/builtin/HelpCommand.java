@@ -13,15 +13,15 @@ import java.util.List;
  */
 public final class HelpCommand implements Command {
 
-    private final CommandService component;
+    private final CommandService commandService;
     private final HelpRenderer renderer;
 
     /**
-     * @param component 指令组件（用于读取注册表）
+     * @param commandService 指令组件（用于读取注册表）
      * @param renderer  帮助渲染器
      */
-    public HelpCommand(CommandService component, HelpRenderer renderer) {
-        this.component = component;
+    public HelpCommand(CommandService commandService, HelpRenderer renderer) {
+        this.commandService = commandService;
         this.renderer = renderer;
     }
 
@@ -59,9 +59,9 @@ public final class HelpCommand implements Command {
         ParsedArgs args = ctx.args();
         String cmd = args.get("cmd");
         if (cmd == null || cmd.isBlank()) {
-            ctx.out().println(renderer.renderGlobal(component.commands()));
+            ctx.out().println(renderer.renderGlobal(commandService.commands()));
         } else {
-            Command c = component.find(cmd);
+            Command c = commandService.find(cmd);
             if (c == null) {
                 ctx.out().error("未知命令: " + cmd);
                 return CommandResult.failure();

@@ -6,6 +6,7 @@ import com.flora.ramet.engine.TemplateRepository;
 import com.flora.ramet.engine.TemplateSource;
 
 import com.flora.shell.CommandService;
+import com.flora.shell.InputEvent;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -13,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -36,13 +38,18 @@ public final class Ramet {
     }
 
     public static void main(String[] args) {
-        CommandService component = new CommandService();
-        component.register(new com.flora.ramet.cli.RametCommand());
+        if (args.length < 2) {
+            System.err.println("用法: Ramet <templatesDir> <outputDir> [--dry-run]");
+            System.exit(2);
+            return;
+        }
+        CommandService commandService = new CommandService();
+        commandService.register(new com.flora.ramet.cli.RametCommand());
         // 本工具以命令名作为首参，保持原有 "Ramet <templatesDir> <outputDir> [--dry-run]" 的命令行契约
-        String[] argv = new String[args.length + 1];
-        argv[0] = "ramet.gen";
-        System.arraycopy(args, 0, argv, 1, args.length);
-        int exitCode = com.flora.shell.entry.Entry.run(component, argv);
+        List<String> cliArgs = new ArrayList<>(args.length + 1);
+        cliArgs.add("ramet.gen");
+        cliArgs.addAll(List.of(args));
+        int exitCode = commandService.submit(InputEvent.ofCliArgs(cliArgs)).exitCode();
         if (exitCode != 0) {
             System.exit(exitCode);
         }

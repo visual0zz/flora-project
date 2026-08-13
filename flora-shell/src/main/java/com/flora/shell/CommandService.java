@@ -1,6 +1,7 @@
 package com.flora.shell;
 
 import com.flora.root.java.CheckUtil;
+import com.flora.shell.builtin.AliasCommand;
 import com.flora.shell.builtin.HelpCommand;
 import com.flora.shell.help.HelpRenderer;
 import com.flora.shell.output.OutputMultiplexer;
@@ -16,27 +17,36 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * 指令组件：干净的路由与执行单元。
- * <p>负责命令注册、串行分派与输出扇出；零状态、无 UI、不拥有输入源、不管生命周期。
- * 批量与 Agent 接入只需用它。构造时自动注册内置 {@code help} 指令。</p>
+ * <p>负责命令注册、别名、串行分派与输出扇出；零状态、无 UI、不拥有输入源、不管生命周期。
+ * 批量与 Agent 接入只需用它。构造时自动注册内置 {@code help} 与 {@code alias} 指令。</p>
  * <p>分派规则：{@link #submit} 将输入加入串行队列（多渠道并发提交安全），查找命令 +
  * {@link ArgParser} 校验 → 构造 {@link Invocation} → 执行，结果经 {@link OutputMultiplexer}
  * 扇出到所有已挂载的输出汇。</p>
+ * <p>转发与别名：命令执行中可经 {@link Invocation#forward} 重入分派（{@link Dispatcher}）；
+ * 分派未命中真实命令时按别名解析转发。转发与别名共享同一分派管线与递归深度上限，防止
+ * 别名环导致的无限递归。</p>
  * <p>同名冲突裁决：用户命令与内置指令冲突时按 {@code priority()} 高者胜出（内置指令为负，
  * 用户命令可覆写内置指令）；用户命令之间同名冲突直接抛异常（视为 bug），不裁决。</p>
  */
-public final class CommandService {
+public final class CommandService implements Dispatcher {
+
+    /** 转发 / 别名解析的最大递归深度，超过则视为存在环并拒绝。 */
+    static final int MAX_FORWARD_DEPTH = 16;
 
     private final Map<String, Command> commands = new LinkedHashMap<>();
     private final Map<String, ArgParser> parsers = new LinkedHashMap<>();
+    private final Map<String, Alias> aliases = new LinkedHashMap<>();
     private final OutputMultiplexer out = new OutputMultiplexer();
     private final HelpRenderer help = new HelpRenderer();
     private final ReentrantLock dispatchLock = new ReentrantLock();
+    private int depth;
 
     /**
-     * 创建指令组件，并注册内置 {@code help} 指令。
+     * 创建指令组件，并注册内置 {@code help} 与 {@code alias} 指令。
      */
     public CommandService() {
         register(new HelpCommand(this, help));
+        register(new AliasCommand(this));
     }
 
     /**
@@ -80,6 +90,36 @@ public final class CommandService {
     }
 
     /**
+     * 注册（或更新）一个别名：{@code name} 被调用时转发到 {@code target}，参数为
+     * {@code prefixArgs} 追加本次调用的剩余参数。
+     *
+     * @param name       别名
+     * @param target     目标命令名
+     * @param prefixArgs 附加在本次参数之前的目标参数
+     */
+    public void setAlias(String name, String target, List<String> prefixArgs) {
+        CheckUtil.notBlank(name, "别名不能为空");
+        CheckUtil.notBlank(target, "目标命令名不能为空");
+        aliases.put(name, new Alias(target, List.copyOf(prefixArgs)));
+    }
+
+    /**
+     * 移除一个别名。
+     *
+     * @param name 别名
+     */
+    public void removeAlias(String name) {
+        aliases.remove(name);
+    }
+
+    /**
+     * @return 全部别名的不可变快照（name → 别名）
+     */
+    public Map<String, Alias> aliases() {
+        return new LinkedHashMap<>(aliases);
+    }
+
+    /**
      * @param name 命令名
      * @return 指定命令；不存在返回 {@code null}
      */
@@ -112,45 +152,72 @@ public final class CommandService {
         out.detach(sink);
     }
 
-    /**
-     * 提交一次调用并串行执行。
-     * <p>领域状态不由本方法传递：业务代码通过 {@link ScopedValue} 在调用前自行绑定，
-     * 命令在 {@code execute} 内读取。框架只负责路由与执行，不持有状态。</p>
-     *
-     * @param event 归一化输入
-     * @return 执行结果
-     */
+    @Override
     public CommandResult submit(InputEvent event) {
         CheckUtil.notNull(event, "输入事件不能为空");
         dispatchLock.lock();
         try {
-            Command command = find(event.commandName());
-            if (command == null) {
-                out.error("未知命令: " + event.commandName() + "（输入 help 查看可用命令）");
-                return CommandResult.exit(CommandResult.FAILURE);
-            }
-            // 来源限制检查：命令声明的正则对来源 id 做全匹配，不匹配则拒绝
-            String pattern = command.allowedSourcePattern();
-            if (pattern != null && !event.source().id().matches(pattern)) {
-                out.error("命令 " + event.commandName() + " 不允许来自来源 " + event.source());
-                return CommandResult.exit(CommandResult.FAILURE);
-            }
-            ParsedArgs parsed;
-            try {
-                parsed = parse(command, event);
-            } catch (IllegalArgumentException e) {
-                out.error(e.getMessage());
-                return CommandResult.exit(CommandResult.FAILURE);
-            }
-            Invocation inv = new Invocation(command, parsed, out, event.source());
-            try {
-                return command.execute(inv);
-            } catch (Exception e) {
-                out.error("命令 " + command.name() + " 执行失败: " + e.getMessage());
-                return CommandResult.exit(CommandResult.FAILURE);
-            }
+            return dispatch(event);
         } finally {
             dispatchLock.unlock();
+        }
+    }
+
+    /**
+     * 统一的串行分派实现：转发 / 别名解析、来源限制、参数解析、执行都在此完成。
+     * <p>用字段 {@code depth} 追踪递归深度（同一锁内同线程，串行安全），超限视为别名环。</p>
+     */
+    private CommandResult dispatch(InputEvent event) {
+        if (++depth > MAX_FORWARD_DEPTH) {
+            depth--;
+            out.error("转发深度超出限制（可能存在别名环）: " + event.commandName());
+            return CommandResult.exit(CommandResult.FAILURE);
+        }
+        try {
+            Command command = find(event.commandName());
+            if (command == null) {
+                return dispatchAlias(event);
+            }
+            return execute(command, event);
+        } finally {
+            depth--;
+        }
+    }
+
+    /** 真实命令未命中时，按别名解析转发；无别名则报未知命令。 */
+    private CommandResult dispatchAlias(InputEvent event) {
+        Alias alias = aliases.get(event.commandName());
+        if (alias == null) {
+            out.error("未知命令: " + event.commandName() + "（输入 help 查看可用命令）");
+            return CommandResult.exit(CommandResult.FAILURE);
+        }
+        List<String> argv = new ArrayList<>(alias.prefixArgs());
+        if (event.kind() == InputEvent.Kind.ARGV) {
+            argv.addAll(event.argv());
+        }
+        return dispatch(InputEvent.ofArgv(event.source(), alias.target(), argv));
+    }
+
+    /** 执行单个命令（含来源限制、参数解析、执行与扇出）。 */
+    private CommandResult execute(Command command, InputEvent event) {
+        String pattern = command.allowedSourcePattern();
+        if (pattern != null && !event.source().id().matches(pattern)) {
+            out.error("命令 " + event.commandName() + " 不允许来自来源 " + event.source());
+            return CommandResult.exit(CommandResult.FAILURE);
+        }
+        ParsedArgs parsed;
+        try {
+            parsed = parse(command, event);
+        } catch (IllegalArgumentException e) {
+            out.error(e.getMessage());
+            return CommandResult.exit(CommandResult.FAILURE);
+        }
+        Invocation inv = new Invocation(command, parsed, out, event.source(), this);
+        try {
+            return command.execute(inv);
+        } catch (Exception e) {
+            out.error("命令 " + command.name() + " 执行失败: " + e.getMessage());
+            return CommandResult.exit(CommandResult.FAILURE);
         }
     }
 
@@ -164,5 +231,35 @@ public final class CommandService {
             return parser.parse(event.argv());
         }
         return parser.validate(event.structured());
+    }
+
+    /** 别名值对象。 */
+    public static final class Alias {
+        private final String target;
+        private final List<String> prefixArgs;
+
+        Alias(String target, List<String> prefixArgs) {
+            this.target = target;
+            this.prefixArgs = prefixArgs;
+        }
+
+        /**
+         * @return 目标命令名
+         */
+        public String target() {
+            return target;
+        }
+
+        /**
+         * @return 附加在本次参数之前的目标参数
+         */
+        public List<String> prefixArgs() {
+            return prefixArgs;
+        }
+
+        @Override
+        public String toString() {
+            return "alias -> " + target + (prefixArgs.isEmpty() ? "" : " " + String.join(" ", prefixArgs));
+        }
     }
 }

@@ -59,13 +59,13 @@
 
 | 接入方式 | 组成 | 生命周期 | 交付阶段 |
 |---|---|---|---|
-| 批量 | `Entry` + 指令组件 | 一次性（argv → 执行 → 退出码） | **本期** |
+| 批量 | 指令组件 + `InputEvent.ofCliArgs` | 一次性（argv → 执行 → 退出码） | **本期** |
 | Agent | 指令组件（库形态，结构化调用） | 按会话多次调用 | **本期** |
 | TUI | 指令组件 + `TuiComponent`（`tui` 指令） | 进入交互循环，`exit` 结束 | 未来增量 |
 | GUI | 指令组件 + `GuiAdapter` | 业务自持 | 未来增量 |
 | 微信融合 | 指令组件 + `TuiComponent` + 微信渠道 | 同 TUI | 未来增量 |
 
-框架不提供驻留逻辑：`Entry` 执行完即退出。本期框架不实现 TUI/GUI，进入交互属于未来增量（§12）；未注册任何交互指令的工具无参数调用默认报错（帮助到 stderr、非零退出码）。
+框架不提供驻留逻辑，也没有专门的入口壳：命令行工具把 argv 经 `InputEvent.ofCliArgs` 切成命令名 + 参数直接提交给指令组件，取返回的退出码结束进程。本期框架不实现 TUI/GUI，进入交互属于未来增量（§12）；未注册任何交互指令的工具无参数调用默认报错（提示输入 `help`、非零退出码）。
 
 ## 3. 模块与包结构
 
@@ -74,11 +74,12 @@
 ```
 com.flora.shell
 ├── Command                  # 命令接口（声明 + 执行 + 特化入口）
-├── CommandComponent         # 指令组件：注册、串行分派、输出扇出（零状态、无 UI）
-├── Invocation               # 调用上下文：命令 + 参数 + Output + 来源
-├── InputEvent               # 归一化输入（来源 + 命令调用描述：文本或结构化）
+├── CommandService           # 指令组件：注册、别名、串行分派、输出扇出（零状态、无 UI）
+├── Dispatcher               # 分派门面：命令执行中转发重入分派的入口
+├── Invocation               # 调用上下文：命令 + 参数 + Output + 来源 + 转发入口
+├── InputEvent               # 归一化输入（来源 + 命令调用描述：argv / 结构化 / cliArgs）
 ├── CommandResult            # 执行结果（退出码 / 结构化数据）
-├── builtin/                 # 内置指令（预制）：help / gui
+├── builtin/                 # 内置指令（预制）：help / alias / gui
 ├── spec/
 │   ├── ArgSpec              # 参数/选项声明（声明式，非解析代码）
 │   ├── ParsedArgs           # 解析结果
@@ -86,11 +87,9 @@ com.flora.shell
 ├── help/
 │   ├── HelpProvider         # 命令向 help 聚合层提供数据
 │   └── HelpRenderer         # 渲染成文本树 / Agent 工具描述
-├── output/
-│   ├── OutputSink           # 输出汇接口（唯一）
-│   └── Output               # 命令写输出用的门面（扇出到所有 sink）
-└── entry/
-    └── Entry                # 一次性入口壳：argv → submit → 退出码
+└── output/
+    ├── OutputSink           # 输出汇接口（唯一）
+    └── Output               # 命令写输出用的门面（扇出到所有 sink）
 ```
 
 `tui/`（TuiComponent、KeyInputSource、ScreenSink、RawTerminal、KeyEvent、ScreenBuffer、Layout）与 `GuiAdapter` 属于未来增量，本期不建包；§12 给出它们的预期落点。
@@ -124,11 +123,14 @@ interface Command {
 | 指令 | 提供方 | 行为 | 阶段 |
 |---|---|---|---|
 | `help [cmd]` | 组件 | 遍历注册表，按点分树渲染帮助（自举） | 本期 |
+| `alias <name> <cmd> [args...]` | 组件 | 注册别名，之后该名字被调用时转发到目标命令 | 本期 |
 | `gui [--flavor name]` | 组件 | 经 SPI 发现 `GuiAdapter`，调用其 `launch(ctx)` | 未来增量 |
 | `tui` | TuiComponent | 进入交互循环：`TuiComponent(inner).run()`，`exit` 结束 | 未来增量 |
 | `exit` | TuiComponent | 结束交互循环 | 未来增量 |
 
-本期只实现 `help`。`tui`/`exit`/`gui` 属于未来增量，注册机制随 `TuiComponent`/`GuiAdapter` 一起设计（§12），不阻塞本期。本期无交互指令的工具无参数调用默认报错（帮助到 stderr、非零退出码）。
+本期实现 `help` 与 `alias`。`tui`/`exit`/`gui` 属于未来增量，注册机制随 `TuiComponent`/`GuiAdapter` 一起设计（§12），不阻塞本期。本期无交互指令的工具无参数调用默认报错（提示输入 help、非零退出码）。
+
+**框架不提供默认的 `--help` 拦截**：`--help` 不再被组件特殊处理，而是作为一个普通参数走各命令的 `ArgSpec` 解析；需要 `--help` 的工具可自行声明 `--help` 选项，或基于转发底座（见 §7）把 `--help` 转发到 `help` 命令。`alias` 即为转发底座的一个落地示例。
 
 ### 4.2 接入方式特化（可选增量）
 
@@ -173,7 +175,7 @@ interface SourceRestricted { // 来源限制：声明允许触发本命令的渠
 
 - 单命令 help：由命令类声明 + 示例段自动渲染。
 - 全局 help：组件遍历所有命令，按点分名构建命令树，`HelpRenderer` 渲染：
-  - **批量**：`help [cmd]` 或 `cmd --help` → 文本树打印（`--help` 由组件在分派前拦截并转为 help 调用，命令无需自处理；两条入口映射到同一逻辑）；
+  - **批量**：`help`（全局树）或 `help <cmd>`（单命令）→ 文本树打印；框架不默认拦截 `--help`，工具可自行声明 `--help` 选项或经转发底座（§7）把 `--help` 映射到 `help` 命令；
   - **Agent**：会话初始化时宿主直接把整棵命令树转成工具列表描述，随 `toolSchema` 交给模型。
   - （未来 TUI：帮助页以分屏/滚动视图展示。）
 - 聚合顺序与层级由组件保证，命令之间无感知，新增命令自动出现在全局 help 中，无需改动聚合代码。
@@ -185,7 +187,8 @@ interface SourceRestricted { // 来源限制：声明允许触发本命令的渠
 指令组件是**干净的路由与执行单元**，可独立工作（批量、Agent 只用它）：
 
 - **注册**：`register(Command)` / `registerBySpi()`；
-- **分派**：`submit(InputEvent, state)`——串行队列执行（多渠道并发提交安全），查找命令 + `ArgParser` 校验 → 构造 `Invocation` → `execute`；
+- **分派**：`submit(InputEvent)`——串行队列执行（多渠道并发提交安全），查找命令 + `ArgParser` 校验 → 构造 `Invocation` → `execute`；
+- **别名与转发**：未命中真实命令时按别名转发；命令可经 `Invocation.forward` 重入分派（§7.3）；
 - **输出扇出**：`attach(OutputSink)`，执行结果经 `Output` 广播；
 - **零状态、无 UI、不拥有输入源、不管生命周期**。
 
@@ -208,7 +211,17 @@ interface SourceRestricted { // 来源限制：声明允许触发本命令的渠
 
 两种形态由 `InputEvent` 的 `describeArgs()` 统一暴露，组件内部转换成 `ParsedArgs` 后进入 `Invocation`。归一化在**渠道边界**完成——各渠道只负责把原生输入切成 argv 或 Map 之一，组件只接收 `InputEvent`，不再二次猜测。这保证多渠道不会在组件内部分叉。
 
-### 7.3 输出扇出（单一输出接口）
+### 7.3 转发底座（指令间相互转发）
+
+框架提供一个**指令间相互转发的通用原语**，使 `alias`、`--help` 映射、子命令分发等能力都建立在"一个命令把请求转给另一个命令"之上，而非硬编码在入口或框架里。
+
+- **`Dispatcher`**：`CommandService` 实现的分派门面（只暴露 `submit`），`Invocation` 携带它，命令在 `execute` 内通过 `ctx.forward(target, argv)` 转发——命令只依赖 `Dispatcher` 接口，不依赖具体 `CommandService`，避免循环依赖。
+- **转发重入完整管线**：转发会重建 `InputEvent`（沿用当前来源渠道）再走 `submit`，因此目标命令照常经过参数解析、来源限制、输出扇出，而非直接调 `execute()`。
+- **别名（alias）**：`alias <name> <cmd> [args...]` 注册一个名字到"目标命令 + 前缀参数"的映射；分派未命中真实命令时，按别名把"前缀参数 + 本次参数"转发给目标。`alias` 是转发底座的一个内置落地示例。
+- **递归保护**：转发 / 别名解析共用同一分派管线与深度上限（`MAX_FORWARD_DEPTH`），超过即视为存在别名环并拒绝，防止无限递归。
+- **`--help` 不默认提供**：框架不再拦截 `--help`。工具需要 `--help` 时，可用转发把 `--help` 映射到 `help` 命令，或自行声明 `--help` 选项——都由工具在转发底座之上自行构建。
+
+### 7.4 输出扇出（单一输出接口）
 
 ```
 interface OutputSink { void emit(String text); void emitError(String text); }
@@ -221,7 +234,7 @@ class OutputMultiplexer implements Output {
 
 **本期契约（合并双接口）**：命令写输出**只有 `Output` 一个门面**，`Invocation.out()` 返回的就是框架的扇出实现。`OutputSink` 是业务输出汇实现的最小接口：`emit(text)` 对应 `print`/`println`（`println` 由扇出层补换行），`emitError` 对应 `error`。二者是"一个接口，两个视角"（调用方看 `Output`，输出汇实现 `OutputSink`），不再各带一套语义。本期批量场景无挂载 sink 时，扇出实现退化直达 stdout/stderr。
 
-### 7.4 状态与上下文
+### 7.5 状态与上下文
 
 组件不持有任何状态。状态按归属分家：
 
@@ -231,10 +244,10 @@ class OutputMultiplexer implements Output {
 
 **领域状态访问契约（本期澄清）**：本期批量/Agent 场景是单次调用，命令在自身执行线程内 `ScopedValue.get(...)` 即读到绑定值，无并发。对未来多渠道共享场景（微信+键盘同时访问领域状态），由各渠道在各自的执行作用域绑定领域对象；框架**不承诺跨渠道并发下的线程安全**——串行队列（§7.1）保证命令间不并发抢占，但同一领域对象若跨调用共享，状态一致性由宿主通过不可变状态或加锁自行保证。本期不引入领域状态的锁/快照机制，留到多渠道场景落地时再定（§13）。
 
-### 7.5 入口壳（一次性执行）
+### 7.6 命令行入口（`InputEvent.ofCliArgs`）
 
-- `Entry.run(component, args)`：解析 argv → 逐个转成 `InputEvent` 提交 → 执行完读退出码退出。框架不提供驻留逻辑。
-- argv 为空：默认报错（帮助渲染到 stderr、非零退出码），与现有工具"无参数打印用法退出"的行为一致；需要"无参数进入交互"的工具由宿主自行决定（未来增量）。
+- 工具 `main` 把 argv 经 `InputEvent.ofCliArgs(cliArgs)` 切成命令名 + 参数，`commandService.submit(event)` 执行并取返回的退出码退出。框架不提供驻留逻辑，也没有专门的入口壳。
+- argv 为空（无命令名）：`ofCliArgs` 抛 `IllegalArgumentException`，由工具自行判断并报错（与现有工具"无参数打印用法退出"的行为一致）。需要"无参数进入交互"的工具由宿主自行决定（未来增量）。框架不默认渲染全局帮助或拦截 `--help`（见 §7.3）。
 - GUI：`GuiAdapter.launch(ctx)` 内运行业务自己的事件循环（未来增量，§12）。
 
 ## 8. （未来增量）TUI 组件与渲染原语
@@ -268,7 +281,7 @@ TUI 组件 = 交互界面的所有者，构造时注入一个 `CommandComponent`
 
 新增命令：写一个 `Command` 类 + `component.register(...)`（或 SPI 声明，`registerBySpi()` 自动发现）。
 
-本期新增接入方式：批量（`Entry` + 指令组件）与 Agent（库形态）开箱即用。TUI / GUI / 新渠道属未来增量，接入点见 §12 场景映射。
+本期新增接入方式：批量（`InputEvent.ofCliArgs` + 指令组件）与 Agent（库形态）开箱即用。TUI / GUI / 新渠道属未来增量，接入点见 §12 场景映射。
 
 ## 11. 零依赖策略与已知难点
 
@@ -277,7 +290,7 @@ TUI 组件 = 交互界面的所有者，构造时注入一个 `CommandComponent`
 
 ## 12. 与现有代码的关系（收编路径）
 
-- `OsmetesCli`、`Ramet`、`Tangle` 的入口改为"命令类 + 指令组件 + `Entry`"，手写参数循环替换为 `ArgSpec` 声明，帮助文本由声明生成，行为不变、代码量下降。
+- `OsmetesCli`、`Ramet`、`Tangle` 的入口改为"命令类 + 指令组件 + `InputEvent.ofCliArgs`"，手写参数循环替换为 `ArgSpec` 声明，帮助文本由声明生成，行为不变、代码量下降。
 - 收编工具不注册交互指令，无参数调用的"打印用法退出"行为与现状一致。
 - 未来 TUI 增量：需要交互的工具（如 `cultivating/flora-hanako`，当前为 Web/Javalin 方案、无 CLI/TUI 入口）届时显式组装 `TuiComponent`。
 - `com.flora.os.shell.color` 已在 flora-root 导出，未来 TUI 迁入 `tui/` 复用（本期不动）。
@@ -287,13 +300,13 @@ TUI 组件 = 交互界面的所有者，构造时注入一个 `CommandComponent`
 | 场景 | 组成 | 典型命令 | 特化点 |
 |---|---|---|---|
 | AI Agent | 指令组件（库形态） | `osmetes.check`、`ramet.gen` | 自动生成工具 schema 与 JSON 结果；需要机器可读返回时实现 `AgentView` |
-| 普通 shell 指令 | `Entry` + 指令组件 | 现有三个模块的入口收编 | 默认即用（**本期**） |
+| 普通 shell 指令 | `InputEvent.ofCliArgs` + 指令组件 | 现有三个模块的入口收编 | 默认即用（**本期**） |
 | 类 tmux | 组件 + `TuiComponent` | `session.new`、`pane.split`、`pane.kill` | `TuiView.bindKeys` 绑窗格快捷键，`Layout` 管窗格树 |
 | 类 vim | 组件 + `TuiComponent` | `buffer.write`、`search.next` | 领域状态（当前文件/光标）由 TuiComponent 持有，模式切换由 `bindKeys` 表达 |
 | 业务 GUI | 组件 + `GuiAdapter` | `gui --flavor javafx` | 业务实现自己的 UI 与事件循环 |
 | 多渠道融合 | 组件 + `TuiComponent` + 渠道 | — | 渠道提交 `InputEvent`、挂 `OutputSink` |
 
-所有场景**共享**：命令声明、参数解析、help 聚合、指令组件。**差异**：仅挂件的组合（Entry / TuiComponent / GuiAdapter / 渠道），与可选的命令特化层。
+所有场景**共享**：命令声明、参数解析、help 聚合、指令组件。**差异**：仅挂件的组合（`InputEvent.ofCliArgs` / TuiComponent / GuiAdapter / 渠道），与可选的命令特化层。
 
 ## 13. 决策点与开放问题
 

@@ -1,6 +1,10 @@
 package com.flora.tangle;
 
 import com.flora.shell.CommandService;
+import com.flora.shell.InputEvent;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 命令行入口：把一个 jar 混淆成另一个 jar。
@@ -17,13 +21,18 @@ import com.flora.shell.CommandService;
 public final class Tangle {
 
     public static void main(String[] args) {
-        CommandService component = new CommandService();
-        component.register(new com.flora.tangle.cli.TangleCommand());
+        if (args.length < 2) {
+            System.err.println("用法: Tangle <输入.jar> <输出.jar> [--keep <类前缀> ...]");
+            System.exit(2);
+            return;
+        }
+        CommandService commandService = new CommandService();
+        commandService.register(new com.flora.tangle.cli.TangleCommand());
         // 本工具以命令名作为首参，保持原有 "Tangle <in> <out> ..." 的命令行契约
-        String[] argv = new String[args.length + 1];
-        argv[0] = "tangle.obfuscate";
-        System.arraycopy(args, 0, argv, 1, args.length);
-        int exitCode = com.flora.shell.entry.Entry.run(component, argv);
+        List<String> cliArgs = new ArrayList<>(args.length + 1);
+        cliArgs.add("tangle.obfuscate");
+        cliArgs.addAll(List.of(args));
+        int exitCode = commandService.submit(InputEvent.ofCliArgs(cliArgs)).exitCode();
         if (exitCode != 0) {
             System.exit(exitCode);
         }

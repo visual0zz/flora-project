@@ -2,13 +2,14 @@ package com.flora.osmetes;
 
 import com.flora.osmetes.cli.OsmetesCommand;
 import com.flora.shell.CommandService;
-import com.flora.shell.entry.Entry;
+import com.flora.shell.InputEvent;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -28,13 +29,18 @@ public final class OsmetesCli {
      */
     public static void main(String[] args) throws IOException {
         forceUtf8Output();
-        CommandService component = new CommandService();
-        component.register(new OsmetesCommand());
+        if (args.length < 1) {
+            System.err.println("用法: OsmetesCli <sourceRoot>");
+            System.exit(1);
+            return;
+        }
+        CommandService commandService = new CommandService();
+        commandService.register(new OsmetesCommand());
         // 本工具以命令名作为首参，保持原有 "OsmetesCli <sourceRoot>" 的命令行契约
-        String[] argv = new String[args.length + 1];
-        argv[0] = "osmetes.check";
-        System.arraycopy(args, 0, argv, 1, args.length);
-        int exitCode = Entry.run(component, argv);
+        List<String> cliArgs = new ArrayList<>(args.length + 1);
+        cliArgs.add("osmetes.check");
+        cliArgs.addAll(List.of(args));
+        int exitCode = commandService.submit(InputEvent.ofCliArgs(cliArgs)).exitCode();
         if (exitCode != 0) {
             System.exit(exitCode);
         }

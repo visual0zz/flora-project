@@ -27,11 +27,6 @@ class CommandComponentTest {
         }
 
         @Override
-        public String allowedSourcePattern() {
-            return ".*";
-        }
-
-        @Override
         public List<ArgSpec> args() {
             return List.of(ArgSpec.builder().kind(ArgSpec.Kind.POSITIONAL).name("text")
                     .required(true).description("要回显的文本").build());
@@ -46,31 +41,31 @@ class CommandComponentTest {
 
     @Test
     void registersAndDispatches() {
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(ChannelId.ARGV, "echo", List.of("hello")));
+                InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("hello")));
         assertEquals(CommandResult.SUCCESS, result.exitCode());
         assertEquals("echo:hello", result.data());
     }
 
     @Test
     void unknownCommandFails() {
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(ChannelId.ARGV, "nope", List.of()));
+                InputEvent.ofArgv(UsageScenario.CLI, "nope", List.of()));
         assertEquals(CommandResult.FAILURE, result.exitCode());
     }
 
     @Test
     void builtinHelpIsRegistered() {
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         assertNotNull(commandService.find("help"));
     }
 
     @Test
     void userCommandOverridesBuiltinByPriority() {
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         Command override = new HelpOverride();
         commandService.register(override);
         assertEquals(override, commandService.find("help"));
@@ -78,7 +73,7 @@ class CommandComponentTest {
 
     @Test
     void outputFansOutToSinks() {
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
         List<String> received = new ArrayList<>();
         commandService.attach(new OutputSink() {
@@ -91,25 +86,25 @@ class CommandComponentTest {
             public void emitError(String text) {
             }
         });
-        commandService.submit(InputEvent.ofArgv(ChannelId.ARGV, "echo", List.of("fan")));
+        commandService.submit(InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("fan")));
         assertEquals(List.of("echo: fan\n"), received);
     }
 
     @Test
-    void sourcePatternRejectsDisallowedSource() {
-        CommandService commandService = new CommandService();
-        commandService.register(new RestrictedCommand());
-        // AGENT 匹配命令声明的正则，允许
-        assertEquals(CommandResult.SUCCESS, commandService.submit(
-                InputEvent.ofStructured(ChannelId.AGENT, "restricted", java.util.Map.of())).exitCode());
-        // ARGV 不匹配命令声明的正则，拒绝
-        assertEquals(CommandResult.FAILURE, commandService.submit(
-                InputEvent.ofArgv(ChannelId.ARGV, "restricted", List.of())).exitCode());
+    void scenarioFilterRejectsUnsupportedCommand() {
+        // RestrictedCommand 仅声明支持 AGENT 场景，不能注册进 CLI 场景的组件
+        CommandService cliService = new CommandService(UsageScenario.CLI);
+        assertThrows(IllegalArgumentException.class, () -> cliService.register(new RestrictedCommand()));
+        // 注册进 AGENT 场景的组件则允许
+        CommandService agentService = new CommandService(UsageScenario.AGENT);
+        agentService.register(new RestrictedCommand());
+        assertEquals(CommandResult.SUCCESS, agentService.submit(
+                InputEvent.ofStructured(UsageScenario.AGENT, "restricted", java.util.Map.of())).exitCode());
     }
 
     @Test
     void cliArgsRunAndReturnExitCode() {
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
         int exitCode = commandService.submit(InputEvent.ofCliArgs(List.of("echo", "x"))).exitCode();
         assertEquals(CommandResult.SUCCESS, exitCode);
@@ -123,7 +118,7 @@ class CommandComponentTest {
 
     @Test
     void helpIsARealCommand() {
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
         // help 是注册的命令，可被显式调用（返回成功并渲染）
         int exitCode = commandService.submit(InputEvent.ofCliArgs(List.of("help"))).exitCode();
@@ -133,7 +128,7 @@ class CommandComponentTest {
     @Test
     void helpFlagIsNotInterceptedByDefault() {
         // 框架不再默认拦截 --help：它会被当作命令名，未注册则失败
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
         int exitCode = commandService.submit(InputEvent.ofCliArgs(List.of("--help"))).exitCode();
         assertEquals(CommandResult.FAILURE, exitCode);
@@ -141,60 +136,60 @@ class CommandComponentTest {
 
     @Test
     void unknownCommandReturnsFailure() {
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         int exitCode = commandService.submit(InputEvent.ofCliArgs(List.of("nope"))).exitCode();
         assertEquals(CommandResult.FAILURE, exitCode);
     }
 
     @Test
     void aliasForwardsToTargetWithAppendedArgs() {
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
         commandService.setAlias("ec", "echo", List.of());
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(ChannelId.ARGV, "ec", List.of("hello")));
+                InputEvent.ofArgv(UsageScenario.CLI, "ec", List.of("hello")));
         assertEquals("echo:hello", result.data());
     }
 
     @Test
     void aliasPrefixArgsArePrepended() {
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new JoinCommand());
         // alias ga -> join hello ；调用 ga world 等价 join hello world
         commandService.setAlias("ga", "join", List.of("hello"));
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(ChannelId.ARGV, "ga", List.of("world")));
+                InputEvent.ofArgv(UsageScenario.CLI, "ga", List.of("world")));
         assertEquals("join:hello world", result.data());
     }
 
     @Test
     void aliasCommandRegistersAlias() {
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(ChannelId.ARGV, "alias", List.of("e", "echo")));
+                InputEvent.ofArgv(UsageScenario.CLI, "alias", List.of("e", "echo")));
         assertEquals(CommandResult.SUCCESS, result.exitCode());
         assertEquals("echo", commandService.aliases().get("e").target());
     }
 
     @Test
     void forwardingViaInvocation() {
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
         commandService.register(new ForwardingCommand());
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(ChannelId.ARGV, "forwarder", List.of("ping")));
+                InputEvent.ofArgv(UsageScenario.CLI, "forwarder", List.of("ping")));
         assertEquals("echo:ping", result.data());
     }
 
     @Test
     void aliasRecursionIsLimited() {
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.setAlias("a", "b", List.of());
         commandService.setAlias("b", "a", List.of());
         // 别名环 a->b->a... 应被深度上限拦截，不无限递归
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(ChannelId.ARGV, "a", List.of()));
+                InputEvent.ofArgv(UsageScenario.CLI, "a", List.of()));
         assertEquals(CommandResult.FAILURE, result.exitCode());
     }
 
@@ -208,11 +203,6 @@ class CommandComponentTest {
         @Override
         public String description() {
             return "转发到 echo";
-        }
-
-        @Override
-        public String allowedSourcePattern() {
-            return ".*";
         }
 
         @Override
@@ -241,11 +231,6 @@ class CommandComponentTest {
         }
 
         @Override
-        public String allowedSourcePattern() {
-            return ".*";
-        }
-
-        @Override
         public List<ArgSpec> args() {
             return List.of(ArgSpec.builder().kind(ArgSpec.Kind.POSITIONAL).name("words")
                     .variadic(true).type(ArgSpec.Type.STRING_LIST).description("要拼接的词").build());
@@ -271,11 +256,6 @@ class CommandComponentTest {
         }
 
         @Override
-        public String allowedSourcePattern() {
-            return ".*";
-        }
-
-        @Override
         public int priority() {
             return 0;
         }
@@ -294,12 +274,12 @@ class CommandComponentTest {
 
         @Override
         public String description() {
-            return "受限命令";
+            return "仅限 AGENT 场景的命令";
         }
 
         @Override
-        public String allowedSourcePattern() {
-            return "agent";
+        public List<UsageScenario> usageScenarios() {
+            return List.of(UsageScenario.AGENT);
         }
 
         @Override

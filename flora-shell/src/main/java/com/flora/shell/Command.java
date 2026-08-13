@@ -12,8 +12,8 @@ import java.util.List;
  * <p>命令应无状态：领域状态由业务代码通过 {@link ScopedValue} 在调用前绑定，
  * 命令在 {@code execute} 内用 {@code ScopedValue.get(...)} 读取，不存于命令或框架内。</p>
  * <p>可选的接入方式特化接口见 {@link AgentToolCommand}。
- * "不实现任何特化接口"= 各接入方式通用。每个命令必须声明允许触发它的来源渠道
- * （见 {@link #allowedSourcePattern()}）。</p>
+ * "不实现任何特化接口"= 各接入方式通用。每个命令自报可用使用场景
+ * （见 {@link #usageScenarios()}），且只能注册进绑定对应场景的 {@link CommandService}。</p>
  */
 public interface Command {
 
@@ -78,12 +78,13 @@ public interface Command {
     CommandResult execute(Invocation ctx) throws Exception;
 
     /**
-     * 声明允许触发本命令的来源渠道匹配模式。
-     * <p>返回一个正则表达式，对 {@link ChannelId#id()} 做全匹配：来源 id 匹配该正则
-     * 时允许执行，否则在分派前拒绝。例如 {@code "argv"} 仅允许命令行、{@code "agent"}
-     * 仅允许 Agent、{@code ".*"} 表示不限制。返回 {@code null} 视同不限制。</p>
+     * 声明本命令可用的使用场景列表。
+     * <p>命令只能注册进绑定这些场景之一的 {@link CommandService}。默认返回全部场景，
+     * 表示各接入方式通用；仅限某场景的命令覆写此方法缩小范围。</p>
      *
-     * @return 允许的来源 id 正则；{@code null} 表示不限制
+     * @return 可用使用场景，非空
      */
-    String allowedSourcePattern();
+    default List<UsageScenario> usageScenarios() {
+        return List.of(UsageScenario.values());
+    }
 }

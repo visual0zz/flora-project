@@ -3,6 +3,7 @@ package com.flora.osmetes;
 import com.flora.osmetes.cli.OsmetesCommand;
 import com.flora.shell.CommandService;
 import com.flora.shell.InputEvent;
+import com.flora.shell.UsageScenario;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -34,7 +35,7 @@ public final class OsmetesCli {
             System.exit(1);
             return;
         }
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new OsmetesCommand());
         // 本工具以命令名作为首参，保持原有 "OsmetesCli <sourceRoot>" 的命令行契约
         List<String> cliArgs = new ArrayList<>(args.length + 1);

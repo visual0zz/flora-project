@@ -7,6 +7,7 @@ import com.flora.ramet.engine.TemplateSource;
 
 import com.flora.shell.CommandService;
 import com.flora.shell.InputEvent;
+import com.flora.shell.UsageScenario;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -43,7 +44,7 @@ public final class Ramet {
             System.exit(2);
             return;
         }
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new com.flora.ramet.cli.RametCommand());
         // 本工具以命令名作为首参，保持原有 "Ramet <templatesDir> <outputDir> [--dry-run]" 的命令行契约
         List<String> cliArgs = new ArrayList<>(args.length + 1);

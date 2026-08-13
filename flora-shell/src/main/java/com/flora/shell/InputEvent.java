@@ -6,13 +6,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 归一化输入：一次"命令调用"的描述，附带来源渠道。
+ * 归一化输入：一次"命令调用"的描述，附带使用场景。
  * <p>命令调用描述只有两种既定形态，由 {@code kind()} 区分：</p>
  * <ul>
  *   <li>{@link Kind#ARGV}：argv 序列（{@code List<String>}），走 {@code ArgParser.parse}；</li>
  *   <li>{@link Kind#STRUCTURED}：结构化参数（{@code Map<String,Object>}），走 {@code ArgParser.validate}。</li>
  * </ul>
- * <p>归一化在渠道边界完成（argv 切成 argv 序列；Agent JSON 归一到 Map），组件只接收本对象，
+ * <p>来源（{@link #source()}）是一次调用的使用场景（{@link UsageScenario}）。
+ * 归一化在场景边界完成（argv 切成 argv 序列；Agent JSON 归一到 Map），组件只接收本对象，
  * 不再二次猜测。</p>
  */
 public final class InputEvent {
@@ -25,15 +26,15 @@ public final class InputEvent {
         STRUCTURED
     }
 
-    private final ChannelId source;
+    private final UsageScenario source;
     private final String commandName;
     private final Kind kind;
     private final List<String> argv;
     private final Map<String, Object> structured;
 
-    private InputEvent(ChannelId source, String commandName, Kind kind,
+    private InputEvent(UsageScenario source, String commandName, Kind kind,
                        List<String> argv, Map<String, Object> structured) {
-        this.source = CheckUtil.notNull(source, "来源渠道不能为空");
+        this.source = CheckUtil.notNull(source, "使用场景不能为空");
         this.commandName = CheckUtil.notBlank(commandName, "命令名不能为空");
         this.kind = kind;
         this.argv = argv;
@@ -43,19 +44,19 @@ public final class InputEvent {
     /**
      * 创建一条 argv 形态的调用（来自一次性入口 / 文本命令分词）。
      *
-     * @param source      来源渠道
+     * @param source      使用场景
      * @param commandName 命令名（点分路径，如 {@code buffer.write}）
      * @param argv        命令行参数（不含命令名）
      * @return InputEvent
      */
-    public static InputEvent ofArgv(ChannelId source, String commandName, List<String> argv) {
+    public static InputEvent ofArgv(UsageScenario source, String commandName, List<String> argv) {
         return new InputEvent(source, commandName, Kind.ARGV,
                 List.copyOf(CheckUtil.notNull(argv, "argv 不能为空")), null);
     }
 
     /**
      * 创建一条命令行入口的调用：把完整命令行参数（含命令名）切成命令名 + 剩余参数。
-     * <p>来源固定为 {@link ChannelId#ARGV}。第一个元素是命令名，其余是其参数。
+     * <p>来源固定为 {@link UsageScenario#CLI}。第一个元素是命令名，其余是其参数。
      * 空参数（无命令名）无法构成一次调用，抛 {@link IllegalArgumentException}；
      * 需要"无命令"报错的工具应在调用前自行判断。</p>
      *
@@ -67,28 +68,28 @@ public final class InputEvent {
         if (cliArgs.isEmpty()) {
             throw new IllegalArgumentException("缺少命令名");
         }
-        String commandName = cliArgs.get(0);
+        String commandName = cliArgs.getFirst();
         List<String> rest = List.copyOf(cliArgs.subList(1, cliArgs.size()));
-        return new InputEvent(ChannelId.ARGV, commandName, Kind.ARGV, rest, null);
+        return new InputEvent(UsageScenario.CLI, commandName, Kind.ARGV, rest, null);
     }
 
     /**
      * 创建一条结构化调用（来自 Agent JSON / 快捷键绑定）。
      *
-     * @param source      来源渠道
+     * @param source      使用场景
      * @param commandName 命令名（点分路径）
      * @param params      参数名 → 值
      * @return InputEvent
      */
-    public static InputEvent ofStructured(ChannelId source, String commandName, Map<String, Object> params) {
+    public static InputEvent ofStructured(UsageScenario source, String commandName, Map<String, Object> params) {
         return new InputEvent(source, commandName, Kind.STRUCTURED, null,
                 Map.copyOf(CheckUtil.notNull(params, "参数不能为空")));
     }
 
     /**
-     * @return 来源渠道
+     * @return 使用场景
      */
-    public ChannelId source() {
+    public UsageScenario source() {
         return source;
     }
 

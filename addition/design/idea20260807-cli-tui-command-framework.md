@@ -144,14 +144,11 @@ interface TuiView {      // TUI 专属：按键绑定、会话内视图（未来
 interface AgentView {    // Agent 专属：定制工具描述 / 返回值 schema，默认由声明自动生成
     default ToolSchema toolSchema() { ... }
 }
-interface SourceRestricted { // 来源限制：声明允许触发本命令的渠道白名单（如 gui/exit 不允许微信触发）
-    default Set<ChannelId> allowedSources() { return Set.of(); }  // 空 = 不限制
-}
 ```
 
 心智模型规则：**"不实现任何特化接口"= 各接入方式通用；"实现某个特化接口"= 只对该方式生效，其他方式仍走默认。** 特化只针对行为，不复制声明——声明永远只有 `Command` 接口那一份。
 
-`SourceRestricted` 的渠道身份用 `ChannelId` 类型（而非裸字符串），配合 `com.flora.common.register` 的注册裁决思想提供类型安全的渠道注册与来源过滤（§4.3）。本期无渠道，`ChannelId` 预留。
+**使用场景（UsageScenario）与场景限定**：接入方式由枚举 {@code UsageScenario}（{@code CLI}/{@code AGENT}，未来 TUI/GUI 等）表示。每个命令通过 {@code Command.usageScenarios()} 自报可用场景（默认全部）；每个 {@code CommandService} 构造时绑定一个场景，只接受声明支持该场景的命令注册，并对提交的调用做来源一致性校验。替代了早期基于 {@code ChannelId} 字符串/正则的来源过滤模型。
 
 ## 5. 参数声明与解析
 
@@ -201,7 +198,7 @@ interface SourceRestricted { // 来源限制：声明允许触发本命令的渠
   → Output 扇出到所有已挂载的 OutputSink
 ```
 
-**`InputEvent` 的归一化形态（本期契约）**：`InputEvent` 承载两部分——`来源`（`ChannelId`，本期为 argv/Agent 固定枚举）+ `命令调用描述`。命令调用描述只有两种既定形态：
+**`InputEvent` 的归一化形态（本期契约）**：`InputEvent` 承载两部分——`来源`（`UsageScenario`，一次调用的使用场景）+ `命令调用描述`。命令调用描述只有两种既定形态：
 
 1. **argv 序列**（`List<String>`）：argv、未来 TUI 命令面板的文本先分词成 argv，再走 `ArgParser.parse(argv)`；
 2. **结构化参数**（`Map<String,Object>`）：快捷键绑定、Agent JSON 归一化成同一种 Map，直接走声明校验（`ArgParser.validate(map)`）。
@@ -213,7 +210,7 @@ interface SourceRestricted { // 来源限制：声明允许触发本命令的渠
 框架提供一个**指令间相互转发的通用原语**，使 `alias`、`--help` 映射、子命令分发等能力都建立在"一个命令把请求转给另一个命令"之上，而非硬编码在入口或框架里。
 
 - **`Dispatcher`**：`CommandService` 实现的分派门面（只暴露 `submit`），`Invocation` 携带它，命令在 `execute` 内通过 `ctx.forward(target, argv)` 转发——命令只依赖 `Dispatcher` 接口，不依赖具体 `CommandService`，避免循环依赖。
-- **转发重入完整管线**：转发会重建 `InputEvent`（沿用当前来源渠道）再走 `submit`，因此目标命令照常经过参数解析、来源限制、输出扇出，而非直接调 `execute()`。
+- **转发重入完整管线**：转发会重建 `InputEvent`（沿用当前使用场景）再走 `submit`，因此目标命令照常经过参数解析、来源一致性校验、输出扇出，而非直接调 `execute()`。
 - **别名（alias）**：`alias <name> <cmd> [args...]` 注册一个名字到"目标命令 + 前缀参数"的映射；分派未命中真实命令时，按别名把"前缀参数 + 本次参数"转发给目标。`alias` 是转发底座的一个内置落地示例。
 - **递归保护**：转发 / 别名解析共用同一分派管线与深度上限（`MAX_FORWARD_DEPTH`），超过即视为存在别名环并拒绝，防止无限递归。
 - **`--help` 不默认提供**：框架不再拦截 `--help`。工具需要 `--help` 时，可用转发把 `--help` 映射到 `help` 命令，或自行声明 `--help` 选项——都由工具在转发底座之上自行构建。
@@ -322,6 +319,6 @@ TUI 组件 = 交互界面的所有者，构造时注入一个 `CommandComponent`
 
 **需求**：一个 Agent TUI 连接微信，微信发来的消息与本地键盘输入"汇总到同一个流"一起执行、一起显示——类比一个 tmux session 被两个 ssh 同时访问。
 
-**框架支持方式**：微信只是一个"渠道"：把消息归一化为 `InputEvent` 提交给与 TUI 共用的同一个 `CommandComponent`，并挂一个 `OutputSink` 回写微信；命令结果经组件扇出到屏幕 + 微信。命令代码对此完全无感知。需要的两块框架基础设施——输入归一化（§7.2 已定契约）与执行串行化（§7.1 已定）——均在本期框架内，无需新增概念。若某些指令需限制来源（如 `gui`/`exit` 不允许微信触发），用特化接口 `SourceRestricted` 声明渠道白名单（§4.2）。
+**框架支持方式**：微信只是一个"渠道"：把消息归一化为 `InputEvent` 提交给与 TUI 共用的同一个 `CommandComponent`，并挂一个 `OutputSink` 回写微信；命令结果经组件扇出到屏幕 + 微信。命令代码对此完全无感知。需要的两块框架基础设施——输入归一化（§7.2 已定契约）与执行串行化（§7.1 已定）——均在本期框架内，无需新增概念。某些指令若不允许在特定场景触发（如 `gui`/`exit` 不允许微信场景），只需在 {@code Command.usageScenarios()} 中不声明该场景即可。
 
 以上为方案主体。一期按 §3/§10 实现纯 CLI 命令框架并收编三个模块入口，保持零依赖；TUI/GUI/多渠道按 §8/§9/§14 作为未来增量演进。

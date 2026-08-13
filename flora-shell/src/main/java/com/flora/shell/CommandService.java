@@ -17,10 +17,12 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * 指令组件：干净的路由与执行单元。
  * <p>负责命令注册、别名、串行分派与输出扇出；零状态、无 UI、不拥有输入源、不管生命周期。
- * 批量与 Agent 接入只需用它。构造时自动注册内置 {@code help} 与 {@code alias} 指令。</p>
- * <p>分派规则：{@link #submit} 将输入加入串行队列（多渠道并发提交安全），查找命令 +
- * {@link ArgParser} 校验 → 构造 {@link Invocation} → 执行，结果经 {@link OutputMultiplexer}
- * 扇出到所有已挂载的输出汇。</p>
+ * 构造时绑定一个使用场景（{@link UsageScenario}），只接受自报支持该场景的命令注册。
+ * 批量与 Agent 接入各自以对应场景建立实例。构造时自动注册内置 {@code help} 与
+ * {@code alias} 指令。</p>
+ * <p>分派规则：{@link #submit} 将输入加入串行队列（多渠道并发提交安全），校验调用来源
+ * 与实例场景一致后，查找命令 + {@link ArgParser} 校验 → 构造 {@link Invocation} → 执行，
+ * 结果经 {@link OutputMultiplexer} 扇出到所有已挂载的输出汇。</p>
  * <p>转发与别名：命令执行中可经 {@link Invocation#forward} 重入分派（{@link Dispatcher}）；
  * 分派未命中真实命令时按别名解析转发。转发与别名共享同一分派管线与递归深度上限，防止
  * 别名环导致的无限递归。</p>
@@ -32,6 +34,7 @@ public final class CommandService implements Dispatcher {
     /** 转发 / 别名解析的最大递归深度，超过则视为存在环并拒绝。 */
     static final int MAX_FORWARD_DEPTH = 16;
 
+    private final UsageScenario scenario;
     private final Map<String, Command> commands = new LinkedHashMap<>();
     private final Map<String, ArgParser> parsers = new LinkedHashMap<>();
     private final Map<String, Alias> aliases = new LinkedHashMap<>();
@@ -40,21 +43,36 @@ public final class CommandService implements Dispatcher {
     private int depth;
 
     /**
-     * 创建指令组件，并注册内置 {@code help} 与 {@code alias} 指令。
+     * 创建绑定指定使用场景的指令组件，并注册内置 {@code help} 与 {@code alias} 指令。
+     *
+     * @param scenario 本实例限定的使用场景，只接受支持该场景的命令注册
      */
-    public CommandService() {
+    public CommandService(UsageScenario scenario) {
+        this.scenario = CheckUtil.notNull(scenario, "使用场景不能为空");
         register(new HelpCommand(this));
         register(new AliasCommand(this));
     }
 
     /**
+     * @return 本实例绑定的使用场景
+     */
+    public UsageScenario scenario() {
+        return scenario;
+    }
+
+    /**
      * 注册一个命令；同名冲突按 {@link Command#priority()} 裁决。
+     * <p>命令必须在其 {@link Command#usageScenarios()} 中声明支持本实例的场景，否则拒绝注册。</p>
      *
      * @param command 命令
-     * @throws IllegalArgumentException 用户命令之间同名冲突（视为 bug）
+     * @throws IllegalArgumentException 命令不支持本实例场景，或用户命令之间同名冲突（视为 bug）
      */
     public void register(Command command) {
         CheckUtil.notNull(command, "命令不能为空");
+        if (!command.usageScenarios().contains(scenario)) {
+            throw new IllegalArgumentException("命令 " + command.name() + " 不支持使用场景 " + scenario
+                    + "（声明支持: " + command.usageScenarios() + "）");
+        }
         Command existing = commands.get(command.name());
         if (existing == null) {
             commands.put(command.name(), command);
@@ -153,6 +171,10 @@ public final class CommandService implements Dispatcher {
     @Override
     public CommandResult submit(InputEvent event) {
         CheckUtil.notNull(event, "输入事件不能为空");
+        if (event.source() != scenario) {
+            out.error("调用来源 " + event.source() + " 与组件场景 " + scenario + " 不一致");
+            return CommandResult.exit(CommandResult.FAILURE);
+        }
         dispatchLock.lock();
         try {
             return dispatch(event);
@@ -162,7 +184,7 @@ public final class CommandService implements Dispatcher {
     }
 
     /**
-     * 统一的串行分派实现：转发 / 别名解析、来源限制、参数解析、执行都在此完成。
+     * 统一的串行分派实现：转发 / 别名解析、参数解析、执行都在此完成。
      * <p>用字段 {@code depth} 追踪递归深度（同一锁内同线程，串行安全），超限视为别名环。</p>
      */
     private CommandResult dispatch(InputEvent event) {
@@ -196,13 +218,8 @@ public final class CommandService implements Dispatcher {
         return dispatch(InputEvent.ofArgv(event.source(), alias.target(), argv));
     }
 
-    /** 执行单个命令（含来源限制、参数解析、执行与扇出）。 */
+    /** 执行单个命令（含参数解析、执行与扇出）。 */
     private CommandResult execute(Command command, InputEvent event) {
-        String pattern = command.allowedSourcePattern();
-        if (pattern != null && !event.source().id().matches(pattern)) {
-            out.error("命令 " + event.commandName() + " 不允许来自来源 " + event.source());
-            return CommandResult.exit(CommandResult.FAILURE);
-        }
         ParsedArgs parsed;
         try {
             parsed = parse(command, event);

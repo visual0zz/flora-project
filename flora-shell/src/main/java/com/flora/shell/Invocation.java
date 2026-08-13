@@ -21,21 +21,21 @@ public final class Invocation {
     private final Command command;
     private final ParsedArgs args;
     private final Output out;
-    private final ChannelId source;
+    private final UsageScenario source;
     private final Dispatcher dispatcher;
 
     /**
      * @param command    被执行的命令
      * @param args       解析后的参数
      * @param out        输出门面
-     * @param source     触发本次调用的来源渠道
+     * @param source     触发本次调用的使用场景
      * @param dispatcher 分派门面（用于命令发起转发）
      */
-    public Invocation(Command command, ParsedArgs args, Output out, ChannelId source, Dispatcher dispatcher) {
+    public Invocation(Command command, ParsedArgs args, Output out, UsageScenario source, Dispatcher dispatcher) {
         this.command = CheckUtil.notNull(command, "命令不能为空");
         this.args = CheckUtil.notNull(args, "参数不能为空");
         this.out = CheckUtil.notNull(out, "输出门面不能为空");
-        this.source = CheckUtil.notNull(source, "来源渠道不能为空");
+        this.source = CheckUtil.notNull(source, "使用场景不能为空");
         this.dispatcher = CheckUtil.notNull(dispatcher, "分派门面不能为空");
     }
 
@@ -61,9 +61,9 @@ public final class Invocation {
     }
 
     /**
-     * @return 触发本次调用的来源渠道
+     * @return 触发本次调用的使用场景
      */
-    public ChannelId source() {
+    public UsageScenario source() {
         return source;
     }
 

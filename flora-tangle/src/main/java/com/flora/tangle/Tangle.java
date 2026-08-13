@@ -2,6 +2,7 @@ package com.flora.tangle;
 
 import com.flora.shell.CommandService;
 import com.flora.shell.InputEvent;
+import com.flora.shell.UsageScenario;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +27,7 @@ public final class Tangle {
             System.exit(2);
             return;
         }
-        CommandService commandService = new CommandService();
+        CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new com.flora.tangle.cli.TangleCommand());
         // 本工具以命令名作为首参，保持原有 "Tangle <in> <out> ..." 的命令行契约
         List<String> cliArgs = new ArrayList<>(args.length + 1);

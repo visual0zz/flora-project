@@ -67,11 +67,6 @@ public final class AliasCommand implements Command {
     }
 
     @Override
-    public String allowedSourcePattern() {
-        return ".*";
-    }
-
-    @Override
     public CommandResult execute(Invocation ctx) {
         ParsedArgs args = ctx.args();
         String name = args.get("name");

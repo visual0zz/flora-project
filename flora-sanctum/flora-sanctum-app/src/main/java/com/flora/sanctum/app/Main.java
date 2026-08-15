@@ -3,7 +3,9 @@ package com.flora.sanctum.app;
 import com.flora.root.runtime.log.Level;
 import com.flora.root.runtime.log.LogConfig;
 import com.flora.sanctum.app.command.AddCommand;
+import com.flora.sanctum.app.command.ChangePasswordCommand;
 import com.flora.sanctum.app.command.CreateCommand;
+import com.flora.sanctum.app.command.ExportCommand;
 import com.flora.sanctum.app.command.GetCommand;
 import com.flora.sanctum.app.command.ListCommand;
 import com.flora.sanctum.app.command.SyncCommand;
@@ -46,6 +48,8 @@ public final class Main {
         service.register(new ListCommand());
         service.register(new GetCommand());
         service.register(new SyncCommand());
+        service.register(new ChangePasswordCommand());
+        service.register(new ExportCommand());
 
         CommandResult result = service.submit(InputEvent.ofCliArgs(Arrays.asList(args)));
         if (result.status() == CommandResult.Status.SYSTEM_ERROR) {

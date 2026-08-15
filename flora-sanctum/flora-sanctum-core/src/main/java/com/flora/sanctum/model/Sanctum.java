@@ -379,6 +379,21 @@ public final class Sanctum implements AutoCloseable {
         return readObject(uuid);
     }
 
+    /**
+     * 导出加密归档（见设计 03"备份"）：把库根全部密文块文件打包为 zip。
+     * 块已 AES-GCM-SIV 加密，归档保持密文；恢复即解压回库根。
+     */
+    public void exportArchive(java.nio.file.Path outZip) throws java.io.IOException {
+        try (java.util.zip.ZipOutputStream zos =
+                     new java.util.zip.ZipOutputStream(java.nio.file.Files.newOutputStream(outZip))) {
+            for (com.flora.sanctum.store.Block b : store.scan()) {
+                zos.putNextEntry(new java.util.zip.ZipEntry(b.file().getFileName().toString()));
+                zos.write(java.nio.file.Files.readAllBytes(b.file()));
+                zos.closeEntry();
+            }
+        }
+    }
+
     /** 删除条目（含其字段）。 */
     public void deleteEntry(UUID uuid) {
         store.delete(uuid);

@@ -1,4 +1,4 @@
-package com.flora.sanctum.crypto;
+package com.flora.sanctum.crypto.impl;
 
 /**
  * 块信封常量（见设计 02"对象信封格式"）。

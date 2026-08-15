@@ -1,6 +1,6 @@
 package com.flora.sanctum.store;
 
-import com.flora.sanctum.crypto.Envelope;
+import com.flora.sanctum.crypto.impl.Envelope;
 
 /**
  * 块级信封操作（存储层）：随机异或混淆的解/混淆、magic 识别、头部字段提取。

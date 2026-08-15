@@ -1,4 +1,4 @@
-package com.flora.sanctum.crypto;
+package com.flora.sanctum.crypto.impl;
 
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.InvalidCipherTextException;

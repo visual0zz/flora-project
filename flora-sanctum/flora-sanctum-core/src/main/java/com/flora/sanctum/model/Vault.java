@@ -1,9 +1,9 @@
 package com.flora.sanctum.model;
 
 import com.flora.sanctum.crypto.Argon2Kdf;
-import com.flora.sanctum.crypto.BlockResolver;
-import com.flora.sanctum.crypto.KeyIdIndex;
-import com.flora.sanctum.crypto.SecureRandomSource;
+import com.flora.sanctum.crypto.impl.BlockResolver;
+import com.flora.sanctum.crypto.impl.KeyIdIndex;
+import com.flora.sanctum.crypto.impl.SecureRandomSource;
 import com.flora.sanctum.crypto.impl.HkdfSha256;
 import com.flora.sanctum.store.Block;
 import com.flora.sanctum.store.ObjectStore;

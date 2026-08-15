@@ -1,8 +1,8 @@
 package com.flora.sanctum.model;
 
 import com.flora.sanctum.crypto.Argon2Kdf;
-import com.flora.sanctum.crypto.Envelope;
-import com.flora.sanctum.crypto.SecureRandomSource;
+import com.flora.sanctum.crypto.impl.Envelope;
+import com.flora.sanctum.crypto.impl.SecureRandomSource;
 import com.flora.root.codec.Base58;
 import com.flora.root.codec.json.model.JsonNull;
 import com.flora.sanctum.store.BlockHeader;
@@ -96,15 +96,15 @@ public final class VaultCreator {
 
     /** 用 KEK 包裹一个 DEK（AES-GCM-SIV，nonce 随机）。 */
     private byte[] wrap(byte[] dek, byte[] kek) {
-        byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(kek, null, "sanctum-enc", 32);
-        com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, dek, random);
+        byte[] encKey = com.flora.sanctum.crypto.KeyDerivation.encKey(kek);
+        com.flora.sanctum.crypto.impl.CipherCodec codec = new com.flora.sanctum.crypto.impl.CipherCodec(encKey, dek, random);
         return codec.encode(UUID.randomUUID(), dek, codec.makeKeyIdWith(kek));
     }
 
     private void writeCipherBlock(com.flora.root.codec.json.model.JsonObject payload, byte[] keyMaterial) {
         byte[] json = com.flora.root.codec.JsonUtil.toJsonString(payload).getBytes(StandardCharsets.UTF_8);
-        byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(keyMaterial, null, "sanctum-enc", 32);
-        com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, keyMaterial, random);
+        byte[] encKey = com.flora.sanctum.crypto.KeyDerivation.encKey(keyMaterial);
+        com.flora.sanctum.crypto.impl.CipherCodec codec = new com.flora.sanctum.crypto.impl.CipherCodec(encKey, keyMaterial, random);
         UUID uuid = UUID.randomUUID();
         byte[] block = codec.encode(uuid, json, codec.makeKeyIdWith(keyMaterial));
         store.put(uuid, block, null);

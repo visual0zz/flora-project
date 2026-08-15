@@ -3,8 +3,8 @@ package com.flora.sanctum.model;
 import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
 
-import com.flora.sanctum.crypto.CipherCodec;
-import com.flora.sanctum.crypto.Envelope;
+import com.flora.sanctum.crypto.impl.CipherCodec;
+import com.flora.sanctum.crypto.impl.Envelope;
 import com.flora.sanctum.store.Block;
 import com.flora.sanctum.store.BlockHeader;
 
@@ -49,7 +49,7 @@ public final class ExternalKeyService {
     /** 用指定外部密钥加密。 */
     public byte[] encrypt(byte[] data, UUID fieldUuid) {
         byte[] keyMaterial = externalKeyMaterial(fieldUuid);
-        byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(keyMaterial, null, "sanctum-enc", 32);
+        byte[] encKey = com.flora.sanctum.crypto.KeyDerivation.encKey(keyMaterial);
         CipherCodec codec = new CipherCodec(encKey, keyMaterial, sanctum.vault().random());
         return codec.encode(fieldUuid, data, codec.makeKeyIdWith(keyMaterial));
     }
@@ -75,7 +75,7 @@ public final class ExternalKeyService {
                 continue;
             }
             byte[] keyMaterial = Base64.getDecoder().decode(n.getString("value"));
-            byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(keyMaterial, null, "sanctum-enc", 32);
+            byte[] encKey = com.flora.sanctum.crypto.KeyDerivation.encKey(keyMaterial);
             CipherCodec codec = new CipherCodec(encKey, keyMaterial, sanctum.vault().random());
             try {
                 return codec.decode(obfuscated).plaintext;
@@ -102,7 +102,7 @@ public final class ExternalKeyService {
         field.put("updateTimestamp", System.currentTimeMillis());
         // 外部密钥是条目下的字段，属普通对象树 → 用 objects root DEK
         byte[] dek = sanctum.vault().dekForRole("objects");
-        byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(dek, null, "sanctum-enc", 32);
+        byte[] encKey = com.flora.sanctum.crypto.KeyDerivation.encKey(dek);
         CipherCodec codec = new CipherCodec(encKey, dek, sanctum.vault().random());
         byte[] block = codec.encode(fieldUuid, JsonUtil.toJsonString(field).getBytes(java.nio.charset.StandardCharsets.UTF_8),
                 codec.makeKeyIdWith(dek));

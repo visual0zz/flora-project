@@ -1,6 +1,6 @@
 package com.flora.sanctum.store.impl;
 
-import com.flora.sanctum.crypto.CipherCodec;
+import com.flora.sanctum.crypto.impl.CipherCodec;
 import com.flora.sanctum.store.Codec;
 
 import java.util.UUID;

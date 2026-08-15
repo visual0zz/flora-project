@@ -1,7 +1,7 @@
 package com.flora.sanctum.store;
 
-import com.flora.sanctum.crypto.CipherCodec;
-import com.flora.sanctum.crypto.SecureRandomSource;
+import com.flora.sanctum.crypto.impl.CipherCodec;
+import com.flora.sanctum.crypto.impl.SecureRandomSource;
 import com.flora.sanctum.store.impl.CipherCodecAdapter;
 import com.flora.sanctum.store.impl.MarkdownObjectStore;
 import org.junit.jupiter.api.Test;

@@ -1,4 +1,4 @@
-package com.flora.sanctum.crypto;
+package com.flora.sanctum.crypto.impl;
 
 import com.flora.sanctum.crypto.impl.HkdfSha256;
 

@@ -1,5 +1,6 @@
 package com.flora.sanctum.crypto;
 
+import com.flora.sanctum.crypto.impl.Envelope;
 import com.flora.sanctum.store.BlockHeader;
 
 /**

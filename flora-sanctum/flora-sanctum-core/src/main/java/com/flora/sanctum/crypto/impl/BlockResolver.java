@@ -1,4 +1,4 @@
-package com.flora.sanctum.crypto;
+package com.flora.sanctum.crypto.impl;
 
 import java.util.List;
 
@@ -55,7 +55,7 @@ public final class BlockResolver {
 
     private static byte[] deriveEncKey(byte[] dek) {
         try {
-            return com.flora.sanctum.crypto.impl.HkdfSha256.derive(dek, null, "sanctum-enc", 32);
+            return com.flora.sanctum.crypto.KeyDerivation.encKey(dek);
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }

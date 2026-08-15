@@ -3,7 +3,7 @@ package com.flora.sanctum.model;
 import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.sanctum.crypto.Argon2Kdf;
-import com.flora.sanctum.crypto.SecureRandomSource;
+import com.flora.sanctum.crypto.impl.SecureRandomSource;
 import com.flora.root.codec.Base58;
 import com.flora.sanctum.store.BlockHeader;
 import com.flora.sanctum.store.ObjectStore;
@@ -59,7 +59,7 @@ class VaultUnlockerTest {
 
         // 明文块信封：magic+version+flags(0x02)+uuid+payload
         byte[] block = new byte[6 + 16 + payload.length];
-        System.arraycopy(com.flora.sanctum.crypto.Envelope.MAGIC, 0, block, 0, 4);
+        System.arraycopy(com.flora.sanctum.crypto.impl.Envelope.MAGIC, 0, block, 0, 4);
         block[4] = 1;
         block[5] = 2;
         java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(block, 6, 16);

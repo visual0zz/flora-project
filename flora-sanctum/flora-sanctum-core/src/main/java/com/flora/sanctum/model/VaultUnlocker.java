@@ -1,8 +1,8 @@
 package com.flora.sanctum.model;
 
 import com.flora.sanctum.crypto.Argon2Kdf;
-import com.flora.sanctum.crypto.KeyIdIndex;
-import com.flora.sanctum.crypto.SecureRandomSource;
+import com.flora.sanctum.crypto.impl.KeyIdIndex;
+import com.flora.sanctum.crypto.impl.SecureRandomSource;
 import com.flora.sanctum.store.Block;
 import com.flora.sanctum.store.BlockHeader;
 import com.flora.sanctum.store.ObjectStore;
@@ -116,8 +116,8 @@ public final class VaultUnlocker {
 
     private byte[] tryDecode(Vault vault, byte[] dk, Block b) {
         try {
-            byte[] encK = com.flora.sanctum.crypto.impl.HkdfSha256.derive(dk, null, "sanctum-enc", 32);
-            com.flora.sanctum.crypto.CipherCodec gc = new com.flora.sanctum.crypto.CipherCodec(encK, dk, vault.random());
+            byte[] encK = com.flora.sanctum.crypto.KeyDerivation.encKey(dk);
+            com.flora.sanctum.crypto.impl.CipherCodec gc = new com.flora.sanctum.crypto.impl.CipherCodec(encK, dk, vault.random());
             return gc.decode(b.obfuscated()).plaintext;
         } catch (Exception e) {
             return null;
@@ -126,8 +126,8 @@ public final class VaultUnlocker {
 
     private byte[] unwrap(Vault vault, byte[] parentDek, byte[] wrapped) {
         try {
-            byte[] encK = com.flora.sanctum.crypto.impl.HkdfSha256.derive(parentDek, null, "sanctum-enc", 32);
-            com.flora.sanctum.crypto.CipherCodec gc = new com.flora.sanctum.crypto.CipherCodec(encK, parentDek, vault.random());
+            byte[] encK = com.flora.sanctum.crypto.KeyDerivation.encKey(parentDek);
+            com.flora.sanctum.crypto.impl.CipherCodec gc = new com.flora.sanctum.crypto.impl.CipherCodec(encK, parentDek, vault.random());
             return gc.decode(wrapped).plaintext;
         } catch (Exception e) {
             return null;

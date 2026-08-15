@@ -1,4 +1,4 @@
-package com.flora.sanctum.crypto;
+package com.flora.sanctum.crypto.impl;
 
 import java.util.ArrayList;
 import java.util.Arrays;

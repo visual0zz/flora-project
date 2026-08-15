@@ -123,9 +123,9 @@ public final class Sanctum implements AutoCloseable {
     private void writeManifestPlaintextBlock(java.util.UUID uuid, JsonObject payload) {
         byte[] json = JsonUtil.toJsonString(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] block = new byte[6 + 16 + json.length];
-        System.arraycopy(com.flora.sanctum.crypto.Envelope.MAGIC, 0, block, 0, 4);
-        block[4] = com.flora.sanctum.crypto.Envelope.VERSION_1;
-        block[5] = com.flora.sanctum.crypto.Envelope.FLAG_PLAINTEXT;
+        System.arraycopy(com.flora.sanctum.crypto.impl.Envelope.MAGIC, 0, block, 0, 4);
+        block[4] = com.flora.sanctum.crypto.impl.Envelope.VERSION_1;
+        block[5] = com.flora.sanctum.crypto.impl.Envelope.FLAG_PLAINTEXT;
         java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(block, 6, 16);
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
@@ -244,8 +244,8 @@ public final class Sanctum implements AutoCloseable {
 
     /** 用父 DEK 包裹一个 DEK（AES-GCM-SIV，nonce 随机）。 */
     private byte[] wrap(byte[] dek, byte[] parentDek) {
-        byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(parentDek, null, "sanctum-enc", 32);
-        com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, parentDek, vault.random());
+        byte[] encKey = com.flora.sanctum.crypto.KeyDerivation.encKey(parentDek);
+        com.flora.sanctum.crypto.impl.CipherCodec codec = new com.flora.sanctum.crypto.impl.CipherCodec(encKey, parentDek, vault.random());
         return codec.encode(java.util.UUID.randomUUID(), dek, codec.makeKeyIdWith(parentDek));
     }
 
@@ -270,9 +270,9 @@ public final class Sanctum implements AutoCloseable {
                 if (!b.isCipher()) {
                     continue;
                 }
-                byte[] oldEnc = com.flora.sanctum.crypto.impl.HkdfSha256.derive(oldKek, null, "sanctum-enc", 32);
-                com.flora.sanctum.crypto.CipherCodec oldCodec =
-                        new com.flora.sanctum.crypto.CipherCodec(oldEnc, oldKek, vault.random());
+                byte[] oldEnc = com.flora.sanctum.crypto.KeyDerivation.encKey(oldKek);
+                com.flora.sanctum.crypto.impl.CipherCodec oldCodec =
+                        new com.flora.sanctum.crypto.impl.CipherCodec(oldEnc, oldKek, vault.random());
                 byte[] plain;
                 try {
                     plain = oldCodec.decode(b.obfuscated()).plaintext;
@@ -593,8 +593,8 @@ public final class Sanctum implements AutoCloseable {
     /** 统一密文写块：用指定 DEK 加密负载并经 ObjectStore 落盘（复用 CipherCodecAdapter）。 */
     private void writeCipherBlock(UUID uuid, JsonObject payload, byte[] dek) {
         byte[] json = JsonUtil.toJsonString(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(dek, null, "sanctum-enc", 32);
-        com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, dek, vault.random());
+        byte[] encKey = com.flora.sanctum.crypto.KeyDerivation.encKey(dek);
+        com.flora.sanctum.crypto.impl.CipherCodec codec = new com.flora.sanctum.crypto.impl.CipherCodec(encKey, dek, vault.random());
         store.put(uuid, json, new com.flora.sanctum.store.impl.CipherCodecAdapter(codec, uuid));
     }
 

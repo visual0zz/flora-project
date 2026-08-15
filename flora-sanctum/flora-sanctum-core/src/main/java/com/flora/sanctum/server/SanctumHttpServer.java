@@ -24,11 +24,13 @@ public final class SanctumHttpServer {
 
     private final Sanctum sanctum;
     private final HttpServer server;
+    private final java.util.concurrent.ExecutorService executor;
 
     public SanctumHttpServer(Sanctum sanctum, int port) throws IOException {
         this.sanctum = sanctum;
         this.server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
-        this.server.setExecutor(Executors.newFixedThreadPool(2));
+        this.executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        this.server.setExecutor(executor);
         registerRoutes();
     }
 
@@ -44,6 +46,7 @@ public final class SanctumHttpServer {
 
     public void stop() {
         server.stop(0);
+        executor.shutdown();
     }
 
     /** 实际绑定的端口（port=0 时随机）。 */

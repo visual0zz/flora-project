@@ -113,4 +113,17 @@ class SanctumTest {
         Sanctum s3 = Sanctum.open(dir);
         assertThrows(IllegalArgumentException.class, () -> s3.unlock(oldPw));
     }
+
+    @Test
+    void gcKeepsReachableObjects() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        UUID group = s.createGroup(null, "社交");
+        UUID entry = s.createEntry(group, "微博", Map.of("password", "s3cret"));
+
+        // 正常对象都在可达树内，不应被 GC 误删
+        java.util.List<UUID> orphaned = s.collectGarbage();
+        assertFalse(orphaned.contains(entry), "reachable entry should survive GC");
+        // 条目仍可读
+        assertNotNull(s.getEntry(entry));
+    }
 }

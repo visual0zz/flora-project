@@ -327,7 +327,94 @@ public final class Sanctum {
         refresh();
     }
 
-    // ---- 内部 ----
+    // ---- GC / 搜索（见设计 04b"可达树"）----
+
+    /**
+     * 收集垃圾：从根集合（manifest + 三个顶层 group + 顶层条目）出发，
+     * 沿归属边(parent)与引用边(icon/keyRef)遍历，不可达的孤立块列入清单并软删除。
+     * 返回被软删除的孤立块 uuid 列表。
+     */
+    public java.util.List<UUID> collectGarbage() {
+        if (vault == null) {
+            throw new IllegalStateException("not unlocked");
+        }
+        java.util.List<Block> blocks = store.scan();
+        java.util.Set<UUID> reachable = new java.util.HashSet<>();
+        // 根：manifest + 顶层 group（parent==null）+ 顶层条目（parent==null）
+        for (Block b : blocks) {
+            if (b.isPlaintext()) {
+                reachable.add(b.uuid()); // manifest
+                continue;
+            }
+            Json.Node n = nodeOf(b);
+            if (n == null) {
+                continue;
+            }
+            String parent = n.str("parent");
+            if (parent == null || "group".equals(n.str("type")) && parent.isEmpty()) {
+                reachable.add(b.uuid()); // 顶层对象（parent==null）
+            }
+        }
+        // 沿 parent 链 + 引用边扩展
+        boolean progress = true;
+        while (progress) {
+            progress = false;
+            for (Block b : blocks) {
+                if (reachable.contains(b.uuid())) {
+                    continue;
+                }
+                Json.Node n = nodeOf(b);
+                if (n == null) {
+                    continue;
+                }
+                String parent = n.str("parent");
+                String icon = n.str("icon");
+                String keyRef = n.str("keyRef");
+                if ((parent != null && reachable.contains(UUID.fromString(parent)))
+                        || (icon != null && reachable.contains(UUID.fromString(icon)))
+                        || (keyRef != null && isUuid(keyRef) && reachable.contains(UUID.fromString(keyRef)))) {
+                    reachable.add(b.uuid());
+                    progress = true;
+                }
+            }
+        }
+        // 不可达 = 孤立 → 软删除
+        java.util.List<UUID> orphaned = new java.util.ArrayList<>();
+        for (Block b : blocks) {
+            if (!reachable.contains(b.uuid())) {
+                store.delete(b.uuid());
+                orphaned.add(b.uuid());
+            }
+        }
+        refresh();
+        return orphaned;
+    }
+
+    /** 按 uuid 查找对象（返回其负载 JSON；未找到返回 null）。 */
+    public Json.Node search(UUID uuid) {
+        return getEntry(uuid);
+    }
+
+    private boolean isUuid(String s) {
+        try {
+            UUID.fromString(s);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private Json.Node nodeOf(Block b) {
+        byte[] plain = vault.resolve(b.obfuscated());
+        if (plain == null) {
+            return null;
+        }
+        try {
+            return Json.parse(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
     private void writeObject(UUID uuid, Json.Node payload, UUID groupId) {
         byte[] json = Json.stringify(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);

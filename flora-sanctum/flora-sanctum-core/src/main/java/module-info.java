@@ -11,6 +11,8 @@ module com.flora.sanctum.core {
     // 纯字节存储引擎（不负责加密，Codec 由外部注入）
     exports com.flora.sanctum.store;
     exports com.flora.sanctum.store.impl;
+    // 适配器暴露的公开 API（条目/字段模型、解锁）
+    exports com.flora.sanctum.model;
 
     requires org.bouncycastle.provider;
 }

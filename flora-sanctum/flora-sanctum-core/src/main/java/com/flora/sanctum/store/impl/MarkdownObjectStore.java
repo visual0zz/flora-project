@@ -29,6 +29,11 @@ public final class MarkdownObjectStore implements ObjectStore {
 
     public MarkdownObjectStore(Path root) {
         this.root = root;
+        try {
+            Files.createDirectories(root);
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot create root: " + root, e);
+        }
     }
 
     public Path root() {

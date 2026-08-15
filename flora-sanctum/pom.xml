@@ -15,6 +15,7 @@
 
     <modules>
         <module>flora-sanctum-core</module>
+        <module>flora-sanctum-cli</module>
     </modules>
 
     <dependencyManagement>

@@ -46,16 +46,20 @@ public final class VaultUnlocker {
         Argon2Kdf kdf = new Argon2Kdf(salt, manifest.memoryKiB(), manifest.iterations(), manifest.parallelism());
         byte[] kek = kdf.derive(masterPassword);
         try {
-            // 3. 验证 manifest MAC
-            verifyMac(manifest, kek);
+            // 3. 验证 manifest MAC（覆盖信封头 uuid + 负载，含 updateTimestamp）
+            verifyMac(manifest, kek, manifestBlock.uuid());
         } catch (IllegalArgumentException e) {
             java.util.Arrays.fill(kek, (byte) 0);
             throw e;
         }
         KeyIdIndex index = new KeyIdIndex();
         Vault vault = new Vault(store, manifest, index, new SecureRandomSource());
-        // 4. 用 KEK 试解各 group，找到 KEK 能解开的顶层 root group，解出并登记其 DEK
-        discoverRootDeks(vault, kek, blocks);
+        try {
+            // 4. 用 KEK 试解各 group，找到 KEK 能解开的顶层 root group，解出并登记其 DEK
+            discoverRootDeks(vault, kek, blocks);
+        } finally {
+            java.util.Arrays.fill(kek, (byte) 0);
+        }
         return vault;
     }
 
@@ -117,37 +121,11 @@ public final class VaultUnlocker {
         return null;
     }
 
-    private void verifyMac(Manifest m, byte[] kek) {
+    private void verifyMac(Manifest m, byte[] kek, java.util.UUID blockUuid) {
         byte[] macKey = m.manifestMacKey(kek);
-        // 计算规范字节序的 MAC（此处简化：对 manifest JSON 的规范序列重算）
-        // 生产：需对"信封头‖负载规范字节序"做 HMAC。此处以重新构造的负载为准。
-        byte[] canonical = canonicalPayload(m);
-        byte[] expected = hmac(macKey, canonical);
+        byte[] expected = m.computeMac(macKey, blockUuid);
         if (!java.security.MessageDigest.isEqual(expected, m.mac())) {
             throw new IllegalArgumentException("manifest MAC mismatch");
-        }
-    }
-
-    private byte[] canonicalPayload(Manifest m) {
-        // 简化规范序列：version|type|cryptoVersion|kdf|salt|params|warehouseTime|updateTimestamp
-        StringBuilder sb = new StringBuilder();
-        sb.append(m.version()).append('|');
-        sb.append("manifest").append('|');
-        sb.append(m.cryptoVersion()).append('|');
-        sb.append(m.kdf()).append('|');
-        sb.append(java.util.Base64.getEncoder().encodeToString(m.salt())).append('|');
-        sb.append(m.memoryKiB()).append(',').append(m.iterations()).append(',').append(m.parallelism()).append('|');
-        sb.append(m.warehouseTime()).append('|');
-        return sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
-    }
-
-    private static byte[] hmac(byte[] key, byte[] data) {
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(key, "HmacSHA256"));
-            return mac.doFinal(data);
-        } catch (GeneralSecurityException e) {
-            throw new IllegalStateException(e);
         }
     }
 }

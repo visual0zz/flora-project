@@ -83,13 +83,17 @@ public final class MarkdownObjectStore implements ObjectStore {
                 Files.deleteIfExists(block.file());
                 return;
             }
-            // 共享文件 → 软删除：首字符后插入 !
+            // 共享文件 → 软删除：首字符后插入 !（只改该串，保留行内其它正文）
             if (block.base58().length() < 1) {
                 return;
             }
             String soft = block.base58().substring(0, 1) + "!" + block.base58().substring(1);
-            lines.set((int) block.line() - 1, soft);
-            Files.write(block.file(), lines, StandardCharsets.UTF_8);
+            int idx = (int) block.line() - 1;
+            if (idx >= 0 && idx < lines.size()) {
+                String line = lines.get(idx);
+                lines.set(idx, line.replace(block.base58(), soft));
+                Files.write(block.file(), lines, StandardCharsets.UTF_8);
+            }
         } catch (IOException e) {
             throw new IllegalStateException("delete failed", e);
         }

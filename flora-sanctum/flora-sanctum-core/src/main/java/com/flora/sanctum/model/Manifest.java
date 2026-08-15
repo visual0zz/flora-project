@@ -18,11 +18,12 @@ public final class Manifest {
     private final int iterations;
     private final int parallelism;
     private final long warehouseTime;
+    private final long updateTimestamp;
     private final byte[] mac;
 
     public Manifest(int version, String cryptoVersion, String kdf, byte[] salt,
                     int memoryKiB, int iterations, int parallelism,
-                    long warehouseTime, byte[] mac) {
+                    long warehouseTime, long updateTimestamp, byte[] mac) {
         this.version = version;
         this.cryptoVersion = cryptoVersion;
         this.kdf = kdf;
@@ -31,6 +32,7 @@ public final class Manifest {
         this.iterations = iterations;
         this.parallelism = parallelism;
         this.warehouseTime = warehouseTime;
+        this.updateTimestamp = updateTimestamp;
         this.mac = mac;
     }
 
@@ -66,6 +68,10 @@ public final class Manifest {
         return warehouseTime;
     }
 
+    public long updateTimestamp() {
+        return updateTimestamp;
+    }
+
     public byte[] mac() {
         return mac.clone();
     }
@@ -73,6 +79,35 @@ public final class Manifest {
     /** manifest MAC 密钥派生：macKey = HKDF-SHA256(KEK, "sanctum-manifest-mac", 32B)（见 02）。 */
     public byte[] manifestMacKey(byte[] kek) {
         return com.flora.sanctum.crypto.impl.HkdfSha256.derive(kek, null, "sanctum-manifest-mac", 32);
+    }
+
+    /**
+     * 计算 manifest MAC 输入（覆盖信封头 uuid 与负载全部字段，见 02"MAC 全量认证"）。
+     * 负载字段按固定顺序拼接，不含 mac 字段本身。
+     */
+    public byte[] canonical(java.util.UUID blockUuid) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(blockUuid).append('|');
+        sb.append(version).append('|');
+        sb.append("manifest").append('|');
+        sb.append(cryptoVersion).append('|');
+        sb.append(kdf).append('|');
+        sb.append(Base64.getEncoder().encodeToString(salt)).append('|');
+        sb.append(memoryKiB).append(',').append(iterations).append(',').append(parallelism).append('|');
+        sb.append(warehouseTime).append('|');
+        sb.append(updateTimestamp).append('|');
+        return sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    /** 计算并返回 manifest MAC（用 macKey）。 */
+    public byte[] computeMac(byte[] macKey, java.util.UUID blockUuid) {
+        try {
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            mac.init(new javax.crypto.spec.SecretKeySpec(macKey, "HmacSHA256"));
+            return mac.doFinal(canonical(blockUuid));
+        } catch (java.security.GeneralSecurityException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     /** 从 JSON 解析 manifest。 */
@@ -91,6 +126,7 @@ public final class Manifest {
                 params.get("i").asInt(),
                 params.get("p").asInt(),
                 n.lng("warehouseTime") == null ? 1 : n.lng("warehouseTime"),
+                n.lng("updateTimestamp") == null ? 1 : n.lng("updateTimestamp"),
                 Base64.getDecoder().decode(n.str("mac"))
         );
     }

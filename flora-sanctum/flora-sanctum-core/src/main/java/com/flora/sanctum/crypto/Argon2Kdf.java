@@ -67,25 +67,35 @@ public final class Argon2Kdf {
     }
 
     private static byte[] toUtf8(char[] cs) {
-        byte[] out = new byte[cs.length * 4];
-        int n = 0;
-        for (char c : cs) {
-            if (c < 0x80) {
-                out[n++] = (byte) c;
-            } else if (c < 0x800) {
-                out[n++] = (byte) (0xC0 | (c >> 6));
-                out[n++] = (byte) (0x80 | (c & 0x3F));
-            } else if (Character.isHighSurrogate(c)) {
-                // 简化处理：代理对未组合，此处按单码元处理（生产需完整 UTF-16 解码）
-                out[n++] = (byte) 0x3F;
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        for (int i = 0; i < cs.length; i++) {
+            char c = cs[i];
+            if (Character.isHighSurrogate(c) && i + 1 < cs.length && Character.isLowSurrogate(cs[i + 1])) {
+                int cp = Character.toCodePoint(c, cs[i + 1]);
+                i++;
+                writeCodePoint(out, cp);
             } else {
-                out[n++] = (byte) (0xE0 | (c >> 12));
-                out[n++] = (byte) (0x80 | ((c >> 6) & 0x3F));
-                out[n++] = (byte) (0x80 | (c & 0x3F));
+                writeCodePoint(out, c);
             }
         }
-        byte[] r = new byte[n];
-        System.arraycopy(out, 0, r, 0, n);
-        return r;
+        return out.toByteArray();
+    }
+
+    private static void writeCodePoint(java.io.ByteArrayOutputStream out, int cp) {
+        if (cp < 0x80) {
+            out.write(cp);
+        } else if (cp < 0x800) {
+            out.write(0xC0 | (cp >> 6));
+            out.write(0x80 | (cp & 0x3F));
+        } else if (cp < 0x10000) {
+            out.write(0xE0 | (cp >> 12));
+            out.write(0x80 | ((cp >> 6) & 0x3F));
+            out.write(0x80 | (cp & 0x3F));
+        } else {
+            out.write(0xF0 | (cp >> 18));
+            out.write(0x80 | ((cp >> 12) & 0x3F));
+            out.write(0x80 | ((cp >> 6) & 0x3F));
+            out.write(0x80 | (cp & 0x3F));
+        }
     }
 }

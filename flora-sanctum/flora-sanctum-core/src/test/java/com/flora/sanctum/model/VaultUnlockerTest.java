@@ -46,19 +46,20 @@ class VaultUnlockerTest {
         Json.put(manifest, "warehouseTime", Json.of(1));
         Json.put(manifest, "updateTimestamp", Json.of(1));
 
-        // 规范序列 + MAC
-        String canonical = "1|manifest|gcm-siv-1|argon2id|" + Base64.getEncoder().encodeToString(salt)
-                + "|65536,3,4|1|";
+        // 先定 uuid，再计算覆盖 uuid + 全部负载字段的 MAC（与 Manifest.canonical 一致）
+        UUID uuid = UUID.randomUUID();
+        byte[] payload = Json.stringify(manifest).getBytes(StandardCharsets.UTF_8);
+        String canonical = uuid + "|1|manifest|gcm-siv-1|argon2id|" + Base64.getEncoder().encodeToString(salt)
+                + "|65536,3,4|1|1|";
         byte[] mac = hmac(macKey, canonical.getBytes(StandardCharsets.UTF_8));
         Json.put(manifest, "mac", Json.of(Base64.getEncoder().encodeToString(mac)));
+        payload = Json.stringify(manifest).getBytes(StandardCharsets.UTF_8);
 
-        byte[] payload = Json.stringify(manifest).getBytes(StandardCharsets.UTF_8);
         // 明文块信封：magic+version+flags(0x02)+uuid+payload
         byte[] block = new byte[6 + 16 + payload.length];
         System.arraycopy(com.flora.sanctum.crypto.Envelope.MAGIC, 0, block, 0, 4);
         block[4] = 1;
         block[5] = 2;
-        UUID uuid = UUID.randomUUID();
         java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(block, 6, 16);
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());

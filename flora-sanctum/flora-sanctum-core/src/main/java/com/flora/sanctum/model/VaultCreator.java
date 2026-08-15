@@ -45,8 +45,7 @@ public final class VaultCreator {
         byte[] kek = kdf.derive(masterPassword);
         try {
             byte[] macKey = kdf.manifestMacKey(kek);
-            Json.Node manifest = buildManifestJson(salt, memoryKiB, iterations, parallelism, macKey);
-            writePlaintextBlock(manifest, Envelope.FLAG_PLAINTEXT);
+            writeManifestBlock(salt, memoryKiB, iterations, parallelism, macKey, kek);
             // 三个顶层 group：各持独立随机 DEK（用 KEK 包裹）
             for (String role : new String[]{"objects", "icon", "sshKey"}) {
                 writeRootGroup(role, kek);
@@ -56,7 +55,9 @@ public final class VaultCreator {
         }
     }
 
-    private Json.Node buildManifestJson(byte[] salt, int m, int i, int p, byte[] macKey) {
+    /** 写 manifest 明文块。先定 uuid，MAC 覆盖信封头 uuid + 负载（含 updateTimestamp）。 */
+    private void writeManifestBlock(byte[] salt, int m, int i, int p, byte[] macKey, byte[] kek) {
+        UUID uuid = UUID.randomUUID();
         Json.Node manifest = Json.obj();
         Json.put(manifest, "version", Json.of(1));
         Json.put(manifest, "type", Json.of("manifest"));
@@ -70,11 +71,11 @@ public final class VaultCreator {
         Json.put(manifest, "params", params);
         Json.put(manifest, "warehouseTime", Json.of(1));
         Json.put(manifest, "updateTimestamp", Json.of(1));
-        String canonical = "1|manifest|gcm-siv-1|argon2id|" + Base64.getEncoder().encodeToString(salt)
-                + "|" + m + "," + i + "," + p + "|1|";
-        byte[] mac = hmac(macKey, canonical.getBytes(StandardCharsets.UTF_8));
+        // 用临时 Manifest 计算覆盖 uuid+负载的 MAC
+        Manifest tmp = new Manifest(1, "gcm-siv-1", "argon2id", salt, m, i, p, 1, 1, new byte[0]);
+        byte[] mac = tmp.computeMac(macKey, uuid);
         Json.put(manifest, "mac", Json.of(Base64.getEncoder().encodeToString(mac)));
-        return manifest;
+        writePlaintextBlock(uuid, manifest, Envelope.FLAG_PLAINTEXT);
     }
 
     private void writeRootGroup(String role, byte[] kek) {
@@ -113,13 +114,12 @@ public final class VaultCreator {
         }
     }
 
-    private void writePlaintextBlock(Json.Node payload, byte flags) {
+    private void writePlaintextBlock(UUID uuid, Json.Node payload, byte flags) {
         byte[] json = Json.stringify(payload).getBytes(StandardCharsets.UTF_8);
         byte[] block = new byte[6 + 16 + json.length];
         System.arraycopy(Envelope.MAGIC, 0, block, 0, 4);
         block[4] = Envelope.VERSION_1;
         block[5] = flags;
-        UUID uuid = UUID.randomUUID();
         java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(block, 6, 16);
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
@@ -131,16 +131,6 @@ public final class VaultCreator {
             Files.writeString(f, Base58.encode(obf) + "\n");
         } catch (Exception e) {
             throw new IllegalStateException("write manifest/group failed", e);
-        }
-    }
-
-    private static byte[] hmac(byte[] key, byte[] data) {
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(key, "HmacSHA256"));
-            return mac.doFinal(data);
-        } catch (GeneralSecurityException e) {
-            throw new IllegalStateException(e);
         }
     }
 }

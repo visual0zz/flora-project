@@ -1,5 +1,7 @@
 # 06 Git 同步
 
+> 同步是**可选**能力，仅当库目录命中"在 git 仓库内且基本只有 markdown 对象"时启用（见 04b"库形态与 Git 关系"）。否则管理器只读写存储，不操作 git；本文件描述启用同步时的行为。
+
 ## 选型
 
 - Git 操作：JGit（纯 Java，程序化 commit/push/pull，无需系统安装 git）。
@@ -12,9 +14,10 @@
 
 ## 同步模型
 
-- 每次 ChangeSet 提交自动生成一个 commit（作者信息可配置，如 `sanctum <local>`）。
+- 仅当启用同步（见 04b"库形态与 Git 关系"）时：每次 ChangeSet 提交自动生成一个 commit（作者信息可配置，如 `sanctum <local>`）；缺 `.git` 则用 JGit init。
 - 手动 / 定时 / 启动时执行 pull --rebase + push。
 - 同步前需解锁（DEK 在内存），同步本身不碰明文。
+- 未启用同步时：改动直接落盘，无 commit / push / pull。
 
 ## 冲突策略
 

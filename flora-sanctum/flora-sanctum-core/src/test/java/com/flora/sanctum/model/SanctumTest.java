@@ -51,6 +51,46 @@ class SanctumTest {
     }
 
     @Test
+    void deleteFieldRemovesOnlyThatField() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("username", "alice");
+        fields.put("password", "s3cret");
+        UUID entryUuid = s.createEntry(null, "条目", fields);
+        UUID fieldUuid = s.directory().childrenOf(entryUuid).stream()
+                .filter(u -> {
+                    JsonObject f = s.getEntry(u);
+                    return f != null && "username".equals(f.getString("fieldName"));
+                })
+                .findFirst().orElseThrow();
+
+        s.deleteField(fieldUuid);
+        assertNull(s.getEntry(fieldUuid));
+        // 其它字段仍在，条目仍在
+        assertNotNull(s.getEntry(entryUuid));
+        assertTrue(s.directory().childrenOf(entryUuid).stream()
+                .anyMatch(u -> {
+                    JsonObject f = s.getEntry(u);
+                    return f != null && "password".equals(f.getString("fieldName"));
+                }));
+    }
+
+    @Test
+    void renameEntryPersistsName() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        UUID entryUuid = s.createEntry(null, "旧名", Map.of("k", "v"));
+
+        s.renameEntry(entryUuid, "新名");
+        assertEquals("新名", s.getEntry(entryUuid).getString("name"));
+
+        // 重开重解锁后名称仍保留
+        s.close();
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlock("pw".toCharArray());
+        assertEquals("新名", s2.getEntry(entryUuid).getString("name"));
+    }
+
+    @Test
     void lockAndReunlock() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
         UUID entryUuid = s.createEntry(null, "条目", Map.of("k", "v"));

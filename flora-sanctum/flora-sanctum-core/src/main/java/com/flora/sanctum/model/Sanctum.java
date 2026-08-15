@@ -404,6 +404,38 @@ public final class Sanctum implements AutoCloseable {
         refresh();
     }
 
+    /** 删除单个字段对象（按 field→entry→group 解出 DEK 后删除，见 updateField）。 */
+    public void deleteField(UUID fieldUuid) {
+        JsonObject field = readObject(fieldUuid);
+        if (field == null || !"field".equals(field.getString("type"))) {
+            throw new IllegalArgumentException("field not found");
+        }
+        String entryId = field.getString("parent");
+        UUID groupId = null;
+        if (entryId != null) {
+            JsonObject entry = readObject(UUID.fromString(entryId));
+            if (entry != null && entry.getString("parent") != null) {
+                groupId = UUID.fromString(entry.getString("parent"));
+            }
+        }
+        store.delete(fieldUuid);
+        refresh();
+    }
+
+    /** 重命名条目（更新 name 并就地重写，保持对象局部性）。 */
+    public void renameEntry(UUID entryUuid, String newName) {
+        JsonObject entry = readObject(entryUuid);
+        if (entry == null || !"entry".equals(entry.getString("type"))) {
+            throw new IllegalArgumentException("entry not found");
+        }
+        String parent = entry.getString("parent");
+        UUID groupId = parent == null || parent.isEmpty() ? null : UUID.fromString(parent);
+        entry.put("name", newName);
+        entry.put("updateTimestamp", nextTimestamp());
+        writeObject(entryUuid, entry, groupId);
+        refresh();
+    }
+
     // ---- 自定义字段（含 kind：totp / externalKey / remote 等，见 05）----
 
     /** 在条目下创建带 kind 的字段。 */

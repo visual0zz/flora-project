@@ -6,6 +6,7 @@ import com.flora.sanctum.model.Sanctum;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
+import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
@@ -19,10 +20,13 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 import javax.swing.JTree;
+import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
+import javax.swing.border.EmptyBorder;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
@@ -35,16 +39,18 @@ import java.awt.datatransfer.StringSelection;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 /**
  * flora-sanctum Swing GUI（完整可用的密码管理器桌面界面）。
  * <p>
- * 纯 JDK（Swing/AWT，java.desktop）。解锁屏 → 三栏主界面（组树/条目列表/编辑面板），
- * 支持新建/删除条目与文件夹、字段编辑、TOTP、复制、同步、设置、锁定。
+ * 纯 JDK（Swing/AWT，java.desktop）。解锁屏（最近库列表 + 快速解锁）→
+ * 三栏主界面（组树/条目列表/编辑面板），支持新建/删除条目与文件夹、字段增删与编辑、
+ * 条目重命名、搜索、TOTP、复制、同步、设置、切换库、锁定。
  * UI 只调用 core 公开 API（见设计 07），不解密、不碰 Git。
  */
 public final class SanctumGui {
@@ -57,17 +63,17 @@ public final class SanctumGui {
     private JFrame frame;
     private JTree groupTree;
     private DefaultMutableTreeNode treeRoot;
-    private final Map<UUID, DefaultMutableTreeNode> groupNodes = new HashMap<>();
+    private final Map<UUID, DefaultMutableTreeNode> groupNodes = new LinkedHashMap<>();
     private JList<String> entryList;
-    private javax.swing.DefaultListModel<String> entryModel;
+    private DefaultListModel<String> entryModel;
     private JPanel editPanel;
     private JLabel statusLabel;
     private UUID selectedEntry;
     private String copiedPlaintext;
     private java.util.Timer autoLockTimer;
     private java.util.Timer clipboardTimer;
+    private String openVaultPath;
 
-    /** 入口（无参走 GUI）。 */
     public static void launch(String[] args) {
         new SanctumGui().run(args);
     }
@@ -84,7 +90,7 @@ public final class SanctumGui {
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             installTray();
             frame.setContentPane(buildUnlockPanel());
-            frame.setSize(440, 320);
+            frame.setSize(520, 400);
             frame.setLocationRelativeTo(null);
             frame.setVisible(true);
         });
@@ -142,81 +148,145 @@ public final class SanctumGui {
     // ================= 解锁屏 =================
 
     private JPanel buildUnlockPanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(6, 12, 6, 12);
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.gridx = 0;
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(new EmptyBorder(16, 20, 16, 20));
 
         JLabel title = new JLabel("flora-sanctum");
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 18f));
-        c.gridy = 0;
-        panel.add(title, c);
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
+        panel.add(title, BorderLayout.NORTH);
 
-        JLabel dirLabel = new JLabel("库路径：");
+        // 中：最近库列表
+        JLabel recentLabel = new JLabel("最近打开的库");
+        recentLabel.setFont(recentLabel.getFont().deriveFont(Font.BOLD, 12f));
+        JList<String> recentList = new JList<>(recentModel());
+        recentList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        recentList.setVisibleRowCount(5);
+        JScrollPane recentScroll = new JScrollPane(recentList);
+
+        JPanel center = new JPanel(new BorderLayout(0, 6));
+        center.add(recentLabel, BorderLayout.NORTH);
+        center.add(recentScroll, BorderLayout.CENTER);
+
+        JButton browseBtn = new JButton("打开其他库…");
+        JPanel centerBottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 4));
+        centerBottom.add(browseBtn);
+        center.add(centerBottom, BorderLayout.SOUTH);
+        panel.add(center, BorderLayout.CENTER);
+
+        // 底：主密码 + 解锁
+        JPanel bottom = new JPanel(new GridBagLayout());
+        GridBagConstraints c = new GridBagConstraints();
+        c.insets = new Insets(4, 0, 4, 6);
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.gridx = 0;
+        c.gridy = 0;
+        bottom.add(new JLabel("主密码："), c);
+
+        JPasswordField pwField = new JPasswordField();
+        JLabel vaultName = new JLabel("");
+        vaultName.setFont(vaultName.getFont().deriveFont(Font.ITALIC, 11f));
+        c.gridx = 1;
+        c.weightx = 1.0;
+        bottom.add(pwField, c);
+
+        c.gridx = 0;
         c.gridy = 1;
-        panel.add(dirLabel, c);
-        JPanel pathRow = new JPanel(new BorderLayout(4, 0));
-        JTextField pathField = new JTextField();
-        JButton browseBtn = new JButton("浏览…");
+        c.weightx = 0;
+        bottom.add(vaultName, c);
+
+        JButton unlockBtn = new JButton("解锁 / 新建");
+        c.gridx = 0;
+        c.gridy = 2;
+        c.gridwidth = 2;
+        c.weightx = 1.0;
+        bottom.add(unlockBtn, c);
+
+        JLabel error = new JLabel();
+        error.setForeground(java.awt.Color.RED.darker());
+        c.gridy = 3;
+        bottom.add(error, c);
+
+        JLabel hint = new JLabel("选中库后直接输密码回车进入；路径不存在则新建库");
+        hint.setFont(hint.getFont().deriveFont(Font.ITALIC, 11f));
+        c.gridy = 4;
+        bottom.add(hint, c);
+        panel.add(bottom, BorderLayout.SOUTH);
+
+        // 行为：选中最近库 → 预填路径并聚焦密码框
+        recentList.addListSelectionListener(e -> {
+            if (e.getValueIsAdjusting()) {
+                return;
+            }
+            String sel = recentList.getSelectedValue();
+            if (sel == null) {
+                return;
+            }
+            Path p = Path.of(sel);
+            vaultName.setText("库：" + p.getFileName());
+            pwField.setText("");
+            pwField.requestFocusInWindow();
+        });
+
         browseBtn.addActionListener(e -> {
             JFileChooser chooser = new JFileChooser();
             chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
             if (chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
-                pathField.setText(chooser.getSelectedFile().getAbsolutePath());
+                String path = chooser.getSelectedFile().getAbsolutePath();
+                config.addRecentVault(path);
+                recentList.setModel(recentModel());
+                recentList.setSelectedValue(path, true);
             }
         });
-        pathRow.add(pathField, BorderLayout.CENTER);
-        pathRow.add(browseBtn, BorderLayout.EAST);
-        c.gridy = 2;
-        panel.add(pathRow, c);
 
-        JLabel pwLabel = new JLabel("主密码：");
-        c.gridy = 3;
-        panel.add(pwLabel, c);
-        JPasswordField pwField = new JPasswordField();
-        c.gridy = 4;
-        panel.add(pwField, c);
+        java.util.function.Consumer<String> unlock = sel -> {
+            String path = sel != null ? sel
+                    : (recentList.getSelectedValue() != null ? recentList.getSelectedValue() : null);
+            if (path == null) {
+                error.setText("请选择或打开一个库");
+                return;
+            }
+            doUnlock(Path.of(path), pwField, error);
+        };
 
-        JLabel hint = new JLabel("路径不存在则新建库；空文件夹将初始化新库");
-        hint.setFont(hint.getFont().deriveFont(Font.ITALIC, 11f));
-        c.gridy = 5;
-        panel.add(hint, c);
+        unlockBtn.addActionListener(e -> unlock.accept(null));
+        pwField.addActionListener(e -> unlock.accept(null));
 
-        JButton unlockBtn = new JButton("解锁 / 新建");
-        c.gridy = 6;
-        panel.add(unlockBtn, c);
-
-        JLabel error = new JLabel();
-        error.setForeground(java.awt.Color.RED.darker());
-        c.gridy = 7;
-        panel.add(error, c);
-
-        unlockBtn.addActionListener(e -> doUnlock(pathField, pwField, error));
-        pwField.addActionListener(e -> doUnlock(pathField, pwField, error));
+        // 预选上次打开的库
+        String last = config.lastVault();
+        if (last != null && recentList.getModel().getSize() > 0) {
+            recentList.setSelectedValue(last, true);
+        }
         return panel;
     }
 
-    private void doUnlock(JTextField pathField, JPasswordField pwField, JLabel error) {
-        String path = pathField.getText().trim();
-        if (path.isEmpty()) {
-            error.setText("请输入库路径");
+    private DefaultListModel<String> recentModel() {
+        DefaultListModel<String> m = new DefaultListModel<>();
+        for (String p : config.recentVaults()) {
+            m.addElement(p);
+        }
+        return m;
+    }
+
+    private void doUnlock(Path root, JPasswordField pwField, JLabel error) {
+        char[] pw = pwField.getPassword();
+        if (pw.length == 0) {
+            error.setText("请输入主密码");
             return;
         }
-        char[] pw = pwField.getPassword();
         try {
-            Path root = Path.of(path);
             sanctum = Sanctum.open(root);
             try {
                 sanctum.unlock(pw);
             } catch (IllegalArgumentException noManifest) {
                 if (noManifest.getMessage() != null && noManifest.getMessage().contains("no manifest")) {
-                    // 不是本应用库（空文件夹/其它内容）→ 初始化新库
                     sanctum = Sanctum.createAndUnlock(root, pw);
                 } else {
                     throw noManifest;
                 }
             }
+            openVaultPath = root.toAbsolutePath().toString();
+            config.addRecentVault(openVaultPath);
+            config.setLastVault(openVaultPath);
             current.set(sanctum);
             frame.setContentPane(buildMainPanel());
             frame.setSize(960, 640);
@@ -256,10 +326,15 @@ public final class SanctumGui {
             sanctum.close();
         }
         current.set(null);
+        openVaultPath = null;
         stopTimers();
         frame.setContentPane(buildUnlockPanel());
-        frame.setSize(440, 320);
+        frame.setSize(520, 400);
         frame.revalidate();
+    }
+
+    private void switchVault() {
+        lock();
     }
 
     // ================= 主界面 =================
@@ -273,18 +348,36 @@ public final class SanctumGui {
         JButton delBtn = new JButton("删除");
         JButton syncBtn = new JButton("同步");
         JButton settingsBtn = new JButton("设置");
+        JButton switchBtn = new JButton("切换库");
         JButton lockBtn = new JButton("锁定");
         statusLabel = new JLabel();
         syncBtn.setVisible(isFullyManaged());
+
+        JTextField searchField = new JTextField(14);
+        searchFieldRef = searchField;
+        searchField.setToolTipText("按名称/字段搜索条目");
+        JButton clearSearch = new JButton("×");
+        clearSearch.setPreferredSize(new Dimension(26, 24));
+        clearSearch.setMargin(new Insets(0, 0, 0, 0));
+
         JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         top.add(newEntryBtn);
         top.add(newGroupBtn);
         top.add(delBtn);
         top.add(syncBtn);
         top.add(settingsBtn);
+        top.add(switchBtn);
         top.add(lockBtn);
+        top.add(new JLabel("搜索:"));
+        top.add(searchField);
+        top.add(clearSearch);
         top.add(statusLabel);
         root.add(top, BorderLayout.NORTH);
+
+        JLabel vaultTitle = new JLabel("库：" + (openVaultPath == null ? "" : Path.of(openVaultPath).getFileName()));
+        vaultTitle.setFont(vaultTitle.getFont().deriveFont(Font.BOLD, 13f));
+        vaultTitle.setBorder(new EmptyBorder(4, 8, 4, 8));
+        root.add(vaultTitle, BorderLayout.SOUTH);
 
         // 左：组树
         groupTree = new JTree();
@@ -292,12 +385,12 @@ public final class SanctumGui {
         rebuildGroupTree();
         groupTree.addTreeSelectionListener(e -> {
             resetAutoLock();
-            refreshEntryList();
+            refreshEntryList(searchField.getText());
         });
         JScrollPane treeScroll = new JScrollPane(groupTree);
 
         // 中：条目列表
-        entryModel = new javax.swing.DefaultListModel<>();
+        entryModel = new DefaultListModel<>();
         entryList = new JList<>(entryModel);
         entryList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
@@ -324,7 +417,13 @@ public final class SanctumGui {
         delBtn.addActionListener(e -> doDelete());
         syncBtn.addActionListener(e -> doSync());
         settingsBtn.addActionListener(e -> openSettings());
+        switchBtn.addActionListener(e -> switchVault());
         lockBtn.addActionListener(e -> lock());
+        searchField.addActionListener(e -> refreshEntryList(searchField.getText()));
+        clearSearch.addActionListener(e -> {
+            searchField.setText("");
+            refreshEntryList("");
+        });
         return root;
     }
 
@@ -339,7 +438,6 @@ public final class SanctumGui {
         treeRoot = new DefaultMutableTreeNode("全部");
         groupNodes.clear();
         groupCache = null; // 重置缓存
-        // 递归建树（顶层 parent=null 或指向不存在的组）
         for (Map.Entry<UUID, String[]> e : groupsById().entrySet()) {
             String parent = e.getValue()[0];
             if (parent == null || !groupsById().containsKey(UUID.fromString(parent))) {
@@ -355,7 +453,6 @@ public final class SanctumGui {
         node.setUserObject(id);
         parentNode.add(node);
         groupNodes.put(id, node);
-        // 递归子组
         for (Map.Entry<UUID, String[]> e : groupsById().entrySet()) {
             String parent = e.getValue()[0];
             if (parent != null && parent.equals(id.toString())) {
@@ -379,22 +476,54 @@ public final class SanctumGui {
         return groupCache;
     }
 
-    private void refreshEntryList() {
+    // ---- 条目列表 ----
+
+    private void refreshEntryList(String filter) {
         entryModel.clear();
-        selectedEntry = null;
-        clearEditPanel();
-        DefaultMutableTreeNode node = (DefaultMutableTreeNode) groupTree.getLastSelectedPathComponent();
-        UUID groupId = node == null || node == treeRoot ? null : (UUID) node.getUserObject();
+        UUID groupId = currentGroupId();
+        String q = filter == null ? "" : filter.trim().toLowerCase();
         for (UUID u : sanctum.listObjectUuids()) {
             JsonObject n = sanctum.getEntry(u);
-            if (n != null && "entry".equals(n.getString("type"))) {
-                String p = n.getString("parent");
-                boolean match = (groupId == null && p == null) || (groupId != null && groupId.toString().equals(p));
-                if (match) {
-                    entryModel.addElement(n.getString("name") + "  [" + u + "]");
+            if (n == null || !"entry".equals(n.getString("type"))) {
+                continue;
+            }
+            String p = n.getString("parent");
+            boolean inGroup = (groupId == null && p == null) || (groupId != null && groupId.toString().equals(p));
+            if (!inGroup) {
+                continue;
+            }
+            if (!q.isEmpty() && !matchesFilter(u, q)) {
+                continue;
+            }
+            entryModel.addElement(n.getString("name") + "  [" + u + "]");
+        }
+    }
+
+    private boolean matchesFilter(UUID entryUuid, String q) {
+        JsonObject entry = sanctum.getEntry(entryUuid);
+        if (entry != null && entry.getString("name") != null
+                && entry.getString("name").toLowerCase().contains(q)) {
+            return true;
+        }
+        for (UUID f : sanctum.directory().childrenOf(entryUuid)) {
+            JsonObject field = sanctum.getEntry(f);
+            if (field != null) {
+                if (field.getString("fieldName") != null
+                        && field.getString("fieldName").toLowerCase().contains(q)) {
+                    return true;
+                }
+                if (field.getString("value") != null
+                        && field.getString("value").toLowerCase().contains(q)) {
+                    return true;
                 }
             }
         }
+        return false;
+    }
+
+    private UUID currentGroupId() {
+        DefaultMutableTreeNode node = (DefaultMutableTreeNode) groupTree.getLastSelectedPathComponent();
+        return (node == null || node == treeRoot) ? null : (UUID) node.getUserObject();
     }
 
     private void showSelectedEntry() {
@@ -415,37 +544,60 @@ public final class SanctumGui {
         editPanel.repaint();
     }
 
-    /** 渲染条目编辑面板（名称 + 各字段 + TOTP + 复制）。 */
+    /** 渲染条目编辑面板（名称 + 各字段 + 增删 + TOTP + 复制 + 保存）。 */
     private void renderEntry(UUID entryUuid) {
         editPanel.removeAll();
         JsonObject entry = sanctum.getEntry(entryUuid);
         if (entry == null) {
             return;
         }
-        JLabel nameLabel = new JLabel("名称: " + entry.getString("name"));
-        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 14f));
-        editPanel.add(nameLabel);
+        // 名称：可编辑
+        JPanel nameRow = new JPanel(new BorderLayout(6, 0));
+        JLabel nameTag = new JLabel("名称:");
+        nameTag.setFont(nameTag.getFont().deriveFont(Font.BOLD, 14f));
+        JTextField nameField = new JTextField(entry.getString("name"));
+        nameRow.add(nameTag, BorderLayout.WEST);
+        nameRow.add(nameField, BorderLayout.CENTER);
+        editPanel.add(nameRow);
 
-        // 该条目的字段（parent=entryUuid 的 field）——收集 (fieldId -> 输入框) 供保存按钮统一提交
+        // 该条目的字段（parent=entryUuid 的 field）
         Map<UUID, JTextField> fieldInputs = new LinkedHashMap<>();
-        for (UUID f : sanctum.directory().childrenOf(entryUuid)) {
+        List<UUID> fieldOrder = new ArrayList<>(sanctum.directory().childrenOf(entryUuid));
+        for (UUID f : fieldOrder) {
             JsonObject field = sanctum.getEntry(f);
             if (field != null && "field".equals(field.getString("type"))) {
                 String fn = field.getString("fieldName");
                 String val = field.getString("value");
                 String kind = field.getString("kind");
-                JPanel row = new JPanel(new BorderLayout(4, 0));
+                JPanel row = new JPanel(new BorderLayout(6, 0));
                 JLabel fLabel = new JLabel(fn + " :");
+                fLabel.setPreferredSize(new Dimension(110, 24));
                 JTextField fValue = new JTextField(val == null ? "" : val);
                 fValue.setToolTipText(kind == null ? "text" : kind);
+                JButton delField = new JButton("×");
+                delField.setToolTipText("删除字段 " + fn);
+                delField.setMargin(new Insets(0, 0, 0, 0));
+                delField.setPreferredSize(new Dimension(24, 24));
+                UUID fieldId = f;
+                delField.addActionListener(e -> {
+                    resetAutoLock();
+                    try {
+                        sanctum.deleteField(fieldId);
+                        renderEntry(entryUuid);
+                        statusLabel.setText("字段已删除");
+                    } catch (Exception ex) {
+                        statusLabel.setText("删除失败");
+                    }
+                });
                 row.add(fLabel, BorderLayout.WEST);
                 row.add(fValue, BorderLayout.CENTER);
+                row.add(delField, BorderLayout.EAST);
                 // TOTP 字段显示验证码
                 if ("totp".equals(kind)) {
                     try {
                         String code = sanctum.totpCode(f);
                         JLabel totp = new JLabel("  验证码: " + code);
-                        row.add(totp, BorderLayout.EAST);
+                        row.add(totp, BorderLayout.SOUTH);
                     } catch (Exception ignore) {
                     }
                 }
@@ -454,18 +606,68 @@ public final class SanctumGui {
             }
         }
 
-        // 保存按钮：统一提交所有字段的当前输入值
+        // 操作行：保存 / 添加字段 / 复制密码
         JButton saveBtn = new JButton("保存");
-        saveBtn.addActionListener(e -> saveFieldInputs(fieldInputs, entryUuid));
+        saveBtn.addActionListener(e -> {
+            String newName = nameField.getText().trim();
+            if (!newName.isEmpty() && !newName.equals(entry.getString("name"))) {
+                try {
+                    sanctum.renameEntry(entryUuid, newName);
+                } catch (Exception ex) {
+                    statusLabel.setText("重命名失败");
+                }
+            }
+            saveFieldInputs(fieldInputs, entryUuid);
+        });
+        JButton addFieldBtn = new JButton("+ 添加字段");
+        addFieldBtn.addActionListener(e -> addFieldDialog(entryUuid));
         JButton copyBtn = new JButton("复制密码");
         copyBtn.addActionListener(e -> copyPassword(entryUuid));
         JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         actionRow.add(saveBtn);
+        actionRow.add(addFieldBtn);
         actionRow.add(copyBtn);
         editPanel.add(actionRow);
 
         editPanel.revalidate();
         editPanel.repaint();
+    }
+
+    private void addFieldDialog(UUID entryUuid) {
+        JTextField nameField = new JTextField(12);
+        JTextField valField = new JTextField(18);
+        JPanel form = new JPanel(new GridLayout(0, 2, 8, 6));
+        form.add(new JLabel("字段名:"));
+        form.add(nameField);
+        form.add(new JLabel("值:"));
+        form.add(valField);
+        int ok = JOptionPane.showConfirmDialog(frame, form, "添加字段", JOptionPane.OK_CANCEL_OPTION);
+        if (ok == JOptionPane.OK_OPTION) {
+            String fn = nameField.getText().trim();
+            if (fn.isEmpty()) {
+                statusLabel.setText("字段名不能为空");
+                return;
+            }
+            resetAutoLock();
+            try {
+                UUID groupId = groupIdOf(entryUuid);
+                sanctum.createFieldWithKind(entryUuid, groupId, fn, valField.getText(), null);
+                renderEntry(entryUuid);
+                statusLabel.setText("字段已添加");
+            } catch (Exception ex) {
+                statusLabel.setText("添加失败");
+            }
+        }
+    }
+
+    /** 由条目推导其所属组（新增字段需用同一 DEK）。 */
+    private UUID groupIdOf(UUID entryUuid) {
+        JsonObject entry = sanctum.getEntry(entryUuid);
+        if (entry == null) {
+            return null;
+        }
+        String p = entry.getString("parent");
+        return p == null || p.isEmpty() ? null : UUID.fromString(p);
     }
 
     /** 保存按钮：逐个提交所有字段输入框的值，任一失败则记录并提示。 */
@@ -481,16 +683,22 @@ public final class SanctumGui {
         }
         if (failed == 0) {
             statusLabel.setText("条目已保存");
-            refreshEntryList();
+            refreshEntryList(currentSearchQuery());
+            rebuildGroupTree();
             renderEntry(entryUuid);
         } else {
             statusLabel.setText("保存失败: " + failed + " 个字段");
         }
     }
 
+    private String currentSearchQuery() {
+        return searchFieldRef == null ? "" : searchFieldRef.getText();
+    }
+
+    private JTextField searchFieldRef;
+
     private void copyPassword(UUID entryUuid) {
         resetAutoLock();
-        // 复制第一个 password 字段（或第一个字段）
         for (UUID f : sanctum.directory().childrenOf(entryUuid)) {
             JsonObject field = sanctum.getEntry(f);
             if (field != null && "field".equals(field.getString("type"))) {
@@ -521,8 +729,10 @@ public final class SanctumGui {
         clipboardTimer.schedule(new java.util.TimerTask() {
             @Override
             public void run() {
-                SwingUtilities.invokeLater(() -> setClipboard(""));
-                copiedPlaintext = null;
+                if (copiedPlaintext != null) {
+                    setClipboard("");
+                    copiedPlaintext = null;
+                }
             }
         }, config.clipboardClearSeconds() * 1000L);
     }
@@ -530,8 +740,7 @@ public final class SanctumGui {
     // ================= 新建 / 删除 =================
 
     private void doNewEntry() {
-        DefaultMutableTreeNode node = (DefaultMutableTreeNode) groupTree.getLastSelectedPathComponent();
-        UUID groupId = (node == null || node == treeRoot) ? null : (UUID) node.getUserObject();
+        UUID groupId = currentGroupId();
         String name = JOptionPane.showInputDialog(frame, "条目名称:");
         if (name == null || name.isBlank()) {
             return;
@@ -540,14 +749,13 @@ public final class SanctumGui {
         fields.put("username", "");
         fields.put("password", "");
         sanctum.createEntry(groupId, name.trim(), fields);
-        refreshEntryList();
+        refreshEntryList(currentSearchQuery());
         rebuildGroupTree();
         resetAutoLock();
     }
 
     private void doNewGroup() {
-        DefaultMutableTreeNode node = (DefaultMutableTreeNode) groupTree.getLastSelectedPathComponent();
-        UUID parentId = (node == null || node == treeRoot) ? null : (UUID) node.getUserObject();
+        UUID parentId = currentGroupId();
         String name = JOptionPane.showInputDialog(frame, "文件夹名称:");
         if (name == null || name.isBlank()) {
             return;
@@ -564,7 +772,7 @@ public final class SanctumGui {
             int ok = JOptionPane.showConfirmDialog(frame, "删除该条目?", "确认", JOptionPane.YES_NO_OPTION);
             if (ok == JOptionPane.YES_OPTION) {
                 sanctum.deleteEntry(UUID.fromString(uuidStr));
-                refreshEntryList();
+                refreshEntryList(currentSearchQuery());
                 resetAutoLock();
             }
             return;
@@ -575,14 +783,13 @@ public final class SanctumGui {
             if (ok == JOptionPane.YES_OPTION) {
                 deleteGroupRecursive(groupId);
                 rebuildGroupTree();
-                refreshEntryList();
+                refreshEntryList(currentSearchQuery());
                 resetAutoLock();
             }
         }
     }
 
     private void deleteGroupRecursive(UUID groupId) {
-        // 删除子组 + 组内条目
         for (UUID child : sanctum.directory().childrenOf(groupId)) {
             JsonObject n = sanctum.getEntry(child);
             if (n != null && "group".equals(n.getString("type"))) {
@@ -612,7 +819,7 @@ public final class SanctumGui {
             sanctum = Sanctum.open(sanctum.root());
             current.set(sanctum);
             rebuildGroupTree();
-            refreshEntryList();
+            refreshEntryList(currentSearchQuery());
             statusLabel.setText("已同步");
         } catch (Exception e) {
             statusLabel.setText("同步失败");

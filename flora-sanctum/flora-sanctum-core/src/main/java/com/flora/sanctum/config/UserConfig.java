@@ -1,7 +1,10 @@
 package com.flora.sanctum.config;
 
 import com.flora.root.codec.JsonUtil;
+import com.flora.root.codec.json.model.JsonArray;
+import com.flora.root.codec.json.model.JsonNull;
 import com.flora.root.codec.json.model.JsonObject;
+import com.flora.root.codec.json.model.JsonValue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -80,6 +83,44 @@ public final class UserConfig {
         data.put("syncEnabled", enabled);
         save();
     }
+
+    /** 最近打开的库路径列表（按最近使用在前，最多保留 {@link #recentLimit} 条）。 */
+    public java.util.List<String> recentVaults() {
+        JsonArray arr = data.getArray("recentVaults");
+        java.util.List<String> out = new java.util.ArrayList<>();
+        if (arr != null) {
+            for (JsonValue v : arr.elements()) {
+                out.add(v.asString());
+            }
+        }
+        return out;
+    }
+
+    /** 记录一次打开/新建的库路径，去重置顶并保留上限。 */
+    public void addRecentVault(String path) {
+        java.util.List<String> list = recentVaults();
+        list.remove(path);
+        list.add(0, path);
+        while (list.size() > recentLimit) {
+            list.remove(list.size() - 1);
+        }
+        data.put("recentVaults", JsonArray.fromList(list));
+        save();
+    }
+
+    /** 上次打开的库路径（用于锁定后预选，null 表示无）。 */
+    public String lastVault() {
+        String v = data.getString("lastVault");
+        return v == null || v.isEmpty() ? null : v;
+    }
+
+    public void setLastVault(String path) {
+        data.put("lastVault", path == null ? JsonNull.INSTANCE : path);
+        save();
+    }
+
+    /** 最近库列表上限。 */
+    public static final int recentLimit = 10;
 
     private JsonObject load() {
         try {

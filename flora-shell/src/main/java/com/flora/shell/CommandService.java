@@ -1,6 +1,8 @@
 package com.flora.shell;
 
 import com.flora.root.java.CheckUtil;
+import com.flora.root.runtime.log.Logger;
+import com.flora.root.runtime.log.LoggerFactory;
 import com.flora.shell.builtin.AliasCommand;
 import com.flora.shell.builtin.HelpCommand;
 import com.flora.shell.spec.ArgParser;
@@ -23,7 +25,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>分派规则：{@link #submit} 将输入加入串行队列（多渠道并发提交安全），校验调用来源
  * 与实例场景一致后，查找命令 + {@link ArgParser} 校验 → 构造 {@link Invocation} → 执行。
  * 每次执行完毕，把 {@link InputEvent} 与 {@link CommandResult} 交给所有已注册的 sink
- * （见 {@link #newSink}），并默认把结果文本打印到 stdout/stderr。</p>
+ * （见 {@link #newSink}）；其中内置一个默认 sink 用日志打印结果文本（见 {@link Logger}）。</p>
  * <p>转发与别名：命令执行中可经 {@link Invocation#forward} 重入分派（{@link Dispatcher}）；
  * 分派未命中真实命令时按别名解析转发。转发与别名共享同一分派管线与递归深度上限，防止
  * 别名环导致的无限递归。</p>
@@ -41,15 +43,38 @@ public final class CommandService implements Dispatcher {
     private final Map<String, Alias> aliases = new LinkedHashMap<>();
     private final List<CommandSink> sinks = new CopyOnWriteArrayList<>();
     private final ReentrantLock dispatchLock = new ReentrantLock();
+    private final Logger logger;
     private int depth;
 
     /**
-     * 创建绑定指定使用场景的指令组件，并注册内置 {@code help} 与 {@code alias} 指令。
+     * 创建绑定指定使用场景的指令组件，并注册内置 {@code help} 与 {@code alias} 指令，
+     * 以及一个用日志打印结果的默认 sink。
      *
      * @param scenario 本实例限定的使用场景，只接受支持该场景的命令注册
      */
     public CommandService(UsageScenario scenario) {
+        this(scenario, LoggerFactory.getLogger(CommandService.class));
+    }
+
+    /**
+     * 创建绑定指定使用场景的指令组件，使用指定的日志器。
+     *
+     * @param scenario 本实例限定的使用场景
+     * @param logger   用于默认结果打印的日志器
+     */
+    public CommandService(UsageScenario scenario, Logger logger) {
         this.scenario = CheckUtil.notNull(scenario, "使用场景不能为空");
+        this.logger = CheckUtil.notNull(logger, "日志器不能为空");
+        // 默认 sink：把结果消息打到日志（成功记 info，错误记 error）。
+        sinks.add(new CommandSink((event, result) -> {
+            if (result.message() != null) {
+                if (result.status() == CommandResult.Status.SUCCESS) {
+                    logger.info(result.message());
+                } else {
+                    logger.error(result.message());
+                }
+            }
+        }, () -> { }));
         register(new HelpCommand(this));
         register(new AliasCommand(this));
     }
@@ -230,7 +255,8 @@ public final class CommandService implements Dispatcher {
         } catch (IllegalArgumentException e) {
             return CommandResult.commandError(e.getMessage());
         }
-        Invocation inv = new Invocation(command, parsed, event.source(), this);
+        Invocation inv = new Invocation(command, parsed, event.source(), this,
+                new CommandLogger(logger, command.name()));
         try {
             return command.execute(inv);
         } catch (Exception e) {
@@ -238,16 +264,17 @@ public final class CommandService implements Dispatcher {
         }
     }
 
-    /** 执行完毕后：默认把结果文本打到 stdout/stderr，并把 (InputEvent, CommandResult) 交给所有 sink。 */
+    /**
+     * 执行完毕后，把 (InputEvent, CommandResult) 交给所有 sink（含内置日志打印 sink）。
+     * 单个 sink 抛异常不影响其他 sink 与主流程，仅记录日志。
+     */
     private void notify(InputEvent event, CommandResult result) {
-        if (result.output() != null) {
-            System.out.println(result.output());
-        }
-        if (result.error() != null) {
-            System.err.println(result.error());
-        }
         for (CommandSink sink : sinks) {
-            sink.observer().onExecuted(event, result);
+            try {
+                sink.observer().onExecuted(event, result);
+            } catch (Exception e) {
+                logger.error("命令执行通知 sink 失败: " + e.getMessage(), e);
+            }
         }
     }
 

@@ -57,7 +57,7 @@ public final class HelpCommand implements Command {
         }
         Command c = commandService.find(cmd);
         if (c == null) {
-            return CommandResult.error("未知命令: " + cmd);
+            return CommandResult.commandError("未知命令: " + cmd);
         }
         return CommandResult.output(HelpRenderer.renderCommand(c));
     }

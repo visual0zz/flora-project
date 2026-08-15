@@ -54,7 +54,7 @@ public final class OsmetesCommand implements Command {
         String report = render(issues);
         long errors = Osmetes.countErrors(issues);
         if (errors > 0) {
-            return CommandResult.error(report + "\n" + CLI_PREFIX + " 检查失败，共 " + errors + " 个错误、"
+            return CommandResult.commandError(report + "\n" + CLI_PREFIX + " 检查失败，共 " + errors + " 个错误、"
                     + Osmetes.countWarnings(issues) + " 个警告");
         }
         return CommandResult.output(report);

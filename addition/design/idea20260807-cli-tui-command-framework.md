@@ -44,7 +44,7 @@
   → 分词 + 查找命令 + ArgParser 校验（→ ParsedArgs）
   → Invocation（命令 + ParsedArgs + 来源）
   → execute → CommandResult
-  → 通知所有 CommandSink（InputEvent + CommandResult），并默认打印文本
+  → 通知所有 CommandSink（InputEvent + CommandResult），由默认 sink 打印文本
 ```
 
 书写一个新命令的默认路径只有四步（回答四个问题）：
@@ -110,7 +110,7 @@ interface Command {
 
 - `name()` 支持点分路径，天然表达**子命令树**（`session.new`、`buffer.write`），组件按前缀聚合为命令树。
 - `args()` 是**声明**不是代码：解析、help 生成、Agent 的 JSON schema 都从这同一份声明推导，保证"一处定义、处处一致"。
-- `execute()` 不直接碰 `System.out`，而是通过 `Invocation` 里的 `Output` 写输出，因此同一份实现可同时跑在批量打印与未来 TUI 面板、微信回写上。
+- `execute()` 不直接触碰输出，而是把文本放进 `CommandResult` 返回，由框架经 sink 消费（日志打印 / 未来 TUI 面板 / 微信回写），因此同一份实现可同时跑在批量打印与未来多渠道上。
 - `priority()` 只用于**同名冲突裁决**：内置指令（help/gui）以低优先级注册，用户定义同名命令可覆写内置指令；用户命令之间同名冲突直接抛异常（视为 bug），不裁决。
 - **命令应无状态**：领域状态由业务代码通过 `ScopedValue` 在调用前绑定，命令在 `execute` 内读取，不存于命令或框架内。保证同一命令在多个组件中重复注册（各 `registerBySpi()`）时行为一致。
 
@@ -194,7 +194,7 @@ interface AgentView {    // Agent 专属：定制工具描述 / 返回值 schema
   → 分词 + 查找命令 + ArgParser 校验（→ ParsedArgs）
   → Invocation（命令 + ParsedArgs + 来源）
   → execute → CommandResult
-  → 通知所有 CommandSink（InputEvent + CommandResult），并默认打印文本
+  → 通知所有 CommandSink（InputEvent + CommandResult），由默认 sink 打印文本
 ```
 
 **`InputEvent` 的归一化形态（本期契约）**：`InputEvent` 承载两部分——`来源`（`UsageScenario`，一次调用的使用场景）+ `命令调用描述`。命令调用描述只有两种既定形态：
@@ -224,7 +224,7 @@ CommandSink sink = commandService.newSink((event, result) -> { ... });  // 注�
 sink.close();                                                            // 移除
 ```
 
-**本期契约**：命令**不写输出**，把文本放进 `CommandResult`（`output()`/`error()`）返回；框架在每次执行完毕后默认把文本打印到 stdout/stderr，并把 `InputEvent` + `CommandResult` 交给所有已注册的 `CommandSink`。需要结构化消费（TUI 渲染、微信回写、日志收集等）的宿主用 `newSink` 注册观察者，`close()` 即可移除。这样命令实现与消费方式解耦，同一份命令可同时跑在批量打印与未来多渠道上。
+**本期契约**：命令**不写输出**，把消息放进 `CommandResult`（`message()`，成功记 info、错误记 error）返回；框架内置一个默认 sink 用日志（`Logger`）打印结果消息，并把 `InputEvent` + `CommandResult` 交给所有已注册的 `CommandSink`。`CommandService` 构造时可注入 `Logger`（否则自建），并将底层 logger 包装成带命令名标注的命令级 logger 经 `Invocation.log()` 交给命令记录内部过程。需要结构化消费（TUI 渲染、微信回写、日志收集等）的宿主用 `newSink` 注册观察者，`close()` 即可移除。这样命令实现与消费方式解耦，同一份命令可同时跑在批量打印与未来多渠道上；单个 sink 抛异常不影响其他 sink 与主流程。
 
 ### 7.5 状态与上下文
 

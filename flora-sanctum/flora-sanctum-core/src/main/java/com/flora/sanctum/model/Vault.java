@@ -27,26 +27,71 @@ public final class Vault {
     private final KeyIdIndex keyIdIndex;
     private final BlockResolver resolver;
     private final SecureRandomSource random;
-    private final java.util.List<byte[]> rootDeks = new java.util.ArrayList<>();
+    private final WarehouseClock clock;
+    private final java.util.Map<String, byte[]> rootDeksByRole = new java.util.LinkedHashMap<>();
+    private byte[] kek; // 解锁期间驻留内存，锁定/关闭时清除
 
-    Vault(ObjectStore store, Manifest manifest, KeyIdIndex keyIdIndex, SecureRandomSource random) {
+    Vault(ObjectStore store, Manifest manifest, KeyIdIndex keyIdIndex, SecureRandomSource random, byte[] kek) {
         this.store = store;
         this.manifest = manifest;
         this.keyIdIndex = keyIdIndex;
         this.resolver = new BlockResolver(keyIdIndex);
         this.random = random;
+        this.clock = new WarehouseClock(manifest.warehouseTime());
+        this.kek = kek == null ? null : kek.clone();
     }
 
-    public void addRootDek(byte[] dek) {
-        rootDeks.add(dek.clone());
+    public WarehouseClock clock() {
+        return clock;
     }
 
+    /** 登记 root DEK（按 role：objects/icon/sshKey）。 */
+    public void addRootDek(String role, byte[] dek) {
+        rootDeksByRole.put(role, dek.clone());
+        // 同时登记进 keyId 索引
+        keyIdIndex.register(dek);
+    }
+
+    /** 取某 role 的 root DEK。 */
+    public byte[] rootDek(String role) {
+        byte[] d = rootDeksByRole.get(role);
+        return d == null ? null : d.clone();
+    }
+
+    /** 按 role 路由加密归属（设计 05）：普通对象→objects，图标→icon，SSH 密钥→sshKey。 */
+    public byte[] dekForRole(String role) {
+        byte[] dek = rootDeksByRole.get(role);
+        if (dek == null) {
+            throw new IllegalStateException("no DEK for role: " + role);
+        }
+        return dek.clone();
+    }
+
+    /** 全部 root DEK（兼容旧接口）。 */
     public java.util.List<byte[]> rootDeks() {
-        java.util.List<byte[]> copy = new java.util.ArrayList<>(rootDeks.size());
-        for (byte[] d : rootDeks) {
+        java.util.List<byte[]> copy = new java.util.ArrayList<>(rootDeksByRole.size());
+        for (byte[] d : rootDeksByRole.values()) {
             copy.add(d.clone());
         }
         return copy;
+    }
+
+    /** 驻留内存的 KEK（解锁期间；锁定后为 null）。 */
+    public byte[] kek() {
+        return kek == null ? null : kek.clone();
+    }
+
+    /** 清除驻留密钥（锁定/关闭时）。 */
+    public void clearSecrets() {
+        if (kek != null) {
+            java.util.Arrays.fill(kek, (byte) 0);
+            kek = null;
+        }
+        for (byte[] d : rootDeksByRole.values()) {
+            java.util.Arrays.fill(d, (byte) 0);
+        }
+        rootDeksByRole.clear();
+        keyIdIndex.clear();
     }
 
     public ObjectStore store() {

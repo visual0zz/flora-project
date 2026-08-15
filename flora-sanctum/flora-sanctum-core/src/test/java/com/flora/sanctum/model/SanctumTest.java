@@ -58,4 +58,19 @@ class SanctumTest {
         assertTrue(s.isUnlocked());
         assertNotNull(s.getEntry(entryUuid));
     }
+
+    @Test
+    void closeUpdatesWarehouseTimeAndReunlock() {
+        char[] pw = "pw".toCharArray();
+        Sanctum s = Sanctum.createAndUnlock(dir, pw);
+        long wtBefore = s.vault().clock().warehouseTime();
+        s.close(); // 更新 warehouseTime + 重写 manifest + 锁定
+        assertFalse(s.isUnlocked());
+
+        // 重新打开解锁，应能读到新 manifest
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlock(pw);
+        assertTrue(s2.isUnlocked());
+        assertTrue(s2.vault().manifest().warehouseTime() >= wtBefore);
+    }
 }

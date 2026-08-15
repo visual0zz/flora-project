@@ -53,13 +53,10 @@ public final class VaultUnlocker {
             throw e;
         }
         KeyIdIndex index = new KeyIdIndex();
-        Vault vault = new Vault(store, manifest, index, new SecureRandomSource());
-        try {
-            // 4. 用 KEK 试解各 group，找到 KEK 能解开的顶层 root group，解出并登记其 DEK
-            discoverRootDeks(vault, kek, blocks);
-        } finally {
-            java.util.Arrays.fill(kek, (byte) 0);
-        }
+        Vault vault = new Vault(store, manifest, index, new SecureRandomSource(), kek);
+        // 4. 用 KEK 试解各 group，找到 KEK 能解开的顶层 root group，解出并登记其 DEK
+        discoverRootDeks(vault, kek, blocks);
+        // KEK 由 Vault 驻留（锁定/关闭时 clearSecrets）
         return vault;
     }
 
@@ -83,8 +80,7 @@ public final class VaultUnlocker {
                         // dek 字段 = 用 KEK 包裹的 DEK（wrap 产物，本身是 CipherCodec 块）→ 解包得可用 DEK
                         byte[] wrapped = java.util.Base64.getDecoder().decode(dekB64);
                         byte[] dek = codec.decode(wrapped).plaintext;
-                        vault.keyIdIndex().register(dek);
-                        vault.addRootDek(dek);
+                        vault.addRootDek(n.str("role"), dek);
                     }
                 }
             } catch (Exception ignore) {

@@ -97,8 +97,8 @@ public final class ExternalKeyService {
             Json.put(field, "description", Json.of(description));
         }
         Json.put(field, "updateTimestamp", Json.of(System.currentTimeMillis()));
-        // 用普通对象 root DEK 加密该字段
-        byte[] dek = sanctum.vault().rootDeks().get(0);
+        // 外部密钥是条目下的字段，属普通对象树 → 用 objects root DEK
+        byte[] dek = sanctum.vault().dekForRole("objects");
         byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(dek, null, "sanctum-enc", 32);
         CipherCodec codec = new CipherCodec(encKey, dek, sanctum.vault().random());
         byte[] block = codec.encode(fieldUuid, Json.stringify(field).getBytes(java.nio.charset.StandardCharsets.UTF_8),

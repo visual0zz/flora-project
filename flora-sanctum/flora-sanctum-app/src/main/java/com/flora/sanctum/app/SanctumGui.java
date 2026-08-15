@@ -81,6 +81,7 @@ public final class SanctumGui {
     }
 
     private void run(String[] args) {
+        applyTheme(config.theme());
         try {
             httpServer = new com.flora.sanctum.server.SanctumHttpServer(current::get, 0);
             httpServer.start();
@@ -114,6 +115,20 @@ public final class SanctumGui {
         if (clipboardTimer != null) {
             clipboardTimer.cancel();
             clipboardTimer = null;
+        }
+    }
+
+    /** 应用 FlatLaf 主题（light/dark/system）。 */
+    private void applyTheme(String theme) {
+        try {
+            switch (theme == null ? "system" : theme) {
+                case "light" -> com.formdev.flatlaf.FlatLightLaf.setup();
+                case "dark" -> com.formdev.flatlaf.FlatDarkLaf.setup();
+                default -> javax.swing.UIManager.setLookAndFeel(
+                        javax.swing.UIManager.getSystemLookAndFeelClassName());
+            }
+        } catch (Exception ignore) {
+            // 主题安装失败则保留系统默认外观
         }
     }
 
@@ -384,6 +399,7 @@ public final class SanctumGui {
         // 左：组树
         groupTree = new JTree();
         groupTree.setRootVisible(true);
+        groupTree.setCellRenderer(new FolderTreeRenderer());
         rebuildGroupTree();
         groupTree.addTreeSelectionListener(e -> {
             resetAutoLock();
@@ -394,6 +410,7 @@ public final class SanctumGui {
         // 中：条目列表
         entryModel = new DefaultListModel<>();
         entryList = new JList<>(entryModel);
+        entryList.setCellRenderer(new EntryListRenderer());
         entryList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 resetAutoLock();
@@ -953,5 +970,28 @@ public final class SanctumGui {
         dialog.setSize(320, 320);
         dialog.setLocationRelativeTo(frame);
         dialog.setVisible(true);
+    }
+
+    /** 组树渲染器：文件夹图标 + 组名。 */
+    private static final class FolderTreeRenderer extends javax.swing.tree.DefaultTreeCellRenderer {
+        @Override
+        public java.awt.Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel,
+                                                               boolean expanded, boolean leaf, int row, boolean hasFocus) {
+            super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus);
+            setIcon(SvgIcon.get("folder", 16));
+            setDisabledIcon(SvgIcon.get("folder", 16));
+            return this;
+        }
+    }
+
+    /** 条目列表渲染器：锁图标 + 条目名。 */
+    private static final class EntryListRenderer extends javax.swing.DefaultListCellRenderer {
+        @Override
+        public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                                                               boolean isSelected, boolean cellHasFocus) {
+            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            setIcon(SvgIcon.get("entry", 16));
+            return this;
+        }
     }
 }

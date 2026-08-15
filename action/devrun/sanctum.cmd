@@ -43,12 +43,13 @@ fi
 
 # ---- 3. Launch via module-path (JPMS: parallel jars) ----
 MODPATH="$APP:$LIB"
+NATIVE="--enable-native-access=com.formdev.flatlaf"
 if [ "$#" -eq 0 ]; then
   printf '%b\n' "${GREEN}Launching flora-sanctum Swing GUI ...${NC}"
-  exec java --module-path "$MODPATH" -m com.flora.sanctum.app/com.flora.sanctum.app.Main
+  exec java $NATIVE --module-path "$MODPATH" -m com.flora.sanctum.app/com.flora.sanctum.app.Main
 else
   printf '%b\n' "${GREEN}Launching flora-sanctum CLI: $*${NC}"
-  exec java --module-path "$MODPATH" -m com.flora.sanctum.app/com.flora.sanctum.app.Main "$@"
+  exec java $NATIVE --module-path "$MODPATH" -m com.flora.sanctum.app/com.flora.sanctum.app.Main "$@"
 fi
 
 :windows
@@ -90,8 +91,8 @@ rem ---- 3. Launch via module-path ----
 set "MODPATH=%APP%;%LIB%"
 if "%~1"=="" (
   echo %ESC%[32mLaunching flora-sanctum Swing GUI ...%ESC%[0m
-  java --module-path "%MODPATH%" -m com.flora.sanctum.app/com.flora.sanctum.app.Main
+  java --enable-native-access=com.formdev.flatlaf --module-path "%MODPATH%" -m com.flora.sanctum.app/com.flora.sanctum.app.Main
 ) else (
   echo %ESC%[32mLaunching flora-sanctum CLI: %*%ESC%[0m
-  java --module-path "%MODPATH%" -m com.flora.sanctum.app/com.flora.sanctum.app.Main %*
+  java --enable-native-access=com.formdev.flatlaf --module-path "%MODPATH%" -m com.flora.sanctum.app/com.flora.sanctum.app.Main %*
 )

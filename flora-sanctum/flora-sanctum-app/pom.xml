@@ -24,6 +24,18 @@
             <artifactId>flora-shell</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- 现代扁平外观 -->
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf</artifactId>
+            <version>3.6</version>
+        </dependency>
+        <!-- 纯 Java SVG 渲染（SVG Salamander），用于文件夹/条目矢量图标 -->
+        <dependency>
+            <groupId>com.github.weisj</groupId>
+            <artifactId>jsvg</artifactId>
+            <version>2.0.0</version>
+        </dependency>
     </dependencies>
 
     <build>

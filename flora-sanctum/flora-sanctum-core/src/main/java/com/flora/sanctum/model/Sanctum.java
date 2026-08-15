@@ -145,6 +145,11 @@ public final class Sanctum {
         return vault;
     }
 
+    /** 取某文件夹的 DEK（null 若未发现）。 */
+    public byte[] folderDek(java.util.UUID groupUuid) {
+        return vault == null ? null : vault.folderDek(groupUuid);
+    }
+
     public Directory directory() {
         return directory;
     }
@@ -158,6 +163,43 @@ public final class Sanctum {
     }
 
     // ---- 条目 CRUD ----
+
+    /**
+     * 新建一个文件夹（group）。每个文件夹绑定一个 DEK，子文件夹 DEK 用父 DEK 包裹
+     * （顶层子文件夹用 objects root DEK 包裹），见设计 02"文件夹 DEK"。
+     *
+     * @param parentId 父文件夹 UUID（null=普通对象 root）
+     * @param name     文件夹名
+     * @return 新文件夹 UUID
+     */
+    public UUID createGroup(UUID parentId, String name) {
+        UUID groupUuid = UUID.randomUUID();
+        byte[] dek = new byte[32];
+        vault.random().nextBytes(dek);
+        // 父 DEK：子文件夹用父文件夹 DEK 包裹；顶层用 objects root DEK
+        byte[] parentDek = (parentId != null && vault.folderDek(parentId) != null)
+                ? vault.folderDek(parentId)
+                : vault.dekForRole("objects");
+        byte[] wrapped = wrap(dek, parentDek);
+        Json.Node group = Json.obj();
+        Json.put(group, "version", Json.of(1));
+        Json.put(group, "type", Json.of("group"));
+        Json.put(group, "name", Json.of(name));
+        Json.put(group, "parent", parentId == null ? Json.ofNull() : Json.of(parentId.toString()));
+        Json.put(group, "dek", Json.of(java.util.Base64.getEncoder().encodeToString(wrapped)));
+        Json.put(group, "updateTimestamp", Json.of(nextTimestamp()));
+        writeObject(groupUuid, group, parentId);
+        vault.addFolderDek(groupUuid, dek);
+        refresh();
+        return groupUuid;
+    }
+
+    /** 用父 DEK 包裹一个 DEK（AES-GCM-SIV，nonce 随机）。 */
+    private byte[] wrap(byte[] dek, byte[] parentDek) {
+        byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(parentDek, null, "sanctum-enc", 32);
+        com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, parentDek, vault.random());
+        return codec.encode(java.util.UUID.randomUUID(), dek, codec.makeKeyIdWith(parentDek));
+    }
 
     /**
      * 新建一个条目（含字段）。
@@ -231,8 +273,11 @@ public final class Sanctum {
         return null;
     }
 
-    /** 找一个可用 DEK：条目/字段属普通对象树，用 objects root DEK（见设计 05）。 */
+    /** 找加密归属 DEK：条目/字段若在子文件夹下用该文件夹 DEK，否则用 objects root（见设计 05）。 */
     private byte[] resolveDekFor(UUID groupId) {
+        if (groupId != null && vault.folderDek(groupId) != null) {
+            return vault.folderDek(groupId);
+        }
         return vault.dekForRole("objects");
     }
 

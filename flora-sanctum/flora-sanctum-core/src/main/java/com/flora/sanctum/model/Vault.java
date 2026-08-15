@@ -29,6 +29,7 @@ public final class Vault {
     private final SecureRandomSource random;
     private final WarehouseClock clock;
     private final java.util.Map<String, byte[]> rootDeksByRole = new java.util.LinkedHashMap<>();
+    private final java.util.Map<java.util.UUID, byte[]> folderDeks = new java.util.LinkedHashMap<>();
     private byte[] kek; // 解锁期间驻留内存，锁定/关闭时清除
 
     Vault(ObjectStore store, Manifest manifest, KeyIdIndex keyIdIndex, SecureRandomSource random, byte[] kek) {
@@ -67,6 +68,18 @@ public final class Vault {
         return dek.clone();
     }
 
+    /** 登记文件夹 DEK（group uuid → DEK，供目录/递归解锁/创建路由）。 */
+    public void addFolderDek(java.util.UUID groupUuid, byte[] dek) {
+        folderDeks.put(groupUuid, dek.clone());
+        keyIdIndex.register(dek);
+    }
+
+    /** 取某文件夹的 DEK。 */
+    public byte[] folderDek(java.util.UUID groupUuid) {
+        byte[] d = folderDeks.get(groupUuid);
+        return d == null ? null : d.clone();
+    }
+
     /** 全部 root DEK（兼容旧接口）。 */
     public java.util.List<byte[]> rootDeks() {
         java.util.List<byte[]> copy = new java.util.ArrayList<>(rootDeksByRole.size());
@@ -91,6 +104,10 @@ public final class Vault {
             java.util.Arrays.fill(d, (byte) 0);
         }
         rootDeksByRole.clear();
+        for (byte[] d : folderDeks.values()) {
+            java.util.Arrays.fill(d, (byte) 0);
+        }
+        folderDeks.clear();
         keyIdIndex.clear();
     }
 

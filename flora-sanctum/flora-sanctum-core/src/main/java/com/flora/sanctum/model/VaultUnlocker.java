@@ -61,31 +61,74 @@ public final class VaultUnlocker {
     }
 
     /**
-     * 用 KEK 试解各 group（KEK 包裹变体 keyId + GCM-SIV），解出顶层 root group 的 DEK。
-     * 生产：还需沿文件夹 DEK 树递归解子文件夹 DEK（此处登记直接可解的 root DEK）。
+     * 递归发现并登记全部文件夹 DEK（见设计 02"解锁流程"）。
+     * 工作队列：初为 KEK；解出 root/folder DEK 后，用每个已知 DEK 试解各 cipher 块，
+     * 对 type==group 且含 dek 的登记其 DEK，逐层递归直至无新增。
      */
     private void discoverRootDeks(Vault vault, byte[] kek, List<Block> blocks) {
-        byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(kek, null, "sanctum-enc", 32);
-        com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, kek, vault.random());
-        for (Block b : blocks) {
-            if (!b.isCipher()) {
-                continue;
-            }
-            try {
-                byte[] plain = codec.decode(b.obfuscated()).plaintext;
-                Json.Node n = Json.parse(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
-                if ("group".equals(n.str("type")) && n.str("role") != null) {
-                    String dekB64 = n.str("dek");
-                    if (dekB64 != null) {
-                        // dek 字段 = 用 KEK 包裹的 DEK（wrap 产物，本身是 CipherCodec 块）→ 解包得可用 DEK
-                        byte[] wrapped = java.util.Base64.getDecoder().decode(dekB64);
-                        byte[] dek = codec.decode(wrapped).plaintext;
-                        vault.addRootDek(n.str("role"), dek);
-                    }
+        java.util.List<byte[]> known = new java.util.ArrayList<>();
+        known.add(kek.clone());
+        boolean progress = true;
+        while (progress) {
+            progress = false;
+            for (Block b : blocks) {
+                if (!b.isCipher()) {
+                    continue;
                 }
-            } catch (Exception ignore) {
-                // KEK 解不开 → 不是顶层 root group（普通对象树内由父 DEK 包裹），跳过
+                for (byte[] dk : known) {
+                    byte[] plain = tryDecode(vault, dk, b);
+                    if (plain == null) {
+                        continue;
+                    }
+                    try {
+                        Json.Node n = Json.parse(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
+                        if ("group".equals(n.str("type")) && n.str("dek") != null) {
+                            if (n.str("role") != null) {
+                                // root group
+                                if (vault.rootDek(n.str("role")) == null) {
+                                    byte[] wrapped = java.util.Base64.getDecoder().decode(n.str("dek"));
+                                    byte[] dek = unwrap(vault, dk, wrapped);
+                                    if (dek != null) {
+                                        vault.addRootDek(n.str("role"), dek);
+                                        known.add(dek.clone());
+                                        progress = true;
+                                    }
+                                }
+                            } else if (vault.folderDek(b.uuid()) == null) {
+                                byte[] wrapped = java.util.Base64.getDecoder().decode(n.str("dek"));
+                                byte[] dek = unwrap(vault, dk, wrapped);
+                                if (dek != null) {
+                                    vault.addFolderDek(b.uuid(), dek);
+                                    known.add(dek.clone());
+                                    progress = true;
+                                }
+                            }
+                        }
+                    } catch (Exception ignore) {
+                    }
+                    break; // 该块已用某 DEK 解开，不再试其它
+                }
             }
+        }
+    }
+
+    private byte[] tryDecode(Vault vault, byte[] dk, Block b) {
+        try {
+            byte[] encK = com.flora.sanctum.crypto.impl.HkdfSha256.derive(dk, null, "sanctum-enc", 32);
+            com.flora.sanctum.crypto.CipherCodec gc = new com.flora.sanctum.crypto.CipherCodec(encK, dk, vault.random());
+            return gc.decode(b.obfuscated()).plaintext;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private byte[] unwrap(Vault vault, byte[] parentDek, byte[] wrapped) {
+        try {
+            byte[] encK = com.flora.sanctum.crypto.impl.HkdfSha256.derive(parentDek, null, "sanctum-enc", 32);
+            com.flora.sanctum.crypto.CipherCodec gc = new com.flora.sanctum.crypto.CipherCodec(encK, parentDek, vault.random());
+            return gc.decode(wrapped).plaintext;
+        } catch (Exception e) {
+            return null;
         }
     }
 

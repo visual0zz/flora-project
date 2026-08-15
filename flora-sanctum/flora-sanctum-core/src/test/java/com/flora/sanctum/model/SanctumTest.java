@@ -73,4 +73,22 @@ class SanctumTest {
         assertTrue(s2.isUnlocked());
         assertTrue(s2.vault().manifest().warehouseTime() >= wtBefore);
     }
+
+    @Test
+    void entryInSubGroupUsesFolderDekAndSurvivesRelock() {
+        char[] pw = "pw".toCharArray();
+        Sanctum s = Sanctum.createAndUnlock(dir, pw);
+        UUID group = s.createGroup(null, "社交");
+        UUID entry = s.createEntry(group, "微博", Map.of("password", "s3cret"));
+
+        // 锁定并重开，文件夹 DEK 树递归发现
+        s.close();
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlock(pw);
+        assertTrue(s2.isUnlocked());
+        assertNotNull(s2.folderDek(group));
+        Json.Node e = s2.getEntry(entry);
+        assertNotNull(e);
+        assertEquals("微博", e.str("name"));
+    }
 }

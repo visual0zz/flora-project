@@ -206,13 +206,16 @@ public final class SanctumGui {
         char[] pw = pwField.getPassword();
         try {
             Path root = Path.of(path);
-            if (Files.isDirectory(root) && Files.list(root).findAny().isPresent()) {
-                // 已有内容 → 打开并解锁
-                sanctum = Sanctum.open(root);
+            sanctum = Sanctum.open(root);
+            try {
                 sanctum.unlock(pw);
-            } else {
-                // 不存在或空文件夹 → 初始化新库
-                sanctum = Sanctum.createAndUnlock(root, pw);
+            } catch (IllegalArgumentException noManifest) {
+                if (noManifest.getMessage() != null && noManifest.getMessage().contains("no manifest")) {
+                    // 不是本应用库（空文件夹/其它内容）→ 初始化新库
+                    sanctum = Sanctum.createAndUnlock(root, pw);
+                } else {
+                    throw noManifest;
+                }
             }
             current.set(sanctum);
             frame.setContentPane(buildMainPanel());

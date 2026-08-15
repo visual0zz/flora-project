@@ -23,11 +23,11 @@ import java.util.List;
 public final class Vault {
 
     private final ObjectStore store;
-    private final Manifest manifest;
+    private Manifest manifest;
     private final KeyIdIndex keyIdIndex;
     private final BlockResolver resolver;
     private final SecureRandomSource random;
-    private final WarehouseClock clock;
+    private WarehouseClock clock;
     private final java.util.Map<String, byte[]> rootDeksByRole = new java.util.LinkedHashMap<>();
     private final java.util.Map<String, java.util.UUID> rootGroupUuidByRole = new java.util.LinkedHashMap<>();
     private final java.util.Map<java.util.UUID, byte[]> folderDeks = new java.util.LinkedHashMap<>();
@@ -136,6 +136,12 @@ public final class Vault {
 
     public Manifest manifest() {
         return manifest;
+    }
+
+    /** 换主密码/更新 KDF 参数后替换内存 manifest（供后续 close/写回使用新值）。 */
+    public void replaceManifest(Manifest manifest) {
+        this.manifest = manifest;
+        this.clock = new WarehouseClock(manifest.warehouseTime());
     }
 
     public KeyIdIndex keyIdIndex() {

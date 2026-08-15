@@ -217,7 +217,8 @@ public final class Sanctum implements AutoCloseable {
         // 新 salt + 新 KEK（salt 终身不变？设计 02 说 salt 终身不变，这里保留旧 salt 用新密码派生）
         // 设计：salt 终身不变，换主密码仅 KEK 变。故复用 manifest 的 salt 和参数。
         Manifest m = vault.manifest();
-        Argon2Kdf kdf = new Argon2Kdf(m.salt(), m.memoryKiB(), m.iterations(), m.parallelism());
+        // 用传入的新 KDF 参数派生新 KEK（salt 终身不变，参数可升级，见 02"KDF 参数可配置"）
+        Argon2Kdf kdf = new Argon2Kdf(m.salt(), memoryKiB, iterations, parallelism);
         byte[] newKek = kdf.derive(newPassword);
         try {
             // 重包三个 root group（用旧 KEK 解密块 + 解 DEK，用新 KEK 重加密）
@@ -248,7 +249,7 @@ public final class Sanctum implements AutoCloseable {
             // 更新 manifest 的 MAC（用新 KEK）
             java.util.UUID manifestUuid = findManifestUuid();
             Manifest updated = new Manifest(m.version(), m.cryptoVersion(), m.kdf(), m.salt(),
-                    m.memoryKiB(), m.iterations(), m.parallelism(), vault.clock().warehouseTime(), m.updateTimestamp(), new byte[0]);
+                    memoryKiB, iterations, parallelism, vault.clock().warehouseTime(), m.updateTimestamp(), new byte[0]);
             byte[] macKey = updated.manifestMacKey(newKek);
             byte[] mac = updated.computeMac(macKey, manifestUuid);
             JsonObject manifest = new JsonObject();
@@ -266,6 +267,8 @@ public final class Sanctum implements AutoCloseable {
             manifest.put("updateTimestamp", updated.updateTimestamp());
             manifest.put("mac", java.util.Base64.getEncoder().encodeToString(mac));
             writeManifestPlaintextBlock(manifestUuid, manifest);
+            // 更新内存 manifest（含新 KDF 参数），供后续 close/写回使用新值
+            vault.replaceManifest(updated);
             // 更新 Vault 的 KEK 为新 KEK
             vault.replaceKek(newKek);
         } finally {

@@ -28,6 +28,9 @@ import java.util.UUID;
  */
 public final class SanctumGui extends Application {
 
+    private final java.util.concurrent.atomic.AtomicReference<Sanctum> current =
+            new java.util.concurrent.atomic.AtomicReference<>();
+    private com.flora.sanctum.server.SanctumHttpServer httpServer;
     private Sanctum sanctum;
 
     public static void launch(String[] args) {
@@ -35,7 +38,11 @@ public final class SanctumGui extends Application {
     }
 
     @Override
-    public void start(Stage stage) {
+    public void start(Stage stage) throws Exception {
+        // 外部密钥服务 HTTP 跟随应用启动（始终监听；锁定时返回 locked）
+        httpServer = new com.flora.sanctum.server.SanctumHttpServer(current::get, 0);
+        httpServer.start();
+        stage.setOnCloseRequest(e -> httpServer.stop());
         stage.setTitle("flora-sanctum");
         stage.setScene(buildUnlockScene(stage));
         stage.show();
@@ -84,6 +91,7 @@ public final class SanctumGui extends Application {
                 if (sanctum.isUnlocked()) {
                     sanctum.unlock(pw);
                 }
+                current.set(sanctum);
                 stage.setScene(buildMainScene(stage));
             } catch (Exception ex) {
                 error.setText("解锁失败：" + ex.getMessage());
@@ -112,6 +120,7 @@ public final class SanctumGui extends Application {
         Button lockBtn = new Button("锁定");
         lockBtn.setOnAction(e -> {
             sanctum.close();
+            current.set(null);
             Platform.runLater(() -> stage.setScene(buildUnlockScene(stage)));
         });
 

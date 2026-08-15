@@ -25,12 +25,16 @@ import java.util.concurrent.Executors;
  */
 public final class SanctumHttpServer {
 
-    private final Sanctum sanctum;
+    private final java.util.function.Supplier<Sanctum> sanctumSupplier;
     private final HttpServer server;
     private final java.util.concurrent.ExecutorService executor;
 
-    public SanctumHttpServer(Sanctum sanctum, int port) throws IOException {
-        this.sanctum = sanctum;
+    /**
+     * @param sanctumSupplier 当前 Sanctum 提供者（未解锁/锁定时可为 null）；应用常驻时用可变持有器。
+     * @param port            监听端口（0 = 随机）
+     */
+    public SanctumHttpServer(java.util.function.Supplier<Sanctum> sanctumSupplier, int port) throws IOException {
+        this.sanctumSupplier = sanctumSupplier;
         this.server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
         this.executor = java.util.concurrent.Executors.newFixedThreadPool(2);
         this.server.setExecutor(executor);
@@ -60,11 +64,12 @@ public final class SanctumHttpServer {
     private void handleList(HttpExchange ex) throws IOException {
         requirePost(ex);
         JsonObject resp = new JsonObject();
-        if (!sanctum.isUnlocked()) {
+        Sanctum s = sanctumSupplier.get();
+        if (s == null || !s.isUnlocked()) {
             error(ex, "locked", "vault is locked");
             return;
         }
-        ExternalKeyService svc = new ExternalKeyService(sanctum);
+        ExternalKeyService svc = new ExternalKeyService(s);
         JsonArray keys = new JsonArray();
         for (ExternalKeyService.KeyInfo k : svc.list()) {
             JsonObject item = new JsonObject();
@@ -80,7 +85,8 @@ public final class SanctumHttpServer {
 
     private void handleEncrypt(HttpExchange ex) throws IOException {
         requirePost(ex);
-        if (!sanctum.isUnlocked()) {
+        Sanctum s = sanctumSupplier.get();
+        if (s == null || !s.isUnlocked()) {
             error(ex, "locked", "vault is locked");
             return;
         }
@@ -94,7 +100,7 @@ public final class SanctumHttpServer {
         try {
             UUID uuid = UUID.fromString(uuidStr);
             byte[] data = Base64.getDecoder().decode(dataB64);
-            byte[] cipher = new ExternalKeyService(sanctum).encrypt(data, uuid);
+            byte[] cipher = new ExternalKeyService(s).encrypt(data, uuid);
             JsonObject resp = new JsonObject();
             resp.put("ok", true);
             resp.put("cipher", com.flora.root.codec.Base58.encode(cipher));
@@ -106,7 +112,8 @@ public final class SanctumHttpServer {
 
     private void handleDecrypt(HttpExchange ex) throws IOException {
         requirePost(ex);
-        if (!sanctum.isUnlocked()) {
+        Sanctum s = sanctumSupplier.get();
+        if (s == null || !s.isUnlocked()) {
             error(ex, "locked", "vault is locked");
             return;
         }
@@ -117,7 +124,7 @@ public final class SanctumHttpServer {
             return;
         }
         try {
-            byte[] data = new ExternalKeyService(sanctum).decrypt(cipher);
+            byte[] data = new ExternalKeyService(s).decrypt(cipher);
             JsonObject resp = new JsonObject();
             resp.put("ok", true);
             resp.put("data", Base64.getEncoder().encodeToString(data));

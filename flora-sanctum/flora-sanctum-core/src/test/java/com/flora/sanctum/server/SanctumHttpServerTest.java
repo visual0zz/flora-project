@@ -43,7 +43,7 @@ class SanctumHttpServerTest {
         UUID entry = s.createEntry(null, "holder", Map.of());
         UUID keyField = svc.createExternalKey(entry, "k", "material".getBytes(), "for app");
 
-        SanctumHttpServer http = new SanctumHttpServer(s, 0);
+        SanctumHttpServer http = new SanctumHttpServer(() -> s, 0);
         http.start();
         try {
             int port = http.port();
@@ -73,7 +73,7 @@ class SanctumHttpServerTest {
     void lockedReturnsLockedError() throws Exception {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
         s.lock();
-        SanctumHttpServer http = new SanctumHttpServer(s, 0);
+        SanctumHttpServer http = new SanctumHttpServer(() -> s, 0);
         http.start();
         try {
             int port = http.port();

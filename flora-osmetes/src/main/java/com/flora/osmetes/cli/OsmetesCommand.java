@@ -48,7 +48,7 @@ public final class OsmetesCommand implements Command {
 
     @Override
     public CommandResult execute(Invocation ctx) throws Exception {
-        String rootArg = ctx.args().get("sourceRoot");
+        String rootArg = ctx.args().get("sourceRoot").asString();
         Path root = Paths.get(rootArg).toAbsolutePath().normalize();
         if (!Files.isDirectory(root)) {
             ctx.log().info("{} 跳过（目录不存在）: {}", CLI_PREFIX, root);

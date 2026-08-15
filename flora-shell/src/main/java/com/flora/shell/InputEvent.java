@@ -48,12 +48,12 @@ public final class InputEvent {
      *
      * @param source      使用场景
      * @param commandName 命令名（点分路径，如 {@code buffer.write}）
-     * @param argv        命令行参数（不含命令名）
+     * @param args        命令行参数（不含命令名）
      * @return InputEvent
      */
-    public static InputEvent ofArgv(UsageScenario source, String commandName, List<String> argv) {
+    public static InputEvent ofArgs(UsageScenario source, String commandName, String... args) {
         return new InputEvent(source, commandName, Kind.ARGV,
-                List.copyOf(CheckUtil.notNull(argv, "argv 不能为空")), null);
+                args == null ? List.of() : List.of(args), null);
     }
 
     /**

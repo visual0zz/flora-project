@@ -1,12 +1,14 @@
 package com.flora.shell.builtin;
 
+import com.flora.root.codec.json.model.JsonArray;
+import com.flora.root.codec.json.model.JsonValue;
 import com.flora.shell.Command;
 import com.flora.shell.CommandResult;
 import com.flora.shell.CommandService;
 import com.flora.shell.Invocation;
 import com.flora.shell.spec.ArgSpec;
-import com.flora.shell.spec.ParsedArgs;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -68,13 +70,24 @@ public final class AliasCommand implements Command {
 
     @Override
     public CommandResult execute(Invocation ctx) {
-        ParsedArgs args = ctx.args();
-        String name = args.get("name");
-        String cmd = args.get("cmd");
-        List<String> prefix = args.getStringList("args");
+        String name = ctx.args().get("name").asString();
+        String cmd = ctx.args().get("cmd").asString();
+        List<String> prefix = stringList(ctx.args().get("args"));
         commandService.setAlias(name, cmd, prefix);
         ctx.log().info("alias: {} -> {}{}", name, cmd,
                 prefix.isEmpty() ? "" : " " + String.join(" ", prefix));
         return CommandResult.success();
+    }
+
+    private static List<String> stringList(JsonValue v) {
+        if (v == null || v.isNull()) {
+            return List.of();
+        }
+        JsonArray arr = v.asArray();
+        List<String> result = new ArrayList<>(arr.size());
+        for (int i = 0; i < arr.size(); i++) {
+            result.add(arr.get(i).asString());
+        }
+        return result;
     }
 }

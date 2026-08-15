@@ -1,5 +1,6 @@
 package com.flora.shell;
 
+import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.java.CheckUtil;
 import com.flora.root.runtime.log.Logger;
 import com.flora.root.runtime.log.LoggerFactory;
@@ -7,7 +8,6 @@ import com.flora.root.tag.ThreadFragile;
 import com.flora.shell.builtin.AliasCommand;
 import com.flora.shell.builtin.HelpCommand;
 import com.flora.shell.spec.ArgParser;
-import com.flora.shell.spec.ParsedArgs;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -235,12 +235,12 @@ public final class CommandService implements Dispatcher {
         if (event.kind() == InputEvent.Kind.ARGV) {
             argv.addAll(event.argv());
         }
-        return dispatch(InputEvent.ofArgv(event.source(), alias.target(), argv));
+        return dispatch(InputEvent.ofArgs(event.source(), alias.target(), argv.toArray(new String[0])));
     }
 
     /** 执行单个命令（含参数解析、执行）。结果由 submit 统一扇出。 */
     private CommandResult execute(Command command, InputEvent event) {
-        ParsedArgs parsed;
+        JsonObject parsed;
         try {
             parsed = parse(command, event);
         } catch (IllegalArgumentException e) {
@@ -271,7 +271,7 @@ public final class CommandService implements Dispatcher {
         }
     }
 
-    private ParsedArgs parse(Command command, InputEvent event) {
+    private JsonObject parse(Command command, InputEvent event) {
         ArgParser parser = parsers.get(command.name());
         if (parser == null) {
             parser = new ArgParser(command.args());

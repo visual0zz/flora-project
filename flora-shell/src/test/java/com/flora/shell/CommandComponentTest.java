@@ -2,6 +2,7 @@ package com.flora.shell;
 
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.codec.json.model.JsonString;
+import com.flora.root.codec.json.model.JsonValue;
 import com.flora.shell.spec.ArgSpec;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +36,7 @@ class CommandComponentTest {
 
         @Override
         public CommandResult execute(Invocation ctx) {
-            return CommandResult.data(new JsonString("echo:" + ctx.args().get("text")));
+            return CommandResult.data(new JsonString("echo:" + ctx.args().get("text").asString()));
         }
     }
 
@@ -44,7 +45,7 @@ class CommandComponentTest {
         CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("hello")));
+                InputEvent.ofArgs(UsageScenario.CLI, "echo", "hello"));
         assertEquals(CommandResult.Status.SUCCESS, result.status());
         assertEquals("echo:hello", result.data().asString());
     }
@@ -53,7 +54,7 @@ class CommandComponentTest {
     void unknownCommandFails() {
         CommandService commandService = new CommandService(UsageScenario.CLI);
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(UsageScenario.CLI, "nope", List.of()));
+                InputEvent.ofArgs(UsageScenario.CLI, "nope"));
         assertEquals(CommandResult.Status.SYSTEM_ERROR, result.status());
     }
 
@@ -81,7 +82,7 @@ class CommandComponentTest {
             events.add(event);
             results.add(result);
         });
-        InputEvent event = InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("fan"));
+        InputEvent event = InputEvent.ofArgs(UsageScenario.CLI, "echo", "fan");
         commandService.submit(event);
         assertEquals(1, events.size());
         assertEquals("echo", events.get(0).commandName());
@@ -97,9 +98,9 @@ class CommandComponentTest {
         List<String> seen = new ArrayList<>();
         CommandSink sink = commandService.newSink((event, result) ->
                 seen.add(result.data().asString()));
-        commandService.submit(InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("one")));
+        commandService.submit(InputEvent.ofArgs(UsageScenario.CLI, "echo", "one"));
         sink.close();
-        commandService.submit(InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("two")));
+        commandService.submit(InputEvent.ofArgs(UsageScenario.CLI, "echo", "two"));
         assertEquals(List.of("echo:one"), seen);
     }
 
@@ -114,7 +115,7 @@ class CommandComponentTest {
         });
         commandService.newSink((event, result) -> seen.add(result.data().asString()));
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("iso")));
+                InputEvent.ofArgs(UsageScenario.CLI, "echo", "iso"));
         assertEquals(CommandResult.Status.SUCCESS, result.status());
         assertEquals(List.of("echo:iso"), seen);
     }
@@ -176,7 +177,7 @@ class CommandComponentTest {
         commandService.register(new EchoCommand());
         commandService.setAlias("ec", "echo", List.of());
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(UsageScenario.CLI, "ec", List.of("hello")));
+                InputEvent.ofArgs(UsageScenario.CLI, "ec", "hello"));
         assertEquals("echo:hello", result.data().asString());
     }
 
@@ -187,7 +188,7 @@ class CommandComponentTest {
         // alias ga -> join hello ；调用 ga world 等价 join hello world
         commandService.setAlias("ga", "join", List.of("hello"));
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(UsageScenario.CLI, "ga", List.of("world")));
+                InputEvent.ofArgs(UsageScenario.CLI, "ga", "world"));
         assertEquals("join:hello world", result.data().asString());
     }
 
@@ -196,7 +197,7 @@ class CommandComponentTest {
         CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(UsageScenario.CLI, "alias", List.of("e", "echo")));
+                InputEvent.ofArgs(UsageScenario.CLI, "alias", "e", "echo"));
         assertEquals(CommandResult.Status.SUCCESS, result.status());
         assertEquals("echo", commandService.aliases().get("e").target());
     }
@@ -207,7 +208,7 @@ class CommandComponentTest {
         commandService.register(new EchoCommand());
         commandService.register(new ForwardingCommand());
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(UsageScenario.CLI, "forwarder", List.of("ping")));
+                InputEvent.ofArgs(UsageScenario.CLI, "forwarder", "ping"));
         assertEquals("echo:ping", result.data().asString());
     }
 
@@ -218,7 +219,7 @@ class CommandComponentTest {
         commandService.setAlias("b", "a", List.of());
         // 别名环 a->b->a... 应被深度上限拦截，不无限递归
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(UsageScenario.CLI, "a", List.of()));
+                InputEvent.ofArgs(UsageScenario.CLI, "a"));
         assertEquals(CommandResult.Status.SYSTEM_ERROR, result.status());
     }
 
@@ -227,7 +228,7 @@ class CommandComponentTest {
         CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("hi")));
+                InputEvent.ofArgs(UsageScenario.CLI, "echo", "hi"));
         assertEquals(CommandResult.Status.SUCCESS, result.status());
     }
 
@@ -237,7 +238,7 @@ class CommandComponentTest {
         commandService.register(new EchoCommand());
         // echo 需要必选位置参数 text，缺失触发参数错误 → COMMAND_ERROR
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of()));
+                InputEvent.ofArgs(UsageScenario.CLI, "echo"));
         assertEquals(CommandResult.Status.COMMAND_ERROR, result.status());
     }
 
@@ -245,7 +246,7 @@ class CommandComponentTest {
     void unknownCommandHasStatusSystemError() {
         CommandService commandService = new CommandService(UsageScenario.CLI);
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(UsageScenario.CLI, "nope", List.of()));
+                InputEvent.ofArgs(UsageScenario.CLI, "nope"));
         assertEquals(CommandResult.Status.SYSTEM_ERROR, result.status());
     }
 
@@ -254,7 +255,7 @@ class CommandComponentTest {
         CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new ThrowingCommand());
         CommandResult result = commandService.submit(
-                InputEvent.ofArgv(UsageScenario.CLI, "boom", List.of()));
+                InputEvent.ofArgs(UsageScenario.CLI, "boom"));
         assertEquals(CommandResult.Status.SYSTEM_ERROR, result.status());
     }
 
@@ -296,7 +297,7 @@ class CommandComponentTest {
 
         @Override
         public CommandResult execute(Invocation ctx) {
-            String text = ctx.args().get("text");
+            String text = ctx.args().get("text").asString();
             return ctx.forward("echo", List.of(text));
         }
     }
@@ -321,8 +322,15 @@ class CommandComponentTest {
 
         @Override
         public CommandResult execute(Invocation ctx) {
-            String joined = String.join(" ", ctx.args().getStringList("words"));
-            return CommandResult.data(new JsonString("join:" + joined));
+            List<String> words = new ArrayList<>();
+            JsonValue v = ctx.args().get("words");
+            if (v != null && !v.isNull()) {
+                var arr = v.asArray();
+                for (int i = 0; i < arr.size(); i++) {
+                    words.add(arr.get(i).asString());
+                }
+            }
+            return CommandResult.data(new JsonString("join:" + String.join(" ", words)));
         }
     }
 

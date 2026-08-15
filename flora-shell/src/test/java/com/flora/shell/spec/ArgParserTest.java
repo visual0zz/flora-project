@@ -3,6 +3,7 @@ package com.flora.shell.spec;
 import com.flora.root.codec.json.model.JsonObject;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,10 +24,10 @@ class ArgParserTest {
 
     @Test
     void parsesOptionsAndPositionals() {
-        ParsedArgs args = portParser().parse(List.of("-p", "8080", "--verbose", "out.txt"));
-        assertEquals(8080, args.getInt("port"));
-        assertTrue(args.getBoolean("verbose"));
-        assertEquals("out.txt", args.get("file"));
+        JsonObject args = portParser().parse(List.of("-p", "8080", "--verbose", "out.txt"));
+        assertEquals(8080, args.get("port").asNumber().intValue());
+        assertTrue(args.get("verbose").asBool());
+        assertEquals("out.txt", args.get("file").asString());
     }
 
     @Test
@@ -51,9 +52,9 @@ class ArgParserTest {
     @Test
     void negativeNumberIsNotAnOptionValue() {
         // 位置参数为数值时不应被当作选项
-        ParsedArgs args = portParser().parse(List.of("--port", "-1", "f"));
-        assertEquals(-1, args.getInt("port"));
-        assertEquals("f", args.get("file"));
+        JsonObject args = portParser().parse(List.of("--port", "-1", "f"));
+        assertEquals(-1, args.get("port").asNumber().intValue());
+        assertEquals("f", args.get("file").asString());
     }
 
     @Test
@@ -62,10 +63,10 @@ class ArgParserTest {
                 .put("port", 8080)
                 .put("verbose", true)
                 .put("file", "x");
-        ParsedArgs args = portParser().validate(params);
-        assertEquals(8080, args.getInt("port"));
-        assertTrue(args.getBoolean("verbose"));
-        assertEquals("x", args.get("file"));
+        JsonObject args = portParser().validate(params);
+        assertEquals(8080, args.get("port").asNumber().intValue());
+        assertTrue(args.get("verbose").asBool());
+        assertEquals("x", args.get("file").asString());
     }
 
     @Test
@@ -85,7 +86,7 @@ class ArgParserTest {
                 ArgSpec.builder().name("y").type(ArgSpec.Type.BOOLEAN).build()));
         p.oneOf("x", "y");
         assertThrows(IllegalArgumentException.class, () -> p.parse(List.of()));
-        assertTrue(p.parse(List.of("--x")).getBoolean("x"));
+        assertTrue(p.parse(List.of("--x")).get("x").asBool());
     }
 
     @Test
@@ -94,8 +95,13 @@ class ArgParserTest {
                 ArgSpec.builder().kind(ArgSpec.Kind.POSITIONAL).name("cmd").required(true).build(),
                 ArgSpec.builder().kind(ArgSpec.Kind.POSITIONAL).name("rest").variadic(true)
                         .type(ArgSpec.Type.STRING_LIST).build()));
-        ParsedArgs args = p.parse(List.of("go", "a", "b", "c"));
-        assertEquals("go", args.get("cmd"));
-        assertEquals(List.of("a", "b", "c"), args.getStringList("rest"));
+        JsonObject args = p.parse(List.of("go", "a", "b", "c"));
+        assertEquals("go", args.get("cmd").asString());
+        List<String> rest = new ArrayList<>();
+        var arr = args.get("rest").asArray();
+        for (int i = 0; i < arr.size(); i++) {
+            rest.add(arr.get(i).asString());
+        }
+        assertEquals(List.of("a", "b", "c"), rest);
     }
 }

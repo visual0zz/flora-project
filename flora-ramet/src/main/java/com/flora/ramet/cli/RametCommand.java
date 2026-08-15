@@ -53,11 +53,11 @@ public final class RametCommand implements Command {
 
     @Override
     public CommandResult execute(Invocation ctx) throws Exception {
-        String tpl = ctx.args().get("templatesDir");
-        String out = ctx.args().get("outputDir");
+        String tpl = ctx.args().get("templatesDir").asString();
+        String out = ctx.args().get("outputDir").asString();
         Path templatesDir = Paths.get(tpl).toAbsolutePath();
         Path outputDir = Paths.get(out).toAbsolutePath();
-        boolean dryRun = ctx.args().getBoolean("dry-run");
+        boolean dryRun = ctx.args().get("dry-run").asBool();
         Ramet.run(templatesDir, outputDir, dryRun);
         return CommandResult.success();
     }

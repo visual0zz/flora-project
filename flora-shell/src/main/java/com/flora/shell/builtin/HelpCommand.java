@@ -2,7 +2,6 @@ package com.flora.shell.builtin;
 
 import com.flora.shell.*;
 import com.flora.shell.spec.ArgSpec;
-import com.flora.shell.spec.ParsedArgs;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -50,8 +49,7 @@ public final class HelpCommand implements Command {
 
     @Override
     public CommandResult execute(Invocation ctx) {
-        ParsedArgs args = ctx.args();
-        String cmd = args.get("cmd");
+        String cmd = ctx.args().get("cmd") == null ? null : ctx.args().get("cmd").asString();
         if (cmd == null || cmd.isBlank()) {
             ctx.log().info(HelpRenderer.renderGlobal(commandService.commands()));
             return CommandResult.success();

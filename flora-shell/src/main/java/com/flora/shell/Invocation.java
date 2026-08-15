@@ -4,7 +4,6 @@ import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.java.CheckUtil;
 import com.flora.root.runtime.log.Logger;
 import com.flora.root.tag.ReadOnly;
-import com.flora.shell.spec.ParsedArgs;
 
 import java.util.List;
 
@@ -22,19 +21,19 @@ import java.util.List;
 public final class Invocation {
 
     private final Command command;
-    private final ParsedArgs args;
+    private final JsonObject args;
     private final UsageScenario source;
     private final Dispatcher dispatcher;
     private final Logger log;
 
     /**
      * @param command    被执行的命令
-     * @param args       解析后的参数
+     * @param args       解析后的参数对象（统一 JSON 形态）
      * @param source     触发本次调用的使用场景
      * @param dispatcher 分派门面（用于命令发起转发）
      * @param log        命令级日志器（带命令名标注）
      */
-    public Invocation(Command command, ParsedArgs args, UsageScenario source,
+    public Invocation(Command command, JsonObject args, UsageScenario source,
                       Dispatcher dispatcher, Logger log) {
         this.command = CheckUtil.notNull(command, "命令不能为空");
         this.args = CheckUtil.notNull(args, "参数不能为空");
@@ -51,9 +50,9 @@ public final class Invocation {
     }
 
     /**
-     * @return 解析后的参数
+     * @return 解析后的参数对象（统一 JSON 形态）
      */
-    public ParsedArgs args() {
+    public JsonObject args() {
         return args;
     }
 
@@ -86,7 +85,7 @@ public final class Invocation {
      * @return 目标命令的执行结果
      */
     public CommandResult forward(String targetCommand, List<String> argv) {
-        return dispatcher.submit(InputEvent.ofArgv(source, targetCommand, argv));
+        return dispatcher.submit(InputEvent.ofArgs(source, targetCommand, argv.toArray(new String[0])));
     }
 
     /**

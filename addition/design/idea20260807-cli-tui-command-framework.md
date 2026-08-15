@@ -41,8 +41,8 @@
 渠道（键盘 / 微信 / argv）
   → InputEvent（来源 + 命令调用描述）
   → CommandComponent.submit（串行队列）
-  → 分词 + 查找命令 + ArgParser 校验（→ ParsedArgs）
-  → Invocation（命令 + ParsedArgs + 来源）
+  → 分词 + 查找命令 + ArgParser 校验（→ JsonObject）
+  → Invocation（命令 + JsonObject + 来源）
   → execute → CommandResult
   → 通知所有 CommandSink（InputEvent + CommandResult），由默认 sink 打印文本
 ```
@@ -84,8 +84,7 @@ com.flora.shell
 ├── builtin/                 # 内置指令（预制）：help / alias / gui（HelpRenderer 内嵌于 HelpCommand）
 ├── spec/
 │   ├── ArgSpec              # 参数/选项声明（声明式，非解析代码）
-│   ├── ParsedArgs           # 解析结果
-│   └── ArgParser            # 零依赖解析器（cli 串 / 列表 / JSON 输入）
+│   └── ArgParser            # 零依赖解析器：argv / JSON 统一解析为 JsonObject
 ```
 
 `tui/`（TuiComponent、KeyInputSource、ScreenSink、RawTerminal、KeyEvent、ScreenBuffer、Layout）与 `GuiAdapter` 属于未来增量，本期不建包；§12 给出它们的预期落点。
@@ -158,7 +157,7 @@ interface AgentView {    // Agent 专属：定制工具描述 / 返回值 schema
 - **值约束**：类型（int/str/enum/list）、默认值、合法枚举、数值范围
 - **组合规则**：互斥、必选其一（由解析器校验）
 
-解析器只有一个入口，`ParsedArgs parse(List<String> argv)`；AI Agent 输入（JSON 对象）先归一化成同一种 `Map<String,Object>` 再走同一校验，从而 **CLI 的 `--port 8080` 与 Agent 的 `{"port":8080}` 落到同一套校验逻辑**。
+解析器只有一个入口，`JsonObject parse(List<String> argv)` 与 `JsonObject validate(JsonObject)`；argv 与 Agent JSON 统一解析/校验为 `JsonObject`，从而 **CLI 的 `--port 8080` 与 Agent 的 `{"port":8080}` 落到同一套校验逻辑、产出同一形态**。
 
 解析失败时返回结构化的错误（缺哪个参数、哪个值非法、期望什么），由各接入方式按自己的方式呈现：批量调用打印到 stderr 并置非零退出码，未来 TUI 画到命令面板，Agent 回传错误对象。
 
@@ -191,18 +190,18 @@ interface AgentView {    // Agent 专属：定制工具描述 / 返回值 schema
 渠道（键盘 / 微信 / argv）
   → InputEvent（来源 + 命令调用描述）
   → CommandComponent.submit（串行队列）
-  → 分词 + 查找命令 + ArgParser 校验（→ ParsedArgs）
-  → Invocation（命令 + ParsedArgs + 来源）
+  → 分词 + 查找命令 + ArgParser 校验（→ JsonObject）
+  → Invocation（命令 + JsonObject + 来源）
   → execute → CommandResult
   → 通知所有 CommandSink（InputEvent + CommandResult），由默认 sink 打印文本
 ```
 
 **`InputEvent` 的归一化形态（本期契约）**：`InputEvent` 承载两部分——`来源`（`UsageScenario`，一次调用的使用场景）+ `命令调用描述`。命令调用描述只有两种既定形态：
 
-1. **argv 序列**（`List<String>`）：argv、未来 TUI 命令面板的文本先分词成 argv，再走 `ArgParser.parse(argv)`；
+1. **argv 序列**（`String...`）：argv、未来 TUI 命令面板的文本经 `ArgParser.parse` 解析为 `JsonObject`；
 2. **结构化参数**（`Map<String,Object>`）：快捷键绑定、Agent JSON 归一化成同一种 Map，直接走声明校验（`ArgParser.validate(map)`）。
 
-两种形态由 `InputEvent` 的 `describeArgs()` 统一暴露，组件内部转换成 `ParsedArgs` 后进入 `Invocation`。归一化在**渠道边界**完成——各渠道只负责把原生输入切成 argv 或 Map 之一，组件只接收 `InputEvent`，不再二次猜测。这保证多渠道不会在组件内部分叉。
+两种形态由 `InputEvent` 统一暴露，组件经 `ArgParser` 转换成 `JsonObject` 后进入 `Invocation`。归一化在**渠道边界**完成——各渠道只负责把原生输入切成 argv 或 JsonObject 之一，组件只接收 `InputEvent`，不再二次猜测。这保证多渠道不会在组件内部分叉。
 
 ### 7.3 转发底座（指令间相互转发）
 

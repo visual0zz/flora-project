@@ -1,5 +1,6 @@
 package com.flora.tangle.cli;
 
+import com.flora.root.codec.json.model.JsonValue;
 import com.flora.shell.Command;
 import com.flora.shell.CommandResult;
 import com.flora.shell.Invocation;
@@ -52,14 +53,18 @@ public final class TangleCommand implements Command {
 
     @Override
     public CommandResult execute(Invocation ctx) throws Exception {
-        String inPath = ctx.args().get("in");
-        String outPath = ctx.args().get("out");
+        String inPath = ctx.args().get("in").asString();
+        String outPath = ctx.args().get("out").asString();
         Path in = Path.of(inPath);
         Path out = Path.of(outPath);
 
         Obfuscator obf = new Obfuscator();
-        for (String prefix : ctx.args().getStringList("keep")) {
-            obf.keepClassPrefix(prefix);
+        JsonValue keep = ctx.args().get("keep");
+        if (keep != null && !keep.isNull()) {
+            var arr = keep.asArray();
+            for (int i = 0; i < arr.size(); i++) {
+                obf.keepClassPrefix(arr.get(i).asString());
+            }
         }
 
         byte[] input = Files.readAllBytes(in);

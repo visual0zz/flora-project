@@ -1,5 +1,6 @@
 package com.flora.shell.spec;
 
+import com.flora.root.codec.json.model.JsonArray;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.java.CheckUtil;
 
@@ -9,10 +10,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 零依赖参数解析器。从一组 {@link ArgSpec} 声明解析 argv 序列或校验结构化 JSON。
- * <p>唯一的统一入口是 {@link #parse(List)}（argv）与 {@link #validate(JsonObject)}（结构化参数，
- * 如 Agent JSON 解析后的 {@code JsonObject}）。两者落到同一套声明与校验逻辑：CLI 的
- * {@code --port 8080} 与 Agent 的 {@code {"port":8080}} 语义一致。</p>
+ * 零依赖参数解析器。从一组 {@link ArgSpec} 声明解析 argv 序列或校验结构化 JSON，
+ * 统一产出 {@link JsonObject}（命令输入的统一形态）。
+ * <p>唯一的统一入口是 {@link #parse(List)}（argv）与 {@link #validate(JsonObject)}（结构化参数），
+ * 两者落到同一套声明与校验逻辑，产出同一形态的 {@link JsonObject}：CLI 的 {@code --port 8080}
+ * 与 Agent 的 {@code {"port":8080}} 语义一致。</p>
  * <p>解析失败抛出 {@link IllegalArgumentException}，消息给出缺哪个参数、哪个值非法、期望什么，
  * 由各接入方式按自己的方式呈现。</p>
  */
@@ -76,14 +78,14 @@ public final class ArgParser {
     }
 
     /**
-     * 从 argv 序列解析参数。
+     * 从 argv 序列解析参数，产出 {@link JsonObject}。
      *
      * @param argv 命令行参数（不含命令名本身）
-     * @return 解析结果
+     * @return 解析后的参数对象
      * @throws IllegalArgumentException 参数缺失、非法或冲突时
      */
-    public ParsedArgs parse(List<String> argv) {
-        ParsedArgs out = new ParsedArgs();
+    public JsonObject parse(List<String> argv) {
+        JsonObject out = new JsonObject();
         List<String> raw = new ArrayList<>(argv);
         // 先放默认值
         for (ArgSpec spec : optionals) {
@@ -110,7 +112,10 @@ public final class ArgParser {
                 }
                 ArgSpec pos = positionals.get(posIndex);
                 if (pos.variadic()) {
-                    out.mutableList(pos.name()).addAll(raw.subList(i, raw.size()));
+                    JsonArray arr = list(out, pos.name());
+                    for (String rest : raw.subList(i, raw.size())) {
+                        arr.add(rest);
+                    }
                     break;
                 }
                 out.put(pos.name(), convert(pos, token));
@@ -121,12 +126,12 @@ public final class ArgParser {
 
         // 必选校验
         for (ArgSpec p : positionals) {
-            if (p.required() && !out.contains(p.name())) {
+            if (p.required() && !out.containsKey(p.name())) {
                 throw new IllegalArgumentException("缺少必选位置参数 <" + p.name() + ">");
             }
         }
         for (ArgSpec o : optionals) {
-            if (o.required() && !out.contains(o.name())) {
+            if (o.required() && !out.containsKey(o.name())) {
                 throw new IllegalArgumentException("缺少必选选项 --" + o.name());
             }
         }
@@ -135,14 +140,14 @@ public final class ArgParser {
     }
 
     /**
-     * 校验并归一化一个结构化 JSON 参数对象（Agent JSON 解析结果等）。
+     * 校验并归一化一个结构化 JSON 参数对象，产出统一形态的 {@link JsonObject}。
      *
      * @param obj 参数对象（flora-root 的 JSON 正规表示）
-     * @return 归一化后的解析结果
+     * @return 归一化后的参数对象
      * @throws IllegalArgumentException 参数非法或冲突时
      */
-    public ParsedArgs validate(JsonObject obj) {
-        ParsedArgs out = new ParsedArgs();
+    public JsonObject validate(JsonObject obj) {
+        JsonObject out = new JsonObject();
         for (ArgSpec spec : optionals) {
             var v = obj.get(spec.name());
             if (v == null || v.isNull()) {
@@ -170,7 +175,7 @@ public final class ArgParser {
         return out;
     }
 
-    private int consumeOption(ArgSpec spec, List<String> raw, int i, ParsedArgs out) {
+    private int consumeOption(ArgSpec spec, List<String> raw, int i, JsonObject out) {
         if (spec.type() == ArgSpec.Type.BOOLEAN) {
             out.put(spec.name(), true);
             return i + 1;
@@ -183,11 +188,22 @@ public final class ArgParser {
             throw new IllegalArgumentException("选项 --" + spec.name() + " 缺少值");
         }
         if (spec.type() == ArgSpec.Type.STRING_LIST) {
-            out.mutableList(spec.name()).add(value);
+            list(out, spec.name()).add(value);
         } else {
             out.put(spec.name(), convert(spec, value));
         }
         return i + 2;
+    }
+
+    /** 取得（或新建）指定名的 {@link JsonArray}，用于累积变长/可重复参数值。 */
+    private static JsonArray list(JsonObject out, String name) {
+        var v = out.get(name);
+        if (v instanceof JsonArray arr) {
+            return arr;
+        }
+        JsonArray arr = new JsonArray();
+        out.put(name, arr);
+        return arr;
     }
 
     private Object convert(ArgSpec spec, Object rawValue) {
@@ -250,15 +266,15 @@ public final class ArgParser {
         return token.startsWith("--") ? token.substring(2) : token.substring(1);
     }
 
-    private void validateCombinations(ParsedArgs out) {
+    private void validateCombinations(JsonObject out) {
         for (List<String> group : mutexGroups) {
-            List<String> present = group.stream().filter(out::contains).toList();
+            List<String> present = group.stream().filter(out::containsKey).toList();
             if (present.size() > 1) {
                 throw new IllegalArgumentException("参数互斥，不能同时指定: " + present);
             }
         }
         for (List<String> group : oneOfGroups) {
-            List<String> present = group.stream().filter(out::contains).toList();
+            List<String> present = group.stream().filter(out::containsKey).toList();
             if (present.isEmpty()) {
                 throw new IllegalArgumentException("以下参数必须指定其一: " + group);
             }

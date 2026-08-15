@@ -2,6 +2,7 @@ package com.flora.shell;
 
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.java.CheckUtil;
+import com.flora.root.tag.ReadOnly;
 
 import java.util.List;
 
@@ -16,6 +17,7 @@ import java.util.List;
  * 归一化在场景边界完成（argv 切成 argv 序列；Agent JSON 解析为 {@code JsonObject}），组件只接收本对象，
  * 不再二次猜测。</p>
  */
+@ReadOnly
 public final class InputEvent {
 
     /** 调用描述的形态。 */

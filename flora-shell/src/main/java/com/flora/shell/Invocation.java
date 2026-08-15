@@ -3,6 +3,7 @@ package com.flora.shell;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.java.CheckUtil;
 import com.flora.root.runtime.log.Logger;
+import com.flora.root.tag.ReadOnly;
 import com.flora.shell.spec.ParsedArgs;
 
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.List;
  * <p>命令需要把请求转给另一个命令时，用 {@link #forward}（内部委托 {@link #dispatcher}，
  * 重入完整分派管线），如用于构建 alias、--help、子命令分发等能力。</p>
  */
+@ReadOnly
 public final class Invocation {
 
     private final Command command;

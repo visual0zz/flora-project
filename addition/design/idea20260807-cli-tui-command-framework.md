@@ -78,7 +78,7 @@ com.flora.shell
 ├── Dispatcher               # 分派门面：命令执行中转发重入分派的入口
 ├── Invocation               # 调用上下文：命令 + 参数 + 来源 + 转发入口
 ├── InputEvent               # 归一化输入（来源 + 命令调用描述：argv / 结构化 / cliArgs）
-├── CommandResult            # 执行结果（状态 / 退出码 / 结构化数据；文本经日志记录）
+├── CommandResult            # 执行结果（状态 / 结构化数据；进程退出值由调用方按状态判定）
 ├── CommandObserver          # 命令执行观察者回调接口（event, result）
 ├── CommandSink              # 观察 sink 句柄（newSink 返回，可 close）
 ├── builtin/                 # 内置指令（预制）：help / alias / gui（HelpRenderer 内嵌于 HelpCommand）
@@ -224,7 +224,7 @@ CommandSink sink = commandService.newSink((event, result) -> { ... });  // 注�
 sink.close();                                                            // 移除
 ```
 
-**本期契约**：`CommandResult` 只表达**状态 + 退出码 + 结构化数据**，不携带文本信息；一切文本（成功或报错）都是描述性的，统一经日志记录——`CommandService` 构造时可注入 `Logger`（否则自建），内部错误用它记录，并把底层 logger 包装成带命令名标注的命令级 logger 经 `Invocation.log()` 交给命令记录内部过程。每次执行完毕把 `InputEvent` + `CommandResult` 交给所有已注册的 `CommandSink`（结构化观察者）。需要结构化消费（TUI 渲染、微信回写、收集）的宿主用 `newSink` 注册观察者，`close()` 即可移除；单个 sink 抛异常不影响其他 sink 与主流程。
+**本期契约**：`CommandResult` 只表达**状态 + 结构化数据**，不携带文本信息也不带退出码；进程退出值由调用方按 `status()`（成功→0，否则→1）判定。一切文本（成功或报错）都是描述性的，统一经日志记录——`CommandService` 构造时可注入 `Logger`（否则自建），内部错误用它记录，并把底层 logger 包装成带命令名标注的命令级 logger 经 `Invocation.log()` 交给命令记录内部过程。每次执行完毕把 `InputEvent` + `CommandResult` 交给所有已注册的 `CommandSink`（结构化观察者）。需要结构化消费（TUI 渲染、微信回写、收集）的宿主用 `newSink` 注册观察者，`close()` 即可移除；单个 sink 抛异常不影响其他 sink 与主流程。
 
 ### 7.5 状态与上下文
 

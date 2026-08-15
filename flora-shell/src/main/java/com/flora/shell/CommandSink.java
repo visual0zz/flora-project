@@ -1,10 +1,13 @@
 package com.flora.shell;
 
+import com.flora.root.tag.ThreadFragile;
+
 /**
  * 命令观察 sink：{@link CommandService#newSink} 返回的注册句柄。
  * <p>创建后，每次命令执行完毕都会把 {@link InputEvent} 与 {@link CommandResult} 交给其
  * 观察者；调用 {@link #close()} 后该 sink 被移除，不再接收后续回调。</p>
  */
+@ThreadFragile("close 与回调并发：closed 标志需同步，观察者回调可能在其他线程执行")
 public final class CommandSink {
 
     private final CommandObserver observer;

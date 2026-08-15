@@ -1,17 +1,19 @@
 package com.flora.shell;
 
 import com.flora.root.java.CheckUtil;
+import com.flora.root.tag.ReadOnly;
 
 import java.util.Objects;
 
 /**
  * 命令执行结果。
- * <p>只表达执行的状态、退出码与结构化数据；一切文本信息（成功或报错）都是描述性质的，
+ * <p>只表达执行的状态与结构化数据；一切文本信息（成功或报错）都是描述性质的，
  * 统一通过日志记录，不进本对象。命令在 {@code execute} 中用 {@code Invocation.log()}
  * 记录文本，用 {@link #data(Object)} 返回机器可读的结构化结果。</p>
  * <p>状态（{@link Status}）区分三类结果：命令成功、命令自身的错误（如参数/业务错误）、
- * 框架/系统错误（如来源不符、未知命令、执行异常）。退出码供批量入口决定进程退出值。</p>
+ * 框架/系统错误（如来源不符、未知命令、执行异常）。进程退出值由调用方按状态判定。</p>
  */
+@ReadOnly
 public final class CommandResult {
 
     /** 结果状态。 */
@@ -24,34 +26,26 @@ public final class CommandResult {
         SYSTEM_ERROR
     }
 
-    /** 成功的退出码。 */
-    public static final int SUCCESS = 0;
-
-    /** 失败（命令错误 / 系统错误）的统一退出码。 */
-    public static final int FAILURE = 1;
-
     private final Status status;
-    private final int exitCode;
     private final Object data;
 
-    private CommandResult(Status status, int exitCode, Object data) {
+    private CommandResult(Status status, Object data) {
         this.status = CheckUtil.notNull(status, "状态不能为空");
-        this.exitCode = exitCode;
         this.data = data;
     }
 
     /**
-     * @return 成功结果，状态 SUCCESS、退出码 0、无数据
+     * @return 成功结果，状态 SUCCESS、无数据
      */
     public static CommandResult success() {
-        return new CommandResult(Status.SUCCESS, SUCCESS, null);
+        return new CommandResult(Status.SUCCESS, null);
     }
 
     /**
-     * @return 命令错误结果，状态 COMMAND_ERROR、退出码 1、无数据
+     * @return 命令错误结果，状态 COMMAND_ERROR、无数据
      */
     public static CommandResult failure() {
-        return new CommandResult(Status.COMMAND_ERROR, FAILURE, null);
+        return new CommandResult(Status.COMMAND_ERROR, null);
     }
 
     /**
@@ -65,7 +59,7 @@ public final class CommandResult {
      * @return 框架 / 系统错误结果（报错详情由调用方记日志）
      */
     public static CommandResult systemError() {
-        return new CommandResult(Status.SYSTEM_ERROR, FAILURE, null);
+        return new CommandResult(Status.SYSTEM_ERROR, null);
     }
 
     /**
@@ -73,7 +67,7 @@ public final class CommandResult {
      * @return 成功且携带结构化数据的结果
      */
     public static CommandResult data(Object data) {
-        return new CommandResult(Status.SUCCESS, SUCCESS, CheckUtil.notNull(data, "结果数据不能为空"));
+        return new CommandResult(Status.SUCCESS, CheckUtil.notNull(data, "结果数据不能为空"));
     }
 
     /**
@@ -81,13 +75,6 @@ public final class CommandResult {
      */
     public Status status() {
         return status;
-    }
-
-    /**
-     * @return 退出码
-     */
-    public int exitCode() {
-        return exitCode;
     }
 
     /**
@@ -99,7 +86,6 @@ public final class CommandResult {
 
     @Override
     public String toString() {
-        return "CommandResult{status=" + status + ", exitCode=" + exitCode
-                + ", data=" + Objects.toString(data) + '}';
+        return "CommandResult{status=" + status + ", data=" + Objects.toString(data) + '}';
     }
 }

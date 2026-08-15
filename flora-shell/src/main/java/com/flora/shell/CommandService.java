@@ -3,6 +3,7 @@ package com.flora.shell;
 import com.flora.root.java.CheckUtil;
 import com.flora.root.runtime.log.Logger;
 import com.flora.root.runtime.log.LoggerFactory;
+import com.flora.root.tag.ThreadFragile;
 import com.flora.shell.builtin.AliasCommand;
 import com.flora.shell.builtin.HelpCommand;
 import com.flora.shell.spec.ArgParser;
@@ -32,6 +33,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>同名冲突裁决：用户命令与内置指令冲突时按 {@code priority()} 高者胜出（内置指令为负，
  * 用户命令可覆写内置指令）；用户命令之间同名冲突直接抛异常（视为 bug），不裁决。</p>
  */
+@ThreadFragile("串行分派依赖 ReentrantLock 与 depth 字段，sink 回调可能在锁内重入")
 public final class CommandService implements Dispatcher {
 
     /** 转发 / 别名解析的最大递归深度，超过则视为存在环并拒绝。 */

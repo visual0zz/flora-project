@@ -44,7 +44,7 @@ class CommandComponentTest {
         commandService.register(new EchoCommand());
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("hello")));
-        assertEquals(CommandResult.SUCCESS, result.exitCode());
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
         assertEquals("echo:hello", result.data());
     }
 
@@ -53,7 +53,7 @@ class CommandComponentTest {
         CommandService commandService = new CommandService(UsageScenario.CLI);
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "nope", List.of()));
-        assertEquals(CommandResult.FAILURE, result.exitCode());
+        assertEquals(CommandResult.Status.SYSTEM_ERROR, result.status());
     }
 
     @Test
@@ -126,16 +126,16 @@ class CommandComponentTest {
         // 注册进 AGENT 场景的组件则允许
         CommandService agentService = new CommandService(UsageScenario.AGENT);
         agentService.register(new RestrictedCommand());
-        assertEquals(CommandResult.SUCCESS, agentService.submit(
-                InputEvent.ofJson(UsageScenario.AGENT, "restricted", new JsonObject())).exitCode());
+        assertEquals(CommandResult.Status.SUCCESS, agentService.submit(
+                InputEvent.ofJson(UsageScenario.AGENT, "restricted", new JsonObject())).status());
     }
 
     @Test
     void cliArgsRunAndReturnExitCode() {
         CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
-        int exitCode = commandService.submit(InputEvent.ofCliArgs(List.of("echo", "x"))).exitCode();
-        assertEquals(CommandResult.SUCCESS, exitCode);
+        assertEquals(CommandResult.Status.SUCCESS, commandService
+                .submit(InputEvent.ofCliArgs(List.of("echo", "x"))).status());
     }
 
     @Test
@@ -149,8 +149,8 @@ class CommandComponentTest {
         CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
         // help 是注册的命令，可被显式调用（返回成功并渲染）
-        int exitCode = commandService.submit(InputEvent.ofCliArgs(List.of("help"))).exitCode();
-        assertEquals(CommandResult.SUCCESS, exitCode);
+        assertEquals(CommandResult.Status.SUCCESS, commandService
+                .submit(InputEvent.ofCliArgs(List.of("help"))).status());
     }
 
     @Test
@@ -158,15 +158,15 @@ class CommandComponentTest {
         // 框架不再默认拦截 --help：它会被当作命令名，未注册则失败
         CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
-        int exitCode = commandService.submit(InputEvent.ofCliArgs(List.of("--help"))).exitCode();
-        assertEquals(CommandResult.FAILURE, exitCode);
+        assertEquals(CommandResult.Status.SYSTEM_ERROR, commandService
+                .submit(InputEvent.ofCliArgs(List.of("--help"))).status());
     }
 
     @Test
     void unknownCommandReturnsFailure() {
         CommandService commandService = new CommandService(UsageScenario.CLI);
-        int exitCode = commandService.submit(InputEvent.ofCliArgs(List.of("nope"))).exitCode();
-        assertEquals(CommandResult.FAILURE, exitCode);
+        assertEquals(CommandResult.Status.SYSTEM_ERROR, commandService
+                .submit(InputEvent.ofCliArgs(List.of("nope"))).status());
     }
 
     @Test
@@ -196,7 +196,7 @@ class CommandComponentTest {
         commandService.register(new EchoCommand());
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "alias", List.of("e", "echo")));
-        assertEquals(CommandResult.SUCCESS, result.exitCode());
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
         assertEquals("echo", commandService.aliases().get("e").target());
     }
 
@@ -218,7 +218,7 @@ class CommandComponentTest {
         // 别名环 a->b->a... 应被深度上限拦截，不无限递归
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "a", List.of()));
-        assertEquals(CommandResult.FAILURE, result.exitCode());
+        assertEquals(CommandResult.Status.SYSTEM_ERROR, result.status());
     }
 
     @Test

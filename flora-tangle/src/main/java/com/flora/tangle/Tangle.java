@@ -1,5 +1,6 @@
 package com.flora.tangle;
 
+import com.flora.shell.CommandResult;
 import com.flora.shell.CommandService;
 import com.flora.shell.InputEvent;
 import com.flora.shell.UsageScenario;
@@ -33,7 +34,8 @@ public final class Tangle {
         List<String> cliArgs = new ArrayList<>(args.length + 1);
         cliArgs.add("tangle.obfuscate");
         cliArgs.addAll(List.of(args));
-        int exitCode = commandService.submit(InputEvent.ofCliArgs(cliArgs)).exitCode();
+        int exitCode = commandService.submit(InputEvent.ofCliArgs(cliArgs))
+                .status() == CommandResult.Status.SUCCESS ? 0 : 1;
         if (exitCode != 0) {
             System.exit(exitCode);
         }

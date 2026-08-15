@@ -66,6 +66,8 @@ public final class SanctumGui {
     private final Map<UUID, DefaultMutableTreeNode> groupNodes = new LinkedHashMap<>();
     private JList<String> entryList;
     private DefaultListModel<String> entryModel;
+    /** 与 entryModel 平行的条目 UUID 列表（UI 只显示名称，按索引定位 UUID）。 */
+    private final List<UUID> entryUuids = new ArrayList<>();
     private JPanel editPanel;
     private JLabel statusLabel;
     private UUID selectedEntry;
@@ -480,6 +482,7 @@ public final class SanctumGui {
 
     private void refreshEntryList(String filter) {
         entryModel.clear();
+        entryUuids.clear();
         UUID groupId = currentGroupId();
         String q = filter == null ? "" : filter.trim().toLowerCase();
         for (UUID u : sanctum.listObjectUuids()) {
@@ -495,7 +498,8 @@ public final class SanctumGui {
             if (!q.isEmpty() && !matchesFilter(u, q)) {
                 continue;
             }
-            entryModel.addElement(n.getString("name") + "  [" + u + "]");
+            entryModel.addElement(n.getString("name"));
+            entryUuids.add(u);
         }
     }
 
@@ -527,15 +531,23 @@ public final class SanctumGui {
     }
 
     private void showSelectedEntry() {
-        String sel = entryList.getSelectedValue();
-        if (sel == null) {
+        UUID u = selectedEntryUuid();
+        if (u == null) {
             selectedEntry = null;
             clearEditPanel();
             return;
         }
-        String uuidStr = sel.substring(sel.lastIndexOf('[') + 1, sel.lastIndexOf(']'));
-        selectedEntry = UUID.fromString(uuidStr);
+        selectedEntry = u;
         renderEntry(selectedEntry);
+    }
+
+    /** 当前选中条目（按列表索引从平行 UUID 列表解析）。 */
+    private UUID selectedEntryUuid() {
+        int idx = entryList.getSelectedIndex();
+        if (idx < 0 || idx >= entryUuids.size()) {
+            return null;
+        }
+        return entryUuids.get(idx);
     }
 
     private void clearEditPanel() {
@@ -551,14 +563,18 @@ public final class SanctumGui {
         if (entry == null) {
             return;
         }
-        // 名称：可编辑
+        // 名称：必填，可编辑
         JPanel nameRow = new JPanel(new BorderLayout(6, 0));
-        JLabel nameTag = new JLabel("名称:");
+        JLabel nameTag = new JLabel("名称*");
         nameTag.setFont(nameTag.getFont().deriveFont(Font.BOLD, 14f));
+        nameTag.setForeground(new java.awt.Color(180, 60, 60));
         JTextField nameField = new JTextField(entry.getString("name"));
         nameRow.add(nameTag, BorderLayout.WEST);
         nameRow.add(nameField, BorderLayout.CENTER);
         editPanel.add(nameRow);
+        JLabel legend = new JLabel("名称与密码为必填，其余字段可选（× 删除可选字段）");
+        legend.setFont(legend.getFont().deriveFont(Font.ITALIC, 10f));
+        editPanel.add(legend);
 
         // 该条目的字段（parent=entryUuid 的 field）
         Map<UUID, JTextField> fieldInputs = new LinkedHashMap<>();
@@ -570,28 +586,37 @@ public final class SanctumGui {
                 String val = field.getString("value");
                 String kind = field.getString("kind");
                 JPanel row = new JPanel(new BorderLayout(6, 0));
-                JLabel fLabel = new JLabel(fn + " :");
+                boolean isPassword = "password".equals(kind)
+                        || (kind == null && "password".equals(fn));
+                JLabel fLabel = new JLabel((isPassword ? "密码*" : fn) + " :");
                 fLabel.setPreferredSize(new Dimension(110, 24));
+                if (isPassword) {
+                    fLabel.setForeground(new java.awt.Color(180, 60, 60));
+                    fLabel.setFont(fLabel.getFont().deriveFont(Font.BOLD));
+                }
                 JTextField fValue = new JTextField(val == null ? "" : val);
                 fValue.setToolTipText(kind == null ? "text" : kind);
-                JButton delField = new JButton("×");
-                delField.setToolTipText("删除字段 " + fn);
-                delField.setMargin(new Insets(0, 0, 0, 0));
-                delField.setPreferredSize(new Dimension(24, 24));
-                UUID fieldId = f;
-                delField.addActionListener(e -> {
-                    resetAutoLock();
-                    try {
-                        sanctum.deleteField(fieldId);
-                        renderEntry(entryUuid);
-                        statusLabel.setText("字段已删除");
-                    } catch (Exception ex) {
-                        statusLabel.setText("删除失败");
-                    }
-                });
                 row.add(fLabel, BorderLayout.WEST);
                 row.add(fValue, BorderLayout.CENTER);
-                row.add(delField, BorderLayout.EAST);
+                // 可选字段可删除；密码为必填，不提供删除
+                if (!isPassword) {
+                    JButton delField = new JButton("×");
+                    delField.setToolTipText("删除字段 " + fn);
+                    delField.setMargin(new Insets(0, 0, 0, 0));
+                    delField.setPreferredSize(new Dimension(24, 24));
+                    UUID fieldId = f;
+                    delField.addActionListener(e -> {
+                        resetAutoLock();
+                        try {
+                            sanctum.deleteField(fieldId);
+                            renderEntry(entryUuid);
+                            statusLabel.setText("字段已删除");
+                        } catch (Exception ex) {
+                            statusLabel.setText("删除失败");
+                        }
+                    });
+                    row.add(delField, BorderLayout.EAST);
+                }
                 // TOTP 字段显示验证码
                 if ("totp".equals(kind)) {
                     try {
@@ -610,7 +635,25 @@ public final class SanctumGui {
         JButton saveBtn = new JButton("保存");
         saveBtn.addActionListener(e -> {
             String newName = nameField.getText().trim();
-            if (!newName.isEmpty() && !newName.equals(entry.getString("name"))) {
+            if (newName.isEmpty()) {
+                statusLabel.setText("条目名称必填");
+                return;
+            }
+            // 密码为必填字段
+            for (Map.Entry<UUID, JTextField> fe : fieldInputs.entrySet()) {
+                JsonObject fobj = sanctum.getEntry(fe.getKey());
+                if (fobj == null) {
+                    continue;
+                }
+                String fkind = fobj.getString("kind");
+                String ffn = fobj.getString("fieldName");
+                boolean pwd = "password".equals(fkind) || (fkind == null && "password".equals(ffn));
+                if (pwd && fe.getValue().getText().trim().isEmpty()) {
+                    statusLabel.setText("密码必填");
+                    return;
+                }
+            }
+            if (!newName.equals(entry.getString("name"))) {
                 try {
                     sanctum.renameEntry(entryUuid, newName);
                 } catch (Exception ex) {
@@ -739,19 +782,58 @@ public final class SanctumGui {
 
     // ================= 新建 / 删除 =================
 
+    /**
+     * 新建条目。必填：条目名称、密码；可选：用户名。
+     * 用表单对话框一次录入，避免"空条目再补字段"的别扭流程。
+     */
     private void doNewEntry() {
         UUID groupId = currentGroupId();
-        String name = JOptionPane.showInputDialog(frame, "条目名称:");
-        if (name == null || name.isBlank()) {
+        JTextField nameField = new JTextField(16);
+        JTextField userField = new JTextField(16);
+        JPasswordField pwField = new JPasswordField(16);
+        JPanel form = new JPanel(new GridLayout(0, 2, 8, 8));
+        form.add(label("名称 *"));
+        form.add(nameField);
+        form.add(label("用户名"));
+        form.add(userField);
+        form.add(label("密码 *"));
+        form.add(pwField);
+        int ok = JOptionPane.showConfirmDialog(frame, form, "新建条目", JOptionPane.OK_CANCEL_OPTION);
+        if (ok != JOptionPane.OK_OPTION) {
+            return;
+        }
+        String name = nameField.getText().trim();
+        if (name.isEmpty()) {
+            statusLabel.setText("条目名称必填");
+            return;
+        }
+        char[] pw = pwField.getPassword();
+        if (pw.length == 0) {
+            statusLabel.setText("密码必填");
+            java.util.Arrays.fill(pw, (char) 0);
             return;
         }
         Map<String, String> fields = new LinkedHashMap<>();
-        fields.put("username", "");
-        fields.put("password", "");
-        sanctum.createEntry(groupId, name.trim(), fields);
+        String username = userField.getText().trim();
+        if (!username.isEmpty()) {
+            fields.put("username", username);
+        }
+        fields.put("password", new String(pw));
+        java.util.Arrays.fill(pw, (char) 0);
+        sanctum.createEntry(groupId, name, fields);
         refreshEntryList(currentSearchQuery());
         rebuildGroupTree();
         resetAutoLock();
+        statusLabel.setText("已新建条目 " + name);
+    }
+
+    private JLabel label(String text) {
+        JLabel l = new JLabel(text);
+        if (text.endsWith(" *")) {
+            l.setForeground(new java.awt.Color(180, 60, 60));
+            l.setFont(l.getFont().deriveFont(Font.BOLD));
+        }
+        return l;
     }
 
     private void doNewGroup() {
@@ -766,12 +848,11 @@ public final class SanctumGui {
     }
 
     private void doDelete() {
-        String sel = entryList.getSelectedValue();
-        if (sel != null) {
-            String uuidStr = sel.substring(sel.lastIndexOf('[') + 1, sel.lastIndexOf(']'));
+        UUID entryUuid = selectedEntryUuid();
+        if (entryUuid != null) {
             int ok = JOptionPane.showConfirmDialog(frame, "删除该条目?", "确认", JOptionPane.YES_NO_OPTION);
             if (ok == JOptionPane.YES_OPTION) {
-                sanctum.deleteEntry(UUID.fromString(uuidStr));
+                sanctum.deleteEntry(entryUuid);
                 refreshEntryList(currentSearchQuery());
                 resetAutoLock();
             }

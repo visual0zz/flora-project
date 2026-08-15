@@ -37,13 +37,8 @@ public final class ExportCommand implements Command {
     public CommandResult execute(Invocation ctx) throws Exception {
         Path root = Path.of(ctx.args().get("path").asString());
         Path out = Path.of(ctx.args().get("out").asString());
-        char[] pw = MainUtil.readPassword("master password");
-        try (Sanctum s = Sanctum.open(root)) {
-            s.unlock(pw);
-            s.exportArchive(out);
-        } finally {
-            java.util.Arrays.fill(pw, (char) 0);
-        }
+        try (Sanctum s = MainUtil.openUnlocked(root)) {
+            s.exportArchive(out);}
         ctx.log().info("exported to " + out);
         return CommandResult.success();
     }

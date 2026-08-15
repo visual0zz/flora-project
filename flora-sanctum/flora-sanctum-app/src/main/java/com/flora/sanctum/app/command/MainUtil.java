@@ -1,9 +1,12 @@
 package com.flora.sanctum.app.command;
 
+import com.flora.sanctum.model.Sanctum;
+
 import java.io.Console;
+import java.nio.file.Path;
 
 /**
- * 命令通用工具：主密码读取（控制台或环境变量）。
+ * 命令通用工具：主密码读取（控制台或环境变量）与库打开。
  */
 public final class MainUtil {
 
@@ -25,5 +28,21 @@ public final class MainUtil {
             throw new IllegalStateException("SANCTUM_PASSWORD not set and no console");
         }
         return env.toCharArray();
+    }
+
+    /**
+     * 打开并解锁一个库（读主密码，finally 清密码）。
+     *
+     * @return 已解锁的 Sanctum（调用方负责 close）
+     */
+    static Sanctum openUnlocked(Path root) throws Exception {
+        char[] pw = readPassword("master password");
+        try {
+            Sanctum s = Sanctum.open(root);
+            s.unlock(pw);
+            return s;
+        } finally {
+            java.util.Arrays.fill(pw, (char) 0);
+        }
     }
 }

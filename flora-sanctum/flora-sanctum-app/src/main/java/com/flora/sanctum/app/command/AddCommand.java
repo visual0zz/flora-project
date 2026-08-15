@@ -39,14 +39,9 @@ public final class AddCommand implements Command {
     public CommandResult execute(Invocation ctx) throws Exception {
         Path root = Path.of(ctx.args().get("path").asString());
         String name = ctx.args().get("name").asString();
-        char[] pw = MainUtil.readPassword("master password");
-        try (Sanctum s = Sanctum.open(root)) {
-            s.unlock(pw);
+        try (Sanctum s = MainUtil.openUnlocked(root)) {
             UUID uuid = s.createEntry(null, name, Map.of());
-            ctx.log().info("added " + name + " -> " + uuid);
-        } finally {
-            java.util.Arrays.fill(pw, (char) 0);
-        }
+            ctx.log().info("added " + name + " -> " + uuid);}
         return CommandResult.success();
     }
 }

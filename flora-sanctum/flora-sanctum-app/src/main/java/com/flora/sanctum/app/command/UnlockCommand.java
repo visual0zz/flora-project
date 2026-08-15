@@ -33,12 +33,8 @@ public final class UnlockCommand implements Command {
     @Override
     public CommandResult execute(Invocation ctx) throws Exception {
         Path root = Path.of(ctx.args().get("path").asString());
-        char[] pw = MainUtil.readPassword("master password");
-        try (Sanctum s = Sanctum.open(root)) {
-            s.unlock(pw);
+        try (Sanctum s = MainUtil.openUnlocked(root)) {
             ctx.log().info("unlocked " + root + ", objects=" + s.objectCount());
-        } finally {
-            java.util.Arrays.fill(pw, (char) 0);
         }
         return CommandResult.success();
     }

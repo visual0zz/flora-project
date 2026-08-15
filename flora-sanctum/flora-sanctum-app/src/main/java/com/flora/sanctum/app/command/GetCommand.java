@@ -40,14 +40,9 @@ public final class GetCommand implements Command {
     public CommandResult execute(Invocation ctx) throws Exception {
         Path root = Path.of(ctx.args().get("path").asString());
         UUID uuid = UUID.fromString(ctx.args().get("uuid").asString());
-        char[] pw = MainUtil.readPassword("master password");
-        try (Sanctum s = Sanctum.open(root)) {
-            s.unlock(pw);
+        try (Sanctum s = MainUtil.openUnlocked(root)) {
             JsonObject n = s.getEntry(uuid);
-            ctx.log().info(n == null ? "not found" : JsonUtil.toJsonString(n));
-        } finally {
-            java.util.Arrays.fill(pw, (char) 0);
-        }
+            ctx.log().info(n == null ? "not found" : JsonUtil.toJsonString(n));}
         return CommandResult.success();
     }
 }

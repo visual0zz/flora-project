@@ -35,17 +35,13 @@ public final class ListCommand implements Command {
     @Override
     public CommandResult execute(Invocation ctx) throws Exception {
         Path root = Path.of(ctx.args().get("path").asString());
-        char[] pw = MainUtil.readPassword("master password");
-        try (Sanctum s = Sanctum.open(root)) {
-            s.unlock(pw);
+        try (Sanctum s = MainUtil.openUnlocked(root)) {
             StringBuilder sb = new StringBuilder();
             for (UUID u : s.listObjectUuids()) {
                 JsonObject n = s.getEntry(u);
                 sb.append(u).append(' ').append(n == null ? "?" : n.getString("type") + "/" + n.getString("name")).append('\n');
             }
             ctx.log().info(sb.toString().stripTrailing());
-        } finally {
-            java.util.Arrays.fill(pw, (char) 0);
         }
         return CommandResult.success();
     }

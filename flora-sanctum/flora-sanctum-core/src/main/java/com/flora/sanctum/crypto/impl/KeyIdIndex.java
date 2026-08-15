@@ -71,8 +71,13 @@ public final class KeyIdIndex {
         }
     }
 
-    /** 清空（锁定/解锁失败时）。 */
+    /** 清空并擦除内部 DEK 副本（锁定/解锁失败时，见设计 03"内存秘密清除"）。 */
     public void clear() {
+        for (List<byte[]> list : index.values()) {
+            for (byte[] dek : list) {
+                java.util.Arrays.fill(dek, (byte) 0);
+            }
+        }
         index.clear();
     }
 

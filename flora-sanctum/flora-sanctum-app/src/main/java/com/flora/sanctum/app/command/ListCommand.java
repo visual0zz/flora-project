@@ -39,7 +39,7 @@ public final class ListCommand implements Command {
         try (Sanctum s = Sanctum.open(root)) {
             s.unlock(pw);
             StringBuilder sb = new StringBuilder();
-            for (UUID u : s.store().list()) {
+            for (UUID u : s.listObjectUuids()) {
                 JsonObject n = s.getEntry(u);
                 sb.append(u).append(' ').append(n == null ? "?" : n.getString("type") + "/" + n.getString("name")).append('\n');
             }

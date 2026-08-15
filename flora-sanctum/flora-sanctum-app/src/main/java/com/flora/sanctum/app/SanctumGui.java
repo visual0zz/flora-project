@@ -325,7 +325,7 @@ public final class SanctumGui extends Application {
 
     private void refreshEntryList() {
         entryList.getItems().clear();
-        for (UUID u : sanctum.store().list()) {
+        for (UUID u : sanctum.listObjectUuids()) {
             JsonObject n = sanctum.getEntry(u);
             if (n != null) {
                 entryList.getItems().add(n.getString("type") + ": " + n.getString("name") + "  [" + u + "]");

@@ -24,7 +24,7 @@ import java.util.UUID;
 public final class Sanctum implements AutoCloseable {
 
     private final Path root;
-    private final MarkdownObjectStore store;
+    private final ObjectStore store;
     private Vault vault;
     private Directory directory;
 
@@ -132,13 +132,8 @@ public final class Sanctum implements AutoCloseable {
         System.arraycopy(json, 0, block, 22, json.length);
         byte xor = vault.random().nextByte();
         byte[] obf = com.flora.sanctum.store.BlockHeader.obfuscate(block, xor);
-        try {
-            java.nio.file.Files.writeString(root.resolve(uuid + ".md"),
-                    com.flora.root.codec.Base58.encode(obf) + "\n",
-                    java.nio.charset.StandardCharsets.UTF_8);
-        } catch (java.io.IOException e) {
-            throw new IllegalStateException("rewrite manifest failed", e);
-        }
+        // 经 ObjectStore 落盘（codec null = 裸明文写，见 04）
+        store.put(uuid, obf, null);
     }
 
     public boolean isUnlocked() {
@@ -158,8 +153,18 @@ public final class Sanctum implements AutoCloseable {
         return directory;
     }
 
-    public ObjectStore store() {
+    ObjectStore store() {
         return store;
+    }
+
+    /** 列出库中全部对象 UUID（领域方法，UI/CLI 用，不直接碰 store）。 */
+    public java.util.List<UUID> listObjectUuids() {
+        return store.list();
+    }
+
+    /** 库中对象数。 */
+    public int objectCount() {
+        return store.list().size();
     }
 
     public Path root() {
@@ -317,11 +322,7 @@ public final class Sanctum implements AutoCloseable {
     }
 
     private void writeCipherBlockWith(java.util.UUID uuid, JsonObject payload, byte[] keyMaterial) {
-        byte[] json = JsonUtil.toJsonString(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(keyMaterial, null, "sanctum-enc", 32);
-        com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, keyMaterial, vault.random());
-        byte[] block = codec.encode(uuid, json, codec.makeKeyIdWith(keyMaterial));
-        store.put(uuid, block, new com.flora.sanctum.store.impl.RawCodec());
+        writeCipherBlock(uuid, payload, keyMaterial);
     }
 
     /**
@@ -469,11 +470,7 @@ public final class Sanctum implements AutoCloseable {
 
     /** 用指定 DEK 写对象（供 icon/sshKey 按 role 路由）。 */
     private void writeObjectWithDek(UUID uuid, JsonObject payload, byte[] dek) {
-        byte[] json = JsonUtil.toJsonString(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(dek, null, "sanctum-enc", 32);
-        com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, dek, vault.random());
-        byte[] block = codec.encode(uuid, json, codec.makeKeyIdWith(dek));
-        store.put(uuid, block, new com.flora.sanctum.store.impl.RawCodec());
+        writeCipherBlock(uuid, payload, dek);
     }
 
 
@@ -590,12 +587,15 @@ public final class Sanctum implements AutoCloseable {
     }
 
     private void writeObject(UUID uuid, JsonObject payload, UUID groupId) {
+        writeCipherBlock(uuid, payload, resolveDekFor(groupId));
+    }
+
+    /** 统一密文写块：用指定 DEK 加密负载并经 ObjectStore 落盘（复用 CipherCodecAdapter）。 */
+    private void writeCipherBlock(UUID uuid, JsonObject payload, byte[] dek) {
         byte[] json = JsonUtil.toJsonString(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        byte[] dek = resolveDekFor(groupId);
         byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(dek, null, "sanctum-enc", 32);
         com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, dek, vault.random());
-        byte[] block = codec.encode(uuid, json, codec.makeKeyIdWith(dek));
-        store.put(uuid, block, new com.flora.sanctum.store.impl.RawCodec());
+        store.put(uuid, json, new com.flora.sanctum.store.impl.CipherCodecAdapter(codec, uuid));
     }
 
     private JsonObject readObject(UUID uuid) {

@@ -107,12 +107,7 @@ public final class VaultCreator {
         com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, keyMaterial, random);
         UUID uuid = UUID.randomUUID();
         byte[] block = codec.encode(uuid, json, codec.makeKeyIdWith(keyMaterial));
-        try {
-            Path f = ((com.flora.sanctum.store.impl.MarkdownObjectStore) store).root().resolve(uuid + ".md");
-            Files.writeString(f, Base58.encode(block) + "\n");
-        } catch (Exception e) {
-            throw new IllegalStateException("write cipher block failed", e);
-        }
+        store.put(uuid, block, null);
     }
 
     private void writePlaintextBlock(UUID uuid, com.flora.root.codec.json.model.JsonObject payload, byte flags) {
@@ -127,11 +122,6 @@ public final class VaultCreator {
         System.arraycopy(json, 0, block, 22, json.length);
         byte xor = random.nextByte();
         byte[] obf = BlockHeader.obfuscate(block, xor);
-        try {
-            Path f = ((com.flora.sanctum.store.impl.MarkdownObjectStore) store).root().resolve(uuid + ".md");
-            Files.writeString(f, Base58.encode(obf) + "\n");
-        } catch (Exception e) {
-            throw new IllegalStateException("write manifest/group failed", e);
-        }
+        store.put(uuid, obf, null);
     }
 }

@@ -36,7 +36,7 @@ public final class UnlockCommand implements Command {
         char[] pw = MainUtil.readPassword("master password");
         try (Sanctum s = Sanctum.open(root)) {
             s.unlock(pw);
-            ctx.log().info("unlocked " + root + ", objects=" + s.store().list().size());
+            ctx.log().info("unlocked " + root + ", objects=" + s.objectCount());
         } finally {
             java.util.Arrays.fill(pw, (char) 0);
         }

@@ -1,10 +1,11 @@
 package com.flora.shell.output;
 
 /**
- * 命令写输出的唯一门面。
- * <p>命令在 {@code execute} 中通过 {@code Invocation.out()} 拿到本接口的实例，
- * 只调 {@code print}/{@code println}/{@code error} 写输出，不直接触碰 {@code System.out}。
- * 这样同一份实现可同时跑在批量打印、未来 TUI 面板与微信回写上。</p>
+ * 输出门面。
+ * <p>命令不再直接写输出，而是把文本放进 {@link com.flora.shell.CommandResult}；
+ * {@link com.flora.shell.CommandService} 在 {@code execute} 返回后通过本接口把
+ * 结果的 {@code output()}/{@code error()} 扇出。这样同一份命令实现可同时跑在
+ * 批量打印、未来 TUI 面板与微信回写上。</p>
  * <p>实现方（通常为 {@link com.flora.shell.output.OutputMultiplexer}）负责把每次调用
  * 扇出到所有已挂载的 {@link com.flora.shell.output.OutputSink}；无挂载 sink 时退化直达
  * stdout/stderr。</p>

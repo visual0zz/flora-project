@@ -34,8 +34,7 @@ class CommandComponentTest {
 
         @Override
         public CommandResult execute(Invocation ctx) {
-            ctx.out().println("echo: " + ctx.args().get("text"));
-            return CommandResult.data("echo:" + ctx.args().get("text"));
+            return CommandResult.output("echo: " + ctx.args().get("text"));
         }
     }
 
@@ -46,7 +45,7 @@ class CommandComponentTest {
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("hello")));
         assertEquals(CommandResult.SUCCESS, result.exitCode());
-        assertEquals("echo:hello", result.data());
+        assertEquals("echo: hello", result.output());
     }
 
     @Test
@@ -148,7 +147,7 @@ class CommandComponentTest {
         commandService.setAlias("ec", "echo", List.of());
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "ec", List.of("hello")));
-        assertEquals("echo:hello", result.data());
+        assertEquals("echo: hello", result.output());
     }
 
     @Test
@@ -179,7 +178,7 @@ class CommandComponentTest {
         commandService.register(new ForwardingCommand());
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "forwarder", List.of("ping")));
-        assertEquals("echo:ping", result.data());
+        assertEquals("echo: ping", result.output());
     }
 
     @Test

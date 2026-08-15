@@ -227,13 +227,22 @@ public final class CommandService implements Dispatcher {
             out.error(e.getMessage());
             return CommandResult.exit(CommandResult.FAILURE);
         }
-        Invocation inv = new Invocation(command, parsed, out, event.source(), this);
+        Invocation inv = new Invocation(command, parsed, event.source(), this);
+        CommandResult result;
         try {
-            return command.execute(inv);
+            result = command.execute(inv);
         } catch (Exception e) {
             out.error("命令 " + command.name() + " 执行失败: " + e.getMessage());
             return CommandResult.exit(CommandResult.FAILURE);
         }
+        // 命令不再直接调用 out，输出统一经 CommandResult 返回，由框架扇出。
+        if (result.output() != null) {
+            out.println(result.output());
+        }
+        if (result.error() != null) {
+            out.error(result.error());
+        }
+        return result;
     }
 
     private ParsedArgs parse(Command command, InputEvent event) {

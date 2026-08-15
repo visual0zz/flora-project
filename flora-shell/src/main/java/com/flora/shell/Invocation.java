@@ -1,7 +1,6 @@
 package com.flora.shell;
 
 import com.flora.root.java.CheckUtil;
-import com.flora.shell.output.Output;
 import com.flora.shell.spec.ParsedArgs;
 
 import java.util.List;
@@ -9,8 +8,8 @@ import java.util.Map;
 
 /**
  * 调用上下文：一次具体命令执行的环境。
- * <p>聚合命令、解析后的参数、输出门面（{@link Output}）与来源渠道。
- * 命令在 {@code execute} 中通过本对象读参数、写输出、发起转发。</p>
+ * <p>聚合命令、解析后的参数、来源渠道与转发入口。命令在 {@code execute} 中通过本对象
+ * 读参数、发起转发；输出统一经 {@link CommandResult} 返回，不再直接写 {@code out}。</p>
  * <p>领域状态不由本对象承载：业务代码通过 {@link ScopedValue} 自行绑定，命令在
  * {@code execute} 内用 {@code ScopedValue.get(...)} 读取。框架不持有、不透传状态。</p>
  * <p>命令需要把请求转给另一个命令时，用 {@link #forward}（内部委托 {@link #dispatcher}，
@@ -20,21 +19,18 @@ public final class Invocation {
 
     private final Command command;
     private final ParsedArgs args;
-    private final Output out;
     private final UsageScenario source;
     private final Dispatcher dispatcher;
 
     /**
      * @param command    被执行的命令
      * @param args       解析后的参数
-     * @param out        输出门面
      * @param source     触发本次调用的使用场景
      * @param dispatcher 分派门面（用于命令发起转发）
      */
-    public Invocation(Command command, ParsedArgs args, Output out, UsageScenario source, Dispatcher dispatcher) {
+    public Invocation(Command command, ParsedArgs args, UsageScenario source, Dispatcher dispatcher) {
         this.command = CheckUtil.notNull(command, "命令不能为空");
         this.args = CheckUtil.notNull(args, "参数不能为空");
-        this.out = CheckUtil.notNull(out, "输出门面不能为空");
         this.source = CheckUtil.notNull(source, "使用场景不能为空");
         this.dispatcher = CheckUtil.notNull(dispatcher, "分派门面不能为空");
     }
@@ -51,13 +47,6 @@ public final class Invocation {
      */
     public ParsedArgs args() {
         return args;
-    }
-
-    /**
-     * @return 输出门面
-     */
-    public Output out() {
-        return out;
     }
 
     /**

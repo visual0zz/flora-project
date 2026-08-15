@@ -53,16 +53,13 @@ public final class HelpCommand implements Command {
         ParsedArgs args = ctx.args();
         String cmd = args.get("cmd");
         if (cmd == null || cmd.isBlank()) {
-            ctx.out().println(HelpRenderer.renderGlobal(commandService.commands()));
-        } else {
-            Command c = commandService.find(cmd);
-            if (c == null) {
-                ctx.out().error("未知命令: " + cmd);
-                return CommandResult.failure();
-            }
-            ctx.out().println(HelpRenderer.renderCommand(c));
+            return CommandResult.output(HelpRenderer.renderGlobal(commandService.commands()));
         }
-        return CommandResult.success();
+        Command c = commandService.find(cmd);
+        if (c == null) {
+            return CommandResult.error("未知命令: " + cmd);
+        }
+        return CommandResult.output(HelpRenderer.renderCommand(c));
     }
 
     /**

@@ -16,7 +16,7 @@ import java.util.List;
 /**
  * osmetes 检查命令：扫描指定根路径并打印报告。
  * <p>声明式定义参数（{@code sourceRoot}），经 {@code com.flora.shell} 框架解析与执行。
- * 输出经 {@code Invocation.out()} 写入，可同时到达批量 stdout 与未来挂载的输出汇。</p>
+ * 输出经 {@link CommandResult} 返回，由框架扇出到批量 stdout 与未来挂载的输出汇。</p>
  */
 public final class OsmetesCommand implements Command {
 
@@ -48,32 +48,32 @@ public final class OsmetesCommand implements Command {
         String rootArg = ctx.args().get("sourceRoot");
         Path root = Paths.get(rootArg).toAbsolutePath().normalize();
         if (!Files.isDirectory(root)) {
-            ctx.out().println(CLI_PREFIX + " 跳过（目录不存在）: " + root);
-            return CommandResult.success();
+            return CommandResult.output(CLI_PREFIX + " 跳过（目录不存在）: " + root);
         }
         List<CheckIssue> issues = Osmetes.run(root, Osmetes.discoverChecks());
-        print(ctx, issues);
+        String report = render(issues);
         long errors = Osmetes.countErrors(issues);
         if (errors > 0) {
-            ctx.out().error("osmetes 检查失败，共 " + errors + " 个错误、"
+            return CommandResult.error(report + "\n" + CLI_PREFIX + " 检查失败，共 " + errors + " 个错误、"
                     + Osmetes.countWarnings(issues) + " 个警告");
-            return CommandResult.failure();
         }
-        return CommandResult.success();
+        return CommandResult.output(report);
     }
 
-    private static void print(Invocation ctx, List<CheckIssue> issues) {
+    /** 渲染检查报告文本（含"检查通过"或问题明细）。 */
+    private static String render(List<CheckIssue> issues) {
         long errors = Osmetes.countErrors(issues);
         long warnings = Osmetes.countWarnings(issues);
         if (issues.isEmpty()) {
-            ctx.out().println(CLI_PREFIX + " 检查通过");
-            return;
+            return CLI_PREFIX + " 检查通过";
         }
-        ctx.out().println(CLI_PREFIX + " 共发现 " + errors + " 个错误、" + warnings + " 个警告：");
+        StringBuilder sb = new StringBuilder(CLI_PREFIX + " 共发现 " + errors + " 个错误、"
+                + warnings + " 个警告：");
         for (CheckIssue issue : issues) {
             String marker = issue.severity() == Severity.ERROR ? "ERROR" : "WARN ";
-            ctx.out().println(String.format("  [%s] %s [%s] %s%n",
+            sb.append('\n').append(String.format("  [%s] %s [%s] %s",
                     marker, issue.location(), issue.check(), issue.message()));
         }
+        return sb.toString();
     }
 }

@@ -7,13 +7,12 @@ import java.util.List;
 /**
  * 命令接口：一个命令一个类，自描述名称、参数、帮助与执行逻辑。
  * <p>声明层（{@code name}/{@code description}/{@code args}/{@code usage}）是 help、
- * 参数解析、Agent schema 的共同来源；执行层（{@code execute}）通过 {@link Invocation}
- * 读参数、写输出，不直接触碰 {@code System.out}。</p>
+ * 参数解析的共同来源；执行层（{@code execute}）通过 {@link Invocation}
+ * 读参数、返回结果，不直接触碰 {@code System.out}。</p>
  * <p>命令应无状态：领域状态由业务代码通过 {@link ScopedValue} 在调用前绑定，
  * 命令在 {@code execute} 内用 {@code ScopedValue.get(...)} 读取，不存于命令或框架内。</p>
- * <p>可选的接入方式特化接口见 {@link AgentToolCommand}。
- * "不实现任何特化接口"= 各接入方式通用。每个命令自报可用使用场景
- * （见 {@link #usageScenarios()}），且只能注册进绑定对应场景的 {@link CommandService}。</p>
+ * <p>每个命令自报可用使用场景（见 {@link #usageScenarios()}），且只能注册进绑定对应场景的
+ * {@link CommandService}。</p>
  */
 public interface Command {
 

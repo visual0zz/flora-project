@@ -231,10 +231,13 @@ public final class CommandService implements Dispatcher {
             logger.error("未知命令: {}（输入 help 查看可用命令）", event.commandName());
             return CommandResult.systemError();
         }
-        List<String> argv = new ArrayList<>(alias.prefixArgs());
-        if (event.kind() == InputEvent.Kind.ARGV) {
-            argv.addAll(event.argv());
+        // 别名不支持结构化调用：别名只按 argv 展开前缀 + 追加参数，结构化形态语义不清，直接拒绝。
+        if (event.kind() != InputEvent.Kind.ARGV) {
+            logger.error("别名 {} 不支持结构化调用", event.commandName());
+            return CommandResult.systemError();
         }
+        List<String> argv = new ArrayList<>(alias.prefixArgs());
+        argv.addAll(event.argv());
         return dispatch(InputEvent.ofArgs(event.source(), alias.target(), argv.toArray(new String[0])));
     }
 

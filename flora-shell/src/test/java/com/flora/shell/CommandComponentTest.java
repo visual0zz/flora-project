@@ -203,6 +203,17 @@ class CommandComponentTest {
     }
 
     @Test
+    void structuredCallToAliasIsRejected() {
+        CommandService commandService = new CommandService(UsageScenario.CLI);
+        commandService.register(new EchoCommand());
+        commandService.setAlias("ec", "echo", List.of());
+        // 别名不支持结构化调用，应返回 SYSTEM_ERROR
+        CommandResult result = commandService.submit(
+                InputEvent.ofJson(UsageScenario.CLI, "ec", new JsonObject().put("text", "x")));
+        assertEquals(CommandResult.Status.SYSTEM_ERROR, result.status());
+    }
+
+    @Test
     void forwardingViaInvocation() {
         CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());

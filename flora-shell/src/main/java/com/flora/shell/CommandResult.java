@@ -6,11 +6,11 @@ import java.util.Objects;
 
 /**
  * 命令执行结果。
- * <p>承载状态、退出码、文本消息与可选的结构化数据。命令通过本对象输出消息，
- * 不再直接写输出；框架在分派返回后把 {@link #message()} 交给各 sink（默认日志打印：
- * 成功记 info、错误记 error）。退出码供批量入口决定进程退出值。</p>
+ * <p>只表达执行的状态、退出码与结构化数据；一切文本信息（成功或报错）都是描述性质的，
+ * 统一通过日志记录，不进本对象。命令在 {@code execute} 中用 {@code Invocation.log()}
+ * 记录文本，用 {@link #data(Object)} 返回机器可读的结构化结果。</p>
  * <p>状态（{@link Status}）区分三类结果：命令成功、命令自身的错误（如参数/业务错误）、
- * 框架/系统错误（如来源不符、未知命令、执行异常）。</p>
+ * 框架/系统错误（如来源不符、未知命令、执行异常）。退出码供批量入口决定进程退出值。</p>
  */
 public final class CommandResult {
 
@@ -32,70 +32,48 @@ public final class CommandResult {
 
     private final Status status;
     private final int exitCode;
-    private final String message;
     private final Object data;
 
-    private CommandResult(Status status, int exitCode, String message, Object data) {
+    private CommandResult(Status status, int exitCode, Object data) {
         this.status = CheckUtil.notNull(status, "状态不能为空");
         this.exitCode = exitCode;
-        this.message = message;
         this.data = data;
     }
 
     /**
-     * @return 成功结果，状态 SUCCESS、退出码 0、无消息无数据
+     * @return 成功结果，状态 SUCCESS、退出码 0、无数据
      */
     public static CommandResult success() {
-        return new CommandResult(Status.SUCCESS, SUCCESS, null, null);
+        return new CommandResult(Status.SUCCESS, SUCCESS, null);
     }
 
     /**
-     * @return 命令错误结果，状态 COMMAND_ERROR、退出码 1、无消息无数据
+     * @return 命令错误结果，状态 COMMAND_ERROR、退出码 1、无数据
      */
     public static CommandResult failure() {
-        return new CommandResult(Status.COMMAND_ERROR, FAILURE, null, null);
+        return new CommandResult(Status.COMMAND_ERROR, FAILURE, null);
     }
 
     /**
-     * 成功且带一条消息的结果（默认日志按 info 打印）。
-     *
-     * @param message 输出消息
-     * @return 成功、携带消息的结果
+     * @return 命令自身错误结果（报错详情由调用方记日志）
      */
-    public static CommandResult output(String message) {
-        return new CommandResult(Status.SUCCESS, SUCCESS,
-                CheckUtil.notNull(message, "消息不能为空"), null);
+    public static CommandResult commandError() {
+        return failure();
     }
 
     /**
-     * 命令自身错误且带一条消息的结果（默认日志按 error 打印）。
-     *
-     * @param message 错误消息
-     * @return 命令错误、携带消息的结果
+     * @return 框架 / 系统错误结果（报错详情由调用方记日志）
      */
-    public static CommandResult commandError(String message) {
-        return new CommandResult(Status.COMMAND_ERROR, FAILURE,
-                CheckUtil.notNull(message, "消息不能为空"), null);
+    public static CommandResult systemError() {
+        return new CommandResult(Status.SYSTEM_ERROR, FAILURE, null);
     }
 
     /**
-     * 框架 / 系统错误且带一条消息的结果（默认日志按 error 打印）。
-     *
-     * @param message 错误消息
-     * @return 系统错误、携带消息的结果
-     */
-    public static CommandResult systemError(String message) {
-        return new CommandResult(Status.SYSTEM_ERROR, FAILURE,
-                CheckUtil.notNull(message, "消息不能为空"), null);
-    }
-
-    /**
-     * @param data 结构化返回数据
+     * @param data 结构化返回数据（机器可读）
      * @return 成功且携带结构化数据的结果
      */
     public static CommandResult data(Object data) {
-        return new CommandResult(Status.SUCCESS, SUCCESS, null,
-                CheckUtil.notNull(data, "结果数据不能为空"));
+        return new CommandResult(Status.SUCCESS, SUCCESS, CheckUtil.notNull(data, "结果数据不能为空"));
     }
 
     /**
@@ -113,13 +91,6 @@ public final class CommandResult {
     }
 
     /**
-     * @return 输出消息；可能为 {@code null}
-     */
-    public String message() {
-        return message;
-    }
-
-    /**
      * @return 结构化数据；可能为 {@code null}
      */
     public Object data() {
@@ -129,6 +100,6 @@ public final class CommandResult {
     @Override
     public String toString() {
         return "CommandResult{status=" + status + ", exitCode=" + exitCode
-                + ", message=" + Objects.toString(message) + ", data=" + Objects.toString(data) + '}';
+                + ", data=" + Objects.toString(data) + '}';
     }
 }

@@ -48,16 +48,19 @@ public final class OsmetesCommand implements Command {
         String rootArg = ctx.args().get("sourceRoot");
         Path root = Paths.get(rootArg).toAbsolutePath().normalize();
         if (!Files.isDirectory(root)) {
-            return CommandResult.output(CLI_PREFIX + " 跳过（目录不存在）: " + root);
+            ctx.log().info("{} 跳过（目录不存在）: {}", CLI_PREFIX, root);
+            return CommandResult.success();
         }
         List<CheckIssue> issues = Osmetes.run(root, Osmetes.discoverChecks());
         String report = render(issues);
         long errors = Osmetes.countErrors(issues);
         if (errors > 0) {
-            return CommandResult.commandError(report + "\n" + CLI_PREFIX + " 检查失败，共 " + errors + " 个错误、"
+            ctx.log().error(report + "\n" + CLI_PREFIX + " 检查失败，共 " + errors + " 个错误、"
                     + Osmetes.countWarnings(issues) + " 个警告");
+            return CommandResult.commandError();
         }
-        return CommandResult.output(report);
+        ctx.log().info(report);
+        return CommandResult.data(issues);
     }
 
     /** 渲染检查报告文本（含"检查通过"或问题明细）。 */

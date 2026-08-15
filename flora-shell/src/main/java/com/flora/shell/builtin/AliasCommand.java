@@ -73,7 +73,8 @@ public final class AliasCommand implements Command {
         String cmd = args.get("cmd");
         List<String> prefix = args.getStringList("args");
         commandService.setAlias(name, cmd, prefix);
-        return CommandResult.output("alias: " + name + " -> " + cmd
-                + (prefix.isEmpty() ? "" : " " + String.join(" ", prefix)));
+        ctx.log().info("alias: {} -> {}{}", name, cmd,
+                prefix.isEmpty() ? "" : " " + String.join(" ", prefix));
+        return CommandResult.success();
     }
 }

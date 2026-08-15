@@ -65,6 +65,7 @@ public final class TangleCommand implements Command {
         byte[] input = Files.readAllBytes(in);
         byte[] result = obf.obfuscate(input);
         Files.write(out, result);
-        return CommandResult.output("混淆完成: " + in + " -> " + out + " (" + result.length + " 字节)");
+        ctx.log().info("混淆完成: {} -> {} ({} 字节)", in, out, result.length);
+        return CommandResult.success();
     }
 }

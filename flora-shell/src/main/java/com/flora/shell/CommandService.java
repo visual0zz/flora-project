@@ -25,7 +25,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>分派规则：{@link #submit} 将输入加入串行队列（多渠道并发提交安全），校验调用来源
  * 与实例场景一致后，查找命令 + {@link ArgParser} 校验 → 构造 {@link Invocation} → 执行。
  * 每次执行完毕，把 {@link InputEvent} 与 {@link CommandResult} 交给所有已注册的 sink
- * （见 {@link #newSink}）；其中内置一个默认 sink 用日志打印结果文本（见 {@link Logger}）。</p>
+ * （见 {@link #newSink}）。内部错误与命令日志经 {@link Logger} 记录。</p>
  * <p>转发与别名：命令执行中可经 {@link Invocation#forward} 重入分派（{@link Dispatcher}）；
  * 分派未命中真实命令时按别名解析转发。转发与别名共享同一分派管线与递归深度上限，防止
  * 别名环导致的无限递归。</p>
@@ -47,8 +47,7 @@ public final class CommandService implements Dispatcher {
     private int depth;
 
     /**
-     * 创建绑定指定使用场景的指令组件，并注册内置 {@code help} 与 {@code alias} 指令，
-     * 以及一个用日志打印结果的默认 sink。
+     * 创建绑定指定使用场景的指令组件，并注册内置 {@code help} 与 {@code alias} 指令。
      *
      * @param scenario 本实例限定的使用场景，只接受支持该场景的命令注册
      */
@@ -57,24 +56,14 @@ public final class CommandService implements Dispatcher {
     }
 
     /**
-     * 创建绑定指定使用场景的指令组件，使用指定的日志器。
+     * 创建绑定指定使用场景的指令组件，使用指定的日志器（内部错误记录与命令日志）。
      *
      * @param scenario 本实例限定的使用场景
-     * @param logger   用于默认结果打印的日志器
+     * @param logger   用于内部错误记录与命令级日志的底层日志器
      */
     public CommandService(UsageScenario scenario, Logger logger) {
         this.scenario = CheckUtil.notNull(scenario, "使用场景不能为空");
         this.logger = CheckUtil.notNull(logger, "日志器不能为空");
-        // 默认 sink：把结果消息打到日志（成功记 info，错误记 error）。
-        sinks.add(new CommandSink((event, result) -> {
-            if (result.message() != null) {
-                if (result.status() == CommandResult.Status.SUCCESS) {
-                    logger.info(result.message());
-                } else {
-                    logger.error(result.message());
-                }
-            }
-        }, () -> { }));
         register(new HelpCommand(this));
         register(new AliasCommand(this));
     }
@@ -197,8 +186,8 @@ public final class CommandService implements Dispatcher {
     public CommandResult submit(InputEvent event) {
         CheckUtil.notNull(event, "输入事件不能为空");
         if (event.source() != scenario) {
-            CommandResult result = CommandResult.systemError(
-                    "调用来源 " + event.source() + " 与组件场景 " + scenario + " 不一致");
+            logger.error("调用来源 {} 与组件场景 {} 不一致", event.source(), scenario);
+            CommandResult result = CommandResult.systemError();
             notify(event, result);
             return result;
         }
@@ -219,8 +208,8 @@ public final class CommandService implements Dispatcher {
     private CommandResult dispatch(InputEvent event) {
         if (++depth > MAX_FORWARD_DEPTH) {
             depth--;
-            return CommandResult.systemError(
-                    "转发深度超出限制（可能存在别名环）: " + event.commandName());
+            logger.error("转发深度超出限制（可能存在别名环）: {}", event.commandName());
+            return CommandResult.systemError();
         }
         try {
             Command command = find(event.commandName());
@@ -237,8 +226,8 @@ public final class CommandService implements Dispatcher {
     private CommandResult dispatchAlias(InputEvent event) {
         Alias alias = aliases.get(event.commandName());
         if (alias == null) {
-            return CommandResult.systemError(
-                    "未知命令: " + event.commandName() + "（输入 help 查看可用命令）");
+            logger.error("未知命令: {}（输入 help 查看可用命令）", event.commandName());
+            return CommandResult.systemError();
         }
         List<String> argv = new ArrayList<>(alias.prefixArgs());
         if (event.kind() == InputEvent.Kind.ARGV) {
@@ -253,19 +242,21 @@ public final class CommandService implements Dispatcher {
         try {
             parsed = parse(command, event);
         } catch (IllegalArgumentException e) {
-            return CommandResult.commandError(e.getMessage());
+            logger.error("命令 {} 参数解析失败: {}", command.name(), e.getMessage());
+            return CommandResult.commandError();
         }
         Invocation inv = new Invocation(command, parsed, event.source(), this,
                 new CommandLogger(logger, command.name()));
         try {
             return command.execute(inv);
         } catch (Exception e) {
-            return CommandResult.systemError("命令 " + command.name() + " 执行失败: " + e.getMessage());
+            logger.error("命令 {} 执行失败", command.name(), e);
+            return CommandResult.systemError();
         }
     }
 
     /**
-     * 执行完毕后，把 (InputEvent, CommandResult) 交给所有 sink（含内置日志打印 sink）。
+     * 执行完毕后，把 (InputEvent, CommandResult) 交给所有已注册的 sink（结构化观察者）。
      * 单个 sink 抛异常不影响其他 sink 与主流程，仅记录日志。
      */
     private void notify(InputEvent event, CommandResult result) {

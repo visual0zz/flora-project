@@ -34,7 +34,7 @@ class CommandComponentTest {
 
         @Override
         public CommandResult execute(Invocation ctx) {
-            return CommandResult.output("echo: " + ctx.args().get("text"));
+            return CommandResult.data("echo:" + ctx.args().get("text"));
         }
     }
 
@@ -45,7 +45,7 @@ class CommandComponentTest {
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("hello")));
         assertEquals(CommandResult.SUCCESS, result.exitCode());
-        assertEquals("echo: hello", result.message());
+        assertEquals("echo:hello", result.data());
     }
 
     @Test
@@ -85,7 +85,7 @@ class CommandComponentTest {
         assertEquals(1, events.size());
         assertEquals("echo", events.get(0).commandName());
         assertEquals(1, results.size());
-        assertEquals("echo: fan", results.get(0).message());
+        assertEquals("echo:fan", results.get(0).data());
         assertEquals(CommandResult.Status.SUCCESS, results.get(0).status());
     }
 
@@ -95,11 +95,11 @@ class CommandComponentTest {
         commandService.register(new EchoCommand());
         List<String> seen = new ArrayList<>();
         CommandSink sink = commandService.newSink((event, result) ->
-                seen.add(result.message()));
+                seen.add(String.valueOf(result.data())));
         commandService.submit(InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("one")));
         sink.close();
         commandService.submit(InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("two")));
-        assertEquals(List.of("echo: one"), seen);
+        assertEquals(List.of("echo:one"), seen);
     }
 
     @Test
@@ -111,11 +111,11 @@ class CommandComponentTest {
         commandService.newSink((event, result) -> {
             throw new IllegalStateException("模拟 sink 异常");
         });
-        commandService.newSink((event, result) -> seen.add(result.message()));
+        commandService.newSink((event, result) -> seen.add(String.valueOf(result.data())));
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("iso")));
         assertEquals(CommandResult.Status.SUCCESS, result.status());
-        assertEquals(List.of("echo: iso"), seen);
+        assertEquals(List.of("echo:iso"), seen);
     }
 
     @Test
@@ -176,7 +176,7 @@ class CommandComponentTest {
         commandService.setAlias("ec", "echo", List.of());
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "ec", List.of("hello")));
-        assertEquals("echo: hello", result.message());
+        assertEquals("echo:hello", result.data());
     }
 
     @Test
@@ -207,7 +207,7 @@ class CommandComponentTest {
         commandService.register(new ForwardingCommand());
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "forwarder", List.of("ping")));
-        assertEquals("echo: ping", result.message());
+        assertEquals("echo:ping", result.data());
     }
 
     @Test

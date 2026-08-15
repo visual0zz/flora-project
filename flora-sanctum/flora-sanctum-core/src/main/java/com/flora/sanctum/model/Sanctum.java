@@ -436,6 +436,26 @@ public final class Sanctum implements AutoCloseable {
         refresh();
     }
 
+    /** 设置条目自定义图标引用（iconUuid 可为 null 表示清除图标）。 */
+    public void setEntryIcon(UUID entryUuid, UUID iconUuid) {
+        JsonObject entry = readObject(entryUuid);
+        if (entry == null || !"entry".equals(entry.getString("type"))) {
+            throw new IllegalArgumentException("entry not found");
+        }
+        String parent = entry.getString("parent");
+        UUID groupId = parent == null || parent.isEmpty() ? null : UUID.fromString(parent);
+        if (iconUuid == null) {
+            entry.remove("icon");
+            entry.remove("iconId");
+        } else {
+            entry.put("icon", iconUuid.toString());
+            entry.remove("iconId");
+        }
+        entry.put("updateTimestamp", nextTimestamp());
+        writeObject(entryUuid, entry, groupId);
+        refresh();
+    }
+
     // ---- 自定义字段（含 kind：totp / externalKey / remote 等，见 05）----
 
     /** 在条目下创建带 kind 的字段。 */

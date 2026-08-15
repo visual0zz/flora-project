@@ -19,6 +19,7 @@ import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
+import javax.swing.JTextArea;
 import javax.swing.JTree;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
@@ -360,15 +361,21 @@ public final class SanctumGui {
         JPanel root = new JPanel(new BorderLayout());
 
         // 顶部工具栏
-        JButton newEntryBtn = new JButton("新建条目");
-        JButton newGroupBtn = new JButton("新建文件夹");
-        JButton delBtn = new JButton("删除");
-        JButton syncBtn = new JButton("同步");
-        JButton settingsBtn = new JButton("设置");
-        JButton switchBtn = new JButton("切换库");
-        JButton lockBtn = new JButton("锁定");
+        newEntryBtn = new JButton("新建条目");
+        newGroupBtn = new JButton("新建文件夹");
+        delBtn = new JButton("删除");
+        syncBtn = new JButton("同步");
+        settingsBtn = new JButton("设置");
+        switchBtn = new JButton("切换库");
+        lockBtn = new JButton("锁定");
+        importImageBtn = new JButton("导入图片");
+        addSshBtn = new JButton("添加 SSH 密钥");
+        addRemoteBtn = new JButton("添加远程");
         statusLabel = new JLabel();
         syncBtn.setVisible(isFullyManaged());
+        importImageBtn.setVisible(false);
+        addSshBtn.setVisible(false);
+        addRemoteBtn.setVisible(false);
 
         JTextField searchField = new JTextField(14);
         searchFieldRef = searchField;
@@ -385,6 +392,9 @@ public final class SanctumGui {
         top.add(settingsBtn);
         top.add(switchBtn);
         top.add(lockBtn);
+        top.add(importImageBtn);
+        top.add(addSshBtn);
+        top.add(addRemoteBtn);
         top.add(new JLabel("搜索:"));
         top.add(searchField);
         top.add(clearSearch);
@@ -403,6 +413,7 @@ public final class SanctumGui {
         rebuildGroupTree();
         groupTree.addTreeSelectionListener(e -> {
             resetAutoLock();
+            updateToolbar();
             refreshEntryList(searchField.getText());
         });
         JScrollPane treeScroll = new JScrollPane(groupTree);
@@ -438,12 +449,33 @@ public final class SanctumGui {
         settingsBtn.addActionListener(e -> openSettings());
         switchBtn.addActionListener(e -> switchVault());
         lockBtn.addActionListener(e -> lock());
+        importImageBtn.addActionListener(e -> doImportImage());
+        addSshBtn.addActionListener(e -> addSshKey());
+        addRemoteBtn.addActionListener(e -> addRemote());
         searchField.addActionListener(e -> refreshEntryList(searchField.getText()));
         clearSearch.addActionListener(e -> {
             searchField.setText("");
             refreshEntryList("");
         });
+        updateToolbar();
         return root;
+    }
+
+    /** 根据当前树选择切换工具栏按钮可见性。 */
+    private void updateToolbar() {
+        String section = sectionOf(currentSelection());
+        boolean iconSec = ROOT_ICON.equals(section);
+        boolean sshSec = ROOT_SSHKEY.equals(section);
+        boolean remoteSec = ROOT_REMOTE.equals(section);
+        importImageBtn.setVisible(iconSec);
+        addSshBtn.setVisible(sshSec);
+        addRemoteBtn.setVisible(remoteSec);
+        // 新建条目/文件夹：仅密码库文件夹上下文可用
+        boolean objectsCtx = section == null && currentGroupId() != null; // 选中了普通文件夹
+        boolean objectsRoot = ROOT_OBJECTS.equals(section); // 密码库根（可建文件夹）
+        newEntryBtn.setEnabled(objectsCtx);
+        newGroupBtn.setEnabled(objectsCtx || objectsRoot);
+        delBtn.setEnabled(true);
     }
 
     private boolean isFullyManaged() {
@@ -453,22 +485,52 @@ public final class SanctumGui {
 
     // ---- 组树 ----
 
+    /** 树节点类型：普通文件夹（UUID）或角色根/区段（字符串标记）。 */
+    private static final String ROOT_OBJECTS = "ROOT_OBJECTS";
+    private static final String ROOT_ICON = "ROOT_ICON";
+    private static final String ROOT_SSHKEY = "ROOT_SSHKEY";
+    private static final String ROOT_REMOTE = "ROOT_REMOTE";
+
     private void rebuildGroupTree() {
         treeRoot = new DefaultMutableTreeNode("全部");
         groupNodes.clear();
         groupCache = null; // 重置缓存
+
+        // 三个根组 + 远程区段
+        DefaultMutableTreeNode objectsNode = new DefaultMutableTreeNode("密码库");
+        objectsNode.setUserObject(ROOT_OBJECTS);
+        treeRoot.add(objectsNode);
+        // objects 层级：用户顶层文件夹（parent 为 null 且无 role）+ 递归子文件夹
         for (Map.Entry<UUID, String[]> e : groupsById().entrySet()) {
             String parent = e.getValue()[0];
+            String role = e.getValue()[2];
+            if (role != null) {
+                continue; // 三个 role 根组不参与 objects 层级
+            }
             if (parent == null || !groupsById().containsKey(UUID.fromString(parent))) {
-                addGroupNode(treeRoot, e.getKey(), e.getValue()[1]);
+                addGroupNode(objectsNode, e.getKey(), e.getValue()[1]);
             }
         }
+
+        DefaultMutableTreeNode iconNode = new DefaultMutableTreeNode("图标");
+        iconNode.setUserObject(ROOT_ICON);
+        treeRoot.add(iconNode);
+
+        DefaultMutableTreeNode sshNode = new DefaultMutableTreeNode("SSH 密钥");
+        sshNode.setUserObject(ROOT_SSHKEY);
+        treeRoot.add(sshNode);
+
+        DefaultMutableTreeNode remoteNode = new DefaultMutableTreeNode("远程");
+        remoteNode.setUserObject(ROOT_REMOTE);
+        treeRoot.add(remoteNode);
+
         groupTree.setModel(new DefaultTreeModel(treeRoot));
         groupTree.expandRow(0);
+        groupTree.expandRow(1);
     }
 
     private void addGroupNode(DefaultMutableTreeNode parentNode, UUID id, String name) {
-        DefaultMutableTreeNode node = new DefaultMutableTreeNode(name == null ? id.toString() : name);
+        DefaultMutableTreeNode node = new DefaultMutableTreeNode(name == null ? "未命名" : name);
         node.setUserObject(id);
         parentNode.add(node);
         groupNodes.put(id, node);
@@ -482,13 +544,14 @@ public final class SanctumGui {
 
     private Map<UUID, String[]> groupCache;
 
+    /** group → {parent, name, role}，角色根组带 role 字段。 */
     private Map<UUID, String[]> groupsById() {
         if (groupCache == null) {
             groupCache = new LinkedHashMap<>();
             for (UUID u : sanctum.listObjectUuids()) {
                 JsonObject n = sanctum.getEntry(u);
                 if (n != null && "group".equals(n.getString("type"))) {
-                    groupCache.put(u, new String[]{n.getString("parent"), n.getString("name")});
+                    groupCache.put(u, new String[]{n.getString("parent"), n.getString("name"), n.getString("role")});
                 }
             }
         }
@@ -500,8 +563,45 @@ public final class SanctumGui {
     private void refreshEntryList(String filter) {
         entryModel.clear();
         entryUuids.clear();
-        UUID groupId = currentGroupId();
         String q = filter == null ? "" : filter.trim().toLowerCase();
+        Object sel = currentSelection();
+        String section = sectionOf(sel);
+        UUID groupId = section == null ? groupIdOf(sel) : null;
+
+        if (ROOT_ICON.equals(section)) {
+            // 图标区段：列出所有 icon
+            for (UUID u : sanctum.listObjectUuids()) {
+                JsonObject n = sanctum.getEntry(u);
+                if (n != null && "icon".equals(n.getString("type"))) {
+                    entryModel.addElement(iconLabel(n));
+                    entryUuids.add(u);
+                }
+            }
+            return;
+        }
+        if (ROOT_SSHKEY.equals(section)) {
+            for (UUID u : sanctum.listObjectUuids()) {
+                JsonObject n = sanctum.getEntry(u);
+                if (n != null && "sshKey".equals(n.getString("type"))) {
+                    entryModel.addElement(n.getString("name"));
+                    entryUuids.add(u);
+                }
+            }
+            return;
+        }
+        if (ROOT_REMOTE.equals(section)) {
+            for (UUID u : sanctum.listObjectUuids()) {
+                JsonObject n = sanctum.getEntry(u);
+                if (n != null && "field".equals(n.getString("type"))
+                        && "remote".equals(n.getString("kind"))) {
+                    entryModel.addElement(n.getString("fieldName"));
+                    entryUuids.add(u);
+                }
+            }
+            return;
+        }
+
+        // 密码库层级：列出当前文件夹下的条目
         for (UUID u : sanctum.listObjectUuids()) {
             JsonObject n = sanctum.getEntry(u);
             if (n == null || !"entry".equals(n.getString("type"))) {
@@ -518,6 +618,12 @@ public final class SanctumGui {
             entryModel.addElement(n.getString("name"));
             entryUuids.add(u);
         }
+    }
+
+    /** 图标区段条目显示名（含格式/尺寸提示）。 */
+    private String iconLabel(JsonObject icon) {
+        String format = icon.getString("format");
+        return (format == null ? "图标" : "图标 [" + format + "]");
     }
 
     private boolean matchesFilter(UUID entryUuid, String q) {
@@ -542,9 +648,33 @@ public final class SanctumGui {
         return false;
     }
 
+    /** 当前树选中节点（null=未选）。 */
+    private DefaultMutableTreeNode currentTreeNode() {
+        return (DefaultMutableTreeNode) groupTree.getLastSelectedPathComponent();
+    }
+
+    /** 当前选中对象：文件夹 UUID，或区段标记字符串（ROOT_*），或 null。 */
+    private Object currentSelection() {
+        DefaultMutableTreeNode node = currentTreeNode();
+        if (node == null || node == treeRoot) {
+            return null;
+        }
+        return node.getUserObject();
+    }
+
+    /** 若当前选中是文件夹 UUID 则返回，否则 null。 */
     private UUID currentGroupId() {
-        DefaultMutableTreeNode node = (DefaultMutableTreeNode) groupTree.getLastSelectedPathComponent();
-        return (node == null || node == treeRoot) ? null : (UUID) node.getUserObject();
+        Object sel = currentSelection();
+        return sel instanceof UUID u ? u : null;
+    }
+
+    /** 若当前选中是区段标记则返回，否则 null。 */
+    private String sectionOf(Object sel) {
+        return sel instanceof String s ? s : null;
+    }
+
+    private UUID groupIdOf(Object sel) {
+        return sel instanceof UUID u ? u : null;
     }
 
     private void showSelectedEntry() {
@@ -555,7 +685,45 @@ public final class SanctumGui {
             return;
         }
         selectedEntry = u;
-        renderEntry(selectedEntry);
+        String type = typeOf(u);
+        if ("icon".equals(type)) {
+            renderIconPanel(u);
+        } else if ("sshKey".equals(type)) {
+            renderSshKeyPanel(u);
+        } else if ("field".equals(type)) {
+            renderRemotePanel(u);
+        } else {
+            renderEntry(selectedEntry);
+        }
+    }
+
+    /** 图标详情面板：预览图片 + 提示。 */
+    private void renderIconPanel(UUID iconUuid) {
+        editPanel.removeAll();
+        JsonObject icon = sanctum.getEntry(iconUuid);
+        editPanel.add(new JLabel("图标 [格式 " + (icon == null ? "?" : icon.getString("format")) + "]"));
+        editPanel.add(new JLabel("自定义图标，可在条目编辑中选择使用"));
+        editPanel.revalidate();
+        editPanel.repaint();
+    }
+
+    /** SSH 密钥详情面板。 */
+    private void renderSshKeyPanel(UUID keyUuid) {
+        editPanel.removeAll();
+        JsonObject key = sanctum.getEntry(keyUuid);
+        editPanel.add(new JLabel("SSH 密钥：" + (key == null ? "?" : key.getString("name"))));
+        editPanel.add(new JLabel("私钥已加密存储"));
+        editPanel.revalidate();
+        editPanel.repaint();
+    }
+
+    /** 远程配置详情面板。 */
+    private void renderRemotePanel(UUID remoteUuid) {
+        editPanel.removeAll();
+        JsonObject remote = sanctum.getEntry(remoteUuid);
+        editPanel.add(new JLabel("远程：" + (remote == null ? "?" : remote.getString("fieldName"))));
+        editPanel.revalidate();
+        editPanel.repaint();
     }
 
     /** 当前选中条目（按列表索引从平行 UUID 列表解析）。 */
@@ -683,10 +851,13 @@ public final class SanctumGui {
         addFieldBtn.addActionListener(e -> addFieldDialog(entryUuid));
         JButton copyBtn = new JButton("复制密码");
         copyBtn.addActionListener(e -> copyPassword(entryUuid));
+        JButton iconBtn = new JButton("选择图标");
+        iconBtn.addActionListener(e -> chooseEntryIcon(entryUuid));
         JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         actionRow.add(saveBtn);
         actionRow.add(addFieldBtn);
         actionRow.add(copyBtn);
+        actionRow.add(iconBtn);
         editPanel.add(actionRow);
 
         editPanel.revalidate();
@@ -756,6 +927,16 @@ public final class SanctumGui {
     }
 
     private JTextField searchFieldRef;
+    private JButton importImageBtn;
+    private JButton addSshBtn;
+    private JButton addRemoteBtn;
+    private JButton newEntryBtn;
+    private JButton newGroupBtn;
+    private JButton delBtn;
+    private JButton syncBtn;
+    private JButton settingsBtn;
+    private JButton switchBtn;
+    private JButton lockBtn;
 
     private void copyPassword(UUID entryUuid) {
         resetAutoLock();
@@ -797,6 +978,140 @@ public final class SanctumGui {
         }, config.clipboardClearSeconds() * 1000L);
     }
 
+    // ================= 图标 / SSH / 远程 =================
+
+    /** 导入图片文件为自定义图标（icon root）。 */
+    private void doImportImage() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                "图片 (png/jpg/gif/webp/svg)", "png", "jpg", "jpeg", "gif", "webp", "svg"));
+        if (chooser.showOpenDialog(frame) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        Path file = chooser.getSelectedFile().toPath();
+        resetAutoLock();
+        try {
+            byte[] data = Files.readAllBytes(file);
+            String name = file.getFileName().toString();
+            String format = extOf(name);
+            if ("svg".equalsIgnoreCase(format)) {
+                // SVG 文本直接存原始内容
+                sanctum.createIcon(data, "svg");
+            } else {
+                javax.imageio.ImageIO.read(file.toFile()); // 校验确为可读图片
+                sanctum.createIcon(data, format);
+            }
+            refreshEntryList(currentSearchQuery());
+            statusLabel.setText("已导入图片 " + name);
+        } catch (Exception ex) {
+            statusLabel.setText("图片导入失败");
+        }
+    }
+
+    private String extOf(String fileName) {
+        int dot = fileName.lastIndexOf('.');
+        return dot < 0 ? "png" : fileName.substring(dot + 1).toLowerCase();
+    }
+
+    /** 添加 SSH 私钥（sshKey root）。 */
+    private void addSshKey() {
+        JTextField nameField = new JTextField(16);
+        JTextArea keyArea = new JTextArea(6, 30);
+        keyArea.setLineWrap(true);
+        keyArea.setWrapStyleWord(true);
+        JPanel form = new JPanel(new BorderLayout(8, 8));
+        JPanel topForm = new JPanel(new GridLayout(0, 2, 8, 6));
+        topForm.add(new JLabel("名称:"));
+        topForm.add(nameField);
+        form.add(topForm, BorderLayout.NORTH);
+        form.add(new JScrollPane(keyArea), BorderLayout.CENTER);
+        int ok = JOptionPane.showConfirmDialog(frame, form, "添加 SSH 密钥", JOptionPane.OK_CANCEL_OPTION);
+        if (ok != JOptionPane.OK_OPTION) {
+            return;
+        }
+        String name = nameField.getText().trim();
+        String pem = keyArea.getText().trim();
+        if (name.isEmpty() || pem.isEmpty()) {
+            statusLabel.setText("名称与私钥必填");
+            return;
+        }
+        resetAutoLock();
+        try {
+            sanctum.createSshKey(name, pem);
+            refreshEntryList(currentSearchQuery());
+            statusLabel.setText("已添加 SSH 密钥 " + name);
+        } catch (Exception ex) {
+            statusLabel.setText("SSH 密钥添加失败");
+        }
+    }
+
+    /** 添加远程配置（kind:remote，置于 objects root 下）。 */
+    private void addRemote() {
+        JTextField nameField = new JTextField(16);
+        JTextField urlField = new JTextField(28);
+        JTextField keyRefField = new JTextField(16);
+        JPanel form = new JPanel(new GridLayout(0, 2, 8, 8));
+        form.add(new JLabel("名称:"));
+        form.add(nameField);
+        form.add(new JLabel("URL:"));
+        form.add(urlField);
+        form.add(new JLabel("SSH 密钥引用:"));
+        form.add(keyRefField);
+        int ok = JOptionPane.showConfirmDialog(frame, form, "添加远程", JOptionPane.OK_CANCEL_OPTION);
+        if (ok != JOptionPane.OK_OPTION) {
+            return;
+        }
+        String name = nameField.getText().trim();
+        String url = urlField.getText().trim();
+        if (name.isEmpty() || url.isEmpty()) {
+            statusLabel.setText("名称与 URL 必填");
+            return;
+        }
+        String keyRef = keyRefField.getText().trim();
+        resetAutoLock();
+        try {
+            sanctum.createRemote(name, url, keyRef.isEmpty() ? null : keyRef);
+            refreshEntryList(currentSearchQuery());
+            statusLabel.setText("已添加远程 " + name);
+        } catch (Exception ex) {
+            statusLabel.setText("远程添加失败");
+        }
+    }
+
+    /** 为条目选择一个已导入的自定义图标（或清除图标）。 */
+    private void chooseEntryIcon(UUID entryUuid) {
+        List<UUID> iconUuids = new ArrayList<>();
+        for (UUID u : sanctum.listObjectUuids()) {
+            JsonObject n = sanctum.getEntry(u);
+            if (n != null && "icon".equals(n.getString("type"))) {
+                iconUuids.add(u);
+            }
+        }
+        if (iconUuids.isEmpty()) {
+            statusLabel.setText("请先在\"图标\"区导入图片");
+            return;
+        }
+        String[] choices = iconUuids.stream()
+                .map(u -> iconLabel(sanctum.getEntry(u)) + "  [" + u + "]")
+                .toArray(String[]::new);
+        Object chosen = JOptionPane.showInputDialog(frame, "选择图标:", "条目图标",
+                JOptionPane.PLAIN_MESSAGE, null, choices, choices[0]);
+        if (chosen == null) {
+            return;
+        }
+        String sel = chosen.toString();
+        int idx = sel.lastIndexOf('[');
+        String uuidStr = sel.substring(idx + 1, sel.length() - 1);
+        resetAutoLock();
+        try {
+            sanctum.setEntryIcon(entryUuid, UUID.fromString(uuidStr));
+            renderEntry(entryUuid);
+            statusLabel.setText("已设置图标");
+        } catch (Exception ex) {
+            statusLabel.setText("设置图标失败");
+        }
+    }
+
     // ================= 新建 / 删除 =================
 
     /**
@@ -805,6 +1120,10 @@ public final class SanctumGui {
      */
     private void doNewEntry() {
         UUID groupId = currentGroupId();
+        if (groupId == null) {
+            statusLabel.setText("请先在密码库中选中一个文件夹");
+            return;
+        }
         JTextField nameField = new JTextField(16);
         JTextField userField = new JTextField(16);
         JPasswordField pwField = new JPasswordField(16);
@@ -854,7 +1173,14 @@ public final class SanctumGui {
     }
 
     private void doNewGroup() {
-        UUID parentId = currentGroupId();
+        Object sel = currentSelection();
+        // 仅在密码库根(ROOT_OBJECTS)或普通文件夹下允许新建文件夹
+        String section = sectionOf(sel);
+        if (ROOT_ICON.equals(section) || ROOT_SSHKEY.equals(section) || ROOT_REMOTE.equals(section)) {
+            statusLabel.setText("该区段不允许新建文件夹");
+            return;
+        }
+        UUID parentId = groupIdOf(sel);
         String name = JOptionPane.showInputDialog(frame, "文件夹名称:");
         if (name == null || name.isBlank()) {
             return;
@@ -865,9 +1191,18 @@ public final class SanctumGui {
     }
 
     private void doDelete() {
+        Object sel = currentSelection();
+        String section = sectionOf(sel);
         UUID entryUuid = selectedEntryUuid();
         if (entryUuid != null) {
-            int ok = JOptionPane.showConfirmDialog(frame, "删除该条目?", "确认", JOptionPane.YES_NO_OPTION);
+            String type = typeOf(entryUuid);
+            String what = switch (type == null ? "" : type) {
+                case "icon" -> "该图标";
+                case "sshKey" -> "该 SSH 密钥";
+                case "field" -> "该远程配置";
+                default -> "该条目";
+            };
+            int ok = JOptionPane.showConfirmDialog(frame, "删除" + what + "?", "确认", JOptionPane.YES_NO_OPTION);
             if (ok == JOptionPane.YES_OPTION) {
                 sanctum.deleteEntry(entryUuid);
                 refreshEntryList(currentSearchQuery());
@@ -875,7 +1210,12 @@ public final class SanctumGui {
             }
             return;
         }
-        DefaultMutableTreeNode node = (DefaultMutableTreeNode) groupTree.getLastSelectedPathComponent();
+        // 区段根节点（图标/SSH/远程/密码库根）不可删除
+        if (section != null) {
+            statusLabel.setText("根组不允许删除");
+            return;
+        }
+        DefaultMutableTreeNode node = currentTreeNode();
         if (node != null && node != treeRoot && node.getUserObject() instanceof UUID groupId) {
             int ok = JOptionPane.showConfirmDialog(frame, "删除该文件夹及其内容?", "确认", JOptionPane.YES_NO_OPTION);
             if (ok == JOptionPane.YES_OPTION) {
@@ -885,6 +1225,12 @@ public final class SanctumGui {
                 resetAutoLock();
             }
         }
+    }
+
+    /** 对象类型（entry/group/field/icon/sshKey），未知返回 null。 */
+    private String typeOf(UUID uuid) {
+        JsonObject n = sanctum.getEntry(uuid);
+        return n == null ? null : n.getString("type");
     }
 
     private void deleteGroupRecursive(UUID groupId) {

@@ -91,6 +91,36 @@ class SanctumTest {
     }
 
     @Test
+    void setEntryIconAssignsAndClears() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        UUID entryUuid = s.createEntry(null, "条目", Map.of("k", "v"));
+        UUID iconUuid = s.createIcon(new byte[]{1, 2, 3}, "png");
+
+        s.setEntryIcon(entryUuid, iconUuid);
+        assertEquals(iconUuid.toString(), s.getEntry(entryUuid).getString("icon"));
+
+        s.setEntryIcon(entryUuid, null);
+        assertNull(s.getEntry(entryUuid).getString("icon"));
+    }
+
+    @Test
+    void createIconAndSshKeyAndRemote() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        UUID iconUuid = s.createIcon(new byte[]{9, 9}, "png");
+        assertNotNull(s.getEntry(iconUuid));
+        assertEquals("icon", s.getEntry(iconUuid).getString("type"));
+
+        UUID keyUuid = s.createSshKey("mykey", "-----BEGIN OPENSSH PRIVATE KEY-----");
+        assertNotNull(s.getEntry(keyUuid));
+        assertEquals("sshKey", s.getEntry(keyUuid).getString("type"));
+
+        UUID remoteUuid = s.createRemote("origin", "git@example.com:repo.git", "mykey");
+        assertNotNull(s.getEntry(remoteUuid));
+        assertEquals("field", s.getEntry(remoteUuid).getString("type"));
+        assertEquals("remote", s.getEntry(remoteUuid).getString("kind"));
+    }
+
+    @Test
     void lockAndReunlock() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
         UUID entryUuid = s.createEntry(null, "条目", Map.of("k", "v"));

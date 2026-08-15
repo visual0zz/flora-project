@@ -1,5 +1,6 @@
 package com.flora.shell;
 
+import com.flora.root.codec.json.model.JsonObject;
 import com.flora.shell.output.OutputSink;
 import com.flora.shell.spec.ArgSpec;
 import org.junit.jupiter.api.Test;
@@ -98,7 +99,7 @@ class CommandComponentTest {
         CommandService agentService = new CommandService(UsageScenario.AGENT);
         agentService.register(new RestrictedCommand());
         assertEquals(CommandResult.SUCCESS, agentService.submit(
-                InputEvent.ofStructured(UsageScenario.AGENT, "restricted", java.util.Map.of())).exitCode());
+                InputEvent.ofJsonValue(UsageScenario.AGENT, "restricted", new JsonObject())).exitCode());
     }
 
     @Test

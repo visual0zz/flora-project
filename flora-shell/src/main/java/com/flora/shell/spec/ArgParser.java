@@ -1,5 +1,7 @@
 package com.flora.shell.spec;
 
+import com.flora.root.codec.json.model.JsonObject;
+import com.flora.root.codec.json.model.JsonValue;
 import com.flora.root.java.CheckUtil;
 
 import java.util.ArrayList;
@@ -8,10 +10,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 零依赖参数解析器。从一组 {@link ArgSpec} 声明解析 argv 序列或校验结构化 Map。
- * <p>唯一的统一入口是 {@link #parse(List)}（argv）与 {@link #validate(Map)}（结构化参数，
- * 如 Agent JSON 归一化后的对象）。两者落到同一套声明与校验逻辑：CLI 的 {@code --port 8080}
- * 与 Agent 的 {@code {"port":8080}} 语义一致。</p>
+ * 零依赖参数解析器。从一组 {@link ArgSpec} 声明解析 argv 序列或校验结构化 JSON。
+ * <p>唯一的统一入口是 {@link #parse(List)}（argv）与 {@link #validate(JsonValue)}（结构化参数，
+ * 如 Agent JSON 解析后的 {@code JsonValue} 对象）。两者落到同一套声明与校验逻辑：CLI 的
+ * {@code --port 8080} 与 Agent 的 {@code {"port":8080}} 语义一致。</p>
  * <p>解析失败抛出 {@link IllegalArgumentException}，消息给出缺哪个参数、哪个值非法、期望什么，
  * 由各接入方式按自己的方式呈现。</p>
  */
@@ -134,17 +136,21 @@ public final class ArgParser {
     }
 
     /**
-     * 校验并归一化一个结构化参数 Map（Agent JSON 等）。
+     * 校验并归一化一个结构化 JSON 参数对象（Agent JSON 解析结果等）。
      *
-     * @param map 参数名 → 值
+     * @param params 参数对象（flora-root 的 JSON 正规表示，须为 object）
      * @return 归一化后的解析结果
-     * @throws IllegalArgumentException 参数非法或冲突时
+     * @throws IllegalArgumentException 参数非法、冲突或非 object 时
      */
-    public ParsedArgs validate(Map<String, Object> map) {
+    public ParsedArgs validate(JsonValue params) {
+        if (!params.isObject()) {
+            throw new IllegalArgumentException("结构化参数须为 JSON 对象，实际: " + params.typeName());
+        }
+        JsonObject obj = params.asObject();
         ParsedArgs out = new ParsedArgs();
         for (ArgSpec spec : optionals) {
-            Object v = map.get(spec.name());
-            if (v == null) {
+            JsonValue v = obj.get(spec.name());
+            if (v == null || v.isNull()) {
                 if (spec.required()) {
                     throw new IllegalArgumentException("缺少必选参数: " + spec.name());
                 }
@@ -153,17 +159,17 @@ public final class ArgParser {
                 }
                 continue;
             }
-            out.put(spec.name(), convert(spec, v));
+            out.put(spec.name(), convert(spec, v.toNative()));
         }
         for (ArgSpec pos : positionals) {
-            Object v = map.get(pos.name());
-            if (v == null) {
+            JsonValue v = obj.get(pos.name());
+            if (v == null || v.isNull()) {
                 if (pos.required()) {
                     throw new IllegalArgumentException("缺少必选参数: " + pos.name());
                 }
                 continue;
             }
-            out.put(pos.name(), convert(pos, v));
+            out.put(pos.name(), convert(pos, v.toNative()));
         }
         validateCombinations(out);
         return out;

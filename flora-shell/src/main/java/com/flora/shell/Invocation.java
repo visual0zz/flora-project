@@ -1,10 +1,10 @@
 package com.flora.shell;
 
+import com.flora.root.codec.json.model.JsonValue;
 import com.flora.root.java.CheckUtil;
 import com.flora.shell.spec.ParsedArgs;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * 调用上下文：一次具体命令执行的环境。
@@ -78,10 +78,10 @@ public final class Invocation {
      * 把本次请求转给另一个命令（结构化形态），沿用当前来源渠道。
      *
      * @param targetCommand 目标命令名
-     * @param params        参数名 → 值
+     * @param params        参数对象（flora-root 的 JSON 正规表示）
      * @return 目标命令的执行结果
      */
-    public CommandResult forward(String targetCommand, Map<String, Object> params) {
-        return dispatcher.submit(InputEvent.ofStructured(source, targetCommand, params));
+    public CommandResult forward(String targetCommand, JsonValue params) {
+        return dispatcher.submit(InputEvent.ofJsonValue(source, targetCommand, params));
     }
 }

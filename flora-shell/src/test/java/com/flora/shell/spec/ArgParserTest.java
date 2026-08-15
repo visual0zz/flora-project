@@ -1,9 +1,9 @@
 package com.flora.shell.spec;
 
+import com.flora.root.codec.json.model.JsonObject;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -58,7 +58,11 @@ class ArgParserTest {
 
     @Test
     void structuredValidationMatchesCli() {
-        ParsedArgs args = portParser().validate(Map.of("port", 8080, "verbose", true, "file", "x"));
+        JsonObject params = new JsonObject()
+                .put("port", 8080)
+                .put("verbose", true)
+                .put("file", "x");
+        ParsedArgs args = portParser().validate(params);
         assertEquals(8080, args.getInt("port"));
         assertTrue(args.getBoolean("verbose"));
         assertEquals("x", args.get("file"));

@@ -1,5 +1,6 @@
 package com.flora.sanctum.model;
 
+import com.flora.sanctum.crypto.Argon2Kdf;
 import com.flora.sanctum.store.Block;
 import com.flora.sanctum.store.ObjectStore;
 import com.flora.sanctum.store.impl.MarkdownObjectStore;
@@ -199,6 +200,83 @@ public final class Sanctum {
         byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(parentDek, null, "sanctum-enc", 32);
         com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, parentDek, vault.random());
         return codec.encode(java.util.UUID.randomUUID(), dek, codec.makeKeyIdWith(parentDek));
+    }
+
+    /**
+     * 换主密码：新 KEK 重新包裹三个顶层 root DEK 并重加密 root group 块，更新 manifest MAC。
+     * 子文件夹 DEK 链不动（用父 DEK 包裹，根 DEK 未变），见设计 02。
+     */
+    public void changeMasterPassword(char[] newPassword, int memoryKiB, int iterations, int parallelism) {
+        if (vault == null) {
+            throw new IllegalStateException("not unlocked");
+        }
+        byte[] oldKek = vault.kek();
+        // 新 salt + 新 KEK（salt 终身不变？设计 02 说 salt 终身不变，这里保留旧 salt 用新密码派生）
+        // 设计：salt 终身不变，换主密码仅 KEK 变。故复用 manifest 的 salt 和参数。
+        Manifest m = vault.manifest();
+        Argon2Kdf kdf = new Argon2Kdf(m.salt(), m.memoryKiB(), m.iterations(), m.parallelism());
+        byte[] newKek = kdf.derive(newPassword);
+        try {
+            // 重包三个 root group（用旧 KEK 解密块 + 解 DEK，用新 KEK 重加密）
+            for (com.flora.sanctum.store.Block b : store.scan()) {
+                if (!b.isCipher()) {
+                    continue;
+                }
+                byte[] oldEnc = com.flora.sanctum.crypto.impl.HkdfSha256.derive(oldKek, null, "sanctum-enc", 32);
+                com.flora.sanctum.crypto.CipherCodec oldCodec =
+                        new com.flora.sanctum.crypto.CipherCodec(oldEnc, oldKek, vault.random());
+                byte[] plain;
+                try {
+                    plain = oldCodec.decode(b.obfuscated()).plaintext;
+                } catch (Exception e) {
+                    continue; // 非 KEK 包裹（普通对象树内由父 DEK 包裹），跳过
+                }
+                Json.Node n = Json.parse(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
+                if ("group".equals(n.str("type")) && n.str("role") != null) {
+                    // 用旧 KEK 解出 DEK，用新 KEK 重包裹 + 重加密块
+                    byte[] oldWrapped = java.util.Base64.getDecoder().decode(n.str("dek"));
+                    byte[] dek = oldCodec.decode(oldWrapped).plaintext;
+                    byte[] newWrapped = wrap(dek, newKek);
+                    n = Json.parse(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
+                    Json.put(n, "dek", Json.of(java.util.Base64.getEncoder().encodeToString(newWrapped)));
+                    writeCipherBlockWith(b.uuid(), n, newKek);
+                }
+            }
+            // 更新 manifest 的 MAC（用新 KEK）
+            java.util.UUID manifestUuid = findManifestUuid();
+            Manifest updated = new Manifest(m.version(), m.cryptoVersion(), m.kdf(), m.salt(),
+                    m.memoryKiB(), m.iterations(), m.parallelism(), vault.clock().warehouseTime(), m.updateTimestamp(), new byte[0]);
+            byte[] macKey = updated.manifestMacKey(newKek);
+            byte[] mac = updated.computeMac(macKey, manifestUuid);
+            Json.Node manifest = Json.obj();
+            Json.put(manifest, "version", Json.of(updated.version()));
+            Json.put(manifest, "type", Json.of("manifest"));
+            Json.put(manifest, "cryptoVersion", Json.of(updated.cryptoVersion()));
+            Json.put(manifest, "kdf", Json.of(updated.kdf()));
+            Json.put(manifest, "salt", Json.of(java.util.Base64.getEncoder().encodeToString(updated.salt())));
+            Json.Node params = Json.obj();
+            Json.put(params, "m", Json.of(updated.memoryKiB()));
+            Json.put(params, "i", Json.of(updated.iterations()));
+            Json.put(params, "p", Json.of(updated.parallelism()));
+            Json.put(manifest, "params", params);
+            Json.put(manifest, "warehouseTime", Json.of(updated.warehouseTime()));
+            Json.put(manifest, "updateTimestamp", Json.of(updated.updateTimestamp()));
+            Json.put(manifest, "mac", Json.of(java.util.Base64.getEncoder().encodeToString(mac)));
+            writeManifestPlaintextBlock(manifestUuid, manifest);
+            // 更新 Vault 的 KEK 为新 KEK
+            vault.replaceKek(newKek);
+        } finally {
+            java.util.Arrays.fill(newKek, (byte) 0);
+            java.util.Arrays.fill(oldKek, (byte) 0);
+        }
+    }
+
+    private void writeCipherBlockWith(java.util.UUID uuid, Json.Node payload, byte[] keyMaterial) {
+        byte[] json = Json.stringify(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(keyMaterial, null, "sanctum-enc", 32);
+        com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, keyMaterial, vault.random());
+        byte[] block = codec.encode(uuid, json, codec.makeKeyIdWith(keyMaterial));
+        store.put(uuid, block, new com.flora.sanctum.store.impl.RawCodec());
     }
 
     /**

@@ -94,6 +94,14 @@ public final class Vault {
         return kek == null ? null : kek.clone();
     }
 
+    /** 换主密码后更新驻留 KEK。 */
+    public void replaceKek(byte[] newKek) {
+        if (kek != null) {
+            java.util.Arrays.fill(kek, (byte) 0);
+        }
+        this.kek = newKek == null ? null : newKek.clone();
+    }
+
     /** 清除驻留密钥（锁定/关闭时）。 */
     public void clearSecrets() {
         if (kek != null) {

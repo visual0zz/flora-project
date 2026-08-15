@@ -91,4 +91,26 @@ class SanctumTest {
         assertNotNull(e);
         assertEquals("微博", e.str("name"));
     }
+
+    @Test
+    void changeMasterPassword() {
+        char[] oldPw = "old".toCharArray();
+        char[] newPw = "new-pass".toCharArray();
+        Sanctum s = Sanctum.createAndUnlock(dir, oldPw);
+        UUID entry = s.createEntry(null, "条目", Map.of("k", "v"));
+
+        s.changeMasterPassword(newPw, 65536, 3, 4);
+        s.close();
+
+        // 新密码可解锁
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlock(newPw);
+        assertTrue(s2.isUnlocked());
+        assertNotNull(s2.getEntry(entry));
+        s2.close();
+
+        // 旧密码不可解锁
+        Sanctum s3 = Sanctum.open(dir);
+        assertThrows(IllegalArgumentException.class, () -> s3.unlock(oldPw));
+    }
 }

@@ -57,6 +57,35 @@
                     </archive>
                 </configuration>
             </plugin>
+            <!-- 复制第三方依赖到 target/lib，供 module-path 使用 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.7.1</version>
+                <executions>
+                    <execution>
+                        <id>copy-deps</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                            <includeScope>runtime</includeScope>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- JavaFX 运行（JPMS + module-path，GUI 用 mvn javafx:run） -->
+            <plugin>
+                <groupId>org.openjfx</groupId>
+                <artifactId>javafx-maven-plugin</artifactId>
+                <version>0.0.8</version>
+                <configuration>
+                    <mainClass>com.flora.sanctum.app/com.flora.sanctum.app.Main</mainClass>
+                    <modulePath>${project.build.directory}/lib</modulePath>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>

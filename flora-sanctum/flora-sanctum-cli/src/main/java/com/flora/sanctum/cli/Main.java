@@ -63,6 +63,19 @@ public final class Main {
                 Json.Node n = s.getEntry(uuid);
                 System.out.println(n == null ? "not found" : Json.stringify(n));
             }
+            case "sync" -> {
+                Path root = Path.of(requireArg(args, 1, "path"));
+                Sanctum s = Sanctum.open(root);
+                s.unlock(readPassword("master password"));
+                com.flora.sanctum.sync.SyncService sync = new com.flora.sanctum.sync.SyncService(root);
+                if (!sync.isFullyManaged()) {
+                    System.out.println("not fully managed, skip sync");
+                    return;
+                }
+                s.close();
+                sync.sync();
+                System.out.println("synced " + root);
+            }
             default -> usage();
         }
     }
@@ -92,6 +105,6 @@ public final class Main {
     }
 
     private static void usage() {
-        System.out.println("Usage: sanctum <create|unlock|add|list|get> <path> [args...]");
+        System.out.println("Usage: sanctum <create|unlock|add|list|get|sync> <path> [args...]");
     }
 }

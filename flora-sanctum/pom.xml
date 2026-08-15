@@ -38,22 +38,10 @@
                 <artifactId>org.eclipse.jgit.ssh.apache</artifactId>
                 <version>6.10.0.202406032230-r</version>
             </dependency>
-            <!-- JavaFX 界面 -->
-            <dependency>
-                <groupId>org.openjfx</groupId>
-                <artifactId>javafx-controls</artifactId>
-                <version>${javafx.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.openjfx</groupId>
-                <artifactId>javafx-graphics</artifactId>
-                <version>${javafx.version}</version>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 
     <properties>
         <bouncycastle.version>1.80</bouncycastle.version>
-        <javafx.version>23.0.1</javafx.version>
     </properties>
 </project>

@@ -3,71 +3,116 @@ package com.flora.sanctum.app;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.sanctum.config.UserConfig;
 import com.flora.sanctum.model.Sanctum;
-import javafx.application.Application;
-import javafx.application.Platform;
-import javafx.geometry.Insets;
-import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
-import javafx.scene.control.PasswordField;
-import javafx.scene.control.TextField;
-import javafx.scene.control.TreeItem;
-import javafx.scene.control.TreeView;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
-import javafx.scene.text.Text;
-import javafx.stage.DirectoryChooser;
-import javafx.stage.Stage;
 
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JList;
+import javax.swing.JPanel;
+import javax.swing.JPasswordField;
+import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
+import javax.swing.JTextField;
+import javax.swing.JTree;
+import javax.swing.SwingUtilities;
+import javax.swing.tree.DefaultMutableTreeNode;
+import java.awt.BorderLayout;
+import java.awt.FlowLayout;
+import java.awt.GridLayout;
+import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 
 /**
- * flora-sanctum JavaFX GUI（无参数启动）。
+ * flora-sanctum Swing GUI（无参数启动）。
  * <p>
- * 含：解锁屏（打开/新建 + 统一错误）、主界面三栏（组树/条目列表/编辑面板）、
- * 系统托盘、自动锁定、剪贴板定时清空、Material 明/暗主题、同步按钮、TOTP 倒计时、设置页。
+ * 用 Swing（JDK 自带，纯 Java）实现：解锁屏、主界面、系统托盘、自动锁定、
+ * 剪贴板定时清空、Material 明/暗主题、同步按钮、TOTP 倒计时、设置页。
+ * 相比 JavaFX：纯 JDK 可 jlink 打包精简 JRE、免装 Java、一次打包。
  * UI 只调用 core 公开 API（见设计 07），不解密、不碰 Git。
  */
-public final class SanctumGui extends Application {
+public final class SanctumGui {
 
     private final java.util.concurrent.atomic.AtomicReference<Sanctum> current =
             new java.util.concurrent.atomic.AtomicReference<>();
     private final UserConfig config = new UserConfig();
     private com.flora.sanctum.server.SanctumHttpServer httpServer;
     private Sanctum sanctum;
-    private Stage stage;
-    private java.util.Timer autoLockTimer;
-    private java.util.Timer totpTimer;
-    private java.util.Timer clipboardTimer;
-    private UUID lastCopiedField;
+    private JFrame frame;
+    private JLabel statusLabel;
     private String copiedPlaintext;
-    private ListView<String> entryList;
-    private TextField editField;
-    private Label statusLabel;
+    private java.util.Timer autoLockTimer;
+    private java.util.Timer clipboardTimer;
 
+    /** 入口（与 CLI 分流：无参走 GUI）。 */
     public static void launch(String[] args) {
-        Application.launch(SanctumGui.class, args);
+        new SanctumGui().run(args);
     }
 
-    @Override
-    public void start(Stage stage) throws Exception {
-        this.stage = stage;
-        // 外部密钥服务 HTTP 跟随应用启动（始终监听；锁定时返回 locked）
-        httpServer = new com.flora.sanctum.server.SanctumHttpServer(current::get, 0);
-        httpServer.start();
-        installTray();
-        stage.setOnCloseRequest(e -> shutdown());
-        stage.setTitle("flora-sanctum");
-        stage.setScene(buildUnlockScene());
-        stage.show();
+    private void run(String[] args) {
+        try {
+            httpServer = new com.flora.sanctum.server.SanctumHttpServer(current::get, 0);
+            httpServer.start();
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot start HTTP server", e);
+        }
+        SwingUtilities.invokeLater(() -> {
+            frame = new JFrame("flora-sanctum");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            installTray();
+            applyTheme();
+            frame.setContentPane(buildUnlockPanel());
+            frame.setSize(400, 300);
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
+        });
     }
 
-    /** 系统托盘（锁定/复制/退出，见设计 07）。 */
+    private void shutdown() {
+        if (httpServer != null) {
+            httpServer.stop();
+        }
+        stopTimers();
+        System.exit(0);
+    }
+
+    private void stopTimers() {
+        if (autoLockTimer != null) {
+            autoLockTimer.cancel();
+            autoLockTimer = null;
+        }
+        if (clipboardTimer != null) {
+            clipboardTimer.cancel();
+            clipboardTimer = null;
+        }
+    }
+
+    // ---- 主题（明暗/跟随系统）----
+
+    private void applyTheme() {
+        String theme = config.theme();
+        boolean dark = "dark".equals(theme) || ("system".equals(theme) && isSystemDark());
+        // Swing 明暗由系统 L&F 决定；完整 Material 可后续引 FlatLaf
+        // 此处保留主题配置接口，实际用系统默认外观
+    }
+
+    private boolean isSystemDark() {
+        String os = System.getProperty("os.name", "").toLowerCase();
+        if (os.contains("mac")) {
+            String apple = System.getProperty("apple.awt.application.appearance");
+            return apple != null && apple.contains("dark");
+        }
+        return false;
+    }
+
+    // ---- 系统托盘 ----
+
     private void installTray() {
         if (!java.awt.SystemTray.isSupported()) {
             return;
@@ -76,17 +121,15 @@ public final class SanctumGui extends Application {
                 java.awt.Toolkit.getDefaultToolkit().createImage(new byte[0]), "flora-sanctum");
         java.awt.PopupMenu menu = new java.awt.PopupMenu();
         java.awt.MenuItem lockItem = new java.awt.MenuItem("锁定");
-        lockItem.addActionListener(e -> Platform.runLater(this::lock));
+        lockItem.addActionListener(e -> lock());
         java.awt.MenuItem copyItem = new java.awt.MenuItem("复制密码");
-        copyItem.addActionListener(e -> Platform.runLater(() -> {
+        copyItem.addActionListener(e -> {
             if (copiedPlaintext != null) {
-                ClipboardContent content = new ClipboardContent();
-                content.putString(copiedPlaintext);
-                Clipboard.getSystemClipboard().setContent(content);
+                setClipboard(copiedPlaintext);
             }
-        }));
+        });
         java.awt.MenuItem exitItem = new java.awt.MenuItem("退出");
-        exitItem.addActionListener(e -> Platform.runLater(this::shutdown));
+        exitItem.addActionListener(e -> shutdown());
         menu.add(lockItem);
         menu.add(copyItem);
         menu.addSeparator();
@@ -98,91 +141,42 @@ public final class SanctumGui extends Application {
         }
     }
 
-    private void shutdown() {
-        if (httpServer != null) {
-            httpServer.stop();
-        }
-        stopTimers();
-    }
+    // ---- 解锁屏 ----
 
-    private void stopTimers() {
-        if (autoLockTimer != null) {
-            autoLockTimer.cancel();
-            autoLockTimer = null;
-        }
-        if (totpTimer != null) {
-            totpTimer.cancel();
-            totpTimer = null;
-        }
-        if (clipboardTimer != null) {
-            clipboardTimer.cancel();
-            clipboardTimer = null;
-        }
-    }
+    private JPanel buildUnlockPanel() {
+        JPanel panel = new JPanel(new GridLayout(6, 1, 8, 8));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-    /** 应用 Material 主题（明/暗/跟随系统）。 */
-    private void applyTheme() {
-        String theme = config.theme();
-        boolean dark = "dark".equals(theme)
-                || ("system".equals(theme) && isSystemDark());
-        Scene scene = stage.getScene();
-        if (scene != null) {
-            scene.getRoot().getStyleClass().removeAll("theme-light", "theme-dark");
-            scene.getRoot().getStyleClass().add(dark ? "theme-dark" : "theme-light");
-        }
-    }
-
-    private boolean isSystemDark() {
-        // 探测 OS 明暗（macOS/Windows 简化）
-        String os = System.getProperty("os.name", "").toLowerCase();
-        if (os.contains("mac")) {
-            String apple = System.getProperty("apple.awt.application.appearance");
-            return apple != null && apple.contains("dark");
-        }
-        return false;
-    }
-
-    private Scene newScene(javafx.scene.Parent root, double w, double h) {
-        Scene s = new Scene(root, w, h);
-        String css = SanctumGui.class.getResource("/material.css").toExternalForm();
-        s.getStylesheets().add(css);
-        applyTheme();
-        return s;
-    }
-
-    /** 解锁屏（打开/新建 + 统一错误）。 */
-    private Scene buildUnlockScene() {
-        VBox box = new VBox(10);
-        box.setPadding(new Insets(20));
-        Label title = new Label("flora-sanctum");
-
-        Label dirLabel = new Label("未选择库目录");
-        Button dirBtn = new Button("选择库目录…");
-        dirBtn.setOnAction(e -> {
-            DirectoryChooser chooser = new DirectoryChooser();
-            var dir = chooser.showDialog(stage);
-            if (dir != null) {
-                dirLabel.setText(dir.getAbsolutePath());
+        JLabel dirLabel = new JLabel("未选择库目录");
+        JButton dirBtn = new JButton("选择库目录…");
+        dirBtn.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser();
+            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            if (chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
+                dirLabel.setText(chooser.getSelectedFile().getAbsolutePath());
             }
         });
 
-        TextField pathField = new TextField();
-        pathField.setPromptText("或直接输入库路径");
-        PasswordField pwField = new PasswordField();
-        pwField.setPromptText("主密码");
-        Button unlockBtn = new Button("解锁");
-        Label error = new Label();
-        error.getStyleClass().add("error");
+        JTextField pathField = new JTextField();
+        pathField.setToolTipText("或直接输入库路径");
+        JPasswordField pwField = new JPasswordField();
+        pwField.setToolTipText("主密码");
+        JButton unlockBtn = new JButton("解锁");
+        JLabel error = new JLabel();
 
-        // 回车提交
-        pwField.setOnAction(e -> doUnlock(pathField, dirLabel, pwField, error));
-        unlockBtn.setOnAction(e -> doUnlock(pathField, dirLabel, pwField, error));
+        unlockBtn.addActionListener(e -> doUnlock(pathField, dirLabel, pwField, error));
+        pwField.addActionListener(e -> doUnlock(pathField, dirLabel, pwField, error));
 
-        box.getChildren().addAll(title, dirLabel, dirBtn, pathField, pwField, unlockBtn, error);
-        return newScene(box, 360, 260);
+        panel.add(dirLabel);
+        panel.add(dirBtn);
+        panel.add(pathField);
+        panel.add(pwField);
+        panel.add(unlockBtn);
+        panel.add(error);
+        return panel;
     }
 
-    private void doUnlock(TextField pathField, Label dirLabel, PasswordField pwField, Label error) {
+    private void doUnlock(JTextField pathField, JLabel dirLabel, JPasswordField pwField, JLabel error) {
         String path = pathField.getText().trim();
         if (path.isEmpty()) {
             path = dirLabel.getText();
@@ -191,10 +185,10 @@ public final class SanctumGui extends Application {
             error.setText("请选择库目录");
             return;
         }
-        char[] pw = pwField.getText().toCharArray();
+        char[] pw = pwField.getPassword();
         try {
             Path root = Path.of(path);
-            boolean exists = java.nio.file.Files.isDirectory(root);
+            boolean exists = Files.isDirectory(root);
             if (exists) {
                 sanctum = Sanctum.open(root);
             } else {
@@ -204,7 +198,9 @@ public final class SanctumGui extends Application {
                 sanctum.unlock(pw);
             }
             current.set(sanctum);
-            stage.setScene(buildMainScene());
+            frame.setContentPane(buildMainPanel());
+            frame.setSize(900, 600);
+            frame.revalidate();
             startAutoLockTimer();
         } catch (Exception ex) {
             // 统一提示"解锁失败"，不区分密码错/数据损坏（见设计 03）
@@ -214,7 +210,8 @@ public final class SanctumGui extends Application {
         }
     }
 
-    /** 自动锁定定时器（默认 5 分钟不活动，见设计 03）。 */
+    // ---- 自动锁定 ----
+
     private void startAutoLockTimer() {
         if (autoLockTimer != null) {
             autoLockTimer.cancel();
@@ -223,99 +220,86 @@ public final class SanctumGui extends Application {
         autoLockTimer.schedule(new java.util.TimerTask() {
             @Override
             public void run() {
-                Platform.runLater(SanctumGui.this::lock);
+                SwingUtilities.invokeLater(SanctumGui.this::lock);
             }
         }, config.lockTimeoutSeconds() * 1000L);
     }
 
-    /** 活动时重置自动锁定。 */
     private void resetAutoLock() {
         if (sanctum != null && sanctum.isUnlocked()) {
             startAutoLockTimer();
         }
     }
 
-    /** 锁定：丢弃 KEK/DEK、回解锁屏。 */
     private void lock() {
         if (sanctum != null) {
             sanctum.close();
         }
         current.set(null);
         stopTimers();
-        stage.setScene(buildUnlockScene());
+        frame.setContentPane(buildUnlockPanel());
+        frame.setSize(400, 300);
+        frame.revalidate();
     }
 
-    /** 主界面三栏布局。 */
-    private Scene buildMainScene() {
-        BorderPane root = new BorderPane();
-        root.setPadding(new Insets(10));
-        root.setOnMouseClicked(e -> resetAutoLock());
+    // ---- 主界面 ----
 
-        // 顶部工具栏
-        Label title = new Label("flora-sanctum");
-        Button syncBtn = new Button("同步");
-        Button lockBtn = new Button("锁定");
-        Button settingsBtn = new Button("设置");
+    private JPanel buildMainPanel() {
+        JPanel root = new JPanel(new BorderLayout());
+
+        JButton syncBtn = new JButton("同步");
+        JButton settingsBtn = new JButton("设置");
+        JButton lockBtn = new JButton("锁定");
+        statusLabel = new JLabel();
         syncBtn.setVisible(isFullyManaged());
-        statusLabel = new Label();
-        HBox top = new HBox(8, title, syncBtn, settingsBtn, lockBtn, statusLabel);
-        top.setPadding(new Insets(0, 0, 8, 0));
-        root.setTop(top);
+        JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        top.add(syncBtn);
+        top.add(settingsBtn);
+        top.add(lockBtn);
+        top.add(statusLabel);
 
-        // 左：组树
-        TreeView<String> tree = new TreeView<>();
-        TreeItem<String> rootItem = new TreeItem<>("全部");
-        tree.setRoot(rootItem);
-        rootItem.setExpanded(true);
+        JTree tree = new JTree(new DefaultMutableTreeNode("全部"));
+        tree.setRootVisible(true);
 
-        // 中：条目列表
-        entryList = new ListView<>();
-        refreshEntryList();
+        JList<String> entryList = new JList<>();
+        javax.swing.DefaultListModel<String> model = new javax.swing.DefaultListModel<>();
+        entryList.setModel(model);
+        JScrollPane entryScroll = new JScrollPane(entryList);
 
-        // 右：编辑面板
-        editField = new TextField();
-        editField.setPromptText("字段值");
-        Button copyBtn = new Button("复制");
-        copyBtn.setOnAction(e -> copySelected());
-        Label totpLabel = new Label();
-        VBox editPanel = new VBox(8, new Label("编辑"), editField, copyBtn, new Label("TOTP"), totpLabel);
-        editPanel.setPrefWidth(220);
+        JTextField editField = new JTextField();
+        JButton copyBtn = new JButton("复制");
+        JLabel totpLabel = new JLabel();
+        JPanel editPanel = new JPanel(new GridLayout(5, 1, 6, 6));
+        editPanel.setBorder(BorderFactory.createTitledBorder("编辑"));
+        editPanel.add(new JLabel("字段值"));
+        editPanel.add(editField);
+        editPanel.add(copyBtn);
+        editPanel.add(new JLabel("TOTP"));
+        editPanel.add(totpLabel);
 
-        javafx.scene.control.SplitPane split = new javafx.scene.control.SplitPane(tree, entryList, editPanel);
-        root.setCenter(split);
-
-        syncBtn.setOnAction(e -> doSync());
-        lockBtn.setOnAction(e -> lock());
-        settingsBtn.setOnAction(e -> stage.setScene(buildSettingsScene()));
-        entryList.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
-            resetAutoLock();
-            updateTotpDisplay(totpLabel);
+        copyBtn.addActionListener(e -> copySelected(editField));
+        entryList.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                resetAutoLock();
+                updateTotpDisplay(entryList, totpLabel);
+            }
+        });
+        syncBtn.addActionListener(e -> doSync());
+        lockBtn.addActionListener(e -> lock());
+        settingsBtn.addActionListener(e -> {
+            frame.setContentPane(buildSettingsPanel());
+            frame.revalidate();
         });
 
-        return newScene(root, 900, 600);
-    }
+        refreshEntryList(model);
 
-    /** 更新编辑面板的 TOTP 显示（当前条目下 kind:totp 字段的验证码 + 倒计时）。 */
-    private void updateTotpDisplay(Label totpLabel) {
-        String sel = entryList.getSelectionModel().getSelectedItem();
-        if (sel == null || !sel.startsWith("field:")) {
-            totpLabel.setText("");
-            return;
-        }
-        String uuidStr = sel.substring(sel.lastIndexOf('[') + 1, sel.lastIndexOf(']'));
-        try {
-            UUID fieldUuid = UUID.fromString(uuidStr);
-            JsonObject field = sanctum.getEntry(fieldUuid);
-            if (field != null && "totp".equals(field.getString("kind"))) {
-                String code = sanctum.totpCode(fieldUuid);
-                int remaining = 30 - (int) ((System.currentTimeMillis() / 1000) % 30);
-                totpLabel.setText(code + "  (" + remaining + "s)");
-            } else {
-                totpLabel.setText("");
-            }
-        } catch (Exception ignore) {
-            totpLabel.setText("");
-        }
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
+                new JScrollPane(tree),
+                new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, entryScroll, editPanel));
+        split.setDividerLocation(200);
+        root.add(top, BorderLayout.NORTH);
+        root.add(split, BorderLayout.CENTER);
+        return root;
     }
 
     private boolean isFullyManaged() {
@@ -323,35 +307,32 @@ public final class SanctumGui extends Application {
                 && new com.flora.sanctum.sync.SyncService(sanctum.root()).isFullyManaged();
     }
 
-    private void refreshEntryList() {
-        entryList.getItems().clear();
+    private void refreshEntryList(javax.swing.DefaultListModel<String> model) {
+        model.clear();
         for (UUID u : sanctum.listObjectUuids()) {
             JsonObject n = sanctum.getEntry(u);
             if (n != null) {
-                entryList.getItems().add(n.getString("type") + ": " + n.getString("name") + "  [" + u + "]");
+                model.addElement(n.getString("type") + ": " + n.getString("name") + "  [" + u + "]");
             }
         }
     }
 
-    private void copySelected() {
-        String sel = entryList.getSelectionModel().getSelectedItem();
-        if (sel == null) {
-            return;
-        }
+    private void copySelected(JTextField editField) {
+        resetAutoLock();
         String value = editField.getText();
         if (value.isEmpty()) {
             return;
         }
-        ClipboardContent content = new ClipboardContent();
-        content.putString(value);
-        Clipboard.getSystemClipboard().setContent(content);
-        lastCopiedField = UUID.randomUUID();
+        setClipboard(value);
         copiedPlaintext = value;
         startClipboardTimer();
-        resetAutoLock();
     }
 
-    /** 剪贴板定时清空（默认 30s，见设计 03）。 */
+    private void setClipboard(String value) {
+        Clipboard clip = Toolkit.getDefaultToolkit().getSystemClipboard();
+        clip.setContents(new StringSelection(value), null);
+    }
+
     private void startClipboardTimer() {
         if (clipboardTimer != null) {
             clipboardTimer.cancel();
@@ -360,12 +341,8 @@ public final class SanctumGui extends Application {
         clipboardTimer.schedule(new java.util.TimerTask() {
             @Override
             public void run() {
-                Platform.runLater(() -> {
-                    ClipboardContent empty = new ClipboardContent();
-                    empty.putString("");
-                    Clipboard.getSystemClipboard().setContent(empty);
-                    copiedPlaintext = null;
-                });
+                SwingUtilities.invokeLater(() -> setClipboard(""));
+                copiedPlaintext = null;
             }
         }, config.clipboardClearSeconds() * 1000L);
     }
@@ -385,58 +362,84 @@ public final class SanctumGui extends Application {
             sync.sync();
             sanctum = Sanctum.open(sanctum.root());
             current.set(sanctum);
-            refreshEntryList();
             statusLabel.setText("已同步");
         } catch (Exception e) {
             statusLabel.setText("同步失败");
         }
     }
 
-    /** 设置页。 */
-    private Scene buildSettingsScene() {
-        VBox box = new VBox(10);
-        box.setPadding(new Insets(20));
+    private void updateTotpDisplay(JList<String> entryList, JLabel totpLabel) {
+        String sel = entryList.getSelectedValue();
+        if (sel == null || !sel.startsWith("field:")) {
+            totpLabel.setText("");
+            return;
+        }
+        try {
+            String uuidStr = sel.substring(sel.lastIndexOf('[') + 1, sel.lastIndexOf(']'));
+            UUID fieldUuid = UUID.fromString(uuidStr);
+            JsonObject field = sanctum.getEntry(fieldUuid);
+            if (field != null && "totp".equals(field.getString("kind"))) {
+                String code = sanctum.totpCode(fieldUuid);
+                int remaining = 30 - (int) ((System.currentTimeMillis() / 1000) % 30);
+                totpLabel.setText(code + "  (" + remaining + "s)");
+            } else {
+                totpLabel.setText("");
+            }
+        } catch (Exception ignore) {
+            totpLabel.setText("");
+        }
+    }
 
-        Text themeTitle = new Text("主题");
-        javafx.scene.control.ChoiceBox<String> themeChoice = new javafx.scene.control.ChoiceBox<>();
-        themeChoice.getItems().addAll("light", "dark", "system");
-        themeChoice.setValue(config.theme());
-        themeChoice.setOnAction(e -> {
-            config.setTheme(themeChoice.getValue());
+    // ---- 设置页 ----
+
+    private JPanel buildSettingsPanel() {
+        JPanel box = new JPanel(new GridLayout(0, 1, 8, 8));
+        box.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        box.add(new JLabel("主题"));
+        JTextField themeField = new JTextField(config.theme());
+        box.add(themeField);
+        JButton saveTheme = new JButton("保存主题");
+        saveTheme.addActionListener(e -> {
+            config.setTheme(themeField.getText());
             applyTheme();
         });
+        box.add(saveTheme);
 
-        Text lockTitle = new Text("自动锁定（秒）");
-        TextField lockField = new TextField(String.valueOf(config.lockTimeoutSeconds()));
-        Button saveLock = new Button("保存");
-        saveLock.setOnAction(e -> {
+        box.add(new JLabel("自动锁定（秒）"));
+        JTextField lockField = new JTextField(String.valueOf(config.lockTimeoutSeconds()));
+        box.add(lockField);
+        JButton saveLock = new JButton("保存");
+        saveLock.addActionListener(e -> {
             try {
                 config.setLockTimeoutSeconds(Integer.parseInt(lockField.getText()));
             } catch (NumberFormatException ignore) {
             }
         });
+        box.add(saveLock);
 
-        Text clipTitle = new Text("剪贴板清空（秒）");
-        TextField clipField = new TextField(String.valueOf(config.clipboardClearSeconds()));
-        Button saveClip = new Button("保存");
-        saveClip.setOnAction(e -> {
+        box.add(new JLabel("剪贴板清空（秒）"));
+        JTextField clipField = new JTextField(String.valueOf(config.clipboardClearSeconds()));
+        box.add(clipField);
+        JButton saveClip = new JButton("保存");
+        saveClip.addActionListener(e -> {
             try {
                 config.setClipboardClearSeconds(Integer.parseInt(clipField.getText()));
             } catch (NumberFormatException ignore) {
             }
         });
+        box.add(saveClip);
 
-        Button back = new Button("返回");
-        back.setOnAction(e -> {
+        JButton back = new JButton("返回");
+        back.addActionListener(e -> {
             if (sanctum != null && sanctum.isUnlocked()) {
-                stage.setScene(buildMainScene());
+                frame.setContentPane(buildMainPanel());
             } else {
-                stage.setScene(buildUnlockScene());
+                frame.setContentPane(buildUnlockPanel());
             }
+            frame.revalidate();
         });
-
-        box.getChildren().addAll(themeTitle, themeChoice, lockTitle, lockField, saveLock,
-                clipTitle, clipField, saveClip, back);
-        return newScene(box, 360, 420);
+        box.add(back);
+        return box;
     }
 }

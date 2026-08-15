@@ -55,7 +55,7 @@ public final class ExternalKeyService {
     public byte[] decrypt(String cipherBase58) {
         byte[] obfuscated;
         try {
-            obfuscated = com.flora.sanctum.store.Base58.decode(cipherBase58);
+            obfuscated = com.flora.root.codec.Base58.decode(cipherBase58);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("invalid base58");
         }

@@ -131,7 +131,7 @@ public final class Sanctum {
         byte[] obf = com.flora.sanctum.store.BlockHeader.obfuscate(block, xor);
         try {
             java.nio.file.Files.writeString(root.resolve(uuid + ".md"),
-                    com.flora.sanctum.store.Base58.encode(obf) + "\n",
+                    com.flora.root.codec.Base58.encode(obf) + "\n",
                     java.nio.charset.StandardCharsets.UTF_8);
         } catch (java.io.IOException e) {
             throw new IllegalStateException("rewrite manifest failed", e);

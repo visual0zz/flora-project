@@ -1,6 +1,6 @@
 package com.flora.sanctum.store.impl;
 
-import com.flora.sanctum.store.Base58;
+import com.flora.root.codec.Base58;
 import com.flora.sanctum.store.Block;
 import com.flora.sanctum.store.BlockHeader;
 import com.flora.sanctum.store.Codec;
@@ -198,6 +198,6 @@ public final class MarkdownObjectStore implements ObjectStore {
     }
 
     private static boolean isBase58Char(char c) {
-        return Base58.isBase58(String.valueOf(c));
+        return Base58.isValidBase58(String.valueOf(c));
     }
 }

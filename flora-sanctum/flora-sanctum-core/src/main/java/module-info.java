@@ -19,4 +19,5 @@ module com.flora.sanctum.core {
     requires org.bouncycastle.provider;
     requires org.eclipse.jgit;
     requires jdk.httpserver;
+    requires com.flora.root;
 }

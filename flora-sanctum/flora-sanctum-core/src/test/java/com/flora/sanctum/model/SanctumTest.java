@@ -10,6 +10,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@SuppressWarnings("osmetes:secret") // 测试假密钥
 class SanctumTest {
 
     @TempDir

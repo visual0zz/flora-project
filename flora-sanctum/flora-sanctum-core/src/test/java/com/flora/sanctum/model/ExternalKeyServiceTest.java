@@ -1,6 +1,6 @@
 package com.flora.sanctum.model;
 
-import com.flora.sanctum.store.Base58;
+import com.flora.root.codec.Base58;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

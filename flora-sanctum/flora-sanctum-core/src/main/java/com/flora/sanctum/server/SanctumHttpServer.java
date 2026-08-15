@@ -94,7 +94,7 @@ public final class SanctumHttpServer {
             byte[] cipher = new ExternalKeyService(sanctum).encrypt(data, uuid);
             Json.Node resp = Json.obj();
             Json.put(resp, "ok", Json.of(true));
-            Json.put(resp, "cipher", Json.of(com.flora.sanctum.store.Base58.encode(cipher)));
+            Json.put(resp, "cipher", Json.of(com.flora.root.codec.Base58.encode(cipher)));
             respond(ex, 200, Json.stringify(resp));
         } catch (Exception e) {
             error(ex, "encrypt_failed", e.getMessage());

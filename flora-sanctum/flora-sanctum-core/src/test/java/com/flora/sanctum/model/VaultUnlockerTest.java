@@ -2,7 +2,7 @@ package com.flora.sanctum.model;
 
 import com.flora.sanctum.crypto.Argon2Kdf;
 import com.flora.sanctum.crypto.SecureRandomSource;
-import com.flora.sanctum.store.Base58;
+import com.flora.root.codec.Base58;
 import com.flora.sanctum.store.BlockHeader;
 import com.flora.sanctum.store.ObjectStore;
 import com.flora.sanctum.store.impl.MarkdownObjectStore;

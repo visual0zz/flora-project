@@ -15,23 +15,66 @@
 ## 同步模型
 
 - 仅当启用同步（见 04b"库形态与 Git 关系"）时：每次 ChangeSet 提交自动生成一个 commit（作者信息可配置，如 `sanctum <local>`）；缺 `.git` 则用 JGit init。
-- 手动 / 定时 / 启动时执行 pull --rebase + push。
+- **完全托管仓库判定**：库根**全部是 markdown 文件**即视为完全托管——包括无块的（纯用户正文）和用户手动改动的文件，全部纳入 git 提交与同步（见 04b）。满足才提供**同步按钮**。
 - 同步前需解锁（DEK 在内存），同步本身不碰明文。
 - 未启用同步时：改动直接落盘，无 commit / push / pull。
 
-## 冲突策略
+## 同步流程（自动，不依赖用户介入）
 
-- 冲突发生在**同一 key 被两端同时修改**时（git 文件级冲突，如同一条目被两端同时修改）；不同 key 的并发修改天然可合并。
-- 冲突处理（层级）：
-  1. **字段值对象 = 文件级**：两端改不同字段 → 不同字段对象 → git 自动合并；改同一字段对象 → 冲突，last-write-wins / 用户选择，无需三方合并（见 05）。
-  2. **条目记录冲突（低频）**：仅当两端同时改元数据或字段映射时发生 → 应用层三方合并（merge-base 祖先 + 按字段名合并映射；单侧修改自动采用、双侧改同一字段名 → 冲突，UI 选择或 last-write-wins 记入 `.conflict`）。
-  3. 非条目对象或不做合并：默认 last-write-wins，对方版本记入 `.conflict` 清单供核查；
-  4. UI 展示冲突条目，供用户选择保留哪份。
+**同步按钮**（仅完全托管仓库提供）触发以下确定步骤。支持**多个远端**（方案 B：每个远端都既 pull 又 push，平级对待）：
+
+```
+对每个远端 remote 依次执行：
+  1. fetch：拉取该远端
+  2. pull --rebase：将该远端历史 rebase 到本地
+  3. 冲突自动解决（见"冲突策略"）
+  然后 push 到全部远端
+```
+
+完整确定步骤：
+```
+1. 更新 manifest（写入最新 warehouseTime，重算 MAC）——见 02"仓库时间戳"
+2. commit：本次全部改动（含 manifest）一次提交
+3. 对每个远端：fetch + pull --rebase + 冲突自动解决
+4. push 到全部远端
+```
+
+- **多远端平级**：所有远端都是 fetch/pull/push 目标，无主备之分。远端历史若分叉，rebase 到每个远端各自解决；所有远端都同步到同一最终状态。
+- 全程自动，无用户选择；无法自动解决者记入 `.conflict` 供下次打开核查，但不阻塞同步。
+- 定时/启动时也可自动执行同一流程。
+
+## 冲突策略（自动）
+
+冲突发生在**同一文件被两端同时修改**时（git 文件级冲突）；不同文件/不同区域的修改 git 自动合并。
+
+按对象类型自动处理（无需用户介入）：
+
+1. **不同对象 / 不同块**：git 自动合并（不同字段对象 = 不同文件或不同区域 → 自动合并）。
+2. **同一对象（同一块）被两端改** → 按 `modifiedAt` 仲裁：**大者 wins**（保留 modifiedAt 较大的一侧），被覆盖方版本复制到 `<文件名>.conflict` 供核查，不阻塞。
+3. **同 `modifiedAt`（并发无先后）**：保留本地版本，远端版本记入 `.conflict`，下次打开提示待核查。
+4. **无块的用户正文文件冲突**：先让 git 三方合并（文本合并）；无法自动合并的同一区域冲突 → 保留本地，远端版本复制为 `<文件名>.conflict`。
+- 冲突解决后直接 commit，无重签、无 trusted.log（见"提交"）。
+- `.conflict` 文件落于库根（随仓库版本化），下次打开时 UI 提示待核查，但不影响自动同步。
 - 远端（GitHub / 自建 Git 服务）即备份。
+
+## 冲突获取与自动解决机制
+
+**获取冲突**（JGit）：
+1. `pull --rebase` 失败 → 从 `RebaseResult.getUnmergedPaths()` 得到冲突文件路径清单。
+2. 对每个冲突路径，用 JGit 的 `DirCache` / `ObjectReader` 读出 git 记录的三份内容：
+   - `base`（merge-base 祖先）、`ours`（本地/工作区）、`theirs`（远端/rebase 目标）。
+   - 注：rebase 与 merge 的 ours/theirs 方向相反，故**仲裁不依赖 ours/theirs 语义**，一律以 `modifiedAt` 为准。
+
+**自动解决**（按对象类型）：
+1. **独立对象文件**（一个文件一个块）：对 ours/theirs 各解 base58 → 信封 → 解密 JSON，取 `modifiedAt`；**大者 wins**，写回该文件、`git add` 标记 resolved。
+2. **共享/无块正文文件**：先让 git 三方合并（文本合并）；同区域无法合并 → 保留本地（ours），远端版本复制为 `<文件名>.conflict`。
+3. 全部 resolved 后 `rebase --continue`，继续下一步/下一远端。
+
+**仲裁原则**：一律按 `modifiedAt` 判定，不依赖 git 的 ours/theirs 方向，避免 rebase/merge 语义差异导致的误判；`modifiedAt` 同值（并发无先后）→ 保留本地 + 对方记 `.conflict`。
 
 ## 远端配置与凭据存放
 
-- **远端列表（名称、URL、key 引用）**：存为 vault 内 SECRET 对象（随机 UUID，内容自描述，见 05），解锁后扫描定位并应用到 jgit 配置——多设备一致，无手动重复配置；URL 会泄露托管商，故不落明文。key 引用指向 vault 内密钥 UUID 或系统 key 名。
+- **远端列表（名称、URL、key 引用）**：存为 vault 内 SECRET 对象（随机 UUID，内容自描述，见 05），解锁后扫描定位并应用到 jgit 配置——多设备一致，无手动重复配置；URL 会泄露托管商，故不落明文。key 引用指向 vault 内密钥 UUID 或系统 key 名。**支持多个远端**，同步时逐个 fetch/pull/push（方案 B，见"同步流程"）。
 - **SSH 私钥默认存 vault 内**（SECRET 对象，key = `<密钥UUID>`，见 05）：与条目同级加密保护，解锁后在内存持有，经 sshd 的 KeyProvider 直接提供 jgit 使用（或可选暴露本地 ssh-agent 供外部工具），**不落明文盘、锁定即弃**。主密码即所有凭据的单点，需保持强口令并做好归档备份。
 - 备选：系统 ssh-agent / OS keychain（远端配置的 key 提示指向系统 key 或 vault 内密钥 UUID，二选一）。
 - known_hosts 由 jgit 按标准位置（`~/.ssh/known_hosts`）管理，不随 vault 同步。

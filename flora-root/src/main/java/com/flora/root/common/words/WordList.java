@@ -109,11 +109,9 @@ public final class WordList {
     /** 读取资源并按词表约定校验：字符集、行数、无重复。 */
     private List<String> readAndValidate(int expectedSize) {
         String text;
-        ClassLoader cl = Thread.currentThread().getContextClassLoader();
-        if (cl == null) {
-            cl = WordList.class.getClassLoader();
-        }
-        try (InputStream in = cl.getResourceAsStream(resourcePath)) {
+        // 用本类所属模块的类加载器读取资源：Class.getResourceAsStream 在 JPMS 模块路径下
+        // 也能正确定位到模块内打包的资源，避免 Thread 上下文类加载器在模块化运行时看不到模块资源。
+        try (InputStream in = WordList.class.getResourceAsStream("/" + resourcePath)) {
             if (in == null) {
                 throw new IllegalStateException("词表资源不存在: " + resourcePath);
             }

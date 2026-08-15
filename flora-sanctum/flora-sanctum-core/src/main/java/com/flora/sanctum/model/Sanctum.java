@@ -327,13 +327,57 @@ public final class Sanctum {
         refresh();
     }
 
-    // ---- GC / 搜索（见设计 04b"可达树"）----
+    // ---- 图标 / SSH 密钥（见设计 05）----
+
+    /** 新建自定义图标（用 icon root DEK 加密，parent 指向 icon root group）。 */
+    public UUID createIcon(byte[] data, String format) {
+        UUID iconUuid = UUID.randomUUID();
+        Json.Node icon = Json.obj();
+        Json.put(icon, "version", Json.of(1));
+        Json.put(icon, "type", Json.of("icon"));
+        Json.put(icon, "parent", Json.of(vault.rootGroupUuid("icon").toString()));
+        Json.put(icon, "data", Json.of(java.util.Base64.getEncoder().encodeToString(data)));
+        Json.put(icon, "format", Json.of(format));
+        Json.put(icon, "updateTimestamp", Json.of(nextTimestamp()));
+        byte[] dek = vault.dekForRole("icon");
+        writeObjectWithDek(iconUuid, icon, dek);
+        refresh();
+        return iconUuid;
+    }
+
+    /** 新建 SSH 私钥（用 sshKey root DEK 加密，parent 指向 sshKey root group）。 */
+    public UUID createSshKey(String name, String privateKeyPem) {
+        UUID keyUuid = UUID.randomUUID();
+        Json.Node key = Json.obj();
+        Json.put(key, "version", Json.of(1));
+        Json.put(key, "type", Json.of("sshKey"));
+        Json.put(key, "parent", Json.of(vault.rootGroupUuid("sshKey").toString()));
+        Json.put(key, "name", Json.of(name));
+        Json.put(key, "privateKey", Json.of(privateKeyPem));
+        Json.put(key, "updateTimestamp", Json.of(nextTimestamp()));
+        byte[] dek = vault.dekForRole("sshKey");
+        writeObjectWithDek(keyUuid, key, dek);
+        refresh();
+        return keyUuid;
+    }
+
+    /** 用指定 DEK 写对象（供 icon/sshKey 按 role 路由）。 */
+    private void writeObjectWithDek(UUID uuid, Json.Node payload, byte[] dek) {
+        byte[] json = Json.stringify(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(dek, null, "sanctum-enc", 32);
+        com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, dek, vault.random());
+        byte[] block = codec.encode(uuid, json, codec.makeKeyIdWith(dek));
+        store.put(uuid, block, new com.flora.sanctum.store.impl.RawCodec());
+    }
+
 
     /**
      * 收集垃圾：从根集合（manifest + 三个顶层 group + 顶层条目）出发，
      * 沿归属边(parent)与引用边(icon/keyRef)遍历，不可达的孤立块列入清单并软删除。
      * 返回被软删除的孤立块 uuid 列表。
      */
+    // ---- GC / 搜索（见设计 04b"可达树"）----
+
     public java.util.List<UUID> collectGarbage() {
         if (vault == null) {
             throw new IllegalStateException("not unlocked");

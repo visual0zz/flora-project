@@ -126,4 +126,19 @@ class SanctumTest {
         // 条目仍可读
         assertNotNull(s.getEntry(entry));
     }
+
+    @Test
+    void createIconAndSshKey() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        UUID icon = s.createIcon(new byte[]{1, 2, 3}, "png");
+        UUID ssh = s.createSshKey("mykey", "-----BEGIN RSA PRIVATE KEY-----\n...");
+
+        Json.Node iconNode = s.getEntry(icon);
+        Json.Node sshNode = s.getEntry(ssh);
+        assertNotNull(iconNode);
+        assertEquals("icon", iconNode.str("type"));
+        assertNotNull(sshNode);
+        assertEquals("sshKey", sshNode.str("type"));
+        assertEquals("mykey", sshNode.str("name"));
+    }
 }

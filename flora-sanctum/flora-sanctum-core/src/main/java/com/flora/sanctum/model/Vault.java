@@ -29,6 +29,7 @@ public final class Vault {
     private final SecureRandomSource random;
     private final WarehouseClock clock;
     private final java.util.Map<String, byte[]> rootDeksByRole = new java.util.LinkedHashMap<>();
+    private final java.util.Map<String, java.util.UUID> rootGroupUuidByRole = new java.util.LinkedHashMap<>();
     private final java.util.Map<java.util.UUID, byte[]> folderDeks = new java.util.LinkedHashMap<>();
     private byte[] kek; // 解锁期间驻留内存，锁定/关闭时清除
 
@@ -51,6 +52,16 @@ public final class Vault {
         rootDeksByRole.put(role, dek.clone());
         // 同时登记进 keyId 索引
         keyIdIndex.register(dek);
+    }
+
+    /** 登记某 role 的顶层 group uuid（供新对象定位所属 root）。 */
+    public void addRootGroupUuid(String role, java.util.UUID groupUuid) {
+        rootGroupUuidByRole.put(role, groupUuid);
+    }
+
+    /** 取某 role 的顶层 group uuid。 */
+    public java.util.UUID rootGroupUuid(String role) {
+        return rootGroupUuidByRole.get(role);
     }
 
     /** 取某 role 的 root DEK。 */

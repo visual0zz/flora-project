@@ -85,6 +85,7 @@ public final class VaultUnlocker {
                         if ("group".equals(n.str("type")) && n.str("dek") != null) {
                             if (n.str("role") != null) {
                                 // root group
+                                vault.addRootGroupUuid(n.str("role"), b.uuid());
                                 if (vault.rootDek(n.str("role")) == null) {
                                     byte[] wrapped = java.util.Base64.getDecoder().decode(n.str("dek"));
                                     byte[] dek = unwrap(vault, dk, wrapped);

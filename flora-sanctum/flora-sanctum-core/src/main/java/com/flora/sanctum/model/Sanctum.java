@@ -198,6 +198,45 @@ public final class Sanctum implements AutoCloseable {
         return groupUuid;
     }
 
+    /** 新建文件夹（含自定义图标引用）。 */
+    public UUID createGroup(UUID parentId, String name, UUID iconUuid) {
+        UUID groupUuid = createGroup(parentId, name);
+        if (iconUuid != null) {
+            JsonObject group = readObject(groupUuid);
+            if (group != null) {
+                group.put("icon", iconUuid.toString());
+                writeObject(groupUuid, group, parentId);
+                refresh();
+            }
+        }
+        return groupUuid;
+    }
+
+    /**
+     * 新建远端配置（kind:remote 字段，value 含 url + keyRef，见 05"remote"）。
+     * 置于 objects root 之下，用 objects root DEK 加密。
+     */
+    public UUID createRemote(String name, String url, String keyRef) {
+        UUID remoteUuid = UUID.randomUUID();
+        JsonObject remote = new JsonObject();
+        remote.put("version", 1);
+        remote.put("type", "field");
+        remote.put("parent", vault.rootGroupUuid("objects").toString());
+        remote.put("fieldName", name);
+        remote.put("kind", "remote");
+        JsonObject value = new JsonObject();
+        value.put("url", url);
+        if (keyRef != null) {
+            value.put("keyRef", keyRef);
+        }
+        remote.put("value", value);
+        remote.put("updateTimestamp", nextTimestamp());
+        byte[] dek = vault.dekForRole("objects");
+        writeObjectWithDek(remoteUuid, remote, dek);
+        refresh();
+        return remoteUuid;
+    }
+
     /** 用父 DEK 包裹一个 DEK（AES-GCM-SIV，nonce 随机）。 */
     private byte[] wrap(byte[] dek, byte[] parentDek) {
         byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(parentDek, null, "sanctum-enc", 32);
@@ -294,6 +333,16 @@ public final class Sanctum implements AutoCloseable {
      * @return 新条目 UUID
      */
     public UUID createEntry(UUID groupId, String name, Map<String, String> fields) {
+        return createEntry(groupId, name, fields, null, null);
+    }
+
+    /**
+     * 新建条目（含图标引用）。
+     *
+     * @param iconId    内置图标集索引（可 null）
+     * @param iconUuid  自定义图标对象 UUID（引用，非归属；可 null，优先于 iconId）
+     */
+    public UUID createEntry(UUID groupId, String name, Map<String, String> fields, Integer iconId, UUID iconUuid) {
         UUID entryUuid = UUID.randomUUID();
         long ts = nextTimestamp();
         JsonObject entry = new JsonObject();
@@ -301,6 +350,12 @@ public final class Sanctum implements AutoCloseable {
         entry.put("type", "entry");
         entry.put("name", name);
         entry.put("parent", groupId == null ? JsonNull.INSTANCE : groupId.toString());
+        if (iconId != null) {
+            entry.put("iconId", iconId);
+        }
+        if (iconUuid != null) {
+            entry.put("icon", iconUuid.toString());
+        }
         entry.put("updateTimestamp", ts);
         writeObject(entryUuid, entry, groupId);
         // 字段各自独立对象，parent 指向条目
@@ -331,6 +386,36 @@ public final class Sanctum implements AutoCloseable {
             store.delete(f);
         }
         refresh();
+    }
+
+    // ---- 自定义字段（含 kind：totp / externalKey / remote 等，见 05）----
+
+    /** 在条目下创建带 kind 的字段。 */
+    public UUID createFieldWithKind(UUID entryUuid, UUID groupId, String fieldName, String value, String kind) {
+        UUID fieldUuid = UUID.randomUUID();
+        JsonObject field = new JsonObject();
+        field.put("version", 1);
+        field.put("type", "field");
+        field.put("parent", entryUuid.toString());
+        field.put("fieldName", fieldName);
+        field.put("value", value);
+        if (kind != null) {
+            field.put("kind", kind);
+        }
+        field.put("updateTimestamp", nextTimestamp());
+        writeObject(fieldUuid, field, groupId);
+        refresh();
+        return fieldUuid;
+    }
+
+    /** 从 kind:totp 字段生成当前 TOTP 验证码（种子为 value，见 02"TOTP"）。 */
+    public String totpCode(UUID fieldUuid) {
+        JsonObject field = readObject(fieldUuid);
+        if (field == null || !"totp".equals(field.getString("kind"))) {
+            throw new IllegalArgumentException("not a totp field");
+        }
+        byte[] secret = com.flora.root.codec.Base32.decode(field.getString("value"));
+        return com.flora.sanctum.crypto.Totp.generate(secret, 6, 30);
     }
 
     // ---- 图标 / SSH 密钥（见设计 05）----
@@ -443,6 +528,29 @@ public final class Sanctum implements AutoCloseable {
     /** 按 uuid 查找对象（返回其负载 JSON；未找到返回 null）。 */
     public JsonObject search(UUID uuid) {
         return getEntry(uuid);
+    }
+
+    /** 按类型查找对象（type: group/entry/field/sshKey/icon 等）。 */
+    public java.util.List<JsonObject> searchByType(String type) {
+        java.util.List<JsonObject> out = new java.util.ArrayList<>();
+        for (com.flora.sanctum.store.Block b : store.scan()) {
+            JsonObject n = nodeOf(b);
+            if (n != null && type.equals(n.getString("type"))) {
+                out.add(n);
+            }
+        }
+        return out;
+    }
+
+    /** 查找某 uuid 的全部副本（块位置列表，用于去重/恢复/核查，见 04b"search"）。 */
+    public java.util.List<com.flora.sanctum.store.Block> findCopies(UUID uuid) {
+        java.util.List<com.flora.sanctum.store.Block> out = new java.util.ArrayList<>();
+        for (com.flora.sanctum.store.Block b : store.scan()) {
+            if (b.uuid().equals(uuid)) {
+                out.add(b);
+            }
+        }
+        return out;
     }
 
     private boolean isUuid(String s) {

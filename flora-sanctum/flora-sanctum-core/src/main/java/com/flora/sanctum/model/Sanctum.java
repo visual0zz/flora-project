@@ -18,7 +18,7 @@ import java.util.UUID;
  * 整合存储、解锁、目录与条目/组/字段 CRUD（见设计 05"密码库适配器"）。
  * 目录 = 解锁后扫描全部对象、按 type 分类、在内存构建引用图；锁定即丢弃。
  */
-public final class Sanctum {
+public final class Sanctum implements AutoCloseable {
 
     private final Path root;
     private final MarkdownObjectStore store;

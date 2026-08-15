@@ -7,8 +7,11 @@
  */
 module com.flora.sanctum.app {
     exports com.flora.sanctum.app;
+    exports com.flora.sanctum.app.command;
 
     requires com.flora.sanctum.core;
+    requires com.flora.shell;
+    requires com.flora.root;
     requires javafx.controls;
     requires javafx.graphics;
 }

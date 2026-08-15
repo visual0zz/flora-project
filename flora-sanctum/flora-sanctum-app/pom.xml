@@ -23,6 +23,12 @@
             <artifactId>flora-sanctum-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- 命令框架基座（复用 flora-shell，不重复建设） -->
+        <dependency>
+            <groupId>io.gitee.visual0zz</groupId>
+            <artifactId>flora-shell</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <!-- JavaFX 界面（platform classifier 由 javafx.platform 属性指定） -->
         <dependency>
             <groupId>org.openjfx</groupId>

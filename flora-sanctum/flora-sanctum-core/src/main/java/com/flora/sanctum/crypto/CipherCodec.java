@@ -130,9 +130,14 @@ public final class CipherCodec {
 
     /** 加密时使用，生成 keyId = byte1 ‖ SHA256(DEK‖byte1)[0:3]。 */
     public byte[] makeKeyId() {
+        return makeKeyIdWith(dek);
+    }
+
+    /** 用任意密钥材料生成 keyId（KEK 包裹的根 group 用 KEK；文件夹 DEK 用 DEK）。 */
+    public byte[] makeKeyIdWith(byte[] keyMaterial) {
         byte[] byte1 = new byte[1];
         random.nextBytes(byte1);
-        byte[] hash = sha256(concat(dek, byte1));
+        byte[] hash = sha256(concat(keyMaterial, byte1));
         byte[] keyId = new byte[4];
         keyId[0] = byte1[0];
         System.arraycopy(hash, 0, keyId, 1, 3);

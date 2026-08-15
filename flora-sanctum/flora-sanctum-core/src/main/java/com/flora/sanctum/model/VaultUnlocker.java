@@ -53,7 +53,37 @@ public final class VaultUnlocker {
             throw e;
         }
         KeyIdIndex index = new KeyIdIndex();
-        return new Vault(store, manifest, index, new SecureRandomSource());
+        Vault vault = new Vault(store, manifest, index, new SecureRandomSource());
+        // 4. 用 KEK 试解各 group，找到 KEK 能解开的顶层 root group，解出并登记其 DEK
+        discoverRootDeks(vault, kek, blocks);
+        return vault;
+    }
+
+    /**
+     * 用 KEK 试解各 group（KEK 包裹变体 keyId + GCM-SIV），解出顶层 root group 的 DEK。
+     * 生产：还需沿文件夹 DEK 树递归解子文件夹 DEK（此处登记直接可解的 root DEK）。
+     */
+    private void discoverRootDeks(Vault vault, byte[] kek, List<Block> blocks) {
+        byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(kek, null, "sanctum-enc", 32);
+        com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, kek, vault.random());
+        for (Block b : blocks) {
+            if (!b.isCipher()) {
+                continue;
+            }
+            try {
+                byte[] plain = codec.decode(b.obfuscated()).plaintext;
+                Json.Node n = Json.parse(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
+                if ("group".equals(n.str("type"))) {
+                    String dekB64 = n.str("dek");
+                    if (dekB64 != null) {
+                        byte[] dek = java.util.Base64.getDecoder().decode(dekB64);
+                        vault.keyIdIndex().register(dek);
+                    }
+                }
+            } catch (Exception ignore) {
+                // KEK 解不开 → 不是顶层 root group（普通对象树内由父 DEK 包裹），跳过
+            }
+        }
     }
 
     /**

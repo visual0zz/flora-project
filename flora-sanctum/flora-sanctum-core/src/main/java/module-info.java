@@ -13,6 +13,9 @@ module com.flora.sanctum.core {
     exports com.flora.sanctum.store.impl;
     // 适配器暴露的公开 API（条目/字段模型、解锁）
     exports com.flora.sanctum.model;
+    // Git 同步（JGit 封装）
+    exports com.flora.sanctum.sync;
 
     requires org.bouncycastle.provider;
+    requires org.eclipse.jgit;
 }

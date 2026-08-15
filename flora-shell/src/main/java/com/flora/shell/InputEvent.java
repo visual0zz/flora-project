@@ -1,6 +1,6 @@
 package com.flora.shell;
 
-import com.flora.root.codec.json.model.JsonValue;
+import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.java.CheckUtil;
 
 import java.util.List;
@@ -10,10 +10,10 @@ import java.util.List;
  * <p>命令调用描述只有两种既定形态，由 {@code kind()} 区分：</p>
  * <ul>
  *   <li>{@link Kind#ARGV}：argv 序列（{@code List<String>}），走 {@code ArgParser.parse}；</li>
- *   <li>{@link Kind#STRUCTURED}：结构化参数（{@link JsonValue}，JSON 对象），走 {@code ArgParser.validate}。</li>
+ *   <li>{@link Kind#STRUCTURED}：结构化参数（{@link JsonObject}），走 {@code ArgParser.validate}。</li>
  * </ul>
  * <p>来源（{@link #source()}）是一次调用的使用场景（{@link UsageScenario}）。
- * 归一化在场景边界完成（argv 切成 argv 序列；Agent JSON 解析为 {@code JsonValue}），组件只接收本对象，
+ * 归一化在场景边界完成（argv 切成 argv 序列；Agent JSON 解析为 {@code JsonObject}），组件只接收本对象，
  * 不再二次猜测。</p>
  */
 public final class InputEvent {
@@ -30,10 +30,10 @@ public final class InputEvent {
     private final String commandName;
     private final Kind kind;
     private final List<String> argv;
-    private final JsonValue structured;
+    private final JsonObject structured;
 
     private InputEvent(UsageScenario source, String commandName, Kind kind,
-                       List<String> argv, JsonValue structured) {
+                       List<String> argv, JsonObject structured) {
         this.source = CheckUtil.notNull(source, "使用场景不能为空");
         this.commandName = CheckUtil.notBlank(commandName, "命令名不能为空");
         this.kind = kind;
@@ -78,12 +78,12 @@ public final class InputEvent {
      *
      * @param source      使用场景
      * @param commandName 命令名（点分路径）
-     * @param params      参数对象（flora-root 的 JSON 正规表示，须为 object）
+     * @param params      参数对象（flora-root 的 JSON 正规表示）；构造时浅拷贝，之后修改原对象不影响本事件
      * @return InputEvent
      */
-    public static InputEvent ofJsonValue(UsageScenario source, String commandName, JsonValue params) {
+    public static InputEvent ofJson(UsageScenario source, String commandName, JsonObject params) {
         return new InputEvent(source, commandName, Kind.STRUCTURED, null,
-                CheckUtil.notNull(params, "参数不能为空"));
+                CheckUtil.notNull(params, "参数不能为空").copy());
     }
 
     /**
@@ -120,7 +120,7 @@ public final class InputEvent {
     /**
      * @return 结构化参数（flora-root 的 JSON 正规表示）；仅当 {@code kind()==STRUCTURED} 时可用
      */
-    public JsonValue structured() {
+    public JsonObject structured() {
         if (kind != Kind.STRUCTURED) {
             throw new IllegalStateException("此输入不是结构化形态");
         }

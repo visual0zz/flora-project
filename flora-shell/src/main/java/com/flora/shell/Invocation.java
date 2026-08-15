@@ -1,6 +1,6 @@
 package com.flora.shell;
 
-import com.flora.root.codec.json.model.JsonValue;
+import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.java.CheckUtil;
 import com.flora.shell.spec.ParsedArgs;
 
@@ -81,7 +81,7 @@ public final class Invocation {
      * @param params        参数对象（flora-root 的 JSON 正规表示）
      * @return 目标命令的执行结果
      */
-    public CommandResult forward(String targetCommand, JsonValue params) {
-        return dispatcher.submit(InputEvent.ofJsonValue(source, targetCommand, params));
+    public CommandResult forward(String targetCommand, JsonObject params) {
+        return dispatcher.submit(InputEvent.ofJson(source, targetCommand, params));
     }
 }

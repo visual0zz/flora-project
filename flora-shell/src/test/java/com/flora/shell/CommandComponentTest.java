@@ -99,7 +99,7 @@ class CommandComponentTest {
         CommandService agentService = new CommandService(UsageScenario.AGENT);
         agentService.register(new RestrictedCommand());
         assertEquals(CommandResult.SUCCESS, agentService.submit(
-                InputEvent.ofJsonValue(UsageScenario.AGENT, "restricted", new JsonObject())).exitCode());
+                InputEvent.ofJson(UsageScenario.AGENT, "restricted", new JsonObject())).exitCode());
     }
 
     @Test

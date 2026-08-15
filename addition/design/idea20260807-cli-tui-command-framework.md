@@ -78,7 +78,7 @@ com.flora.shell
 ├── Dispatcher               # 分派门面：命令执行中转发重入分派的入口
 ├── Invocation               # 调用上下文：命令 + 参数 + 来源 + 转发入口
 ├── InputEvent               # 归一化输入（来源 + 命令调用描述：argv / 结构化 / cliArgs）
-├── CommandResult            # 执行结果（状态 / 结构化数据；进程退出值由调用方按状态判定）
+├── CommandResult            # 执行结果（状态 / JSON 结构化数据；进程退出值由调用方按状态判定）
 ├── CommandObserver          # 命令执行观察者回调接口（event, result）
 ├── CommandSink              # 观察 sink 句柄（newSink 返回，可 close）
 ├── builtin/                 # 内置指令（预制）：help / alias / gui（HelpRenderer 内嵌于 HelpCommand）
@@ -110,7 +110,7 @@ interface Command {
 
 - `name()` 支持点分路径，天然表达**子命令树**（`session.new`、`buffer.write`），组件按前缀聚合为命令树。
 - `args()` 是**声明**不是代码：解析、help 生成、Agent 的 JSON schema 都从这同一份声明推导，保证"一处定义、处处一致"。
-- `execute()` 不直接触碰输出：文本信息一律经命令级 logger（`Invocation.log()`，带命令名标注）记录，结构化结果放进 `CommandResult.data()` 返回。因此同一份实现可同时跑在批量打印与未来多渠道上。
+- `execute()` 不直接触碰输出：文本信息一律经命令级 logger（`Invocation.log()`，带命令名标注）记录，结构化结果放进 `CommandResult.data()`（强制 `JsonValue`，即 flora-root 的 JSON 值模型）返回。因此同一份实现可同时跑在批量打印与未来多渠道上。
 - `priority()` 只用于**同名冲突裁决**：内置指令（help/gui）以低优先级注册，用户定义同名命令可覆写内置指令；用户命令之间同名冲突直接抛异常（视为 bug），不裁决。
 - **命令应无状态**：领域状态由业务代码通过 `ScopedValue` 在调用前绑定，命令在 `execute` 内读取，不存于命令或框架内。保证同一命令在多个组件中重复注册（各 `registerBySpi()`）时行为一致。
 
@@ -224,7 +224,7 @@ CommandSink sink = commandService.newSink((event, result) -> { ... });  // 注�
 sink.close();                                                            // 移除
 ```
 
-**本期契约**：`CommandResult` 只表达**状态 + 结构化数据**，不携带文本信息也不带退出码；进程退出值由调用方按 `status()`（成功→0，否则→1）判定。一切文本（成功或报错）都是描述性的，统一经日志记录——`CommandService` 构造时可注入 `Logger`（否则自建），内部错误用它记录，并把底层 logger 包装成带命令名标注的命令级 logger 经 `Invocation.log()` 交给命令记录内部过程。每次执行完毕把 `InputEvent` + `CommandResult` 交给所有已注册的 `CommandSink`（结构化观察者）。需要结构化消费（TUI 渲染、微信回写、收集）的宿主用 `newSink` 注册观察者，`close()` 即可移除；单个 sink 抛异常不影响其他 sink 与主流程。
+**本期契约**：`CommandResult` 只表达**状态 + JSON 结构化数据（`data()` 强制为 flora-root 的 `JsonValue`）**，不携带文本信息也不带退出码；进程退出值由调用方按 `status()`（成功→0，否则→1）判定。一切文本（成功或报错）都是描述性的，统一经日志记录——`CommandService` 构造时可注入 `Logger`（否则自建），内部错误用它记录，并把底层 logger 包装成带命令名标注的命令级 logger 经 `Invocation.log()` 交给命令记录内部过程。每次执行完毕把 `InputEvent` + `CommandResult` 交给所有已注册的 `CommandSink`（结构化观察者）。需要结构化消费（TUI 渲染、微信回写、收集）的宿主用 `newSink` 注册观察者，`close()` 即可移除；单个 sink 抛异常不影响其他 sink 与主流程。
 
 ### 7.5 状态与上下文
 

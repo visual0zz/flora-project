@@ -1,6 +1,7 @@
 package com.flora.shell;
 
 import com.flora.root.codec.json.model.JsonObject;
+import com.flora.root.codec.json.model.JsonString;
 import com.flora.shell.spec.ArgSpec;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +35,7 @@ class CommandComponentTest {
 
         @Override
         public CommandResult execute(Invocation ctx) {
-            return CommandResult.data("echo:" + ctx.args().get("text"));
+            return CommandResult.data(new JsonString("echo:" + ctx.args().get("text")));
         }
     }
 
@@ -45,7 +46,7 @@ class CommandComponentTest {
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("hello")));
         assertEquals(CommandResult.Status.SUCCESS, result.status());
-        assertEquals("echo:hello", result.data());
+        assertEquals("echo:hello", result.data().asString());
     }
 
     @Test
@@ -85,7 +86,7 @@ class CommandComponentTest {
         assertEquals(1, events.size());
         assertEquals("echo", events.get(0).commandName());
         assertEquals(1, results.size());
-        assertEquals("echo:fan", results.get(0).data());
+        assertEquals("echo:fan", results.get(0).data().asString());
         assertEquals(CommandResult.Status.SUCCESS, results.get(0).status());
     }
 
@@ -95,7 +96,7 @@ class CommandComponentTest {
         commandService.register(new EchoCommand());
         List<String> seen = new ArrayList<>();
         CommandSink sink = commandService.newSink((event, result) ->
-                seen.add(String.valueOf(result.data())));
+                seen.add(result.data().asString()));
         commandService.submit(InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("one")));
         sink.close();
         commandService.submit(InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("two")));
@@ -111,7 +112,7 @@ class CommandComponentTest {
         commandService.newSink((event, result) -> {
             throw new IllegalStateException("模拟 sink 异常");
         });
-        commandService.newSink((event, result) -> seen.add(String.valueOf(result.data())));
+        commandService.newSink((event, result) -> seen.add(result.data().asString()));
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("iso")));
         assertEquals(CommandResult.Status.SUCCESS, result.status());
@@ -176,7 +177,7 @@ class CommandComponentTest {
         commandService.setAlias("ec", "echo", List.of());
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "ec", List.of("hello")));
-        assertEquals("echo:hello", result.data());
+        assertEquals("echo:hello", result.data().asString());
     }
 
     @Test
@@ -187,7 +188,7 @@ class CommandComponentTest {
         commandService.setAlias("ga", "join", List.of("hello"));
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "ga", List.of("world")));
-        assertEquals("join:hello world", result.data());
+        assertEquals("join:hello world", result.data().asString());
     }
 
     @Test
@@ -207,7 +208,7 @@ class CommandComponentTest {
         commandService.register(new ForwardingCommand());
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "forwarder", List.of("ping")));
-        assertEquals("echo:ping", result.data());
+        assertEquals("echo:ping", result.data().asString());
     }
 
     @Test
@@ -321,7 +322,7 @@ class CommandComponentTest {
         @Override
         public CommandResult execute(Invocation ctx) {
             String joined = String.join(" ", ctx.args().getStringList("words"));
-            return CommandResult.data("join:" + joined);
+            return CommandResult.data(new JsonString("join:" + joined));
         }
     }
 

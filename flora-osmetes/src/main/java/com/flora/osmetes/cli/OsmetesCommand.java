@@ -3,6 +3,9 @@ package com.flora.osmetes.cli;
 import com.flora.osmetes.CheckIssue;
 import com.flora.osmetes.Osmetes;
 import com.flora.osmetes.Severity;
+import com.flora.root.codec.json.model.JsonArray;
+import com.flora.root.codec.json.model.JsonObject;
+import com.flora.root.codec.json.model.JsonString;
 import com.flora.shell.Command;
 import com.flora.shell.CommandResult;
 import com.flora.shell.Invocation;
@@ -60,7 +63,22 @@ public final class OsmetesCommand implements Command {
             return CommandResult.commandError();
         }
         ctx.log().info(report);
-        return CommandResult.data(issues);
+        return CommandResult.data(toJson(issues));
+    }
+
+    /** 把检查问题列表转为 JSON 数组（供机器可读消费）。 */
+    private static JsonArray toJson(List<CheckIssue> issues) {
+        JsonArray array = new JsonArray();
+        for (CheckIssue issue : issues) {
+            array.add(new JsonObject()
+                    .put("file", new JsonString(issue.relativeFile()))
+                    .put("line", issue.line())
+                    .put("column", issue.column())
+                    .put("check", new JsonString(issue.check()))
+                    .put("severity", new JsonString(issue.severity().name()))
+                    .put("message", new JsonString(issue.message())));
+        }
+        return array;
     }
 
     /** 渲染检查报告文本（含"检查通过"或问题明细）。 */

@@ -1,5 +1,6 @@
 package com.flora.shell;
 
+import com.flora.root.codec.json.model.JsonValue;
 import com.flora.root.java.CheckUtil;
 import com.flora.root.tag.ReadOnly;
 
@@ -27,9 +28,9 @@ public final class CommandResult {
     }
 
     private final Status status;
-    private final Object data;
+    private final JsonValue data;
 
-    private CommandResult(Status status, Object data) {
+    private CommandResult(Status status, JsonValue data) {
         this.status = CheckUtil.notNull(status, "状态不能为空");
         this.data = data;
     }
@@ -63,10 +64,10 @@ public final class CommandResult {
     }
 
     /**
-     * @param data 结构化返回数据（机器可读）
+     * @param data 结构化返回数据（JSON 值，机器可读）
      * @return 成功且携带结构化数据的结果
      */
-    public static CommandResult data(Object data) {
+    public static CommandResult data(JsonValue data) {
         return new CommandResult(Status.SUCCESS, CheckUtil.notNull(data, "结果数据不能为空"));
     }
 
@@ -78,9 +79,9 @@ public final class CommandResult {
     }
 
     /**
-     * @return 结构化数据；可能为 {@code null}
+     * @return 结构化 JSON 数据；可能为 {@code null}
      */
-    public Object data() {
+    public JsonValue data() {
         return data;
     }
 

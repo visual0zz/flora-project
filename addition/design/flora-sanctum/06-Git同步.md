@@ -50,8 +50,8 @@
 按对象类型自动处理（无需用户介入）：
 
 1. **不同对象 / 不同块**：git 自动合并（不同字段对象 = 不同文件或不同区域 → 自动合并）。
-2. **同一对象（同一块）被两端改** → 按 `modifiedAt` 仲裁：**大者 wins**（保留 modifiedAt 较大的一侧），被覆盖方版本复制到 `<文件名>.conflict` 供核查，不阻塞。
-3. **同 `modifiedAt`（并发无先后）**：保留本地版本，远端版本记入 `.conflict`，下次打开提示待核查。
+2. **同一对象（同一块）被两端改** → 按 `updateTimestamp` 仲裁：**大者 wins**（保留 updateTimestamp 较大的一侧），被覆盖方版本复制到 `<文件名>.conflict` 供核查，不阻塞。
+3. **同 `updateTimestamp`（并发无先后）**：保留本地版本，远端版本记入 `.conflict`，下次打开提示待核查。
 4. **无块的用户正文文件冲突**：先让 git 三方合并（文本合并）；无法自动合并的同一区域冲突 → 保留本地，远端版本复制为 `<文件名>.conflict`。
 - 冲突解决后直接 commit，无重签、无 trusted.log（见"提交"）。
 - `.conflict` 文件落于库根（随仓库版本化），下次打开时 UI 提示待核查，但不影响自动同步。
@@ -63,14 +63,14 @@
 1. `pull --rebase` 失败 → 从 `RebaseResult.getUnmergedPaths()` 得到冲突文件路径清单。
 2. 对每个冲突路径，用 JGit 的 `DirCache` / `ObjectReader` 读出 git 记录的三份内容：
    - `base`（merge-base 祖先）、`ours`（本地/工作区）、`theirs`（远端/rebase 目标）。
-   - 注：rebase 与 merge 的 ours/theirs 方向相反，故**仲裁不依赖 ours/theirs 语义**，一律以 `modifiedAt` 为准。
+   - 注：rebase 与 merge 的 ours/theirs 方向相反，故**仲裁不依赖 ours/theirs 语义**，一律以 `updateTimestamp` 为准。
 
 **自动解决**（按对象类型）：
-1. **独立对象文件**（一个文件一个块）：对 ours/theirs 各解 base58 → 信封 → 解密 JSON，取 `modifiedAt`；**大者 wins**，写回该文件、`git add` 标记 resolved。
+1. **独立对象文件**（一个文件一个块）：对 ours/theirs 各解 base58 → 信封 → 解密 JSON，取 `updateTimestamp`；**大者 wins**，写回该文件、`git add` 标记 resolved。
 2. **共享/无块正文文件**：先让 git 三方合并（文本合并）；同区域无法合并 → 保留本地（ours），远端版本复制为 `<文件名>.conflict`。
 3. 全部 resolved 后 `rebase --continue`，继续下一步/下一远端。
 
-**仲裁原则**：一律按 `modifiedAt` 判定，不依赖 git 的 ours/theirs 方向，避免 rebase/merge 语义差异导致的误判；`modifiedAt` 同值（并发无先后）→ 保留本地 + 对方记 `.conflict`。
+**仲裁原则**：一律按 `updateTimestamp` 判定，不依赖 git 的 ours/theirs 方向，避免 rebase/merge 语义差异导致的误判；`updateTimestamp` 同值（并发无先后）→ 保留本地 + 对方记 `.conflict`。
 
 ## 远端配置与凭据存放
 

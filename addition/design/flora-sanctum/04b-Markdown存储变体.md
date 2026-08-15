@@ -4,7 +4,7 @@
 > 核心性质不变（明文局部修改 → 密文局部修改、局部提交、可合并并发、远端即备份），
 > 差别在于**文件形态**：仓库就是一文件夹 markdown，管理器把它们当作 **base58 块的集合**来读写。
 >
-> **硬性外观约束**：库密钥块、组、口令条目、自定义字段、远端配置、图标——所有 markdown 文件在文件系统层面必须**看起来没有任何区别**。
+> **硬性外观约束**：三个顶层组（各含 root DEK）、组、口令条目、自定义字段、SSH 密钥、图标——所有 markdown 文件在文件系统层面必须**看起来没有任何区别**。
 
 ## 为什么用 markdown
 
@@ -51,13 +51,13 @@
 每个 base58 块解码后是**自描述**的字节序列，**块本身就是单一的信封**（没有"外层块 + 内层信封"两层）。信封结构（见 02）：
 
 ```
-magic(4B) + version(1B) + flags(1B) + uuid(16B) + keyId(2B) + nonce(16B) + ciphertext + tag(16B)
+magic(4B) + version(1B) + flags(1B) + uuid(16B) + keyId(4B) + nonce(16B) + ciphertext + tag(16B)
 ```
 
 - **magic**：判明这是不是本应用的数据块（避免把用户乱写的 base58 当数据）。
 - **flags 位标记**：`0x01`=密文 / `0x02`=明文。明文块负载为明文字节（无 keyId/nonce/tag），密文块负载为加密后的密文（见下）。
-- **uuid（16B）**：本数据对象自己的 UUID（见"上层：对象与互相指向"），同时作为 AEAD 的 AAD 绑定，防密文被搬运到别的对象。
-- **keyId（2B，仅密文）** = `byte1 ‖ SHA256(DEK‖byte1)[0:1]`，byte1 逐块随机；解锁后用增量 keyId 索引定位候选 DEK，靠 GCM-SIV tag 试解确证（见 02）。
+- **uuid（16B）**：本数据对象自己的 UUID（见"上层：对象与互相指向"）。**AAD = 整个信封头（magic/version/flags/uuid/keyId/nonce）**，tag 覆盖信封全部信息 + 密文，防密文被搬运到别的对象、防算法版本降级、防头部字段被篡改。
+- **keyId（4B，仅密文）** = `byte1(1B) ‖ SHA256(DEK‖byte1)[0:3]`，byte1 逐块随机；解锁后用增量 keyId 索引定位候选 DEK，靠 GCM-SIV tag 试解确证（见 02）。
 - **负载**：明文负载或密文。
 
 明文块示例：`magic + version + flags(0x02) + uuid + plaintext`；密文块：`magic + version + flags(0x01) + uuid + keyId + nonce + ciphertext + tag`。两者由 flags 区分，无需明文标注。
@@ -120,16 +120,18 @@ magic(4B) + version(1B) + flags(1B) + uuid(16B) + keyId(2B) + nonce(16B) + ciphe
 
 - **根集合**（遍历起点）：
   - manifest 明文块；
-  - 全部 vaultKey 块（库密钥）；
-  - **所有顶层组**（`parentGroupId == null` 的 group）——作为对象树入口。
-- **引用边**（从对象到被引用对象）：
-  - group → `parentGroupId`（父组）；
-  - entry → `groupId`（所属组）、`fields[].object`（字段对象）；
-  - entry → `iconObjectId`（图标）；
-  - entry → `fields[]` 中引用的 `extKey` 对象（激活约束：extKey 必须被条目引用才可达）；
-  - remote → `keyRef`（SSH 密钥对象）。
-- **遍历**：队列从根出发，沿引用边可达的块标记为保留；`可达 = 根 ∪ 沿引用边能到达的全部块`；`孤立 = 全部块 − 可达`。
-- **vaultKey 的取舍**：vaultKey 本身是根，恒保留，不因"未被引用"而删除；上层的"显式删除某密钥"另行操作。
+  - **三个顶层 group**（普通对象 / icon / sshKey root，都 `parent == null`、KEK 能解开，各持独立 KEK 包裹的 DEK）——作为对象树与密钥树入口。
+- **归属边（parent，层级，自下往上，决定树结构与加密归属）**：
+  - group → `parent`（父组；普通对象 root 或 icon/sshKey root 为顶层）；
+  - entry → `parent`（所属组）；
+  - field → `parent`（所属条目/组，`fieldName` 为字段名）；
+  - icon → `parent`（icon root group）；
+  - sshKey → `parent`（sshKey root group）。
+- **引用边（非归属，仅可达性，与层级彻底分离）**：
+  - group/entry → `icon`（引用 icon 对象）；
+  - remote（field kind）→ `keyRef`（引用 sshKey 对象或系统 key 名）。
+- **遍历**：队列从根出发，沿归属边与引用边可达的块标记为保留；`可达 = 根 ∪ 沿边能到达的全部块`；`孤立 = 全部块 − 可达`。GC 从三个顶层 group（parent==null）出发，按归属边聚合树结构，引用边保证被引用对象（icon/sshKey）可达。
+- **顶层组与 DEK**：三个顶层 group 是根，恒保留（各携 root DEK）；各文件夹 group 的 DEK 随 group 对象保留。上层的"显式删除某密钥"另行操作。
 - 上层逐项确认后才实际删除；删除只影响该块自身，不触碰引用图其它节点。
 
 孤立块**无害**（git 历史兜底），gc 是显式、可审查的操作，不做自动清理。
@@ -138,15 +140,15 @@ magic(4B) + version(1B) + flags(1B) + uuid(16B) + keyId(2B) + nonce(16B) + ciphe
 
 在块集合之上，上层把每个块分配给一个"数据对象"语义，所有对象互相**通过 UUID 指向**：
 
-- 文件夹（组）、口令条目、条目内部的自定义字段、库密钥（vaultKey）、远端配置、图标——都是对象，各占一个（或几个）块。
+- 文件夹（组，含各自绑定的文件夹 DEK）、口令条目、条目内部的自定义字段（含 `kind:"externalKey"`/`kind:"remote"` 外部密钥/远端配置）、SSH 密钥、图标——都是对象，各占一个（或几个）块。
 - **每个数据对象在块内自述自己的 UUID**；引用他人时写入对方 UUID（如条目记录里字段名 → 字段对象 UUID 的映射，见 05）。
 - 对象语义（type、归属、字段映射）在**解密负载**里（全 JSON，见 05），不在 markdown 明文；字段名/条目名/归属从不进入明文。
-- **解密路由**：每个密文块用头部 keyId 决定用哪个 DEK 解密；DEK 来自 `vaultKey` 类型块（见 02/05），一对一或一对多由 keyId 指向决定，普通块负载不新增 keyRef 字段。
+- **解密路由**：每个密文块用头部 keyId 决定用哪个 DEK 解密；DEK 来自**所属 root 的 DEK 树**（普通对象 root 链 / icon root / sshKey root，三个顶层 group 随机 uuid、KEK 试解识别，见 02/05），一对一或一对多由 keyId 指向决定，普通块负载不新增 keyRef 字段。
 - 目录 = 解锁时扫描全部块、按解密负载的 type 分类、在内存构建引用图；锁定即丢弃，无持久索引。
 
-## 库密钥块（vaultKey）
+## 文件夹 DEK（密钥树）
 
-与 02 一致，落盘的是**用主密码派生的 KEK 包裹的 DEK**，**不是主密码本身**。DEK 存于 `vaultKey` 类型块（JSON 负载，见 05），一个库可有多个；换主密码重写这些 vaultKey 块（用新 KEK 重新包裹）+ 更新 manifest 的 MAC，普通对象块不动。
+与 02 一致，落盘的是**用父密钥包裹的 DEK**，**不是主密码本身**。三个顶层 root 的 DEK 存于各自顶层 group（普通对象/icon/sshKey，随机 uuid、KEK 试解识别，用 KEK 包裹）；普通对象树子文件夹 DEK 存于各 group（用父 DEK 包裹），见 05。换主密码只重写三个顶层 group 的 DEK（新 KEK 重新包裹）+ 更新 manifest 的 MAC，普通对象树子文件夹 DEK 链与普通对象块不动。
 
 ## manifest 块（明文块，外观与其余对象统一）
 
@@ -169,7 +171,9 @@ manifest 的明文 JSON 负载：
   "cryptoVersion": "gcm-siv-1",
   "kdf": "argon2id",
   "salt": "<base64>",
-  "params": { "m": 65536, "i": 3, "p": 4 },
+  "params": { "m": 262144, "i": 3, "p": 4 },
+  "warehouseTime": 1,
+  "updateTimestamp": 1,
   "mac": "<base64>"
 }
 ```
@@ -186,7 +190,7 @@ manifest 的明文 JSON 负载：
 
 ```
 vault/                          -- 库根（普通文件夹 / git 仓库根）
-└── <uuid>.md                    -- 全部块平铺在库根，外观统一（含 manifest 明文块与 vaultKey 块）
+└── <uuid>.md                    -- 全部块平铺在库根，外观统一（含 manifest 明文块、顶层 group 与普通对象）
 ```
 
 - 文件名**不承载语义**：管理器以块内自述的 UUID 为准，不依赖文件名。**默认文件名 = 对象 UUID（`<uuid>.md`）**；用户起名是可选例外，会暴露条目名（见"隐私边界"）。
@@ -221,13 +225,13 @@ vault/                          -- 库根（普通文件夹 / git 仓库根）
 ## 限制与恢复
 
 - **manifest 块丢失/损坏**：manifest 是明文引导块（负载 type=manifest）。若其所在文件被删或块被拆坏，仓库失去 KDF 参数 + salt，**无法解锁**。恢复路径：用 git 历史（启用同步时）还原该块所在文件；未启用 git 时需用户从备份恢复。不提供"从密码重建 manifest"（无法逆向参数），故强烈建议启用 git 或定期备份。
-- **vaultKey 块全部丢失**：仓库无法解锁（DEK 遗失）。同理靠 git 历史/备份恢复；换主密码仅重写 vaultKey + manifest MAC，不涉及其余块。
+- **顶层 root group（DEK）丢失**：仓库无法解锁（对应 root DEK 遗失）。同理靠 git 历史/备份恢复；换主密码仅重写三个顶层 group + manifest MAC，不涉及其余块。
 - **单块大小上限**：一块 = 单个 base58 串，建议 ≤ 64 KB 原始字节；超过用 `raw`/压缩或分块（见 05 读取模式扩展），避免超长串难以扫描与手写维护。
 - **对象与块映射**：一个逻辑对象默认**一个块**；`icon`/大字段等大对象可分多块，分块规则由 05 读取模式扩展定义（当前不启用）。
 
 ## 隐私边界（相对二进制方案的取舍）
 
-- **对象块不可区分**：vaultKey、组、条目、字段、远端配置、图标外观统一；是否密文、所属密钥组、是库密钥还是条目均不在明文可见（判定信息在块内）。
+- **对象块不可区分**：三个顶层 group、组、条目、字段、SSH 密钥、图标外观统一；是否密文、所属密钥组、是顶层组还是条目均不在明文可见（判定信息在块内）。
 - **仍泄露的对象级信息**：仓库里存在若干长 base58 串、文件数量与大小。若这些不可接受，应退回 02/04 纯二进制信封（连 markdown 明文结构都不存在）。
 - **字段名/条目名/归属关系安全**：只在解密负载内，markdown 明文不含任何用户命名。
 

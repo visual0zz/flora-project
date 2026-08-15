@@ -1,7 +1,6 @@
 package com.flora.shell;
 
 import com.flora.root.codec.json.model.JsonObject;
-import com.flora.shell.output.OutputSink;
 import com.flora.shell.spec.ArgSpec;
 import org.junit.jupiter.api.Test;
 
@@ -72,22 +71,35 @@ class CommandComponentTest {
     }
 
     @Test
-    void outputFansOutToSinks() {
+    void newSinkReceivesExecutedEvent() {
         CommandService commandService = new CommandService(UsageScenario.CLI);
         commandService.register(new EchoCommand());
-        List<String> received = new ArrayList<>();
-        commandService.attach(new OutputSink() {
-            @Override
-            public void emit(String text) {
-                received.add(text);
-            }
-
-            @Override
-            public void emitError(String text) {
-            }
+        List<InputEvent> events = new ArrayList<>();
+        List<CommandResult> results = new ArrayList<>();
+        CommandSink sink = commandService.newSink((event, result) -> {
+            events.add(event);
+            results.add(result);
         });
-        commandService.submit(InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("fan")));
-        assertEquals(List.of("echo: fan\n"), received);
+        InputEvent event = InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("fan"));
+        commandService.submit(event);
+        assertEquals(1, events.size());
+        assertEquals("echo", events.get(0).commandName());
+        assertEquals(1, results.size());
+        assertEquals("echo: fan", results.get(0).output());
+        assertEquals(CommandResult.Status.SUCCESS, results.get(0).status());
+    }
+
+    @Test
+    void sinkCloseStopsNotifications() {
+        CommandService commandService = new CommandService(UsageScenario.CLI);
+        commandService.register(new EchoCommand());
+        List<String> seen = new ArrayList<>();
+        CommandSink sink = commandService.newSink((event, result) ->
+                seen.add(result.output()));
+        commandService.submit(InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("one")));
+        sink.close();
+        commandService.submit(InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("two")));
+        assertEquals(List.of("echo: one"), seen);
     }
 
     @Test
@@ -191,6 +203,60 @@ class CommandComponentTest {
         CommandResult result = commandService.submit(
                 InputEvent.ofArgv(UsageScenario.CLI, "a", List.of()));
         assertEquals(CommandResult.FAILURE, result.exitCode());
+    }
+
+    @Test
+    void successfulCommandHasStatusSuccess() {
+        CommandService commandService = new CommandService(UsageScenario.CLI);
+        commandService.register(new EchoCommand());
+        CommandResult result = commandService.submit(
+                InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of("hi")));
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+    }
+
+    @Test
+    void commandErrorHasStatusCommandError() {
+        CommandService commandService = new CommandService(UsageScenario.CLI);
+        commandService.register(new EchoCommand());
+        // echo 需要必选位置参数 text，缺失触发参数错误 → COMMAND_ERROR
+        CommandResult result = commandService.submit(
+                InputEvent.ofArgv(UsageScenario.CLI, "echo", List.of()));
+        assertEquals(CommandResult.Status.COMMAND_ERROR, result.status());
+    }
+
+    @Test
+    void unknownCommandHasStatusSystemError() {
+        CommandService commandService = new CommandService(UsageScenario.CLI);
+        CommandResult result = commandService.submit(
+                InputEvent.ofArgv(UsageScenario.CLI, "nope", List.of()));
+        assertEquals(CommandResult.Status.SYSTEM_ERROR, result.status());
+    }
+
+    @Test
+    void executionExceptionHasStatusSystemError() {
+        CommandService commandService = new CommandService(UsageScenario.CLI);
+        commandService.register(new ThrowingCommand());
+        CommandResult result = commandService.submit(
+                InputEvent.ofArgv(UsageScenario.CLI, "boom", List.of()));
+        assertEquals(CommandResult.Status.SYSTEM_ERROR, result.status());
+    }
+
+    /** 故意抛异常的命令，验证执行异常归为 SYSTEM_ERROR。 */
+    private static final class ThrowingCommand implements Command {
+        @Override
+        public String name() {
+            return "boom";
+        }
+
+        @Override
+        public String description() {
+            return "抛异常命令";
+        }
+
+        @Override
+        public CommandResult execute(Invocation ctx) {
+            throw new IllegalStateException("模拟执行异常");
+        }
     }
 
     /** 把请求转给 echo 的命令，验证 Invocation.forward 走完整分派管线。 */

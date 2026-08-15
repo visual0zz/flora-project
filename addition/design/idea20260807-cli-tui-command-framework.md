@@ -32,8 +32,8 @@
 以及三个"挂件"概念（非本期交付，但构成完整心智模型，作为未来增量）：
 
 - **TuiComponent（TUI 组件）**——交互界面：键盘输入源、光标/窗格/布局、屏幕渲染；构造时注入一个指令组件负责执行命令。
-- **渠道（Channel）**——任何能产生"一次调用"的东西（键盘、微信长连接、argv）。渠道把输入归一化为 `InputEvent` 提交给组件，需要回写时挂自己的 `OutputSink`。
-- **OutputSink（输出汇）**——屏幕、微信连接、stdout……组件通过 `Output` 把执行结果扇出到所有已挂载的输出汇。
+- **渠道（Channel）**——任何能产生"一次调用"的东西（键盘、微信长连接、argv）。渠道把输入归一化为 `InputEvent` 提交给组件，需要观察执行结果时经 `newSink` 注册观察者。
+- **CommandSink（观察 sink）**——`commandService.newSink(lambda)` 返回的注册句柄，可 `close()` 移除；每次执行完毕把 `InputEvent` 与 `CommandResult` 交给 lambda（屏幕、微信、stdout 等以各自方式消费）。
 
 一次输入到一次执行的完整管线：
 
@@ -42,9 +42,9 @@
   → InputEvent（来源 + 命令调用描述）
   → CommandComponent.submit（串行队列）
   → 分词 + 查找命令 + ArgParser 校验（→ ParsedArgs）
-  → Invocation（命令 + ParsedArgs + Output + 来源）
+  → Invocation（命令 + ParsedArgs + 来源）
   → execute → CommandResult
-  → Output 扇出到所有已挂载的 OutputSink
+  → 通知所有 CommandSink（InputEvent + CommandResult），并默认打印文本
 ```
 
 书写一个新命令的默认路径只有四步（回答四个问题）：
@@ -74,19 +74,18 @@
 ```
 com.flora.shell
 ├── Command                  # 命令接口（声明 + 执行 + 特化入口）
-├── CommandService           # 指令组件：注册、别名、串行分派、输出扇出（零状态、无 UI）
+├── CommandService           # 指令组件：注册、别名、串行分派、结果回调（零状态、无 UI）
 ├── Dispatcher               # 分派门面：命令执行中转发重入分派的入口
-├── Invocation               # 调用上下文：命令 + 参数 + Output + 来源 + 转发入口
+├── Invocation               # 调用上下文：命令 + 参数 + 来源 + 转发入口
 ├── InputEvent               # 归一化输入（来源 + 命令调用描述：argv / 结构化 / cliArgs）
-├── CommandResult            # 执行结果（退出码 / 结构化数据）
+├── CommandResult            # 执行结果（状态 / 退出码 / 文本输出 / 结构化数据）
+├── CommandObserver          # 命令执行观察者回调接口（event, result）
+├── CommandSink              # 观察 sink 句柄（newSink 返回，可 close）
 ├── builtin/                 # 内置指令（预制）：help / alias / gui（HelpRenderer 内嵌于 HelpCommand）
 ├── spec/
 │   ├── ArgSpec              # 参数/选项声明（声明式，非解析代码）
 │   ├── ParsedArgs           # 解析结果
 │   └── ArgParser            # 零依赖解析器（cli 串 / 列表 / JSON 输入）
-└── output/
-    ├── OutputSink           # 输出汇接口（唯一）
-    └── Output               # 命令写输出用的门面（扇出到所有 sink）
 ```
 
 `tui/`（TuiComponent、KeyInputSource、ScreenSink、RawTerminal、KeyEvent、ScreenBuffer、Layout）与 `GuiAdapter` 属于未来增量，本期不建包；§12 给出它们的预期落点。
@@ -183,7 +182,7 @@ interface AgentView {    // Agent 专属：定制工具描述 / 返回值 schema
 - **注册**：`register(Command)` / `registerBySpi()`；
 - **分派**：`submit(InputEvent)`——串行队列执行（多渠道并发提交安全），查找命令 + `ArgParser` 校验 → 构造 `Invocation` → `execute`；
 - **别名与转发**：未命中真实命令时按别名转发；命令可经 `Invocation.forward` 重入分派（§7.3）；
-- **输出扇出**：`attach(OutputSink)`，执行结果经 `Output` 广播；
+- **结果回调**：`newSink(CommandObserver)` 注册观察者，每次执行完毕把 `InputEvent` + `CommandResult` 交给它（§7.4）；
 - **零状态、无 UI、不拥有输入源、不管生命周期**。
 
 ### 7.2 执行管线
@@ -193,9 +192,9 @@ interface AgentView {    // Agent 专属：定制工具描述 / 返回值 schema
   → InputEvent（来源 + 命令调用描述）
   → CommandComponent.submit（串行队列）
   → 分词 + 查找命令 + ArgParser 校验（→ ParsedArgs）
-  → Invocation（命令 + ParsedArgs + Output + 来源）
+  → Invocation（命令 + ParsedArgs + 来源）
   → execute → CommandResult
-  → Output 扇出到所有已挂载的 OutputSink
+  → 通知所有 CommandSink（InputEvent + CommandResult），并默认打印文本
 ```
 
 **`InputEvent` 的归一化形态（本期契约）**：`InputEvent` 承载两部分——`来源`（`UsageScenario`，一次调用的使用场景）+ `命令调用描述`。命令调用描述只有两种既定形态：
@@ -215,18 +214,17 @@ interface AgentView {    // Agent 专属：定制工具描述 / 返回值 schema
 - **递归保护**：转发 / 别名解析共用同一分派管线与深度上限（`MAX_FORWARD_DEPTH`），超过即视为存在别名环并拒绝，防止无限递归。
 - **`--help` 不默认提供**：框架不再拦截 `--help`。工具需要 `--help` 时，可用转发把 `--help` 映射到 `help` 命令，或自行声明 `--help` 选项——都由工具在转发底座之上自行构建。
 
-### 7.4 输出扇出（单一输出接口）
+### 7.4 结果回调（CommandSink）
 
 ```
-interface OutputSink { void emit(String text); void emitError(String text); }
-interface Output { void print(String s); void println(String s); void error(String s); }
-// 框架提供扇出实现：实现 Output，把每次调用 fan-out 到所有已挂载的 OutputSink
-class OutputMultiplexer implements Output {
-    void attach(OutputSink s);   // 未来 TUI 挂 ScreenSink，微信挂 WeChatSink
+interface CommandObserver {
+    void onExecuted(InputEvent event, CommandResult result);
 }
+CommandSink sink = commandService.newSink((event, result) -> { ... });  // 注册
+sink.close();                                                            // 移除
 ```
 
-**本期契约（合并双接口）**：命令写输出**只有 `Output` 一个门面**，`Invocation.out()` 返回的就是框架的扇出实现。`OutputSink` 是业务输出汇实现的最小接口：`emit(text)` 对应 `print`/`println`（`println` 由扇出层补换行），`emitError` 对应 `error`。二者是"一个接口，两个视角"（调用方看 `Output`，输出汇实现 `OutputSink`），不再各带一套语义。本期批量场景无挂载 sink 时，扇出实现退化直达 stdout/stderr。
+**本期契约**：命令**不写输出**，把文本放进 `CommandResult`（`output()`/`error()`）返回；框架在每次执行完毕后默认把文本打印到 stdout/stderr，并把 `InputEvent` + `CommandResult` 交给所有已注册的 `CommandSink`。需要结构化消费（TUI 渲染、微信回写、日志收集等）的宿主用 `newSink` 注册观察者，`close()` 即可移除。这样命令实现与消费方式解耦，同一份命令可同时跑在批量打印与未来多渠道上。
 
 ### 7.5 状态与上下文
 
@@ -298,7 +296,7 @@ TUI 组件 = 交互界面的所有者，构造时注入一个 `CommandComponent`
 | 类 tmux | 组件 + `TuiComponent` | `session.new`、`pane.split`、`pane.kill` | `TuiView.bindKeys` 绑窗格快捷键，`Layout` 管窗格树 |
 | 类 vim | 组件 + `TuiComponent` | `buffer.write`、`search.next` | 领域状态（当前文件/光标）由 TuiComponent 持有，模式切换由 `bindKeys` 表达 |
 | 业务 GUI | 组件 + `GuiAdapter` | `gui --flavor javafx` | 业务实现自己的 UI 与事件循环 |
-| 多渠道融合 | 组件 + `TuiComponent` + 渠道 | — | 渠道提交 `InputEvent`、挂 `OutputSink` |
+| 多渠道融合 | 组件 + `TuiComponent` + 渠道 | — | 渠道提交 `InputEvent`、经 `newSink` 观察结果 |
 
 所有场景**共享**：命令声明、参数解析、help 聚合、指令组件。**差异**：仅挂件的组合（`InputEvent.ofCliArgs` / TuiComponent / GuiAdapter / 渠道），与可选的命令特化层。
 
@@ -319,6 +317,6 @@ TUI 组件 = 交互界面的所有者，构造时注入一个 `CommandComponent`
 
 **需求**：一个 Agent TUI 连接微信，微信发来的消息与本地键盘输入"汇总到同一个流"一起执行、一起显示——类比一个 tmux session 被两个 ssh 同时访问。
 
-**框架支持方式**：微信只是一个"渠道"：把消息归一化为 `InputEvent` 提交给与 TUI 共用的同一个 `CommandComponent`，并挂一个 `OutputSink` 回写微信；命令结果经组件扇出到屏幕 + 微信。命令代码对此完全无感知。需要的两块框架基础设施——输入归一化（§7.2 已定契约）与执行串行化（§7.1 已定）——均在本期框架内，无需新增概念。某些指令若不允许在特定场景触发（如 `gui`/`exit` 不允许微信场景），只需在 {@code Command.usageScenarios()} 中不声明该场景即可。
+**框架支持方式**：微信只是一个"渠道"：把消息归一化为 `InputEvent` 提交给与 TUI 共用的同一个 `CommandComponent`，并经 `newSink` 注册观察者把执行结果回写微信；命令结果同时被屏幕与微信消费。命令代码对此完全无感知。需要的两块框架基础设施——输入归一化（§7.2 已定契约）与执行串行化（§7.1 已定）——均在本期框架内，无需新增概念。某些指令若不允许在特定场景触发（如 `gui`/`exit` 不允许微信场景），只需在 {@code Command.usageScenarios()} 中不声明该场景即可。
 
 以上为方案主体。一期按 §3/§10 实现纯 CLI 命令框架并收编三个模块入口，保持零依赖；TUI/GUI/多渠道按 §8/§9/§14 作为未来增量演进。

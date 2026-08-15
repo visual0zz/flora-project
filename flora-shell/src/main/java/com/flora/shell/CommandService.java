@@ -3,7 +3,6 @@ package com.flora.shell;
 import com.flora.root.java.CheckUtil;
 import com.flora.shell.builtin.AliasCommand;
 import com.flora.shell.builtin.HelpCommand;
-import com.flora.shell.output.OutputMultiplexer;
 import com.flora.shell.spec.ArgParser;
 import com.flora.shell.spec.ParsedArgs;
 
@@ -12,17 +11,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * 指令组件：干净的路由与执行单元。
- * <p>负责命令注册、别名、串行分派与输出扇出；零状态、无 UI、不拥有输入源、不管生命周期。
+ * <p>负责命令注册、别名、串行分派与结果回调；零状态、无 UI、不拥有输入源、不管生命周期。
  * 构造时绑定一个使用场景（{@link UsageScenario}），只接受自报支持该场景的命令注册。
  * 批量与 Agent 接入各自以对应场景建立实例。构造时自动注册内置 {@code help} 与
  * {@code alias} 指令。</p>
  * <p>分派规则：{@link #submit} 将输入加入串行队列（多渠道并发提交安全），校验调用来源
- * 与实例场景一致后，查找命令 + {@link ArgParser} 校验 → 构造 {@link Invocation} → 执行，
- * 结果经 {@link OutputMultiplexer} 扇出到所有已挂载的输出汇。</p>
+ * 与实例场景一致后，查找命令 + {@link ArgParser} 校验 → 构造 {@link Invocation} → 执行。
+ * 每次执行完毕，把 {@link InputEvent} 与 {@link CommandResult} 交给所有已注册的 sink
+ * （见 {@link #newSink}），并默认把结果文本打印到 stdout/stderr。</p>
  * <p>转发与别名：命令执行中可经 {@link Invocation#forward} 重入分派（{@link Dispatcher}）；
  * 分派未命中真实命令时按别名解析转发。转发与别名共享同一分派管线与递归深度上限，防止
  * 别名环导致的无限递归。</p>
@@ -38,7 +39,7 @@ public final class CommandService implements Dispatcher {
     private final Map<String, Command> commands = new LinkedHashMap<>();
     private final Map<String, ArgParser> parsers = new LinkedHashMap<>();
     private final Map<String, Alias> aliases = new LinkedHashMap<>();
-    private final OutputMultiplexer out = new OutputMultiplexer();
+    private final List<CommandSink> sinks = new CopyOnWriteArrayList<>();
     private final ReentrantLock dispatchLock = new ReentrantLock();
     private int depth;
 
@@ -151,33 +152,36 @@ public final class CommandService implements Dispatcher {
     }
 
     /**
-     * 挂载一个输出汇；之后的命令输出同时到达该汇（并继续到达 stdout/stderr）。
+     * 注册一个命令执行观察 sink。
+     * <p>之后每次命令执行完毕，都会把本次的 {@link InputEvent} 与 {@link CommandResult}
+     * 交给 {@code observer}；调用返回的 {@link CommandSink#close()} 可移除该 sink。</p>
      *
-     * @param sink 输出汇
+     * @param observer 观察者，形如 {@code (event, result) -> ...}
+     * @return 可关闭的 sink 句柄
      */
-    public void attach(com.flora.shell.output.OutputSink sink) {
-        out.attach(sink);
-    }
-
-    /**
-     * 卸载一个输出汇。
-     *
-     * @param sink 输出汇
-     */
-    public void detach(com.flora.shell.output.OutputSink sink) {
-        out.detach(sink);
+    public CommandSink newSink(CommandObserver observer) {
+        CheckUtil.notNull(observer, "观察者不能为空");
+        CommandSink[] holder = new CommandSink[1];
+        CommandSink sink = new CommandSink(observer, () -> sinks.remove(holder[0]));
+        holder[0] = sink;
+        sinks.add(sink);
+        return sink;
     }
 
     @Override
     public CommandResult submit(InputEvent event) {
         CheckUtil.notNull(event, "输入事件不能为空");
         if (event.source() != scenario) {
-            out.error("调用来源 " + event.source() + " 与组件场景 " + scenario + " 不一致");
-            return CommandResult.exit(CommandResult.FAILURE);
+            CommandResult result = CommandResult.systemError(
+                    "调用来源 " + event.source() + " 与组件场景 " + scenario + " 不一致");
+            notify(event, result);
+            return result;
         }
         dispatchLock.lock();
         try {
-            return dispatch(event);
+            CommandResult result = dispatch(event);
+            notify(event, result);
+            return result;
         } finally {
             dispatchLock.unlock();
         }
@@ -190,8 +194,8 @@ public final class CommandService implements Dispatcher {
     private CommandResult dispatch(InputEvent event) {
         if (++depth > MAX_FORWARD_DEPTH) {
             depth--;
-            out.error("转发深度超出限制（可能存在别名环）: " + event.commandName());
-            return CommandResult.exit(CommandResult.FAILURE);
+            return CommandResult.systemError(
+                    "转发深度超出限制（可能存在别名环）: " + event.commandName());
         }
         try {
             Command command = find(event.commandName());
@@ -208,8 +212,8 @@ public final class CommandService implements Dispatcher {
     private CommandResult dispatchAlias(InputEvent event) {
         Alias alias = aliases.get(event.commandName());
         if (alias == null) {
-            out.error("未知命令: " + event.commandName() + "（输入 help 查看可用命令）");
-            return CommandResult.exit(CommandResult.FAILURE);
+            return CommandResult.systemError(
+                    "未知命令: " + event.commandName() + "（输入 help 查看可用命令）");
         }
         List<String> argv = new ArrayList<>(alias.prefixArgs());
         if (event.kind() == InputEvent.Kind.ARGV) {
@@ -218,31 +222,33 @@ public final class CommandService implements Dispatcher {
         return dispatch(InputEvent.ofArgv(event.source(), alias.target(), argv));
     }
 
-    /** 执行单个命令（含参数解析、执行与扇出）。 */
+    /** 执行单个命令（含参数解析、执行）。结果由 submit 统一扇出。 */
     private CommandResult execute(Command command, InputEvent event) {
         ParsedArgs parsed;
         try {
             parsed = parse(command, event);
         } catch (IllegalArgumentException e) {
-            out.error(e.getMessage());
-            return CommandResult.exit(CommandResult.FAILURE);
+            return CommandResult.commandError(e.getMessage());
         }
         Invocation inv = new Invocation(command, parsed, event.source(), this);
-        CommandResult result;
         try {
-            result = command.execute(inv);
+            return command.execute(inv);
         } catch (Exception e) {
-            out.error("命令 " + command.name() + " 执行失败: " + e.getMessage());
-            return CommandResult.exit(CommandResult.FAILURE);
+            return CommandResult.systemError("命令 " + command.name() + " 执行失败: " + e.getMessage());
         }
-        // 命令不再直接调用 out，输出统一经 CommandResult 返回，由框架扇出。
+    }
+
+    /** 执行完毕后：默认把结果文本打到 stdout/stderr，并把 (InputEvent, CommandResult) 交给所有 sink。 */
+    private void notify(InputEvent event, CommandResult result) {
         if (result.output() != null) {
-            out.println(result.output());
+            System.out.println(result.output());
         }
         if (result.error() != null) {
-            out.error(result.error());
+            System.err.println(result.error());
         }
-        return result;
+        for (CommandSink sink : sinks) {
+            sink.observer().onExecuted(event, result);
+        }
     }
 
     private ParsedArgs parse(Command command, InputEvent event) {

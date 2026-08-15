@@ -73,11 +73,14 @@ public final class VaultUnlocker {
             try {
                 byte[] plain = codec.decode(b.obfuscated()).plaintext;
                 Json.Node n = Json.parse(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
-                if ("group".equals(n.str("type"))) {
+                if ("group".equals(n.str("type")) && n.str("role") != null) {
                     String dekB64 = n.str("dek");
                     if (dekB64 != null) {
-                        byte[] dek = java.util.Base64.getDecoder().decode(dekB64);
+                        // dek 字段 = 用 KEK 包裹的 DEK（wrap 产物，本身是 CipherCodec 块）→ 解包得可用 DEK
+                        byte[] wrapped = java.util.Base64.getDecoder().decode(dekB64);
+                        byte[] dek = codec.decode(wrapped).plaintext;
                         vault.keyIdIndex().register(dek);
+                        vault.addRootDek(dek);
                     }
                 }
             } catch (Exception ignore) {

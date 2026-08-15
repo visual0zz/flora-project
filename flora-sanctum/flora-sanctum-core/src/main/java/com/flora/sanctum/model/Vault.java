@@ -27,6 +27,7 @@ public final class Vault {
     private final KeyIdIndex keyIdIndex;
     private final BlockResolver resolver;
     private final SecureRandomSource random;
+    private final java.util.List<byte[]> rootDeks = new java.util.ArrayList<>();
 
     Vault(ObjectStore store, Manifest manifest, KeyIdIndex keyIdIndex, SecureRandomSource random) {
         this.store = store;
@@ -34,6 +35,18 @@ public final class Vault {
         this.keyIdIndex = keyIdIndex;
         this.resolver = new BlockResolver(keyIdIndex);
         this.random = random;
+    }
+
+    public void addRootDek(byte[] dek) {
+        rootDeks.add(dek.clone());
+    }
+
+    public java.util.List<byte[]> rootDeks() {
+        java.util.List<byte[]> copy = new java.util.ArrayList<>(rootDeks.size());
+        for (byte[] d : rootDeks) {
+            copy.add(d.clone());
+        }
+        return copy;
     }
 
     public ObjectStore store() {

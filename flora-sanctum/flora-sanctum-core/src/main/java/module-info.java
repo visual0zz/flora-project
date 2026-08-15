@@ -15,7 +15,10 @@ module com.flora.sanctum.core {
     exports com.flora.sanctum.model;
     // Git 同步（JGit 封装）
     exports com.flora.sanctum.sync;
+    // 外部密钥服务 HTTP 传输（本地 localhost）
+    exports com.flora.sanctum.server;
 
     requires org.bouncycastle.provider;
     requires org.eclipse.jgit;
+    requires jdk.httpserver;
 }

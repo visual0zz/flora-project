@@ -56,6 +56,8 @@ module com.flora.root {
     exports com.flora.root.concurrent.retry;
     // 通用元组类型
     exports com.flora.root.container.tuple;
+    // N 元 Sum Type 容器 Variant（任意多个类型任取其一）
+    exports com.flora.root.container;
     // 新加密抽象层（newcore）入口与注册中心
     exports com.flora.root.crypto.core;
     // 新加密抽象层常量（如 AsymmetricKeyType）

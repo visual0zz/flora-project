@@ -1,19 +1,20 @@
-package com.flora.sanctum.cli;
+package com.flora.sanctum.app;
 
 import com.flora.sanctum.model.Json;
 import com.flora.sanctum.model.Sanctum;
 
 import java.io.Console;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
 /**
- * flora-sanctum 命令行入口（阶段 5，作为 core 冒烟测试）。
+ * flora-sanctum 应用入口（单一可执行 jar）。
  * <p>
- * 用法：sanctum &lt;命令&gt; &lt;库路径&gt; [参数]
- * 命令：create / unlock / add / list / get
+ * - 无参数：启动 JavaFX GUI。
+ * - 有参数：处理命令行。
+ * 用法：sanctum [&lt;命令&gt; &lt;库路径&gt; [参数]]
+ * 命令：create / unlock / add / list / get / sync
  */
 public final class Main {
 
@@ -22,7 +23,8 @@ public final class Main {
 
     public static void main(String[] args) throws Exception {
         if (args.length < 1) {
-            usage();
+            // 无参数 → 启动 GUI
+            SanctumGui.launch(args);
             return;
         }
         String cmd = args[0];
@@ -80,7 +82,7 @@ public final class Main {
         }
     }
 
-    private static char[] readPassword(String prompt) throws Exception {
+    static char[] readPassword(String prompt) throws Exception {
         Console console = System.console();
         if (console != null) {
             char[] p = console.readPassword("%s: ", prompt);
@@ -97,7 +99,7 @@ public final class Main {
         return env.toCharArray();
     }
 
-    private static String requireArg(String[] args, int i, String what) {
+    static String requireArg(String[] args, int i, String what) {
         if (i >= args.length) {
             throw new IllegalArgumentException("missing " + what);
         }
@@ -105,6 +107,7 @@ public final class Main {
     }
 
     private static void usage() {
-        System.out.println("Usage: sanctum <create|unlock|add|list|get|sync> <path> [args...]");
+        System.out.println("Usage: sanctum [<create|unlock|add|list|get|sync> <path> [args...]]");
+        System.out.println("  (no args -> GUI)");
     }
 }

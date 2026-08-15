@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.gitee.visual0zz</groupId>
+        <artifactId>flora-sanctum</artifactId>
+        <version>0.1</version>
+    </parent>
+
+    <artifactId>flora-sanctum-app</artifactId>
+
+    <properties>
+        <!-- JavaFX platform classifier：默认当前开发机；跨平台构建时用 -Djavafx.platform=linux / win 覆盖 -->
+        <javafx.platform>mac-aarch64</javafx.platform>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.gitee.visual0zz</groupId>
+            <artifactId>flora-sanctum-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- JavaFX 界面（platform classifier 由 javafx.platform 属性指定） -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-controls</artifactId>
+            <version>${javafx.version}</version>
+            <classifier>${javafx.platform}</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-graphics</artifactId>
+            <version>${javafx.version}</version>
+            <classifier>${javafx.platform}</classifier>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.flora.sanctum.app.Main</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

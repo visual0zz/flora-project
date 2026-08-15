@@ -8,6 +8,9 @@ module com.flora.sanctum.core {
     // 加密、密钥派生、块信封（Bouncy Castle）
     exports com.flora.sanctum.crypto;
     exports com.flora.sanctum.crypto.impl;
+    // 纯字节存储引擎（不负责加密，Codec 由外部注入）
+    exports com.flora.sanctum.store;
+    exports com.flora.sanctum.store.impl;
 
     requires org.bouncycastle.provider;
 }

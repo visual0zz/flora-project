@@ -426,7 +426,8 @@ public final class SanctumGui {
         nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 14f));
         editPanel.add(nameLabel);
 
-        // 该条目的字段（parent=entryUuid 的 field）
+        // 该条目的字段（parent=entryUuid 的 field）——收集 (fieldId -> 输入框) 供保存按钮统一提交
+        Map<UUID, JTextField> fieldInputs = new LinkedHashMap<>();
         for (UUID f : sanctum.directory().childrenOf(entryUuid)) {
             JsonObject field = sanctum.getEntry(f);
             if (field != null && "field".equals(field.getString("type"))) {
@@ -439,18 +440,6 @@ public final class SanctumGui {
                 fValue.setToolTipText(kind == null ? "text" : kind);
                 row.add(fLabel, BorderLayout.WEST);
                 row.add(fValue, BorderLayout.CENTER);
-                // 保存值
-                String finalFn = fn;
-                UUID fieldId = f;
-                fValue.addActionListener(e -> {
-                    resetAutoLock();
-                    try {
-                        sanctum.updateField(fieldId, fValue.getText());
-                        statusLabel.setText("字段 " + finalFn + " 已保存");
-                    } catch (Exception ex) {
-                        statusLabel.setText("保存失败");
-                    }
-                });
                 // TOTP 字段显示验证码
                 if ("totp".equals(kind)) {
                     try {
@@ -461,15 +450,42 @@ public final class SanctumGui {
                     }
                 }
                 editPanel.add(row);
+                fieldInputs.put(f, fValue);
             }
         }
 
+        // 保存按钮：统一提交所有字段的当前输入值
+        JButton saveBtn = new JButton("保存");
+        saveBtn.addActionListener(e -> saveFieldInputs(fieldInputs, entryUuid));
         JButton copyBtn = new JButton("复制密码");
         copyBtn.addActionListener(e -> copyPassword(entryUuid));
-        editPanel.add(copyBtn);
+        JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        actionRow.add(saveBtn);
+        actionRow.add(copyBtn);
+        editPanel.add(actionRow);
 
         editPanel.revalidate();
         editPanel.repaint();
+    }
+
+    /** 保存按钮：逐个提交所有字段输入框的值，任一失败则记录并提示。 */
+    private void saveFieldInputs(Map<UUID, JTextField> inputs, UUID entryUuid) {
+        resetAutoLock();
+        int failed = 0;
+        for (Map.Entry<UUID, JTextField> e : inputs.entrySet()) {
+            try {
+                sanctum.updateField(e.getKey(), e.getValue().getText());
+            } catch (Exception ex) {
+                failed++;
+            }
+        }
+        if (failed == 0) {
+            statusLabel.setText("条目已保存");
+            refreshEntryList();
+            renderEntry(entryUuid);
+        } else {
+            statusLabel.setText("保存失败: " + failed + " 个字段");
+        }
     }
 
     private void copyPassword(UUID entryUuid) {

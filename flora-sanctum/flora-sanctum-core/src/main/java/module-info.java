@@ -15,6 +15,8 @@ module com.flora.sanctum.core {
     exports com.flora.sanctum.sync;
     // 外部密钥服务 HTTP 传输（本地 localhost）
     exports com.flora.sanctum.server;
+    // 用户配置目录（~/.flora-sanctum）
+    exports com.flora.sanctum.config;
 
     requires org.bouncycastle.provider;
     requires org.eclipse.jgit;

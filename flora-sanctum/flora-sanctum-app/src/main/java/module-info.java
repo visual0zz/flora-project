@@ -14,4 +14,5 @@ module com.flora.sanctum.app {
     requires com.flora.root;
     requires javafx.controls;
     requires javafx.graphics;
+    requires java.desktop;
 }

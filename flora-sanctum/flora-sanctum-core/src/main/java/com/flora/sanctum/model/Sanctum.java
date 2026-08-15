@@ -424,6 +424,27 @@ public final class Sanctum implements AutoCloseable {
         return fieldUuid;
     }
 
+    /** 更新一个字段的值（就地重写该字段对象，保持局部性，见 05）。 */
+    public void updateField(UUID fieldUuid, String value) {
+        JsonObject field = readObject(fieldUuid);
+        if (field == null) {
+            throw new IllegalArgumentException("field not found");
+        }
+        // 找出所属组以解析 DEK：field → parent(entry) → parent(group)
+        String entryId = field.getString("parent");
+        UUID groupId = null;
+        if (entryId != null) {
+            JsonObject entry = readObject(UUID.fromString(entryId));
+            if (entry != null && entry.getString("parent") != null) {
+                groupId = UUID.fromString(entry.getString("parent"));
+            }
+        }
+        field.put("value", value);
+        field.put("updateTimestamp", nextTimestamp());
+        writeObject(fieldUuid, field, groupId);
+        refresh();
+    }
+
     /** 从 kind:totp 字段生成当前 TOTP 验证码（种子为 value，见 02"TOTP"）。 */
     public String totpCode(UUID fieldUuid) {
         JsonObject field = readObject(fieldUuid);

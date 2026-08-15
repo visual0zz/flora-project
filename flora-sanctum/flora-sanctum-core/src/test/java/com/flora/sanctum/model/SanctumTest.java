@@ -143,4 +143,37 @@ class SanctumTest {
         assertEquals("sshKey", sshNode.getString("type"));
         assertEquals("mykey", sshNode.getString("name"));
     }
+
+    @Test
+    void guiFlow_groupEntryFieldUpdate() {
+        // 模拟 GUI 核心操作链：建组 → 建条目 → 建字段 → 更新字段 → 按组列出条目
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        UUID group = s.createGroup(null, "社交");
+        UUID entry = s.createEntry(group, "微博", java.util.Map.of("username", "alice", "password", "s3cret"));
+
+        // 更新某字段值
+        java.util.List<UUID> fieldUuids = s.directory().childrenOf(entry);
+        UUID passwordField = null;
+        for (UUID f : fieldUuids) {
+            JsonObject n = s.getEntry(f);
+            if (n != null && "password".equals(n.getString("fieldName"))) {
+                passwordField = f;
+            }
+        }
+        assertNotNull(passwordField);
+        s.updateField(passwordField, "new-password");
+        JsonObject updated = s.getEntry(passwordField);
+        assertEquals("new-password", updated.getString("value"));
+
+        // 按组列出条目（GUI 主界面逻辑）
+        boolean entryInGroup = false;
+        for (UUID u : s.listObjectUuids()) {
+            JsonObject n = s.getEntry(u);
+            if (n != null && "entry".equals(n.getString("type"))
+                    && group.toString().equals(n.getString("parent"))) {
+                entryInGroup = true;
+            }
+        }
+        assertTrue(entryInGroup);
+    }
 }

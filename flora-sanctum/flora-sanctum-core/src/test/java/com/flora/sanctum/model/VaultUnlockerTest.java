@@ -1,5 +1,7 @@
 package com.flora.sanctum.model;
 
+import com.flora.root.codec.JsonUtil;
+import com.flora.root.codec.json.model.JsonObject;
 import com.flora.sanctum.crypto.Argon2Kdf;
 import com.flora.sanctum.crypto.SecureRandomSource;
 import com.flora.root.codec.Base58;
@@ -32,28 +34,28 @@ class VaultUnlockerTest {
         byte[] kek = kdf.derive(password);
         byte[] macKey = kdf.manifestMacKey(kek);
 
-        Json.Node manifest = Json.obj();
-        Json.put(manifest, "version", Json.of(1));
-        Json.put(manifest, "type", Json.of("manifest"));
-        Json.put(manifest, "cryptoVersion", Json.of("gcm-siv-1"));
-        Json.put(manifest, "kdf", Json.of("argon2id"));
-        Json.put(manifest, "salt", Json.of(Base64.getEncoder().encodeToString(salt)));
-        Json.Node params = Json.obj();
-        Json.put(params, "m", Json.of(65536));
-        Json.put(params, "i", Json.of(3));
-        Json.put(params, "p", Json.of(4));
-        Json.put(manifest, "params", params);
-        Json.put(manifest, "warehouseTime", Json.of(1));
-        Json.put(manifest, "updateTimestamp", Json.of(1));
+        JsonObject manifest = new JsonObject();
+        manifest.put("version", 1);
+        manifest.put("type", "manifest");
+        manifest.put("cryptoVersion", "gcm-siv-1");
+        manifest.put("kdf", "argon2id");
+        manifest.put("salt", Base64.getEncoder().encodeToString(salt));
+        JsonObject params = new JsonObject();
+        params.put("m", 65536);
+        params.put("i", 3);
+        params.put("p", 4);
+        manifest.put("params", params);
+        manifest.put("warehouseTime", 1);
+        manifest.put("updateTimestamp", 1);
 
         // 先定 uuid，再计算覆盖 uuid + 全部负载字段的 MAC（与 Manifest.canonical 一致）
         UUID uuid = UUID.randomUUID();
-        byte[] payload = Json.stringify(manifest).getBytes(StandardCharsets.UTF_8);
+        byte[] payload = JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
         String canonical = uuid + "|1|manifest|gcm-siv-1|argon2id|" + Base64.getEncoder().encodeToString(salt)
                 + "|65536,3,4|1|1|";
         byte[] mac = hmac(macKey, canonical.getBytes(StandardCharsets.UTF_8));
-        Json.put(manifest, "mac", Json.of(Base64.getEncoder().encodeToString(mac)));
-        payload = Json.stringify(manifest).getBytes(StandardCharsets.UTF_8);
+        manifest.put("mac", Base64.getEncoder().encodeToString(mac));
+        payload = JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
 
         // 明文块信封：magic+version+flags(0x02)+uuid+payload
         byte[] block = new byte[6 + 16 + payload.length];

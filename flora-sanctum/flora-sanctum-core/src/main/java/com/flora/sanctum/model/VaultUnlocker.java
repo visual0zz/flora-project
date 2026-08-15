@@ -81,22 +81,23 @@ public final class VaultUnlocker {
                         continue;
                     }
                     try {
-                        Json.Node n = Json.parse(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
-                        if ("group".equals(n.str("type")) && n.str("dek") != null) {
-                            if (n.str("role") != null) {
+                        com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(
+                                new String(plain, java.nio.charset.StandardCharsets.UTF_8));
+                        if ("group".equals(n.getString("type")) && n.getString("dek") != null) {
+                            if (n.getString("role") != null) {
                                 // root group
-                                vault.addRootGroupUuid(n.str("role"), b.uuid());
-                                if (vault.rootDek(n.str("role")) == null) {
-                                    byte[] wrapped = java.util.Base64.getDecoder().decode(n.str("dek"));
+                                vault.addRootGroupUuid(n.getString("role"), b.uuid());
+                                if (vault.rootDek(n.getString("role")) == null) {
+                                    byte[] wrapped = java.util.Base64.getDecoder().decode(n.getString("dek"));
                                     byte[] dek = unwrap(vault, dk, wrapped);
                                     if (dek != null) {
-                                        vault.addRootDek(n.str("role"), dek);
+                                        vault.addRootDek(n.getString("role"), dek);
                                         known.add(dek.clone());
                                         progress = true;
                                     }
                                 }
                             } else if (vault.folderDek(b.uuid()) == null) {
-                                byte[] wrapped = java.util.Base64.getDecoder().decode(n.str("dek"));
+                                byte[] wrapped = java.util.Base64.getDecoder().decode(n.getString("dek"));
                                 byte[] dek = unwrap(vault, dk, wrapped);
                                 if (dek != null) {
                                     vault.addFolderDek(b.uuid(), dek);
@@ -149,8 +150,8 @@ public final class VaultUnlocker {
                     byte[] payload = new byte[full.length - 22];
                     System.arraycopy(full, 22, payload, 0, payload.length);
                     String json = new String(payload, java.nio.charset.StandardCharsets.UTF_8);
-                    Json.Node n = Json.parse(json);
-                    if ("manifest".equals(n.str("type"))) {
+                    com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(json);
+                    if ("manifest".equals(n.getString("type"))) {
                         return b;
                     }
                 } catch (Exception ignore) {

@@ -1,7 +1,8 @@
 package com.flora.sanctum.app;
 
-import com.flora.sanctum.model.Json;
 import com.flora.sanctum.model.Sanctum;
+import com.flora.root.codec.json.model.JsonObject;
+import com.flora.root.codec.JsonUtil;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -103,9 +104,9 @@ public final class SanctumGui extends Application {
         Label title = new Label("条目（锁定：关闭窗口）");
         ListView<String> list = new ListView<>();
         for (UUID u : sanctum.store().list()) {
-            Json.Node n = sanctum.getEntry(u);
+            JsonObject n = sanctum.getEntry(u);
             if (n != null) {
-                list.getItems().add(n.str("type") + ": " + n.str("name") + "  [" + u + "]");
+                list.getItems().add(n.getString("type") + ": " + n.getString("name") + "  [" + u + "]");
             }
         }
         Button lockBtn = new Button("锁定");

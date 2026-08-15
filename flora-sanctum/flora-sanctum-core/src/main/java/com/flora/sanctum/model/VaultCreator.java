@@ -4,6 +4,7 @@ import com.flora.sanctum.crypto.Argon2Kdf;
 import com.flora.sanctum.crypto.Envelope;
 import com.flora.sanctum.crypto.SecureRandomSource;
 import com.flora.root.codec.Base58;
+import com.flora.root.codec.json.model.JsonNull;
 import com.flora.sanctum.store.BlockHeader;
 import com.flora.sanctum.store.ObjectStore;
 
@@ -58,38 +59,38 @@ public final class VaultCreator {
     /** 写 manifest 明文块。先定 uuid，MAC 覆盖信封头 uuid + 负载（含 updateTimestamp）。 */
     private void writeManifestBlock(byte[] salt, int m, int i, int p, byte[] macKey, byte[] kek) {
         UUID uuid = UUID.randomUUID();
-        Json.Node manifest = Json.obj();
-        Json.put(manifest, "version", Json.of(1));
-        Json.put(manifest, "type", Json.of("manifest"));
-        Json.put(manifest, "cryptoVersion", Json.of("gcm-siv-1"));
-        Json.put(manifest, "kdf", Json.of("argon2id"));
-        Json.put(manifest, "salt", Json.of(Base64.getEncoder().encodeToString(salt)));
-        Json.Node params = Json.obj();
-        Json.put(params, "m", Json.of(m));
-        Json.put(params, "i", Json.of(i));
-        Json.put(params, "p", Json.of(p));
-        Json.put(manifest, "params", params);
-        Json.put(manifest, "warehouseTime", Json.of(1));
-        Json.put(manifest, "updateTimestamp", Json.of(1));
+        com.flora.root.codec.json.model.JsonObject manifest = new com.flora.root.codec.json.model.JsonObject();
+        manifest.put("version", 1);
+        manifest.put("type", "manifest");
+        manifest.put("cryptoVersion", "gcm-siv-1");
+        manifest.put("kdf", "argon2id");
+        manifest.put("salt", Base64.getEncoder().encodeToString(salt));
+        com.flora.root.codec.json.model.JsonObject params = new com.flora.root.codec.json.model.JsonObject();
+        params.put("m", m);
+        params.put("i", i);
+        params.put("p", p);
+        manifest.put("params", params);
+        manifest.put("warehouseTime", 1);
+        manifest.put("updateTimestamp", 1);
         // 用临时 Manifest 计算覆盖 uuid+负载的 MAC
         Manifest tmp = new Manifest(1, "gcm-siv-1", "argon2id", salt, m, i, p, 1, 1, new byte[0]);
         byte[] mac = tmp.computeMac(macKey, uuid);
-        Json.put(manifest, "mac", Json.of(Base64.getEncoder().encodeToString(mac)));
+        manifest.put("mac", Base64.getEncoder().encodeToString(mac));
         writePlaintextBlock(uuid, manifest, Envelope.FLAG_PLAINTEXT);
     }
 
     private void writeRootGroup(String role, byte[] kek) {
-        Json.Node group = Json.obj();
-        Json.put(group, "version", Json.of(1));
-        Json.put(group, "type", Json.of("group"));
-        Json.put(group, "role", Json.of(role));
-        Json.put(group, "parent", Json.ofNull());
+        com.flora.root.codec.json.model.JsonObject group = new com.flora.root.codec.json.model.JsonObject();
+        group.put("version", 1);
+        group.put("type", "group");
+        group.put("role", role);
+        group.put("parent", JsonNull.INSTANCE);
         // 生成独立随机 DEK，用 KEK 包裹（存于 group 密文块内）
         byte[] dek = new byte[32];
         random.nextBytes(dek);
         byte[] wrapped = wrap(dek, kek);
-        Json.put(group, "dek", Json.of(Base64.getEncoder().encodeToString(wrapped)));
-        Json.put(group, "updateTimestamp", Json.of(1));
+        group.put("dek", Base64.getEncoder().encodeToString(wrapped));
+        group.put("updateTimestamp", 1);
         writeCipherBlock(group, kek);
     }
 
@@ -100,8 +101,8 @@ public final class VaultCreator {
         return codec.encode(UUID.randomUUID(), dek, codec.makeKeyIdWith(kek));
     }
 
-    private void writeCipherBlock(Json.Node payload, byte[] keyMaterial) {
-        byte[] json = Json.stringify(payload).getBytes(StandardCharsets.UTF_8);
+    private void writeCipherBlock(com.flora.root.codec.json.model.JsonObject payload, byte[] keyMaterial) {
+        byte[] json = com.flora.root.codec.JsonUtil.toJsonString(payload).getBytes(StandardCharsets.UTF_8);
         byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(keyMaterial, null, "sanctum-enc", 32);
         com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, keyMaterial, random);
         UUID uuid = UUID.randomUUID();
@@ -114,8 +115,8 @@ public final class VaultCreator {
         }
     }
 
-    private void writePlaintextBlock(UUID uuid, Json.Node payload, byte flags) {
-        byte[] json = Json.stringify(payload).getBytes(StandardCharsets.UTF_8);
+    private void writePlaintextBlock(UUID uuid, com.flora.root.codec.json.model.JsonObject payload, byte flags) {
+        byte[] json = com.flora.root.codec.JsonUtil.toJsonString(payload).getBytes(StandardCharsets.UTF_8);
         byte[] block = new byte[6 + 16 + json.length];
         System.arraycopy(Envelope.MAGIC, 0, block, 0, 4);
         block[4] = Envelope.VERSION_1;

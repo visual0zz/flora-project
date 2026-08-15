@@ -1,5 +1,8 @@
 package com.flora.sanctum.model;
 
+import com.flora.root.codec.JsonUtil;
+import com.flora.root.codec.json.model.JsonObject;
+
 import com.flora.sanctum.crypto.CipherCodec;
 import com.flora.sanctum.crypto.Envelope;
 import com.flora.sanctum.store.Block;
@@ -33,12 +36,12 @@ public final class ExternalKeyService {
     public List<KeyInfo> list() {
         List<KeyInfo> out = new ArrayList<>();
         for (Block b : sanctum.store().scan()) {
-            Json.Node n = readNode(b);
-            if (n == null || !"field".equals(n.str("type")) || !"externalKey".equals(n.str("kind"))) {
+            JsonObject n = readNode(b);
+            if (n == null || !"field".equals(n.getString("type")) || !"externalKey".equals(n.getString("kind"))) {
                 continue;
             }
-            String description = n.str("description");
-            out.add(new KeyInfo(b.uuid(), n.str("fieldName"), description == null ? "" : description));
+            String description = n.getString("description");
+            out.add(new KeyInfo(b.uuid(), n.getString("fieldName"), description == null ? "" : description));
         }
         return out;
     }
@@ -67,11 +70,11 @@ public final class ExternalKeyService {
         System.arraycopy(block, 22, keyId, 0, 4);
         // 试解所有 externalKey 字段
         for (Block b : sanctum.store().scan()) {
-            Json.Node n = readNode(b);
-            if (n == null || !"field".equals(n.str("type")) || !"externalKey".equals(n.str("kind"))) {
+            JsonObject n = readNode(b);
+            if (n == null || !"field".equals(n.getString("type")) || !"externalKey".equals(n.getString("kind"))) {
                 continue;
             }
-            byte[] keyMaterial = Base64.getDecoder().decode(n.str("value"));
+            byte[] keyMaterial = Base64.getDecoder().decode(n.getString("value"));
             byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(keyMaterial, null, "sanctum-enc", 32);
             CipherCodec codec = new CipherCodec(encKey, keyMaterial, sanctum.vault().random());
             try {
@@ -86,22 +89,22 @@ public final class ExternalKeyService {
     /** 在某个条目下创建外部密钥字段。 */
     public UUID createExternalKey(UUID entryUuid, String fieldName, byte[] keyMaterial, String description) {
         UUID fieldUuid = UUID.randomUUID();
-        Json.Node field = Json.obj();
-        Json.put(field, "version", Json.of(1));
-        Json.put(field, "type", Json.of("field"));
-        Json.put(field, "parent", Json.of(entryUuid.toString()));
-        Json.put(field, "fieldName", Json.of(fieldName));
-        Json.put(field, "kind", Json.of("externalKey"));
-        Json.put(field, "value", Json.of(Base64.getEncoder().encodeToString(keyMaterial)));
+        JsonObject field = new JsonObject();
+        field.put("version", 1);
+        field.put("type", "field");
+        field.put("parent", entryUuid.toString());
+        field.put("fieldName", fieldName);
+        field.put("kind", "externalKey");
+        field.put("value", Base64.getEncoder().encodeToString(keyMaterial));
         if (description != null) {
-            Json.put(field, "description", Json.of(description));
+            field.put("description", description);
         }
-        Json.put(field, "updateTimestamp", Json.of(System.currentTimeMillis()));
+        field.put("updateTimestamp", System.currentTimeMillis());
         // 外部密钥是条目下的字段，属普通对象树 → 用 objects root DEK
         byte[] dek = sanctum.vault().dekForRole("objects");
         byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(dek, null, "sanctum-enc", 32);
         CipherCodec codec = new CipherCodec(encKey, dek, sanctum.vault().random());
-        byte[] block = codec.encode(fieldUuid, Json.stringify(field).getBytes(java.nio.charset.StandardCharsets.UTF_8),
+        byte[] block = codec.encode(fieldUuid, JsonUtil.toJsonString(field).getBytes(java.nio.charset.StandardCharsets.UTF_8),
                 codec.makeKeyIdWith(dek));
         sanctum.store().put(fieldUuid, block, new com.flora.sanctum.store.impl.RawCodec());
         return fieldUuid;
@@ -112,22 +115,22 @@ public final class ExternalKeyService {
             if (!b.uuid().equals(fieldUuid)) {
                 continue;
             }
-            Json.Node n = readNode(b);
-            if (n == null || !"externalKey".equals(n.str("kind"))) {
+            JsonObject n = readNode(b);
+            if (n == null || !"externalKey".equals(n.getString("kind"))) {
                 throw new IllegalArgumentException("not an external key");
             }
-            return Base64.getDecoder().decode(n.str("value"));
+            return Base64.getDecoder().decode(n.getString("value"));
         }
         throw new IllegalArgumentException("external key not found");
     }
 
-    private Json.Node readNode(Block b) {
+    private JsonObject readNode(Block b) {
         byte[] plain = sanctum.vault().resolve(b.obfuscated());
         if (plain == null) {
             return null;
         }
         try {
-            return Json.parse(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
+            return JsonUtil.parseObject(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
         } catch (Exception e) {
             return null;
         }

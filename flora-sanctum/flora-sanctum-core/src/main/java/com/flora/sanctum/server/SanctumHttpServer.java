@@ -1,7 +1,10 @@
 package com.flora.sanctum.server;
 
+import com.flora.root.codec.JsonUtil;
+import com.flora.root.codec.json.model.JsonObject;
+import com.flora.root.codec.json.model.JsonArray;
+
 import com.flora.sanctum.model.ExternalKeyService;
-import com.flora.sanctum.model.Json;
 import com.flora.sanctum.model.Sanctum;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -56,23 +59,23 @@ public final class SanctumHttpServer {
 
     private void handleList(HttpExchange ex) throws IOException {
         requirePost(ex);
-        Json.Node resp = Json.obj();
+        JsonObject resp = new JsonObject();
         if (!sanctum.isUnlocked()) {
             error(ex, "locked", "vault is locked");
             return;
         }
         ExternalKeyService svc = new ExternalKeyService(sanctum);
-        Json.Node keys = Json.arr();
+        JsonArray keys = new JsonArray();
         for (ExternalKeyService.KeyInfo k : svc.list()) {
-            Json.Node item = Json.obj();
-            Json.put(item, "uuid", Json.of(k.uuid.toString()));
-            Json.put(item, "name", Json.of(k.name));
-            Json.put(item, "description", Json.of(k.description));
-            keys.asArray().add(item);
+            JsonObject item = new JsonObject();
+            item.put("uuid", k.uuid.toString());
+            item.put("name", k.name);
+            item.put("description", k.description);
+            keys.add(item);
         }
-        Json.put(resp, "ok", Json.of(true));
-        Json.put(resp, "keys", keys);
-        respond(ex, 200, Json.stringify(resp));
+        resp.put("ok", true);
+        resp.put("keys", keys);
+        respond(ex, 200, JsonUtil.toJsonString(resp));
     }
 
     private void handleEncrypt(HttpExchange ex) throws IOException {
@@ -81,9 +84,9 @@ public final class SanctumHttpServer {
             error(ex, "locked", "vault is locked");
             return;
         }
-        Json.Node req = readJson(ex);
-        String uuidStr = req.str("uuid");
-        String dataB64 = req.str("data");
+        JsonObject req = readJson(ex);
+        String uuidStr = req.getString("uuid");
+        String dataB64 = req.getString("data");
         if (uuidStr == null || dataB64 == null) {
             error(ex, "bad_request", "uuid and data required");
             return;
@@ -92,10 +95,10 @@ public final class SanctumHttpServer {
             UUID uuid = UUID.fromString(uuidStr);
             byte[] data = Base64.getDecoder().decode(dataB64);
             byte[] cipher = new ExternalKeyService(sanctum).encrypt(data, uuid);
-            Json.Node resp = Json.obj();
-            Json.put(resp, "ok", Json.of(true));
-            Json.put(resp, "cipher", Json.of(com.flora.root.codec.Base58.encode(cipher)));
-            respond(ex, 200, Json.stringify(resp));
+            JsonObject resp = new JsonObject();
+            resp.put("ok", true);
+            resp.put("cipher", com.flora.root.codec.Base58.encode(cipher));
+            respond(ex, 200, JsonUtil.toJsonString(resp));
         } catch (Exception e) {
             error(ex, "encrypt_failed", e.getMessage());
         }
@@ -107,18 +110,18 @@ public final class SanctumHttpServer {
             error(ex, "locked", "vault is locked");
             return;
         }
-        Json.Node req = readJson(ex);
-        String cipher = req.str("cipher");
+        JsonObject req = readJson(ex);
+        String cipher = req.getString("cipher");
         if (cipher == null) {
             error(ex, "bad_request", "cipher required");
             return;
         }
         try {
             byte[] data = new ExternalKeyService(sanctum).decrypt(cipher);
-            Json.Node resp = Json.obj();
-            Json.put(resp, "ok", Json.of(true));
-            Json.put(resp, "data", Json.of(Base64.getEncoder().encodeToString(data)));
-            respond(ex, 200, Json.stringify(resp));
+            JsonObject resp = new JsonObject();
+            resp.put("ok", true);
+            resp.put("data", Base64.getEncoder().encodeToString(data));
+            respond(ex, 200, JsonUtil.toJsonString(resp));
         } catch (Exception e) {
             error(ex, "decrypt_failed", "decryption failed");
         }
@@ -131,17 +134,17 @@ public final class SanctumHttpServer {
         }
     }
 
-    private Json.Node readJson(HttpExchange ex) throws IOException {
+    private JsonObject readJson(HttpExchange ex) throws IOException {
         byte[] body = ex.getRequestBody().readAllBytes();
-        return Json.parse(new String(body, StandardCharsets.UTF_8));
+        return JsonUtil.parseObject(new String(body, StandardCharsets.UTF_8));
     }
 
     private void error(HttpExchange ex, String code, String message) throws IOException {
-        Json.Node resp = Json.obj();
-        Json.put(resp, "ok", Json.of(false));
-        Json.put(resp, "error", Json.of(code));
-        Json.put(resp, "message", Json.of(message));
-        respond(ex, 200, Json.stringify(resp));
+        JsonObject resp = new JsonObject();
+        resp.put("ok", false);
+        resp.put("error", code);
+        resp.put("message", message);
+        respond(ex, 200, JsonUtil.toJsonString(resp));
     }
 
     private void respond(HttpExchange ex, int status, String body) throws IOException {

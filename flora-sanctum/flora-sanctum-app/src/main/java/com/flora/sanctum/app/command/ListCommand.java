@@ -4,8 +4,8 @@ import com.flora.shell.Command;
 import com.flora.shell.CommandResult;
 import com.flora.shell.Invocation;
 import com.flora.shell.spec.ArgSpec;
-import com.flora.sanctum.model.Json;
 import com.flora.sanctum.model.Sanctum;
+import com.flora.root.codec.json.model.JsonObject;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -40,8 +40,8 @@ public final class ListCommand implements Command {
             s.unlock(pw);
             StringBuilder sb = new StringBuilder();
             for (UUID u : s.store().list()) {
-                Json.Node n = s.getEntry(u);
-                sb.append(u).append(' ').append(n == null ? "?" : n.str("type") + "/" + n.str("name")).append('\n');
+                JsonObject n = s.getEntry(u);
+                sb.append(u).append(' ').append(n == null ? "?" : n.getString("type") + "/" + n.getString("name")).append('\n');
             }
             ctx.log().info(sb.toString().stripTrailing());
         } finally {

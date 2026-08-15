@@ -1,7 +1,8 @@
 package com.flora.sanctum.server;
 
 import com.flora.sanctum.model.ExternalKeyService;
-import com.flora.sanctum.model.Json;
+import com.flora.root.codec.JsonUtil;
+import com.flora.root.codec.json.model.JsonObject;
 import com.flora.sanctum.model.Sanctum;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -47,22 +48,22 @@ class SanctumHttpServerTest {
         try {
             int port = http.port();
             String listResp = post("http://127.0.0.1:" + port + "/keys/list", "{}");
-            Json.Node list = Json.parse(listResp);
-            assertTrue(list.get("ok").asBoolean());
-            assertFalse(list.get("keys").asArray().isEmpty());
+            JsonObject list = JsonUtil.parseObject(listResp);
+            assertTrue(list.getBool("ok"));
+            assertFalse(list.getArray("keys").isEmpty());
 
             String dataB64 = Base64.getEncoder().encodeToString("hello http".getBytes(StandardCharsets.UTF_8));
             String encReq = "{\"uuid\":\"" + keyField + "\",\"data\":\"" + dataB64 + "\"}";
             String encResp = post("http://127.0.0.1:" + port + "/crypt/encrypt", encReq);
-            Json.Node enc = Json.parse(encResp);
-            assertTrue(enc.get("ok").asBoolean());
-            String cipher = enc.str("cipher");
+            JsonObject enc = JsonUtil.parseObject(encResp);
+            assertTrue(enc.getBool("ok"));
+            String cipher = enc.getString("cipher");
 
             String decReq = "{\"cipher\":\"" + cipher + "\"}";
             String decResp = post("http://127.0.0.1:" + port + "/crypt/decrypt", decReq);
-            Json.Node dec = Json.parse(decResp);
-            assertTrue(dec.get("ok").asBoolean());
-            assertEquals("hello http", new String(Base64.getDecoder().decode(dec.str("data")), StandardCharsets.UTF_8));
+            JsonObject dec = JsonUtil.parseObject(decResp);
+            assertTrue(dec.getBool("ok"));
+            assertEquals("hello http", new String(Base64.getDecoder().decode(dec.getString("data")), StandardCharsets.UTF_8));
         } finally {
             http.stop();
         }
@@ -77,9 +78,9 @@ class SanctumHttpServerTest {
         try {
             int port = http.port();
             String resp = post("http://127.0.0.1:" + port + "/crypt/encrypt", "{\"uuid\":\"x\",\"data\":\"eA==\"}");
-            Json.Node n = Json.parse(resp);
-            assertFalse(n.get("ok").asBoolean());
-            assertEquals("locked", n.str("error"));
+            JsonObject n = JsonUtil.parseObject(resp);
+            assertFalse(n.getBool("ok"));
+            assertEquals("locked", n.getString("error"));
         } finally {
             http.stop();
         }

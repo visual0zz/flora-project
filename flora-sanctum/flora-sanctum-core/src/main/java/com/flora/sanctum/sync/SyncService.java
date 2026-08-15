@@ -134,9 +134,9 @@ public final class SyncService {
             if (deobf.length > 5 && (deobf[5] & 0x02) != 0) {
                 byte[] payload = new byte[deobf.length - 22];
                 System.arraycopy(deobf, 22, payload, 0, payload.length);
-                com.flora.sanctum.model.Json.Node n = com.flora.sanctum.model.Json.parse(
+                com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(
                         new String(payload, java.nio.charset.StandardCharsets.UTF_8));
-                Long ts = n.lng("updateTimestamp");
+                Long ts = n.getLong("updateTimestamp");
                 return ts == null ? 0 : ts;
             }
         } catch (Exception ignore) {

@@ -1,5 +1,6 @@
 package com.flora.sanctum.model;
 
+import com.flora.root.codec.json.model.JsonObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -24,16 +25,16 @@ class SanctumTest {
         fields.put("password", "s3cret");
         UUID entryUuid = s.createEntry(null, "微博", fields);
 
-        Json.Node entry = s.getEntry(entryUuid);
+        JsonObject entry = s.getEntry(entryUuid);
         assertNotNull(entry);
-        assertEquals("entry", entry.str("type"));
-        assertEquals("微博", entry.str("name"));
+        assertEquals("entry", entry.getString("type"));
+        assertEquals("微博", entry.getString("name"));
 
         // 字段应作为独立对象存在
         UUID fieldUuid = s.directory().childrenOf(entryUuid).stream()
                 .filter(u -> !u.equals(entryUuid)).findFirst().orElseThrow();
-        Json.Node field = s.getEntry(fieldUuid);
-        assertEquals("field", field.str("type"));
+        JsonObject field = s.getEntry(fieldUuid);
+        assertEquals("field", field.getString("type"));
     }
 
     @Test
@@ -88,9 +89,9 @@ class SanctumTest {
         s2.unlock(pw);
         assertTrue(s2.isUnlocked());
         assertNotNull(s2.folderDek(group));
-        Json.Node e = s2.getEntry(entry);
+        JsonObject e = s2.getEntry(entry);
         assertNotNull(e);
-        assertEquals("微博", e.str("name"));
+        assertEquals("微博", e.getString("name"));
     }
 
     @Test
@@ -134,12 +135,12 @@ class SanctumTest {
         UUID icon = s.createIcon(new byte[]{1, 2, 3}, "png");
         UUID ssh = s.createSshKey("mykey", "-----BEGIN RSA PRIVATE KEY-----\n...");
 
-        Json.Node iconNode = s.getEntry(icon);
-        Json.Node sshNode = s.getEntry(ssh);
+        JsonObject iconNode = s.getEntry(icon);
+        JsonObject sshNode = s.getEntry(ssh);
         assertNotNull(iconNode);
-        assertEquals("icon", iconNode.str("type"));
+        assertEquals("icon", iconNode.getString("type"));
         assertNotNull(sshNode);
-        assertEquals("sshKey", sshNode.str("type"));
-        assertEquals("mykey", sshNode.str("name"));
+        assertEquals("sshKey", sshNode.getString("type"));
+        assertEquals("mykey", sshNode.getString("name"));
     }
 }

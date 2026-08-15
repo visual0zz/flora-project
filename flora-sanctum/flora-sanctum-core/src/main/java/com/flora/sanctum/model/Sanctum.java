@@ -1,5 +1,8 @@
 package com.flora.sanctum.model;
 
+import com.flora.root.codec.JsonUtil;
+import com.flora.root.codec.json.model.JsonObject;
+import com.flora.root.codec.json.model.JsonNull;
 import com.flora.sanctum.crypto.Argon2Kdf;
 import com.flora.sanctum.store.Block;
 import com.flora.sanctum.store.ObjectStore;
@@ -81,20 +84,20 @@ public final class Sanctum implements AutoCloseable {
         Manifest updated = new Manifest(m.version(), m.cryptoVersion(), m.kdf(), m.salt(),
                 m.memoryKiB(), m.iterations(), m.parallelism(), newWarehouseTime, m.updateTimestamp(), new byte[0]);
         byte[] mac = updated.computeMac(macKey, manifestUuid);
-        Json.Node manifest = Json.obj();
-        Json.put(manifest, "version", Json.of(updated.version()));
-        Json.put(manifest, "type", Json.of("manifest"));
-        Json.put(manifest, "cryptoVersion", Json.of(updated.cryptoVersion()));
-        Json.put(manifest, "kdf", Json.of(updated.kdf()));
-        Json.put(manifest, "salt", Json.of(java.util.Base64.getEncoder().encodeToString(updated.salt())));
-        Json.Node params = Json.obj();
-        Json.put(params, "m", Json.of(updated.memoryKiB()));
-        Json.put(params, "i", Json.of(updated.iterations()));
-        Json.put(params, "p", Json.of(updated.parallelism()));
-        Json.put(manifest, "params", params);
-        Json.put(manifest, "warehouseTime", Json.of(newWarehouseTime));
-        Json.put(manifest, "updateTimestamp", Json.of(updated.updateTimestamp()));
-        Json.put(manifest, "mac", Json.of(java.util.Base64.getEncoder().encodeToString(mac)));
+        JsonObject manifest = new JsonObject();
+        manifest.put("version", updated.version());
+        manifest.put("type", "manifest");
+        manifest.put("cryptoVersion", updated.cryptoVersion());
+        manifest.put("kdf", updated.kdf());
+        manifest.put("salt", java.util.Base64.getEncoder().encodeToString(updated.salt()));
+        JsonObject params = new JsonObject();
+        params.put("m", updated.memoryKiB());
+        params.put("i", updated.iterations());
+        params.put("p", updated.parallelism());
+        manifest.put("params", params);
+        manifest.put("warehouseTime", newWarehouseTime);
+        manifest.put("updateTimestamp", updated.updateTimestamp());
+        manifest.put("mac", java.util.Base64.getEncoder().encodeToString(mac));
         writeManifestPlaintextBlock(manifestUuid, manifest);
         lock();
     }
@@ -106,8 +109,8 @@ public final class Sanctum implements AutoCloseable {
                 byte[] payload = new byte[full.length - 22];
                 System.arraycopy(full, 22, payload, 0, payload.length);
                 try {
-                    Json.Node n = Json.parse(new String(payload, java.nio.charset.StandardCharsets.UTF_8));
-                    if ("manifest".equals(n.str("type"))) {
+                    JsonObject n = JsonUtil.parseObject(new String(payload, java.nio.charset.StandardCharsets.UTF_8));
+                    if ("manifest".equals(n.getString("type"))) {
                         return b.uuid();
                     }
                 } catch (Exception ignore) {
@@ -117,8 +120,8 @@ public final class Sanctum implements AutoCloseable {
         throw new IllegalStateException("manifest not found");
     }
 
-    private void writeManifestPlaintextBlock(java.util.UUID uuid, Json.Node payload) {
-        byte[] json = Json.stringify(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    private void writeManifestPlaintextBlock(java.util.UUID uuid, JsonObject payload) {
+        byte[] json = JsonUtil.toJsonString(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] block = new byte[6 + 16 + json.length];
         System.arraycopy(com.flora.sanctum.crypto.Envelope.MAGIC, 0, block, 0, 4);
         block[4] = com.flora.sanctum.crypto.Envelope.VERSION_1;
@@ -182,13 +185,13 @@ public final class Sanctum implements AutoCloseable {
                 ? vault.folderDek(parentId)
                 : vault.dekForRole("objects");
         byte[] wrapped = wrap(dek, parentDek);
-        Json.Node group = Json.obj();
-        Json.put(group, "version", Json.of(1));
-        Json.put(group, "type", Json.of("group"));
-        Json.put(group, "name", Json.of(name));
-        Json.put(group, "parent", parentId == null ? Json.ofNull() : Json.of(parentId.toString()));
-        Json.put(group, "dek", Json.of(java.util.Base64.getEncoder().encodeToString(wrapped)));
-        Json.put(group, "updateTimestamp", Json.of(nextTimestamp()));
+        JsonObject group = new JsonObject();
+        group.put("version", 1);
+        group.put("type", "group");
+        group.put("name", name);
+        group.put("parent", parentId == null ? JsonNull.INSTANCE : parentId.toString());
+        group.put("dek", java.util.Base64.getEncoder().encodeToString(wrapped));
+        group.put("updateTimestamp", nextTimestamp());
         writeObject(groupUuid, group, parentId);
         vault.addFolderDek(groupUuid, dek);
         refresh();
@@ -231,14 +234,14 @@ public final class Sanctum implements AutoCloseable {
                 } catch (Exception e) {
                     continue; // 非 KEK 包裹（普通对象树内由父 DEK 包裹），跳过
                 }
-                Json.Node n = Json.parse(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
-                if ("group".equals(n.str("type")) && n.str("role") != null) {
+                JsonObject n = JsonUtil.parseObject(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
+                if ("group".equals(n.getString("type")) && n.getString("role") != null) {
                     // 用旧 KEK 解出 DEK，用新 KEK 重包裹 + 重加密块
-                    byte[] oldWrapped = java.util.Base64.getDecoder().decode(n.str("dek"));
+                    byte[] oldWrapped = java.util.Base64.getDecoder().decode(n.getString("dek"));
                     byte[] dek = oldCodec.decode(oldWrapped).plaintext;
                     byte[] newWrapped = wrap(dek, newKek);
-                    n = Json.parse(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
-                    Json.put(n, "dek", Json.of(java.util.Base64.getEncoder().encodeToString(newWrapped)));
+                    n = JsonUtil.parseObject(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
+                    n.put("dek", java.util.Base64.getEncoder().encodeToString(newWrapped));
                     writeCipherBlockWith(b.uuid(), n, newKek);
                 }
             }
@@ -248,20 +251,20 @@ public final class Sanctum implements AutoCloseable {
                     m.memoryKiB(), m.iterations(), m.parallelism(), vault.clock().warehouseTime(), m.updateTimestamp(), new byte[0]);
             byte[] macKey = updated.manifestMacKey(newKek);
             byte[] mac = updated.computeMac(macKey, manifestUuid);
-            Json.Node manifest = Json.obj();
-            Json.put(manifest, "version", Json.of(updated.version()));
-            Json.put(manifest, "type", Json.of("manifest"));
-            Json.put(manifest, "cryptoVersion", Json.of(updated.cryptoVersion()));
-            Json.put(manifest, "kdf", Json.of(updated.kdf()));
-            Json.put(manifest, "salt", Json.of(java.util.Base64.getEncoder().encodeToString(updated.salt())));
-            Json.Node params = Json.obj();
-            Json.put(params, "m", Json.of(updated.memoryKiB()));
-            Json.put(params, "i", Json.of(updated.iterations()));
-            Json.put(params, "p", Json.of(updated.parallelism()));
-            Json.put(manifest, "params", params);
-            Json.put(manifest, "warehouseTime", Json.of(updated.warehouseTime()));
-            Json.put(manifest, "updateTimestamp", Json.of(updated.updateTimestamp()));
-            Json.put(manifest, "mac", Json.of(java.util.Base64.getEncoder().encodeToString(mac)));
+            JsonObject manifest = new JsonObject();
+            manifest.put("version", updated.version());
+            manifest.put("type", "manifest");
+            manifest.put("cryptoVersion", updated.cryptoVersion());
+            manifest.put("kdf", updated.kdf());
+            manifest.put("salt", java.util.Base64.getEncoder().encodeToString(updated.salt()));
+            JsonObject params = new JsonObject();
+            params.put("m", updated.memoryKiB());
+            params.put("i", updated.iterations());
+            params.put("p", updated.parallelism());
+            manifest.put("params", params);
+            manifest.put("warehouseTime", updated.warehouseTime());
+            manifest.put("updateTimestamp", updated.updateTimestamp());
+            manifest.put("mac", java.util.Base64.getEncoder().encodeToString(mac));
             writeManifestPlaintextBlock(manifestUuid, manifest);
             // 更新 Vault 的 KEK 为新 KEK
             vault.replaceKek(newKek);
@@ -271,8 +274,8 @@ public final class Sanctum implements AutoCloseable {
         }
     }
 
-    private void writeCipherBlockWith(java.util.UUID uuid, Json.Node payload, byte[] keyMaterial) {
-        byte[] json = Json.stringify(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    private void writeCipherBlockWith(java.util.UUID uuid, JsonObject payload, byte[] keyMaterial) {
+        byte[] json = JsonUtil.toJsonString(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(keyMaterial, null, "sanctum-enc", 32);
         com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, keyMaterial, vault.random());
         byte[] block = codec.encode(uuid, json, codec.makeKeyIdWith(keyMaterial));
@@ -290,23 +293,23 @@ public final class Sanctum implements AutoCloseable {
     public UUID createEntry(UUID groupId, String name, Map<String, String> fields) {
         UUID entryUuid = UUID.randomUUID();
         long ts = nextTimestamp();
-        Json.Node entry = Json.obj();
-        Json.put(entry, "version", Json.of(1));
-        Json.put(entry, "type", Json.of("entry"));
-        Json.put(entry, "name", Json.of(name));
-        Json.put(entry, "parent", groupId == null ? Json.ofNull() : Json.of(groupId.toString()));
-        Json.put(entry, "updateTimestamp", Json.of(ts));
+        JsonObject entry = new JsonObject();
+        entry.put("version", 1);
+        entry.put("type", "entry");
+        entry.put("name", name);
+        entry.put("parent", groupId == null ? JsonNull.INSTANCE : groupId.toString());
+        entry.put("updateTimestamp", ts);
         writeObject(entryUuid, entry, groupId);
         // 字段各自独立对象，parent 指向条目
         for (Map.Entry<String, String> f : fields.entrySet()) {
             UUID fieldUuid = UUID.randomUUID();
-            Json.Node field = Json.obj();
-            Json.put(field, "version", Json.of(1));
-            Json.put(field, "type", Json.of("field"));
-            Json.put(field, "parent", Json.of(entryUuid.toString()));
-            Json.put(field, "fieldName", Json.of(f.getKey()));
-            Json.put(field, "value", Json.of(f.getValue()));
-            Json.put(field, "updateTimestamp", Json.of(nextTimestamp()));
+            JsonObject field = new JsonObject();
+            field.put("version", 1);
+            field.put("type", "field");
+            field.put("parent", entryUuid.toString());
+            field.put("fieldName", f.getKey());
+            field.put("value", f.getValue());
+            field.put("updateTimestamp", nextTimestamp());
             writeObject(fieldUuid, field, groupId);
         }
         refresh();
@@ -314,7 +317,7 @@ public final class Sanctum implements AutoCloseable {
     }
 
     /** 读取条目。 */
-    public Json.Node getEntry(UUID uuid) {
+    public JsonObject getEntry(UUID uuid) {
         return readObject(uuid);
     }
 
@@ -332,13 +335,13 @@ public final class Sanctum implements AutoCloseable {
     /** 新建自定义图标（用 icon root DEK 加密，parent 指向 icon root group）。 */
     public UUID createIcon(byte[] data, String format) {
         UUID iconUuid = UUID.randomUUID();
-        Json.Node icon = Json.obj();
-        Json.put(icon, "version", Json.of(1));
-        Json.put(icon, "type", Json.of("icon"));
-        Json.put(icon, "parent", Json.of(vault.rootGroupUuid("icon").toString()));
-        Json.put(icon, "data", Json.of(java.util.Base64.getEncoder().encodeToString(data)));
-        Json.put(icon, "format", Json.of(format));
-        Json.put(icon, "updateTimestamp", Json.of(nextTimestamp()));
+        JsonObject icon = new JsonObject();
+        icon.put("version", 1);
+        icon.put("type", "icon");
+        icon.put("parent", vault.rootGroupUuid("icon").toString());
+        icon.put("data", java.util.Base64.getEncoder().encodeToString(data));
+        icon.put("format", format);
+        icon.put("updateTimestamp", nextTimestamp());
         byte[] dek = vault.dekForRole("icon");
         writeObjectWithDek(iconUuid, icon, dek);
         refresh();
@@ -348,13 +351,13 @@ public final class Sanctum implements AutoCloseable {
     /** 新建 SSH 私钥（用 sshKey root DEK 加密，parent 指向 sshKey root group）。 */
     public UUID createSshKey(String name, String privateKeyPem) {
         UUID keyUuid = UUID.randomUUID();
-        Json.Node key = Json.obj();
-        Json.put(key, "version", Json.of(1));
-        Json.put(key, "type", Json.of("sshKey"));
-        Json.put(key, "parent", Json.of(vault.rootGroupUuid("sshKey").toString()));
-        Json.put(key, "name", Json.of(name));
-        Json.put(key, "privateKey", Json.of(privateKeyPem));
-        Json.put(key, "updateTimestamp", Json.of(nextTimestamp()));
+        JsonObject key = new JsonObject();
+        key.put("version", 1);
+        key.put("type", "sshKey");
+        key.put("parent", vault.rootGroupUuid("sshKey").toString());
+        key.put("name", name);
+        key.put("privateKey", privateKeyPem);
+        key.put("updateTimestamp", nextTimestamp());
         byte[] dek = vault.dekForRole("sshKey");
         writeObjectWithDek(keyUuid, key, dek);
         refresh();
@@ -362,8 +365,8 @@ public final class Sanctum implements AutoCloseable {
     }
 
     /** 用指定 DEK 写对象（供 icon/sshKey 按 role 路由）。 */
-    private void writeObjectWithDek(UUID uuid, Json.Node payload, byte[] dek) {
-        byte[] json = Json.stringify(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    private void writeObjectWithDek(UUID uuid, JsonObject payload, byte[] dek) {
+        byte[] json = JsonUtil.toJsonString(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(dek, null, "sanctum-enc", 32);
         com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, dek, vault.random());
         byte[] block = codec.encode(uuid, json, codec.makeKeyIdWith(dek));
@@ -390,12 +393,12 @@ public final class Sanctum implements AutoCloseable {
                 reachable.add(b.uuid()); // manifest
                 continue;
             }
-            Json.Node n = nodeOf(b);
+            JsonObject n = nodeOf(b);
             if (n == null) {
                 continue;
             }
-            String parent = n.str("parent");
-            if (parent == null || "group".equals(n.str("type")) && parent.isEmpty()) {
+            String parent = n.getString("parent");
+            if (parent == null || "group".equals(n.getString("type")) && parent.isEmpty()) {
                 reachable.add(b.uuid()); // 顶层对象（parent==null）
             }
         }
@@ -407,13 +410,13 @@ public final class Sanctum implements AutoCloseable {
                 if (reachable.contains(b.uuid())) {
                     continue;
                 }
-                Json.Node n = nodeOf(b);
+                JsonObject n = nodeOf(b);
                 if (n == null) {
                     continue;
                 }
-                String parent = n.str("parent");
-                String icon = n.str("icon");
-                String keyRef = n.str("keyRef");
+                String parent = n.getString("parent");
+                String icon = n.getString("icon");
+                String keyRef = n.getString("keyRef");
                 if ((parent != null && reachable.contains(UUID.fromString(parent)))
                         || (icon != null && reachable.contains(UUID.fromString(icon)))
                         || (keyRef != null && isUuid(keyRef) && reachable.contains(UUID.fromString(keyRef)))) {
@@ -435,7 +438,7 @@ public final class Sanctum implements AutoCloseable {
     }
 
     /** 按 uuid 查找对象（返回其负载 JSON；未找到返回 null）。 */
-    public Json.Node search(UUID uuid) {
+    public JsonObject search(UUID uuid) {
         return getEntry(uuid);
     }
 
@@ -448,20 +451,20 @@ public final class Sanctum implements AutoCloseable {
         }
     }
 
-    private Json.Node nodeOf(Block b) {
+    private JsonObject nodeOf(Block b) {
         byte[] plain = vault.resolve(b.obfuscated());
         if (plain == null) {
             return null;
         }
         try {
-            return Json.parse(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
+            return JsonUtil.parseObject(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
         } catch (Exception e) {
             return null;
         }
     }
 
-    private void writeObject(UUID uuid, Json.Node payload, UUID groupId) {
-        byte[] json = Json.stringify(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    private void writeObject(UUID uuid, JsonObject payload, UUID groupId) {
+        byte[] json = JsonUtil.toJsonString(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] dek = resolveDekFor(groupId);
         byte[] encKey = com.flora.sanctum.crypto.impl.HkdfSha256.derive(dek, null, "sanctum-enc", 32);
         com.flora.sanctum.crypto.CipherCodec codec = new com.flora.sanctum.crypto.CipherCodec(encKey, dek, vault.random());
@@ -469,14 +472,14 @@ public final class Sanctum implements AutoCloseable {
         store.put(uuid, block, new com.flora.sanctum.store.impl.RawCodec());
     }
 
-    private Json.Node readObject(UUID uuid) {
+    private JsonObject readObject(UUID uuid) {
         for (Block b : store.scan()) {
             if (b.uuid().equals(uuid)) {
                 byte[] plain = vault.resolve(b.obfuscated());
                 if (plain == null) {
                     return null;
                 }
-                return Json.parse(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
+                return JsonUtil.parseObject(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
             }
         }
         return null;
@@ -494,8 +497,8 @@ public final class Sanctum implements AutoCloseable {
     private long nextTimestamp() {
         long maxExisting = 1;
         if (directory != null) {
-            for (Json.Node n : directory.objects.values()) {
-                Long t = n.lng("updateTimestamp");
+            for (JsonObject n : directory.objects.values()) {
+                Long t = n.getLong("updateTimestamp");
                 if (t != null && t > maxExisting) {
                     maxExisting = t;
                 }
@@ -506,7 +509,7 @@ public final class Sanctum implements AutoCloseable {
 
     /** 内存目录（解锁后构建）。 */
     public static final class Directory {
-        private final Map<UUID, Json.Node> objects = new LinkedHashMap<>();
+        private final Map<UUID, JsonObject> objects = new LinkedHashMap<>();
         private final List<byte[]> rootDeks = new ArrayList<>();
 
         private Directory() {
@@ -522,7 +525,7 @@ public final class Sanctum implements AutoCloseable {
                     continue;
                 }
                 try {
-                    Json.Node n = Json.parse(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
+                    JsonObject n = JsonUtil.parseObject(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
                     d.objects.put(b.uuid(), n);
                 } catch (Exception ignore) {
                     // 无法解析的块跳过
@@ -537,8 +540,8 @@ public final class Sanctum implements AutoCloseable {
 
         public List<UUID> childrenOf(UUID parent) {
             List<UUID> out = new ArrayList<>();
-            for (Map.Entry<UUID, Json.Node> e : objects.entrySet()) {
-                String p = e.getValue().str("parent");
+            for (Map.Entry<UUID, JsonObject> e : objects.entrySet()) {
+                String p = e.getValue().getString("parent");
                 if (p != null && p.equals(parent.toString())) {
                     out.add(e.getKey());
                 }

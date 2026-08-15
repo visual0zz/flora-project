@@ -4,8 +4,9 @@ import com.flora.shell.Command;
 import com.flora.shell.CommandResult;
 import com.flora.shell.Invocation;
 import com.flora.shell.spec.ArgSpec;
-import com.flora.sanctum.model.Json;
 import com.flora.sanctum.model.Sanctum;
+import com.flora.root.codec.json.model.JsonObject;
+import com.flora.root.codec.JsonUtil;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -42,8 +43,8 @@ public final class GetCommand implements Command {
         char[] pw = MainUtil.readPassword("master password");
         try (Sanctum s = Sanctum.open(root)) {
             s.unlock(pw);
-            Json.Node n = s.getEntry(uuid);
-            ctx.log().info(n == null ? "not found" : Json.stringify(n));
+            JsonObject n = s.getEntry(uuid);
+            ctx.log().info(n == null ? "not found" : JsonUtil.toJsonString(n));
         } finally {
             java.util.Arrays.fill(pw, (char) 0);
         }

@@ -112,22 +112,23 @@ public final class Manifest {
 
     /** 从 JSON 解析 manifest。 */
     public static Manifest fromJson(byte[] payload) {
-        Json.Node n = Json.parse(new String(payload, java.nio.charset.StandardCharsets.UTF_8));
-        if (!"manifest".equals(n.str("type"))) {
+        com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(
+                new String(payload, java.nio.charset.StandardCharsets.UTF_8));
+        if (!"manifest".equals(n.getString("type"))) {
             throw new IllegalArgumentException("not a manifest");
         }
-        Json.Node params = n.get("params");
+        com.flora.root.codec.json.model.JsonObject params = n.getObject("params");
         return new Manifest(
-                n.get("version").asInt(),
-                n.str("cryptoVersion"),
-                n.str("kdf"),
-                Base64.getDecoder().decode(n.str("salt")),
-                params.get("m").asInt(),
-                params.get("i").asInt(),
-                params.get("p").asInt(),
-                n.lng("warehouseTime") == null ? 1 : n.lng("warehouseTime"),
-                n.lng("updateTimestamp") == null ? 1 : n.lng("updateTimestamp"),
-                Base64.getDecoder().decode(n.str("mac"))
+                n.getInt("version"),
+                n.getString("cryptoVersion"),
+                n.getString("kdf"),
+                Base64.getDecoder().decode(n.getString("salt")),
+                params.getInt("m"),
+                params.getInt("i"),
+                params.getInt("p"),
+                n.getLong("warehouseTime") == null ? 1 : n.getLong("warehouseTime"),
+                n.getLong("updateTimestamp") == null ? 1 : n.getLong("updateTimestamp"),
+                Base64.getDecoder().decode(n.getString("mac"))
         );
     }
 }

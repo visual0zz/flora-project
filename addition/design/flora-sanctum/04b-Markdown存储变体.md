@@ -51,10 +51,11 @@
 每个 base58 块解码后是**自描述**的字节序列，**块本身就是单一的信封**（没有"外层块 + 内层信封"两层）。信封结构（见 02）：
 
 ```
-magic(4B) + version(1B) + flags(1B) + uuid(16B) + keyId(4B) + nonce(16B) + ciphertext + tag(16B)
+magic(4B) + version(1B) + flags(1B) + uuid(16B) + keyId(4B) + nonce(12B) + ciphertext + tag(16B)
 ```
 
-- **magic**：判明这是不是本应用的数据块（避免把用户乱写的 base58 当数据）。
+- **magic（4B）= `0x87 0xC2 0x55 0xAD`**：固定魔数，判明这是不是本应用的数据块（避免把用户乱写的 base58 当数据）。
+- **随机字节异或混淆（不显式存 xorByte）**：整个信封字节序列与每块随机 xorByte 逐字节异或后落盘；xorByte 不落盘，读取时从落盘首字节反推（`xorByte = bytes[0] ⊕ magic[0]`）解异或、校验 magic（见 02）。每块落盘字节随机化，外部看不到固定 magic/内容模式。
 - **flags 位标记**：`0x01`=密文 / `0x02`=明文。明文块负载为明文字节（无 keyId/nonce/tag），密文块负载为加密后的密文（见下）。
 - **uuid（16B）**：本数据对象自己的 UUID（见"上层：对象与互相指向"）。**AAD = 整个信封头（magic/version/flags/uuid/keyId/nonce）**，tag 覆盖信封全部信息 + 密文，防密文被搬运到别的对象、防算法版本降级、防头部字段被篡改。
 - **keyId（4B，仅密文）** = `byte1(1B) ‖ SHA256(DEK‖byte1)[0:3]`，byte1 逐块随机；解锁后用增量 keyId 索引定位候选 DEK，靠 GCM-SIV tag 试解确证（见 02）。
@@ -66,7 +67,7 @@ magic(4B) + version(1B) + flags(1B) + uuid(16B) + keyId(4B) + nonce(16B) + ciphe
 
 ## 读写管线
 
-**读**：遍历全部 markdown 文件 → 扫描每处"像 base58 的连续串" → 逐个 base58 解码 + magic 校验 → 得一批数据块（可能含明文、密文、或用户误写的无效串）。上层拿到块列表后各自解析：
+**读**：遍历全部 markdown 文件 → 扫描每处"像 base58 的连续串" → 逐个 base58 解码 → **反推 xorByte（`bytes[0]⊕magic[0]`）解异或** → 校验 magic → 得一批数据块（可能含明文、密文、或用户误写的无效串）。上层拿到块列表后各自解析：
 - magic 不匹配 → 视为用户正文干扰，跳过；
 - 是密文 → 用信封内 keyId 查增量索引得候选 DEK、tag 试解；
 - 是明文 → 直接读负载。

@@ -90,7 +90,8 @@ public final class Sanctum implements AutoCloseable {
         return vault != null;
     }
 
-    public Vault vault() {
+    /** 解锁后的密钥状态（model 包内部使用；app 经数据树访问，不直接碰密钥状态）。 */
+    Vault vault() {
         return vault;
     }
 
@@ -176,7 +177,7 @@ public final class Sanctum implements AutoCloseable {
     }
 
     /** 取某文件夹的 DEK（null 若未发现）。 */
-    public byte[] folderDek(UUID groupUuid) {
+    byte[] folderDek(UUID groupUuid) {
         return vault == null ? null : vault.folderDek(groupUuid);
     }
 

@@ -427,11 +427,23 @@ public final class Sanctum implements AutoCloseable {
         if (entry == null || !"entry".equals(entry.getString("type"))) {
             throw new IllegalArgumentException("entry not found");
         }
-        String parent = entry.getString("parent");
         UUID groupId = parentGroupUuid(entry);
         entry.put("name", newName);
         entry.put("updateTimestamp", nextTimestamp());
         writeObject(entryUuid, entry, groupId);
+        refresh();
+    }
+
+    /** 重命名文件夹（更新 name 并就地重写；加密归属沿用创建时的 DEK 路由）。 */
+    public void renameGroup(UUID groupUuid, String newName) {
+        JsonObject group = readObject(groupUuid);
+        if (group == null || !"group".equals(group.getString("type"))) {
+            throw new IllegalArgumentException("group not found");
+        }
+        UUID parentId = parentGroupUuid(group);
+        group.put("name", newName);
+        group.put("updateTimestamp", nextTimestamp());
+        writeObject(groupUuid, group, parentId);
         refresh();
     }
 
@@ -488,6 +500,25 @@ public final class Sanctum implements AutoCloseable {
             groupId = parentGroupUuid(entry);
         }
         field.put("value", value);
+        field.put("updateTimestamp", nextTimestamp());
+        writeObject(fieldUuid, field, groupId);
+        refresh();
+    }
+
+    /** 修改字段的 kind（就地重写；kind 为自由字符串，未知 kind 也可写入，见 05）。 */
+    public void updateFieldKind(UUID fieldUuid, String kind) {
+        JsonObject field = readObject(fieldUuid);
+        if (field == null || !"field".equals(field.getString("type"))) {
+            throw new IllegalArgumentException("field not found");
+        }
+        // 找出所属组以解析 DEK：field → parent(entry) → parent(group)
+        String entryId = field.getString("parent");
+        UUID groupId = null;
+        if (entryId != null) {
+            JsonObject entry = readObject(UUID.fromString(entryId));
+            groupId = parentGroupUuid(entry);
+        }
+        field.put("kind", kind);
         field.put("updateTimestamp", nextTimestamp());
         writeObject(fieldUuid, field, groupId);
         refresh();

@@ -275,6 +275,41 @@ class SanctumTest {
     }
 
     @Test
+    void renameGroupRenamesFolder() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        UUID group = s.createGroup(null, "旧名");
+        s.renameGroup(group, "新名");
+        assertEquals("新名", s.getEntry(group).getString("name"));
+
+        // 重开重解锁后保持
+        s.close();
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlock("pw".toCharArray());
+        assertEquals("新名", s2.getEntry(group).getString("name"));
+    }
+
+    @Test
+    void updateFieldKindChangesKind() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        UUID entry = s.createEntry(null, "条目", Map.of("username", "alice"));
+        UUID field = s.directory().childrenOf(entry).stream()
+                .filter(u -> {
+                    JsonObject f = s.getEntry(u);
+                    return f != null && "username".equals(f.getString("fieldName"));
+                })
+                .findFirst().orElseThrow();
+        assertNull(s.getEntry(field).getString("kind"));
+        s.updateFieldKind(field, "totp");
+        assertEquals("totp", s.getEntry(field).getString("kind"));
+
+        // 重开重解锁后保持
+        s.close();
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlock("pw".toCharArray());
+        assertEquals("totp", s2.getEntry(field).getString("kind"));
+    }
+
+    @Test
     void guiFlow_groupEntryFieldUpdate() {
         // 模拟 GUI 核心操作链：建组 → 建条目 → 建字段 → 更新字段 → 按组列出条目
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());

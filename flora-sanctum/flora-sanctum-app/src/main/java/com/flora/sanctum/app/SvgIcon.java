@@ -1,6 +1,7 @@
 package com.flora.sanctum.app;
 
 import com.github.weisj.jsvg.SVGDocument;
+import com.github.weisj.jsvg.parser.LoaderContext;
 import com.github.weisj.jsvg.parser.SVGLoader;
 import com.github.weisj.jsvg.view.ViewBox;
 
@@ -16,7 +17,7 @@ import java.util.Map;
 /**
  * 加载并缓存 SVG 矢量图标，渲染为 Swing {@link ImageIcon}。
  * <p>
- * 用 SVG Salamander（jsvg）把 resources/icons 下的 SVG 渲染到透明 BufferedImage，
+ * 用 jsvg 把 resources/icons 下的 SVG 渲染到透明 BufferedImage，
  * 可按需缩放（矢量，任意尺寸不失真）。图标按名称+尺寸缓存。
  */
 public final class SvgIcon {
@@ -38,7 +39,8 @@ public final class SvgIcon {
                 return null;
             }
             URI uri = SvgIcon.class.getResource("/icons/" + name + ".svg").toURI();
-            SVGDocument doc = new SVGLoader().load(in, uri, null);
+            // jsvg 2.0 的 load 要求非空 LoaderContext（传 null 会在 SVGDocumentBuilder 内 NPE）
+            SVGDocument doc = new SVGLoader().load(in, uri, LoaderContext.createDefault());
             BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
             Graphics2D g = img.createGraphics();
             try {

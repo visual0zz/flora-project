@@ -70,6 +70,8 @@ byte[] payload = new byte[full.length - com.flora.sanctum.crypto.impl.Envelope.P
      * 虽 parent 也是概念 tag，但其块用 data 根 DEK 加密，KEK 解不开，按普通文件夹登记）。
      */
     private void discoverRootDeks(Vault vault, byte[] kek, List<Block> blocks) {
+        // KEK 入 keyId 索引，供块 keyId 预筛（root group 块用 KEK 加密）
+        vault.keyIdIndex().register(kek);
         java.util.List<byte[]> known = new java.util.ArrayList<>();
         known.add(kek); // 不 clone：后续以引用是否即 KEK 判断 root group
         boolean progress = true;
@@ -77,6 +79,10 @@ byte[] payload = new byte[full.length - com.flora.sanctum.crypto.impl.Envelope.P
             progress = false;
             for (Block b : blocks) {
                 if (!b.isCipher()) {
+                    continue;
+                }
+                // keyId 预筛：无已知密钥命中则跳过，避免对每块试解全部 known
+                if (vault.keyIdIndex().lookup(b.keyId()).isEmpty()) {
                     continue;
                 }
                 for (byte[] dk : known) {

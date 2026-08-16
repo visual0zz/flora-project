@@ -31,27 +31,33 @@ public final class MasterKeyRotator {
         byte[] newKek = kdf.derive(newPassword);
         try {
             // 重包三个 root group（用旧 KEK 解密块 + 解 DEK，用新 KEK 重加密）
+            // 直接按已知 root group uuid 定位，不再遍历全库试解
+            java.util.Set<java.util.UUID> rootUuids = new java.util.HashSet<>();
+            for (RootTag tag : new RootTag[]{RootTag.DATA, RootTag.ICON, RootTag.SSH_KEY}) {
+                java.util.UUID root = vault.rootGroupUuid(tag);
+                if (root != null) {
+                    rootUuids.add(root);
+                }
+            }
+            byte[] oldEnc = KeyDerivation.encKey(oldKek);
+            CipherCodec oldCodec = new CipherCodec(oldEnc, oldKek, ctx.random());
             for (Block b : ctx.store().scan()) {
-                if (!b.isCipher()) {
+                if (!rootUuids.contains(b.uuid())) {
                     continue;
                 }
-                byte[] oldEnc = KeyDerivation.encKey(oldKek);
-                CipherCodec oldCodec = new CipherCodec(oldEnc, oldKek, ctx.random());
                 byte[] plain;
                 try {
                     plain = oldCodec.decode(b.obfuscated()).plaintext;
                 } catch (Exception e) {
-                    continue; // 非 KEK 包裹（普通对象树内由父 DEK 包裹），跳过
+                    continue; // 非 KEK 包裹（不期望发生），跳过
                 }
                 JsonObject n = JsonUtil.parseObject(new String(plain, StandardCharsets.UTF_8));
-                if ("group".equals(n.getString("type")) && RootTag.fromTag(n.getString("parent")) != null) {
-                    byte[] oldWrapped = Base64.getDecoder().decode(n.getString("dek"));
-                    byte[] dek = oldCodec.decode(oldWrapped).plaintext;
-                    byte[] newWrapped = ctx.wrapDek(dek, newKek);
-                    n = JsonUtil.parseObject(new String(plain, StandardCharsets.UTF_8));
-                    n.put("dek", Base64.getEncoder().encodeToString(newWrapped));
-                    ctx.writeWithDek(b.uuid(), n, newKek);
-                }
+                byte[] oldWrapped = Base64.getDecoder().decode(n.getString("dek"));
+                byte[] dek = oldCodec.decode(oldWrapped).plaintext;
+                byte[] newWrapped = ctx.wrapDek(dek, newKek);
+                n = JsonUtil.parseObject(new String(plain, StandardCharsets.UTF_8));
+                n.put("dek", Base64.getEncoder().encodeToString(newWrapped));
+                ctx.writeWithDek(b.uuid(), n, newKek);
             }
             // 更新 manifest 的 MAC（用新 KEK）
             Manifest updated = new Manifest(m.version(), RootTag.MANIFEST.tag(), m.cryptoVersion(), m.kdf(),

@@ -98,8 +98,10 @@
 4. **[P3 已修复] ExternalKeyService 列表/解密遍历**：解密经 keyId 索引定位；列表仍按需扫描（O(n) 但仅列表场景）。
 5. **[P3 已修复] Sanctum.vault() 收紧**：`vault()`/`folderDek()` 降为包私有（model 包内部使用），app 经数据树访问，不再暴露密钥状态。
 6. **[P3 保留] store 导出面**：`module-info` 保持导出 `com.flora.sanctum.store`（app 的 SyncService 需要 `BlockFormat`/`BlockHeader`）；仅更新注释说明其为存储层公开 API。
+7. **[P3 已修复] 解锁工作队列遍历试解**（`VaultUnlocker.discoverRootDeks`）：原对每个块用全部已知 DEK 逐个 GCM-SIV 试解（O(块×密钥)）。优化为 **KEK 先登记进 keyId 索引 + 块 keyId 预筛**——无已知密钥命中即跳过该块，无效试解大幅减少。
+8. **[P3 已修复] 换主密码遍历全库**（`MasterKeyRotator`）：原遍历所有块用旧 KEK 试解找 root group。优化为**直接按已知 root group uuid（`vault.rootGroupUuid`）定位**，不再试解非 root 块。
 
-**验证**：core 43 项 + app 4 项测试全部通过（含 ExternalKeyService 加解密往返、HTTP 外部密钥服务）。
+**验证**：core 43 项 + app 4 项测试全部通过（含解锁、换主密码、外部密钥加解密往返、HTTP 外部密钥服务）。
 
 ## 6. 关联文件
 - flora-sanctum-core/.../model/ExternalKeyService.java（§2/§3.4/§5 主要修复）

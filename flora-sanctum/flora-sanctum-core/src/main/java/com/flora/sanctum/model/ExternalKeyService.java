@@ -100,8 +100,8 @@ public final class ExternalKeyService {
             field.put("description", description);
         }
         field.put("updateTimestamp", System.currentTimeMillis());
-        // 外部密钥是条目下的字段，属普通对象树 → 用 objects root DEK
-        byte[] dek = sanctum.vault().dekForRole("objects");
+        // 外部密钥是条目下的字段，属普通对象树 → 用 data 根 DEK
+        byte[] dek = sanctum.vault().dekForRole(RootTag.DATA);
         byte[] encKey = com.flora.sanctum.crypto.KeyDerivation.encKey(dek);
         CipherCodec codec = new CipherCodec(encKey, dek, sanctum.vault().random());
         byte[] block = codec.encode(fieldUuid, JsonUtil.toJsonString(field).getBytes(java.nio.charset.StandardCharsets.UTF_8),

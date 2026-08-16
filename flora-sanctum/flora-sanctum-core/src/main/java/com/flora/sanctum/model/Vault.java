@@ -28,8 +28,8 @@ public final class Vault {
     private final BlockResolver resolver;
     private final SecureRandomSource random;
     private WarehouseClock clock;
-    private final java.util.Map<String, byte[]> rootDeksByRole = new java.util.LinkedHashMap<>();
-    private final java.util.Map<String, java.util.UUID> rootGroupUuidByRole = new java.util.LinkedHashMap<>();
+    private final java.util.Map<RootTag, byte[]> rootDeksByTag = new java.util.LinkedHashMap<>();
+    private final java.util.Map<RootTag, java.util.UUID> rootGroupUuidByTag = new java.util.LinkedHashMap<>();
     private final java.util.Map<java.util.UUID, byte[]> folderDeks = new java.util.LinkedHashMap<>();
     private byte[] kek; // 解锁期间驻留内存，锁定/关闭时清除
 
@@ -47,34 +47,34 @@ public final class Vault {
         return clock;
     }
 
-    /** 登记 root DEK（按 role：objects/icon/sshKey）。 */
-    public void addRootDek(String role, byte[] dek) {
-        rootDeksByRole.put(role, dek.clone());
+    /** 登记 root DEK（按根概念 tag：data/icon/sshKey）。 */
+    public void addRootDek(RootTag tag, byte[] dek) {
+        rootDeksByTag.put(tag, dek.clone());
         // 同时登记进 keyId 索引
         keyIdIndex.register(dek);
     }
 
-    /** 登记某 role 的顶层 group uuid（供新对象定位所属 root）。 */
-    public void addRootGroupUuid(String role, java.util.UUID groupUuid) {
-        rootGroupUuidByRole.put(role, groupUuid);
+    /** 登记某根概念的顶层 group uuid（供新对象定位所属 root）。 */
+    public void addRootGroupUuid(RootTag tag, java.util.UUID groupUuid) {
+        rootGroupUuidByTag.put(tag, groupUuid);
     }
 
-    /** 取某 role 的顶层 group uuid。 */
-    public java.util.UUID rootGroupUuid(String role) {
-        return rootGroupUuidByRole.get(role);
+    /** 取某根概念的顶层 group uuid。 */
+    public java.util.UUID rootGroupUuid(RootTag tag) {
+        return rootGroupUuidByTag.get(tag);
     }
 
-    /** 取某 role 的 root DEK。 */
-    public byte[] rootDek(String role) {
-        byte[] d = rootDeksByRole.get(role);
+    /** 取某根概念的 root DEK。 */
+    public byte[] rootDek(RootTag tag) {
+        byte[] d = rootDeksByTag.get(tag);
         return d == null ? null : d.clone();
     }
 
-    /** 按 role 路由加密归属（设计 05）：普通对象→objects，图标→icon，SSH 密钥→sshKey。 */
-    public byte[] dekForRole(String role) {
-        byte[] dek = rootDeksByRole.get(role);
+    /** 按根概念路由加密归属（设计 05）：普通对象→data，图标→icon，SSH 密钥→sshKey。 */
+    public byte[] dekForRole(RootTag tag) {
+        byte[] dek = rootDeksByTag.get(tag);
         if (dek == null) {
-            throw new IllegalStateException("no DEK for role: " + role);
+            throw new IllegalStateException("no DEK for root tag: " + tag);
         }
         return dek.clone();
     }
@@ -93,8 +93,8 @@ public final class Vault {
 
     /** 全部 root DEK（兼容旧接口）。 */
     public java.util.List<byte[]> rootDeks() {
-        java.util.List<byte[]> copy = new java.util.ArrayList<>(rootDeksByRole.size());
-        for (byte[] d : rootDeksByRole.values()) {
+        java.util.List<byte[]> copy = new java.util.ArrayList<>(rootDeksByTag.size());
+        for (byte[] d : rootDeksByTag.values()) {
             copy.add(d.clone());
         }
         return copy;
@@ -119,10 +119,10 @@ public final class Vault {
             java.util.Arrays.fill(kek, (byte) 0);
             kek = null;
         }
-        for (byte[] d : rootDeksByRole.values()) {
+        for (byte[] d : rootDeksByTag.values()) {
             java.util.Arrays.fill(d, (byte) 0);
         }
-        rootDeksByRole.clear();
+        rootDeksByTag.clear();
         for (byte[] d : folderDeks.values()) {
             java.util.Arrays.fill(d, (byte) 0);
         }

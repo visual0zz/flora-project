@@ -215,6 +215,66 @@ class SanctumTest {
     }
 
     @Test
+    void rootParentsUseConceptTags() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        // 顶层 group / entry → parent 为根概念 data
+        UUID group = s.createGroup(null, "社交");
+        UUID entry = s.createEntry(null, "顶层条目", Map.of("password", "x"));
+        assertEquals("data", s.getEntry(group).getString("parent"));
+        assertEquals("data", s.getEntry(entry).getString("parent"));
+
+        // remote → parent 为根概念 remote
+        UUID remote = s.createRemote("origin", "git@example.com:r.git", null);
+        assertEquals("remote", s.getEntry(remote).getString("parent"));
+
+        // icon / sshKey → parent 为对应 root group uuid
+        UUID icon = s.createIcon(new byte[]{1}, "png");
+        UUID ssh = s.createSshKey("k", "-----BEGIN PRIVATE KEY-----");
+        assertEquals(s.vault().rootGroupUuid(RootTag.ICON).toString(), s.getEntry(icon).getString("parent"));
+        assertEquals(s.vault().rootGroupUuid(RootTag.SSH_KEY).toString(), s.getEntry(ssh).getString("parent"));
+
+        // 三个 root group 的 parent 是概念 tag；manifest 明文块 parent=manifest
+        // （root group 块用 KEK 加密，getEntry 走 keyIdIndex 不含 KEK，故用 vault.resolve 直接解块验证）
+        java.util.UUID dataRoot = s.vault().rootGroupUuid(RootTag.DATA);
+        java.util.UUID iconRoot = s.vault().rootGroupUuid(RootTag.ICON);
+        java.util.UUID sshRoot = s.vault().rootGroupUuid(RootTag.SSH_KEY);
+        assertNotNull(dataRoot);
+        assertNotNull(iconRoot);
+        assertNotNull(sshRoot);
+        assertEquals("data", rootParent(s, dataRoot));
+        assertEquals("icon", rootParent(s, iconRoot));
+        assertEquals("sshKey", rootParent(s, sshRoot));
+        assertEquals("manifest", s.vault().manifest().parent());
+
+        // 重开重解锁后概念 tag 结构与 root group 登记仍正确
+        s.close();
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlock("pw".toCharArray());
+        assertEquals("data", s2.getEntry(group).getString("parent"));
+        assertEquals("data", s2.getEntry(entry).getString("parent"));
+        assertEquals("remote", s2.getEntry(remote).getString("parent"));
+        assertEquals(s2.vault().rootGroupUuid(RootTag.ICON).toString(), s2.getEntry(icon).getString("parent"));
+        assertEquals("manifest", s2.vault().manifest().parent());
+    }
+
+    /** 直接解某个 root group 块的负载 parent（root group 块用 KEK 加密，getEntry/BlockResolver 不可读）。 */
+    private static String rootParent(Sanctum s, java.util.UUID uuid) {
+        byte[] kek = s.vault().kek();
+        for (com.flora.sanctum.store.Block b : s.store().scan()) {
+            if (b.uuid().equals(uuid)) {
+                byte[] encKey = com.flora.sanctum.crypto.KeyDerivation.encKey(kek);
+                com.flora.sanctum.crypto.impl.CipherCodec codec =
+                        new com.flora.sanctum.crypto.impl.CipherCodec(encKey, kek, s.vault().random());
+                byte[] plain = codec.decode(b.obfuscated()).plaintext;
+                JsonObject n = com.flora.root.codec.JsonUtil.parseObject(
+                        new String(plain, java.nio.charset.StandardCharsets.UTF_8));
+                return n.getString("parent");
+            }
+        }
+        return null;
+    }
+
+    @Test
     void guiFlow_groupEntryFieldUpdate() {
         // 模拟 GUI 核心操作链：建组 → 建条目 → 建字段 → 更新字段 → 按组列出条目
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());

@@ -5,12 +5,13 @@ import java.util.Base64;
 /**
  * manifest 明文引导块（见设计 02"manifest"）。
  * <p>
- * 负载 JSON：{version, type:"manifest", cryptoVersion, kdf, salt, params{m,i,p},
+ * 负载 JSON：{version, type:"manifest", parent:"manifest", cryptoVersion, kdf, salt, params{m,i,p},
  * warehouseTime, updateTimestamp, mac}。明文 + MAC，MAC 覆盖信封头 + 负载全部内容。
  */
 public final class Manifest {
 
     private final int version;
+    private final String parent;
     private final String cryptoVersion;
     private final String kdf;
     private final byte[] salt;
@@ -21,10 +22,11 @@ public final class Manifest {
     private final long updateTimestamp;
     private final byte[] mac;
 
-    public Manifest(int version, String cryptoVersion, String kdf, byte[] salt,
+    public Manifest(int version, String parent, String cryptoVersion, String kdf, byte[] salt,
                     int memoryKiB, int iterations, int parallelism,
                     long warehouseTime, long updateTimestamp, byte[] mac) {
         this.version = version;
+        this.parent = parent;
         this.cryptoVersion = cryptoVersion;
         this.kdf = kdf;
         this.salt = salt;
@@ -38,6 +40,10 @@ public final class Manifest {
 
     public int version() {
         return version;
+    }
+
+    public String parent() {
+        return parent;
     }
 
     public String cryptoVersion() {
@@ -90,6 +96,7 @@ public final class Manifest {
         sb.append(blockUuid).append('|');
         sb.append(version).append('|');
         sb.append("manifest").append('|');
+        sb.append(parent).append('|');
         sb.append(cryptoVersion).append('|');
         sb.append(kdf).append('|');
         sb.append(Base64.getEncoder().encodeToString(salt)).append('|');
@@ -120,6 +127,7 @@ public final class Manifest {
         com.flora.root.codec.json.model.JsonObject params = n.getObject("params");
         return new Manifest(
                 n.getInt("version"),
+                n.getString("parent"),
                 n.getString("cryptoVersion"),
                 n.getString("kdf"),
                 Base64.getDecoder().decode(n.getString("salt")),

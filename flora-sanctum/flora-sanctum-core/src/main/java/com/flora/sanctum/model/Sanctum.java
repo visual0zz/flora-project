@@ -2,7 +2,6 @@ package com.flora.sanctum.model;
 
 import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
-import com.flora.root.codec.json.model.JsonNull;
 import com.flora.sanctum.crypto.Argon2Kdf;
 import com.flora.sanctum.store.Block;
 import com.flora.sanctum.store.ObjectStore;
@@ -81,12 +80,13 @@ public final class Sanctum implements AutoCloseable {
         Manifest m = vault.manifest();
         byte[] macKey = m.manifestMacKey(vault.kek());
         // 用更新后的 warehouseTime 构造新 manifest 计算 MAC（负载其它字段沿用）
-        Manifest updated = new Manifest(m.version(), m.cryptoVersion(), m.kdf(), m.salt(),
+        Manifest updated = new Manifest(m.version(), RootTag.MANIFEST.tag(), m.cryptoVersion(), m.kdf(), m.salt(),
                 m.memoryKiB(), m.iterations(), m.parallelism(), newWarehouseTime, m.updateTimestamp(), new byte[0]);
         byte[] mac = updated.computeMac(macKey, manifestUuid);
         JsonObject manifest = new JsonObject();
         manifest.put("version", updated.version());
         manifest.put("type", "manifest");
+        manifest.put("parent", RootTag.MANIFEST.tag());
         manifest.put("cryptoVersion", updated.cryptoVersion());
         manifest.put("kdf", updated.kdf());
         manifest.put("salt", java.util.Base64.getEncoder().encodeToString(updated.salt()));
@@ -177,7 +177,7 @@ public final class Sanctum implements AutoCloseable {
      * 新建一个文件夹（group）。每个文件夹绑定一个 DEK，子文件夹 DEK 用父 DEK 包裹
      * （顶层子文件夹用 objects root DEK 包裹），见设计 02"文件夹 DEK"。
      *
-     * @param parentId 父文件夹 UUID（null=普通对象 root）
+     * @param parentId 父文件夹 UUID（null=顶层，parent 记根概念 data）
      * @param name     文件夹名
      * @return 新文件夹 UUID
      */
@@ -188,13 +188,13 @@ public final class Sanctum implements AutoCloseable {
         // 父 DEK：子文件夹用父文件夹 DEK 包裹；顶层用 objects root DEK
         byte[] parentDek = (parentId != null && vault.folderDek(parentId) != null)
                 ? vault.folderDek(parentId)
-                : vault.dekForRole("objects");
+                : vault.dekForRole(RootTag.DATA);
         byte[] wrapped = wrap(dek, parentDek);
         JsonObject group = new JsonObject();
         group.put("version", 1);
         group.put("type", "group");
         group.put("name", name);
-        group.put("parent", parentId == null ? JsonNull.INSTANCE : parentId.toString());
+        group.put("parent", parentId == null ? RootTag.DATA.tag() : parentId.toString());
         group.put("dek", java.util.Base64.getEncoder().encodeToString(wrapped));
         group.put("updateTimestamp", nextTimestamp());
         writeObject(groupUuid, group, parentId);
@@ -219,14 +219,14 @@ public final class Sanctum implements AutoCloseable {
 
     /**
      * 新建远端配置（kind:remote 字段，value 含 url + keyRef，见 05"remote"）。
-     * 置于 objects root 之下，用 objects root DEK 加密。
+     * 置于 remote 根概念之下，加密沿用 objects root DEK。
      */
     public UUID createRemote(String name, String url, String keyRef) {
         UUID remoteUuid = UUID.randomUUID();
         JsonObject remote = new JsonObject();
         remote.put("version", 1);
         remote.put("type", "field");
-        remote.put("parent", vault.rootGroupUuid("objects").toString());
+        remote.put("parent", RootTag.REMOTE.tag());
         remote.put("fieldName", name);
         remote.put("kind", "remote");
         JsonObject value = new JsonObject();
@@ -236,7 +236,7 @@ public final class Sanctum implements AutoCloseable {
         }
         remote.put("value", value);
         remote.put("updateTimestamp", nextTimestamp());
-        byte[] dek = vault.dekForRole("objects");
+        byte[] dek = vault.dekForRole(RootTag.DATA);
         writeObjectWithDek(remoteUuid, remote, dek);
         refresh();
         return remoteUuid;
@@ -280,7 +280,7 @@ public final class Sanctum implements AutoCloseable {
                     continue; // 非 KEK 包裹（普通对象树内由父 DEK 包裹），跳过
                 }
                 JsonObject n = JsonUtil.parseObject(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
-                if ("group".equals(n.getString("type")) && n.getString("role") != null) {
+                if ("group".equals(n.getString("type")) && RootTag.fromTag(n.getString("parent")) != null) {
                     // 用旧 KEK 解出 DEK，用新 KEK 重包裹 + 重加密块
                     byte[] oldWrapped = java.util.Base64.getDecoder().decode(n.getString("dek"));
                     byte[] dek = oldCodec.decode(oldWrapped).plaintext;
@@ -292,13 +292,14 @@ public final class Sanctum implements AutoCloseable {
             }
             // 更新 manifest 的 MAC（用新 KEK）
             java.util.UUID manifestUuid = findManifestUuid();
-            Manifest updated = new Manifest(m.version(), m.cryptoVersion(), m.kdf(), m.salt(),
+            Manifest updated = new Manifest(m.version(), RootTag.MANIFEST.tag(), m.cryptoVersion(), m.kdf(), m.salt(),
                     memoryKiB, iterations, parallelism, vault.clock().warehouseTime(), m.updateTimestamp(), new byte[0]);
             byte[] macKey = updated.manifestMacKey(newKek);
             byte[] mac = updated.computeMac(macKey, manifestUuid);
             JsonObject manifest = new JsonObject();
             manifest.put("version", updated.version());
             manifest.put("type", "manifest");
+            manifest.put("parent", RootTag.MANIFEST.tag());
             manifest.put("cryptoVersion", updated.cryptoVersion());
             manifest.put("kdf", updated.kdf());
             manifest.put("salt", java.util.Base64.getEncoder().encodeToString(updated.salt()));
@@ -350,7 +351,7 @@ public final class Sanctum implements AutoCloseable {
         entry.put("version", 1);
         entry.put("type", "entry");
         entry.put("name", name);
-        entry.put("parent", groupId == null ? JsonNull.INSTANCE : groupId.toString());
+        entry.put("parent", groupId == null ? RootTag.DATA.tag() : groupId.toString());
         if (iconId != null) {
             entry.put("iconId", iconId);
         }
@@ -414,9 +415,7 @@ public final class Sanctum implements AutoCloseable {
         UUID groupId = null;
         if (entryId != null) {
             JsonObject entry = readObject(UUID.fromString(entryId));
-            if (entry != null && entry.getString("parent") != null) {
-                groupId = UUID.fromString(entry.getString("parent"));
-            }
+            groupId = parentGroupUuid(entry);
         }
         store.delete(fieldUuid);
         refresh();
@@ -429,7 +428,7 @@ public final class Sanctum implements AutoCloseable {
             throw new IllegalArgumentException("entry not found");
         }
         String parent = entry.getString("parent");
-        UUID groupId = parent == null || parent.isEmpty() ? null : UUID.fromString(parent);
+        UUID groupId = parentGroupUuid(entry);
         entry.put("name", newName);
         entry.put("updateTimestamp", nextTimestamp());
         writeObject(entryUuid, entry, groupId);
@@ -442,8 +441,7 @@ public final class Sanctum implements AutoCloseable {
         if (entry == null || !"entry".equals(entry.getString("type"))) {
             throw new IllegalArgumentException("entry not found");
         }
-        String parent = entry.getString("parent");
-        UUID groupId = parent == null || parent.isEmpty() ? null : UUID.fromString(parent);
+        UUID groupId = parentGroupUuid(entry);
         if (iconUuid == null) {
             entry.remove("icon");
             entry.remove("iconId");
@@ -487,9 +485,7 @@ public final class Sanctum implements AutoCloseable {
         UUID groupId = null;
         if (entryId != null) {
             JsonObject entry = readObject(UUID.fromString(entryId));
-            if (entry != null && entry.getString("parent") != null) {
-                groupId = UUID.fromString(entry.getString("parent"));
-            }
+            groupId = parentGroupUuid(entry);
         }
         field.put("value", value);
         field.put("updateTimestamp", nextTimestamp());
@@ -515,11 +511,11 @@ public final class Sanctum implements AutoCloseable {
         JsonObject icon = new JsonObject();
         icon.put("version", 1);
         icon.put("type", "icon");
-        icon.put("parent", vault.rootGroupUuid("icon").toString());
+        icon.put("parent", vault.rootGroupUuid(RootTag.ICON).toString());
         icon.put("data", java.util.Base64.getEncoder().encodeToString(data));
         icon.put("format", format);
         icon.put("updateTimestamp", nextTimestamp());
-        byte[] dek = vault.dekForRole("icon");
+        byte[] dek = vault.dekForRole(RootTag.ICON);
         writeObjectWithDek(iconUuid, icon, dek);
         refresh();
         return iconUuid;
@@ -531,17 +527,17 @@ public final class Sanctum implements AutoCloseable {
         JsonObject key = new JsonObject();
         key.put("version", 1);
         key.put("type", "sshKey");
-        key.put("parent", vault.rootGroupUuid("sshKey").toString());
+        key.put("parent", vault.rootGroupUuid(RootTag.SSH_KEY).toString());
         key.put("name", name);
         key.put("privateKey", privateKeyPem);
         key.put("updateTimestamp", nextTimestamp());
-        byte[] dek = vault.dekForRole("sshKey");
+        byte[] dek = vault.dekForRole(RootTag.SSH_KEY);
         writeObjectWithDek(keyUuid, key, dek);
         refresh();
         return keyUuid;
     }
 
-    /** 用指定 DEK 写对象（供 icon/sshKey 按 role 路由）。 */
+    /** 用指定 DEK 写对象（供 icon/sshKey 按根概念路由）。 */
     private void writeObjectWithDek(UUID uuid, JsonObject payload, byte[] dek) {
         writeCipherBlock(uuid, payload, dek);
     }
@@ -560,7 +556,7 @@ public final class Sanctum implements AutoCloseable {
         }
         java.util.List<Block> blocks = store.scan();
         java.util.Set<UUID> reachable = new java.util.HashSet<>();
-        // 根：manifest + 顶层 group（parent==null）+ 顶层条目（parent==null）
+        // 根：manifest（明文块）+ parent 为根概念 tag 的块（顶层 root group / 用户顶层对象）
         for (Block b : blocks) {
             if (b.isPlaintext()) {
                 reachable.add(b.uuid()); // manifest
@@ -571,8 +567,8 @@ public final class Sanctum implements AutoCloseable {
                 continue;
             }
             String parent = n.getString("parent");
-            if (parent == null || "group".equals(n.getString("type")) && parent.isEmpty()) {
-                reachable.add(b.uuid()); // 顶层对象（parent==null）
+            if (RootTag.isRoot(parent)) {
+                reachable.add(b.uuid()); // 顶层对象（parent 是根概念 tag）
             }
         }
         // 沿 parent 链 + 引用边扩展
@@ -590,7 +586,7 @@ public final class Sanctum implements AutoCloseable {
                 String parent = n.getString("parent");
                 String icon = n.getString("icon");
                 String keyRef = n.getString("keyRef");
-                if ((parent != null && reachable.contains(UUID.fromString(parent)))
+                if ((parent != null && isUuid(parent) && reachable.contains(UUID.fromString(parent)))
                         || (icon != null && reachable.contains(UUID.fromString(icon)))
                         || (keyRef != null && isUuid(keyRef) && reachable.contains(UUID.fromString(keyRef)))) {
                     reachable.add(b.uuid());
@@ -647,6 +643,15 @@ public final class Sanctum implements AutoCloseable {
         }
     }
 
+    /** 解析对象 parent 为所属文件夹 uuid；parent 为根概念 tag / null / 非 uuid 返回 null。 */
+    private UUID parentGroupUuid(JsonObject obj) {
+        String p = obj == null ? null : obj.getString("parent");
+        if (p == null || !isUuid(p)) {
+            return null;
+        }
+        return UUID.fromString(p);
+    }
+
     private JsonObject nodeOf(Block b) {
         byte[] plain = vault.resolve(b.obfuscated());
         if (plain == null) {
@@ -684,12 +689,12 @@ public final class Sanctum implements AutoCloseable {
         return null;
     }
 
-    /** 找加密归属 DEK：条目/字段若在子文件夹下用该文件夹 DEK，否则用 objects root（见设计 05）。 */
+    /** 找加密归属 DEK：条目/字段若在子文件夹下用该文件夹 DEK，否则用 data 根（见设计 05）。 */
     private byte[] resolveDekFor(UUID groupId) {
         if (groupId != null && vault.folderDek(groupId) != null) {
             return vault.folderDek(groupId);
         }
-        return vault.dekForRole("objects");
+        return vault.dekForRole(RootTag.DATA);
     }
 
     /** 计算本次写入的 updateTimestamp（仓库时间戳规则：max(会话偏移+锚点, 全库最大)）。 */

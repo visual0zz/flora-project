@@ -64,10 +64,14 @@ public final class VaultUnlocker {
      * 递归发现并登记全部文件夹 DEK（见设计 02"解锁流程"）。
      * 工作队列：初为 KEK；解出 root/folder DEK 后，用每个已知 DEK 试解各 cipher 块，
      * 对 type==group 且含 dek 的登记其 DEK，逐层递归直至无新增。
+     * <p>
+     * 顶层 root group 识别：root group 的块与 dek 均用 KEK 包裹（parent 为根概念 tag，
+     * 见设计 05），故以"dk 引用是否即 KEK"区分 root group 与普通文件夹（用户顶层文件夹
+     * 虽 parent 也是概念 tag，但其块用 data 根 DEK 加密，KEK 解不开，按普通文件夹登记）。
      */
     private void discoverRootDeks(Vault vault, byte[] kek, List<Block> blocks) {
         java.util.List<byte[]> known = new java.util.ArrayList<>();
-        known.add(kek.clone());
+        known.add(kek); // 不 clone：后续以引用是否即 KEK 判断 root group
         boolean progress = true;
         while (progress) {
             progress = false;
@@ -84,14 +88,15 @@ public final class VaultUnlocker {
                         com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(
                                 new String(plain, java.nio.charset.StandardCharsets.UTF_8));
                         if ("group".equals(n.getString("type")) && n.getString("dek") != null) {
-                            if (n.getString("role") != null) {
-                                // root group
-                                vault.addRootGroupUuid(n.getString("role"), b.uuid());
-                                if (vault.rootDek(n.getString("role")) == null) {
+                            if (dk == kek) {
+                                // root group：parent 为根概念 tag
+                                RootTag tag = RootTag.fromTag(n.getString("parent"));
+                                vault.addRootGroupUuid(tag, b.uuid());
+                                if (vault.rootDek(tag) == null) {
                                     byte[] wrapped = java.util.Base64.getDecoder().decode(n.getString("dek"));
                                     byte[] dek = unwrap(vault, dk, wrapped);
                                     if (dek != null) {
-                                        vault.addRootDek(n.getString("role"), dek);
+                                        vault.addRootDek(tag, dek);
                                         known.add(dek.clone());
                                         progress = true;
                                     }

@@ -2,6 +2,7 @@ package com.flora.sanctum.app;
 
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.sanctum.config.UserConfig;
+import com.flora.sanctum.model.RootTag;
 import com.flora.sanctum.model.Sanctum;
 
 import javax.swing.BorderFactory;
@@ -500,14 +501,13 @@ public final class SanctumGui {
         DefaultMutableTreeNode objectsNode = new DefaultMutableTreeNode("密码库");
         objectsNode.setUserObject(ROOT_OBJECTS);
         treeRoot.add(objectsNode);
-        // objects 层级：用户顶层文件夹（parent 为 null 且无 role）+ 递归子文件夹
+        // objects 层级：顶层文件夹（parent 为 data 根概念）+ 递归子文件夹
+        java.util.UUID objectsRootUuid = sanctum.vault().rootGroupUuid(RootTag.DATA);
         for (Map.Entry<UUID, String[]> e : groupsById().entrySet()) {
-            String parent = e.getValue()[0];
-            String role = e.getValue()[2];
-            if (role != null) {
-                continue; // 三个 role 根组不参与 objects 层级
+            if (e.getKey().equals(objectsRootUuid)) {
+                continue; // objects root group 映射为"密码库"虚拟根，不显示自身
             }
-            if (parent == null || !groupsById().containsKey(UUID.fromString(parent))) {
+            if (RootTag.DATA.equals(RootTag.fromTag(e.getValue()[0]))) {
                 addGroupNode(objectsNode, e.getKey(), e.getValue()[1]);
             }
         }
@@ -544,14 +544,14 @@ public final class SanctumGui {
 
     private Map<UUID, String[]> groupCache;
 
-    /** group → {parent, name, role}，角色根组带 role 字段。 */
+    /** group → {parent, name}。 */
     private Map<UUID, String[]> groupsById() {
         if (groupCache == null) {
             groupCache = new LinkedHashMap<>();
             for (UUID u : sanctum.listObjectUuids()) {
                 JsonObject n = sanctum.getEntry(u);
                 if (n != null && "group".equals(n.getString("type"))) {
-                    groupCache.put(u, new String[]{n.getString("parent"), n.getString("name"), n.getString("role")});
+                    groupCache.put(u, new String[]{n.getString("parent"), n.getString("name")});
                 }
             }
         }
@@ -608,7 +608,8 @@ public final class SanctumGui {
                 continue;
             }
             String p = n.getString("parent");
-            boolean inGroup = (groupId == null && p == null) || (groupId != null && groupId.toString().equals(p));
+            boolean inGroup = (groupId == null && RootTag.DATA.equals(RootTag.fromTag(p)))
+                    || (groupId != null && groupId.toString().equals(p));
             if (!inGroup) {
                 continue;
             }
@@ -891,14 +892,14 @@ public final class SanctumGui {
         }
     }
 
-    /** 由条目推导其所属组（新增字段需用同一 DEK）。 */
+    /** 由条目推导其所属组（新增字段需用同一 DEK）；顶层条目（parent 为根概念 tag）返回 null。 */
     private UUID groupIdOf(UUID entryUuid) {
         JsonObject entry = sanctum.getEntry(entryUuid);
         if (entry == null) {
             return null;
         }
         String p = entry.getString("parent");
-        return p == null || p.isEmpty() ? null : UUID.fromString(p);
+        return p == null || RootTag.isRoot(p) ? null : UUID.fromString(p);
     }
 
     /** 保存按钮：逐个提交所有字段输入框的值，任一失败则记录并提示。 */

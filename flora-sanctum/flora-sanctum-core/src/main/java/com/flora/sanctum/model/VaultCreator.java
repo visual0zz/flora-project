@@ -4,7 +4,6 @@ import com.flora.sanctum.crypto.Argon2Kdf;
 import com.flora.sanctum.crypto.impl.Envelope;
 import com.flora.sanctum.crypto.impl.SecureRandomSource;
 import com.flora.root.codec.Base58;
-import com.flora.root.codec.json.model.JsonNull;
 import com.flora.sanctum.store.BlockHeader;
 import com.flora.sanctum.store.ObjectStore;
 
@@ -47,9 +46,9 @@ public final class VaultCreator {
         try {
             byte[] macKey = kdf.manifestMacKey(kek);
             writeManifestBlock(salt, memoryKiB, iterations, parallelism, macKey, kek);
-            // 三个顶层 group：各持独立随机 DEK（用 KEK 包裹）
-            for (String role : new String[]{"objects", "icon", "sshKey"}) {
-                writeRootGroup(role, kek);
+            // 三个顶层 group：各持独立随机 DEK（用 KEK 包裹），parent 为根概念 tag
+            for (RootTag tag : new RootTag[]{RootTag.DATA, RootTag.ICON, RootTag.SSH_KEY}) {
+                writeRootGroup(tag, kek);
             }
         } finally {
             java.util.Arrays.fill(kek, (byte) 0);
@@ -62,6 +61,7 @@ public final class VaultCreator {
         com.flora.root.codec.json.model.JsonObject manifest = new com.flora.root.codec.json.model.JsonObject();
         manifest.put("version", 1);
         manifest.put("type", "manifest");
+        manifest.put("parent", RootTag.MANIFEST.tag());
         manifest.put("cryptoVersion", "gcm-siv-1");
         manifest.put("kdf", "argon2id");
         manifest.put("salt", Base64.getEncoder().encodeToString(salt));
@@ -73,18 +73,17 @@ public final class VaultCreator {
         manifest.put("warehouseTime", 1);
         manifest.put("updateTimestamp", 1);
         // 用临时 Manifest 计算覆盖 uuid+负载的 MAC
-        Manifest tmp = new Manifest(1, "gcm-siv-1", "argon2id", salt, m, i, p, 1, 1, new byte[0]);
+        Manifest tmp = new Manifest(1, RootTag.MANIFEST.tag(), "gcm-siv-1", "argon2id", salt, m, i, p, 1, 1, new byte[0]);
         byte[] mac = tmp.computeMac(macKey, uuid);
         manifest.put("mac", Base64.getEncoder().encodeToString(mac));
         writePlaintextBlock(uuid, manifest, Envelope.FLAG_PLAINTEXT);
     }
 
-    private void writeRootGroup(String role, byte[] kek) {
+    private void writeRootGroup(RootTag tag, byte[] kek) {
         com.flora.root.codec.json.model.JsonObject group = new com.flora.root.codec.json.model.JsonObject();
         group.put("version", 1);
         group.put("type", "group");
-        group.put("role", role);
-        group.put("parent", JsonNull.INSTANCE);
+        group.put("parent", tag.tag());
         // 生成独立随机 DEK，用 KEK 包裹（存于 group 密文块内）
         byte[] dek = new byte[32];
         random.nextBytes(dek);

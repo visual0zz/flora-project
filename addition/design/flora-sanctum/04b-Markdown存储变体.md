@@ -119,19 +119,19 @@ magic(4B) + version(1B) + flags(1B) + uuid(16B) + keyId(4B) + nonce(12B) + ciphe
 
 **可达树（reachability）算法**——从根出发沿引用遍历，能到达的块保留，不能到达的 = 孤立块：
 
-- **根集合**（遍历起点）：
-  - manifest 明文块；
-  - **三个顶层 group**（普通对象 / icon / sshKey root，都 `parent == null`、KEK 能解开，各持独立 KEK 包裹的 DEK）——作为对象树与密钥树入口。
+- **根集合**（遍历起点，parent 为根概念 tag 或明文块）：
+  - manifest 明文块（parent=manifest）；
+  - **parent 为根概念 tag 的块**：三个顶层 group（`data`/`icon`/`sshKey`，KEK 能解开，各持独立 KEK 包裹的 DEK）与用户顶层文件夹/条目（parent=`data`）、remote 字段（parent=`remote`）——作为对象树与密钥树入口。
 - **归属边（parent，层级，自下往上，决定树结构与加密归属）**：
-  - group → `parent`（父组；普通对象 root 或 icon/sshKey root 为顶层）；
-  - entry → `parent`（所属组）；
-  - field → `parent`（所属条目/组，`fieldName` 为字段名）；
+  - group → `parent`（父组；顶层为根概念 tag `data`/`icon`/`sshKey`）；
+  - entry → `parent`（所属组；顶层为 `data`）；
+  - field → `parent`（所属条目/组，`fieldName` 为字段名；remote 字段为 `remote`）；
   - icon → `parent`（icon root group）；
   - sshKey → `parent`（sshKey root group）。
 - **引用边（非归属，仅可达性，与层级彻底分离）**：
   - group/entry → `icon`（引用 icon 对象）；
   - remote（field kind）→ `keyRef`（引用 sshKey 对象或系统 key 名）。
-- **遍历**：队列从根出发，沿归属边与引用边可达的块标记为保留；`可达 = 根 ∪ 沿边能到达的全部块`；`孤立 = 全部块 − 可达`。GC 从三个顶层 group（parent==null）出发，按归属边聚合树结构，引用边保证被引用对象（icon/sshKey）可达。
+- **遍历**：队列从根出发，沿归属边与引用边可达的块标记为保留；`可达 = 根 ∪ 沿边能到达的全部块`；`孤立 = 全部块 − 可达`。GC 从根概念出发，按归属边聚合树结构，引用边保证被引用对象（icon/sshKey）可达。
 - **顶层组与 DEK**：三个顶层 group 是根，恒保留（各携 root DEK）；各文件夹 group 的 DEK 随 group 对象保留。上层的"显式删除某密钥"另行操作。
 - 上层逐项确认后才实际删除；删除只影响该块自身，不触碰引用图其它节点。
 

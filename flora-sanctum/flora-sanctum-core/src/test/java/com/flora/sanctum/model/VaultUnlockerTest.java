@@ -37,6 +37,7 @@ class VaultUnlockerTest {
         JsonObject manifest = new JsonObject();
         manifest.put("version", 1);
         manifest.put("type", "manifest");
+        manifest.put("parent", "manifest");
         manifest.put("cryptoVersion", "gcm-siv-1");
         manifest.put("kdf", "argon2id");
         manifest.put("salt", Base64.getEncoder().encodeToString(salt));
@@ -51,7 +52,7 @@ class VaultUnlockerTest {
         // 先定 uuid，再计算覆盖 uuid + 全部负载字段的 MAC（与 Manifest.canonical 一致）
         UUID uuid = UUID.randomUUID();
         byte[] payload = JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
-        String canonical = uuid + "|1|manifest|gcm-siv-1|argon2id|" + Base64.getEncoder().encodeToString(salt)
+        String canonical = uuid + "|1|manifest|manifest|gcm-siv-1|argon2id|" + Base64.getEncoder().encodeToString(salt)
                 + "|65536,3,4|1|1|";
         byte[] mac = hmac(macKey, canonical.getBytes(StandardCharsets.UTF_8));
         manifest.put("mac", Base64.getEncoder().encodeToString(mac));

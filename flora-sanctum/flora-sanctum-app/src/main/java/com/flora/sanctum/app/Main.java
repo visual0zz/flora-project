@@ -33,7 +33,7 @@ public final class Main {
     public static void main(String[] args) {
         if (args.length < 1) {
             // 无参数 → 启动 GUI
-            SanctumGui.launch(args);
+            com.flora.sanctum.app.ui.SanctumGui.launch(args);
             return;
         }
         // 配置命令日志输出到控制台

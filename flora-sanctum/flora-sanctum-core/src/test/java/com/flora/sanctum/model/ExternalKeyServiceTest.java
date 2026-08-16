@@ -1,4 +1,7 @@
 package com.flora.sanctum.model;
+import com.flora.sanctum.model.tree.*;
+import com.flora.sanctum.model.vault.*;
+import com.flora.sanctum.model.impl.*;
 
 import com.flora.root.codec.Base58;
 import org.junit.jupiter.api.Test;

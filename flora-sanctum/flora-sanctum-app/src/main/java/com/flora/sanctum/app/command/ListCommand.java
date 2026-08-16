@@ -37,8 +37,8 @@ public final class ListCommand implements Command {
         Path root = Path.of(ctx.args().get("path").asString());
         try (Sanctum s = MainUtil.openUnlocked(root)) {
             StringBuilder sb = new StringBuilder();
-            for (com.flora.sanctum.model.DataTree t : s.trees()) {
-                for (com.flora.sanctum.model.TreeNode n : t.nodes()) {
+            for (com.flora.sanctum.model.tree.DataTree t : s.trees()) {
+                for (com.flora.sanctum.model.tree.TreeNode n : t.nodes()) {
                     JsonObject obj = n.data();
                     sb.append(n.uuid()).append(' ')
                             .append(obj == null ? "?" : obj.getString("type") + "/" + obj.getString("name"))

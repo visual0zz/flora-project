@@ -9,6 +9,7 @@
 module com.flora.sanctum.app {
     exports com.flora.sanctum.app;
     exports com.flora.sanctum.app.command;
+    exports com.flora.sanctum.app.ui;
     exports com.flora.sanctum.app.sync;
     exports com.flora.sanctum.app.server;
 

@@ -40,7 +40,7 @@ public final class AddCommand implements Command {
         Path root = Path.of(ctx.args().get("path").asString());
         String name = ctx.args().get("name").asString();
         try (Sanctum s = MainUtil.openUnlocked(root)) {
-            UUID uuid = s.createEntry(null, name, EntryFields.EMPTY);
+            UUID uuid = s.objectTree().createEntry(null, name, EntryFields.EMPTY).uuid();
             ctx.log().info("added " + name + " -> " + uuid);}
         return CommandResult.success();
     }

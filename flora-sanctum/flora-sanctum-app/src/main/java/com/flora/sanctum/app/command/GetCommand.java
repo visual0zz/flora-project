@@ -41,8 +41,8 @@ public final class GetCommand implements Command {
         Path root = Path.of(ctx.args().get("path").asString());
         UUID uuid = UUID.fromString(ctx.args().get("uuid").asString());
         try (Sanctum s = MainUtil.openUnlocked(root)) {
-            JsonObject n = s.getEntry(uuid);
-            ctx.log().info(n == null ? "not found" : JsonUtil.toJsonString(n));}
+            com.flora.sanctum.model.TreeNode n = s.findNode(uuid);
+            ctx.log().info(n == null ? "not found" : JsonUtil.toJsonString(n.data()));}
         return CommandResult.success();
     }
 }

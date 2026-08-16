@@ -1,10 +1,17 @@
 package com.flora.sanctum.app;
 
-import com.flora.root.codec.json.model.JsonObject;
 import com.flora.sanctum.config.UserConfig;
+import com.flora.sanctum.model.DataTree;
+import com.flora.sanctum.model.EntryNode;
 import com.flora.sanctum.model.FieldKind;
+import com.flora.sanctum.model.FieldNode;
+import com.flora.sanctum.model.GroupNode;
+import com.flora.sanctum.model.IconNode;
+import com.flora.sanctum.model.RemoteNode;
 import com.flora.sanctum.model.RootTag;
 import com.flora.sanctum.model.Sanctum;
+import com.flora.sanctum.model.SshKeyNode;
+import com.flora.sanctum.model.TreeNode;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -67,7 +74,7 @@ public final class SanctumGui {
     private final java.util.concurrent.atomic.AtomicReference<Sanctum> current =
             new java.util.concurrent.atomic.AtomicReference<>();
     private final UserConfig config = new UserConfig();
-    private com.flora.sanctum.server.SanctumHttpServer httpServer;
+    private com.flora.sanctum.app.server.SanctumHttpServer httpServer;
     private Sanctum sanctum;
     private JFrame frame;
     private JTree groupTree;
@@ -94,7 +101,7 @@ public final class SanctumGui {
     private void run(String[] args) {
         applyTheme(config.theme());
         try {
-            httpServer = new com.flora.sanctum.server.SanctumHttpServer(current::get, 0);
+            httpServer = new com.flora.sanctum.app.server.SanctumHttpServer(current::get, 0);
             httpServer.start();
         } catch (IOException e) {
             throw new IllegalStateException("cannot start HTTP server", e);
@@ -674,7 +681,7 @@ public final class SanctumGui {
 
     private boolean isFullyManaged() {
         return sanctum != null
-                && new com.flora.sanctum.sync.SyncService(sanctum.root()).isFullyManaged();
+                && new com.flora.sanctum.app.sync.SyncService(sanctum.root()).isFullyManaged();
     }
 
     // ---- 组树 ----
@@ -690,15 +697,9 @@ public final class SanctumGui {
         DefaultMutableTreeNode objectsNode = new DefaultMutableTreeNode("密码库");
         objectsNode.setUserObject(RootTag.DATA);
         treeRoot.add(objectsNode);
-        // objects 层级：顶层文件夹（parent 为 data 根概念）+ 递归子文件夹
-        java.util.UUID objectsRootUuid = sanctum.vault().rootGroupUuid(RootTag.DATA);
-        for (Map.Entry<UUID, String[]> e : groupsById().entrySet()) {
-            if (e.getKey().equals(objectsRootUuid)) {
-                continue; // objects root group 映射为"密码库"虚拟根，不显示自身
-            }
-            if (RootTag.DATA.equals(RootTag.fromTag(e.getValue()[0]))) {
-                addGroupNode(objectsNode, e.getKey(), e.getValue()[1]);
-            }
+        // objects 层级：顶层文件夹（ObjectTree 根组，已排除 root group）+ 递归子文件夹
+        for (GroupNode g : sanctum.objectTree().rootGroups()) {
+            addGroupNode(objectsNode, g.uuid(), g.name());
         }
 
         DefaultMutableTreeNode iconNode = new DefaultMutableTreeNode("图标");
@@ -726,24 +727,23 @@ public final class SanctumGui {
         node.setUserObject(id);
         parentNode.add(node);
         groupNodes.put(id, node);
-        for (Map.Entry<UUID, String[]> e : groupsById().entrySet()) {
-            String parent = e.getValue()[0];
-            if (parent != null && parent.equals(id.toString())) {
-                addGroupNode(node, e.getKey(), e.getValue()[1]);
+        GroupNode g = sanctum.objectTree().group(id);
+        if (g != null) {
+            for (GroupNode child : g.childGroups()) {
+                addGroupNode(node, child.uuid(), child.name());
             }
         }
     }
 
     private Map<UUID, String[]> groupCache;
 
-    /** group → {parent, name}。 */
+    /** group → {parent, name}（来自 ObjectTree）。 */
     private Map<UUID, String[]> groupsById() {
         if (groupCache == null) {
             groupCache = new LinkedHashMap<>();
-            for (UUID u : sanctum.listObjectUuids()) {
-                JsonObject n = sanctum.getEntry(u);
-                if (n != null && "group".equals(n.getString("type"))) {
-                    groupCache.put(u, new String[]{n.getString("parent"), n.getString("name")});
+            for (TreeNode n : sanctum.objectTree().nodes()) {
+                if (n instanceof GroupNode g) {
+                    groupCache.put(g.uuid(), new String[]{g.parent(), g.name()});
                 }
             }
         }
@@ -762,56 +762,40 @@ public final class SanctumGui {
         UUID groupId = section == null ? groupIdOf(sel) : null;
 
         if (RootTag.ICON == section) {
-            // 图标区段：列出所有 icon
-            for (UUID u : sanctum.listObjectUuids()) {
-                JsonObject n = sanctum.getEntry(u);
-                if (n != null && "icon".equals(n.getString("type"))) {
-                    entryModel.addElement(iconLabel(n));
-                    entryUuids.add(u);
-                    listItemTypes.add("icon");
-                }
+            for (IconNode icon : sanctum.iconTree().icons()) {
+                entryModel.addElement(iconLabel(icon));
+                entryUuids.add(icon.uuid());
+                listItemTypes.add("icon");
             }
             return;
         }
         if (RootTag.SSH_KEY == section) {
-            for (UUID u : sanctum.listObjectUuids()) {
-                JsonObject n = sanctum.getEntry(u);
-                if (n != null && "sshKey".equals(n.getString("type"))) {
-                    entryModel.addElement(n.getString("name"));
-                    entryUuids.add(u);
-                    listItemTypes.add("sshKey");
-                }
+            for (SshKeyNode key : sanctum.sshKeyTree().keys()) {
+                entryModel.addElement(key.name());
+                entryUuids.add(key.uuid());
+                listItemTypes.add("sshKey");
             }
             return;
         }
         if (RootTag.REMOTE == section) {
-            for (UUID u : sanctum.listObjectUuids()) {
-                JsonObject n = sanctum.getEntry(u);
-                if (n != null && "field".equals(n.getString("type"))
-                        && "remote".equals(n.getString("kind"))) {
-                    entryModel.addElement(n.getString("fieldName"));
-                    entryUuids.add(u);
-                    listItemTypes.add("field");
-                }
+            for (RemoteNode r : sanctum.remoteTree().remotes()) {
+                entryModel.addElement(r.name());
+                entryUuids.add(r.uuid());
+                listItemTypes.add("field");
             }
             return;
         }
 
-        // 密码库层级：列出当前文件夹下的子文件夹 + 条目（顶层：parent 为 data 根概念）
-        for (UUID u : sanctum.listObjectUuids()) {
-            JsonObject n = sanctum.getEntry(u);
-            if (n == null) {
-                continue;
-            }
-            String p = n.getString("parent");
-            boolean inGroup = (groupId == null && RootTag.DATA.equals(RootTag.fromTag(p)))
-                    || (groupId != null && groupId.toString().equals(p));
-            if (!inGroup) {
-                continue;
-            }
-            String type = n.getString("type");
-            if ("group".equals(type)) {
-                String gname = n.getString("name");
+        // 密码库层级：当前文件夹的子文件夹 + 条目（groupId=null 为顶层）
+        GroupNode currentGroup = groupId == null ? null : sanctum.objectTree().group(groupId);
+        List<? extends TreeNode> items = currentGroup != null
+                ? currentGroup.children()
+                : java.util.stream.Stream.concat(
+                        sanctum.objectTree().rootGroups().stream(),
+                        sanctum.objectTree().rootEntries().stream()).toList();
+        for (TreeNode n : items) {
+            if (n instanceof GroupNode g) {
+                String gname = g.name();
                 if (gname == null || gname.isBlank()) {
                     gname = "未命名";
                 }
@@ -819,42 +803,35 @@ public final class SanctumGui {
                     continue;
                 }
                 entryModel.addElement(gname);
-                entryUuids.add(u);
+                entryUuids.add(g.uuid());
                 listItemTypes.add("group");
-            } else if ("entry".equals(type)) {
-                if (!q.isEmpty() && !matchesFilter(u, q)) {
+            } else if (n instanceof EntryNode e) {
+                if (!q.isEmpty() && !matchesFilter(e, q)) {
                     continue;
                 }
-                entryModel.addElement(n.getString("name"));
-                entryUuids.add(u);
+                entryModel.addElement(e.name());
+                entryUuids.add(e.uuid());
                 listItemTypes.add("entry");
             }
         }
     }
 
     /** 图标区段条目显示名（含格式/尺寸提示）。 */
-    private String iconLabel(JsonObject icon) {
-        String format = icon.getString("format");
+    private String iconLabel(IconNode icon) {
+        String format = icon.format();
         return (format == null ? "图标" : "图标 [" + format + "]");
     }
 
-    private boolean matchesFilter(UUID entryUuid, String q) {
-        JsonObject entry = sanctum.getEntry(entryUuid);
-        if (entry != null && entry.getString("name") != null
-                && entry.getString("name").toLowerCase().contains(q)) {
+    private boolean matchesFilter(EntryNode entry, String q) {
+        if (entry.name() != null && entry.name().toLowerCase().contains(q)) {
             return true;
         }
-        for (UUID f : sanctum.directory().childrenOf(entryUuid)) {
-            JsonObject field = sanctum.getEntry(f);
-            if (field != null) {
-                if (field.getString("fieldName") != null
-                        && field.getString("fieldName").toLowerCase().contains(q)) {
-                    return true;
-                }
-                if (field.getString("value") != null
-                        && field.getString("value").toLowerCase().contains(q)) {
-                    return true;
-                }
+        for (FieldNode f : entry.fields()) {
+            if (f.fieldName() != null && f.fieldName().toLowerCase().contains(q)) {
+                return true;
+            }
+            if (f.value() != null && f.value().toLowerCase().contains(q)) {
+                return true;
             }
         }
         return false;
@@ -904,7 +881,7 @@ public final class SanctumGui {
             renderIconPanel(u);
         } else if ("sshKey".equals(type)) {
             renderSshKeyPanel(u);
-        } else if ("field".equals(type)) {
+        } else if ("remote".equals(type) || "field".equals(type)) {
             renderRemotePanel(u);
         } else {
             renderEntry(selectedEntry);
@@ -922,8 +899,8 @@ public final class SanctumGui {
     /** 图标详情面板：预览图片 + 提示。 */
     private void renderIconPanel(UUID iconUuid) {
         editPanel.removeAll();
-        JsonObject icon = sanctum.getEntry(iconUuid);
-        addInfoLabel("图标 [格式 " + (icon == null ? "?" : icon.getString("format")) + "]");
+        IconNode icon = sanctum.iconTree().find(iconUuid);
+        addInfoLabel("图标 [格式 " + (icon == null ? "?" : icon.format()) + "]");
         addInfoLabel("自定义图标，可在条目编辑中选择使用");
         editPanel.revalidate();
         editPanel.repaint();
@@ -932,8 +909,8 @@ public final class SanctumGui {
     /** SSH 密钥详情面板。 */
     private void renderSshKeyPanel(UUID keyUuid) {
         editPanel.removeAll();
-        JsonObject key = sanctum.getEntry(keyUuid);
-        addInfoLabel("SSH 密钥：" + (key == null ? "?" : key.getString("name")));
+        SshKeyNode key = sanctum.sshKeyTree().find(keyUuid);
+        addInfoLabel("SSH 密钥：" + (key == null ? "?" : key.name()));
         addInfoLabel("私钥已加密存储");
         editPanel.revalidate();
         editPanel.repaint();
@@ -942,8 +919,8 @@ public final class SanctumGui {
     /** 远程配置详情面板。 */
     private void renderRemotePanel(UUID remoteUuid) {
         editPanel.removeAll();
-        JsonObject remote = sanctum.getEntry(remoteUuid);
-        addInfoLabel("远程：" + (remote == null ? "?" : remote.getString("fieldName")));
+        RemoteNode remote = sanctum.remoteTree().find(remoteUuid);
+        addInfoLabel("远程：" + (remote == null ? "?" : remote.name()));
         editPanel.revalidate();
         editPanel.repaint();
     }
@@ -973,7 +950,7 @@ public final class SanctumGui {
     /** 文件夹编辑面板：名称 + 保存（改名）+ 删除。 */
     private void renderGroupPanel(UUID groupUuid) {
         editPanel.removeAll();
-        JsonObject group = sanctum.getEntry(groupUuid);
+        GroupNode group = sanctum.objectTree().group(groupUuid);
         if (group == null) {
             return;
         }
@@ -982,7 +959,7 @@ public final class SanctumGui {
         JLabel nameTag = new JLabel("名称*");
         nameTag.setFont(nameTag.getFont().deriveFont(Font.BOLD, 14f));
         nameTag.setForeground(new java.awt.Color(180, 60, 60));
-        JTextField nameField = new JTextField(group.getString("name") == null ? "" : group.getString("name"));
+        JTextField nameField = new JTextField(group.name() == null ? "" : group.name());
         nameField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         nameRow.add(nameTag, BorderLayout.WEST);
         nameRow.add(nameField, BorderLayout.CENTER);
@@ -997,7 +974,7 @@ public final class SanctumGui {
             }
             resetAutoLock();
             try {
-                sanctum.renameGroup(groupUuid, newName);
+                group.rename(newName);
                 rebuildGroupTree();
                 refreshEntryList(currentSearchQuery());
                 statusLabel.setText("已保存");
@@ -1028,45 +1005,36 @@ public final class SanctumGui {
     /** 渲染条目编辑面板（内置字段 + 自定义字段）。 */
     private void renderEntry(UUID entryUuid) {
         editPanel.removeAll();
-        JsonObject entry = sanctum.getEntry(entryUuid);
-        if (entry == null) {
+        EntryNode entryNode = sanctum.objectTree().entry(entryUuid);
+        if (entryNode == null) {
             return;
         }
         // 名称
-        JTextField nameField = makeEntryField(entry.getString("name"));
+        JTextField nameField = makeEntryField(entryNode.name());
         editPanel.add(makeEntryRow("名称 :", nameField, false));
 
         // 内置预设字段：url / username / password / labels（无 kind 下拉）
-        JTextField urlField = makeEntryField(entry.getString("url"));
+        JTextField urlField = makeEntryField(entryNode.url());
         editPanel.add(makeEntryRow("URL :", urlField, false));
-        JTextField usernameField = makeEntryField(entry.getString("username"));
+        JTextField usernameField = makeEntryField(entryNode.username());
         editPanel.add(makeEntryRow("用户名 :", usernameField, false));
-        JTextField passwordField = makeEntryField(entry.getString("password"));
+        JTextField passwordField = makeEntryField(entryNode.password());
         editPanel.add(makeEntryRow("密码 :", passwordField, false));
-        JTextField labelsField = makeEntryField(com.flora.sanctum.model.EntryFields.labelsToString(
-                com.flora.sanctum.model.EntryFields.labelsOf(entry)));
+        JTextField labelsField = makeEntryField(
+                com.flora.sanctum.model.EntryFields.labelsToString(entryNode.labels()));
         editPanel.add(makeEntryRow("标签 :", labelsField, false));
 
         // 时间信息（只读）
-        editPanel.add(makeInfoRow("创建时间", formatTime(entry.getLong("createTime"))));
-        editPanel.add(makeInfoRow("更新时间", formatTime(entry.getLong("updateTime"))));
+        editPanel.add(makeInfoRow("创建时间", formatTime(entryNode.createTime())));
+        editPanel.add(makeInfoRow("更新时间", formatTime(entryNode.updateTime())));
 
-        // 自定义字段区（parent=entryUuid 的 field，排除 password/url/username 独立块）
+        // 自定义字段区
         Map<UUID, JTextField> fieldInputs = new LinkedHashMap<>();
         Map<UUID, JComboBox<String>> kindInputs = new LinkedHashMap<>();
-        List<UUID> fieldOrder = new ArrayList<>(sanctum.directory().childrenOf(entryUuid));
-        for (UUID f : fieldOrder) {
-            JsonObject field = sanctum.getEntry(f);
-            if (field == null || !"field".equals(field.getString("type"))) {
-                continue;
-            }
-            String fn = field.getString("fieldName");
-            String val = field.getString("value");
-            String kind = field.getString("kind");
-            // 跳过内置字段名的独立块（兼容旧库）
-            if (fn != null && (fn.equals("password") || fn.equals("url") || fn.equals("username"))) {
-                continue;
-            }
+        for (FieldNode field : entryNode.fields()) {
+            String fn = field.fieldName();
+            String val = field.value();
+            String kind = field.kind();
             JPanel row = new JPanel(new BorderLayout(6, 0));
             row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
             JLabel fLabel = new JLabel((fn == null ? "" : fn) + " :");
@@ -1091,11 +1059,10 @@ public final class SanctumGui {
             delField.setToolTipText("删除字段 " + fn);
             delField.setMargin(new Insets(0, 0, 0, 0));
             delField.setPreferredSize(new Dimension(24, 24));
-            UUID fieldId = f;
             delField.addActionListener(e -> {
                 resetAutoLock();
                 try {
-                    sanctum.deleteField(fieldId);
+                    field.delete();
                     renderEntry(entryUuid);
                     statusLabel.setText("字段已删除");
                 } catch (Exception ex) {
@@ -1107,15 +1074,14 @@ public final class SanctumGui {
             // TOTP 字段显示验证码
             if ("totp".equals(kind)) {
                 try {
-                    String code = sanctum.totpCode(f);
-                    JLabel totp = new JLabel("  验证码: " + code);
+                    JLabel totp = new JLabel("  验证码: " + field.totpCode());
                     row.add(totp, BorderLayout.SOUTH);
                 } catch (Exception ignore) {
                 }
             }
             editPanel.add(row);
-            fieldInputs.put(f, fValue);
-            kindInputs.put(f, kindCombo);
+            fieldInputs.put(field.uuid(), fValue);
+            kindInputs.put(field.uuid(), kindCombo);
         }
 
         // 操作行：保存 / 添加字段 / 复制密码 / 选择图标
@@ -1127,10 +1093,10 @@ public final class SanctumGui {
             }
             resetAutoLock();
             try {
-                if (!newName.equals(entry.getString("name"))) {
-                    sanctum.renameEntry(entryUuid, newName);
+                if (!newName.equals(entryNode.name())) {
+                    entryNode.rename(newName);
                 }
-                sanctum.updateEntryBuiltins(entryUuid, new com.flora.sanctum.model.EntryFields(
+                entryNode.updateBuiltins(new com.flora.sanctum.model.EntryFields(
                         passwordField.getText(),
                         urlField.getText(),
                         usernameField.getText(),
@@ -1268,9 +1234,12 @@ public final class SanctumGui {
             }
             resetAutoLock();
             try {
-                UUID groupId = groupIdOf(entryUuid);
-                sanctum.createFieldWithKind(entryUuid, groupId, fn, valField.getText(),
-                        (String) kindCombo.getSelectedItem());
+                EntryNode entryNode = sanctum.objectTree().entry(entryUuid);
+                if (entryNode == null) {
+                    statusLabel.setText("条目不存在");
+                    return;
+                }
+                entryNode.createField(fn, valField.getText(), (String) kindCombo.getSelectedItem());
                 renderEntry(entryUuid);
                 statusLabel.setText("字段已添加");
             } catch (Exception ex) {
@@ -1279,13 +1248,13 @@ public final class SanctumGui {
         }
     }
 
-    /** 由条目推导其所属组（新增字段需用同一 DEK）；顶层条目（parent 为根概念 tag）返回 null。 */
+    /** 由条目推导其所属组 uuid（顶层条目 parent 为根概念 tag 返回 null）。 */
     private UUID groupIdOf(UUID entryUuid) {
-        JsonObject entry = sanctum.getEntry(entryUuid);
+        EntryNode entry = sanctum.objectTree().entry(entryUuid);
         if (entry == null) {
             return null;
         }
-        String p = entry.getString("parent");
+        String p = entry.parent();
         return p == null || RootTag.isRoot(p) ? null : UUID.fromString(p);
     }
 
@@ -1295,12 +1264,13 @@ public final class SanctumGui {
         for (FieldKind k : FieldKind.values()) {
             out.add(k.tag());
         }
-        for (UUID u : sanctum.listObjectUuids()) {
-            JsonObject n = sanctum.getEntry(u);
-            if (n != null && "field".equals(n.getString("type"))) {
-                String kind = n.getString("kind");
-                if (kind != null && FieldKind.fromTag(kind) == null && !out.contains(kind)) {
-                    out.add(kind);
+        for (DataTree t : sanctum.trees()) {
+            for (TreeNode n : t.nodes()) {
+                if (n instanceof FieldNode f) {
+                    String kind = f.kind();
+                    if (kind != null && FieldKind.fromTag(kind) == null && !out.contains(kind)) {
+                        out.add(kind);
+                    }
                 }
             }
         }
@@ -1323,19 +1293,25 @@ public final class SanctumGui {
         int failed = 0;
         for (Map.Entry<UUID, JTextField> e : inputs.entrySet()) {
             try {
-                sanctum.updateField(e.getKey(), e.getValue().getText());
+                FieldNode field = sanctum.objectTree().field(e.getKey());
+                if (field != null) {
+                    field.updateValue(e.getValue().getText());
+                }
             } catch (Exception ex) {
                 failed++;
             }
         }
         for (Map.Entry<UUID, JComboBox<String>> e : kindInputs.entrySet()) {
             try {
-                JsonObject fobj = sanctum.getEntry(e.getKey());
-                String oldKind = fobj == null ? null : fobj.getString("kind");
+                FieldNode field = sanctum.objectTree().field(e.getKey());
+                if (field == null) {
+                    continue;
+                }
+                String oldKind = field.kind();
                 String oldNorm = oldKind == null ? "text" : oldKind;
                 String selected = (String) e.getValue().getSelectedItem();
                 if (!oldNorm.equals(selected)) {
-                    sanctum.updateFieldKind(e.getKey(), selected);
+                    field.updateKind(selected);
                 }
             } catch (Exception ex) {
                 failed++;
@@ -1369,8 +1345,8 @@ public final class SanctumGui {
 
     private void copyPassword(UUID entryUuid) {
         resetAutoLock();
-        JsonObject entry = sanctum.getEntry(entryUuid);
-        String val = entry == null ? null : nullSafe(entry.getString("password"));
+        EntryNode entry = sanctum.objectTree().entry(entryUuid);
+        String val = entry == null ? null : entry.password();
         if (val == null) {
             statusLabel.setText("未设置密码");
             return;
@@ -1424,10 +1400,10 @@ public final class SanctumGui {
             String format = extOf(name);
             if ("svg".equalsIgnoreCase(format)) {
                 // SVG 文本直接存原始内容
-                sanctum.createIcon(data, "svg");
+                sanctum.iconTree().createIcon(data, "svg");
             } else {
                 javax.imageio.ImageIO.read(file.toFile()); // 校验确为可读图片
-                sanctum.createIcon(data, format);
+                sanctum.iconTree().createIcon(data, format);
             }
             refreshEntryList(currentSearchQuery());
             statusLabel.setText("已导入图片 " + name);
@@ -1465,7 +1441,7 @@ public final class SanctumGui {
         }
         resetAutoLock();
         try {
-            sanctum.createSshKey(name, pem);
+            sanctum.sshKeyTree().createSshKey(name, pem);
             refreshEntryList(currentSearchQuery());
             statusLabel.setText("已添加 SSH 密钥 " + name);
         } catch (Exception ex) {
@@ -1498,7 +1474,7 @@ public final class SanctumGui {
         String keyRef = keyRefField.getText().trim();
         resetAutoLock();
         try {
-            sanctum.createRemote(name, url, keyRef.isEmpty() ? null : keyRef);
+            sanctum.remoteTree().addRemote(name, url, keyRef.isEmpty() ? null : keyRef);
             refreshEntryList(currentSearchQuery());
             statusLabel.setText("已添加远程 " + name);
         } catch (Exception ex) {
@@ -1508,19 +1484,13 @@ public final class SanctumGui {
 
     /** 为条目选择一个已导入的自定义图标（或清除图标）。 */
     private void chooseEntryIcon(UUID entryUuid) {
-        List<UUID> iconUuids = new ArrayList<>();
-        for (UUID u : sanctum.listObjectUuids()) {
-            JsonObject n = sanctum.getEntry(u);
-            if (n != null && "icon".equals(n.getString("type"))) {
-                iconUuids.add(u);
-            }
-        }
-        if (iconUuids.isEmpty()) {
+        List<IconNode> icons = sanctum.iconTree().icons();
+        if (icons.isEmpty()) {
             statusLabel.setText("请先在\"图标\"区导入图片");
             return;
         }
-        String[] choices = iconUuids.stream()
-                .map(u -> iconLabel(sanctum.getEntry(u)) + "  [" + u + "]")
+        String[] choices = icons.stream()
+                .map(icon -> iconLabel(icon) + "  [" + icon.uuid() + "]")
                 .toArray(String[]::new);
         Object chosen = JOptionPane.showInputDialog(frame, "选择图标:", "条目图标",
                 JOptionPane.PLAIN_MESSAGE, null, choices, choices[0]);
@@ -1532,7 +1502,10 @@ public final class SanctumGui {
         String uuidStr = sel.substring(idx + 1, sel.length() - 1);
         resetAutoLock();
         try {
-            sanctum.setEntryIcon(entryUuid, UUID.fromString(uuidStr));
+            EntryNode entry = sanctum.objectTree().entry(entryUuid);
+            if (entry != null) {
+                entry.setIcon(UUID.fromString(uuidStr));
+            }
             renderEntry(entryUuid);
             statusLabel.setText("已设置图标");
         } catch (Exception ex) {
@@ -1552,8 +1525,8 @@ public final class SanctumGui {
             statusLabel.setText("请先在密码库中选中一个文件夹");
             return;
         }
-        UUID entryUuid = sanctum.createEntry(groupId, "新建条目",
-                new com.flora.sanctum.model.EntryFields("", null, null, java.util.List.of()));
+        UUID entryUuid = sanctum.objectTree().createEntry(groupId, "新建条目",
+                new com.flora.sanctum.model.EntryFields("", null, null, java.util.List.of())).uuid();
         resetAutoLock();
         rebuildGroupTree();
         // 恢复树选中当前文件夹
@@ -1585,7 +1558,7 @@ public final class SanctumGui {
             return;
         }
         UUID parentId = groupIdOf(sel);
-        UUID groupUuid = sanctum.createGroup(parentId, "新建文件夹");
+        UUID groupUuid = sanctum.objectTree().createGroup(parentId, "新建文件夹").uuid();
         rebuildGroupTree();
         resetAutoLock();
         DefaultMutableTreeNode node = groupNodes.get(groupUuid);
@@ -1607,16 +1580,15 @@ public final class SanctumGui {
                 case "group" -> "该文件夹";
                 case "icon" -> "该图标";
                 case "sshKey" -> "该 SSH 密钥";
-                case "field" -> "该远程配置";
+                case "remote" -> "该远程配置";
                 default -> "该条目";
             };
             int ok = JOptionPane.showConfirmDialog(frame, "删除" + what + "?", "确认", JOptionPane.YES_NO_OPTION);
             if (ok == JOptionPane.YES_OPTION) {
                 resetAutoLock();
-                if ("group".equals(type)) {
-                    deleteGroupRecursive(entryUuid);
-                } else {
-                    sanctum.deleteEntry(entryUuid);
+                TreeNode node = sanctum.findNode(entryUuid);
+                if (node != null) {
+                    node.delete();
                 }
                 refreshEntryList(currentSearchQuery());
                 rebuildGroupTree();
@@ -1640,22 +1612,17 @@ public final class SanctumGui {
         }
     }
 
-    /** 对象类型（entry/group/field/icon/sshKey），未知返回 null。 */
+    /** 对象类型（group/entry/field/icon/sshKey），未知返回 null。 */
     private String typeOf(UUID uuid) {
-        JsonObject n = sanctum.getEntry(uuid);
-        return n == null ? null : n.getString("type");
+        TreeNode n = sanctum.findNode(uuid);
+        return n == null ? null : n.type();
     }
 
     private void deleteGroupRecursive(UUID groupId) {
-        for (UUID child : sanctum.directory().childrenOf(groupId)) {
-            JsonObject n = sanctum.getEntry(child);
-            if (n != null && "group".equals(n.getString("type"))) {
-                deleteGroupRecursive(child);
-            } else {
-                sanctum.deleteEntry(child);
-            }
+        GroupNode g = sanctum.objectTree().group(groupId);
+        if (g != null) {
+            g.delete(); // GroupNode.delete 已递归
         }
-        sanctum.deleteEntry(groupId);
     }
 
     // ================= 同步 =================
@@ -1666,7 +1633,7 @@ public final class SanctumGui {
             return;
         }
         try {
-            com.flora.sanctum.sync.SyncService sync = new com.flora.sanctum.sync.SyncService(sanctum.root());
+            com.flora.sanctum.app.sync.SyncService sync = new com.flora.sanctum.app.sync.SyncService(sanctum.root());
             if (!sync.isFullyManaged()) {
                 statusLabel.setText("非完全托管，跳过同步");
                 return;

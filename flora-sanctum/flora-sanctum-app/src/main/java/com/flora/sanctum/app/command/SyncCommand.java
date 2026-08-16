@@ -4,8 +4,8 @@ import com.flora.shell.Command;
 import com.flora.shell.CommandResult;
 import com.flora.shell.Invocation;
 import com.flora.shell.spec.ArgSpec;
+import com.flora.sanctum.app.sync.SyncService;
 import com.flora.sanctum.model.Sanctum;
-import com.flora.sanctum.sync.SyncService;
 
 import java.nio.file.Path;
 import java.util.List;

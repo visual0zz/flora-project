@@ -34,6 +34,7 @@ config 系统设计:
 7. game  chainlink util 分布式  反向注入加载系统 redislite playground  虚拟编译容器
 8. 自定义语言 around函数
 9. 搞一个“OpenBug”项目，项目主体是一个agent软件，可以配置api，然后和agent对话，会给每个agent分配一个自身代码的子工作区，然后让agent修复自身bug，然后通过测试用例来判断agent的工作能力。然后让一个区域的bug被另一个区域当作特性来使用，使得多个bug互相串扰，整个管理软件本身运行在bug上，所以任何修复都很容易导致软件自身崩溃。
+10. 让ai的api接口兼容response接口规范
 
 
 根 树干 树枝 树叶

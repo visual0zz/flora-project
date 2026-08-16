@@ -1,0 +1,54 @@
+package com.flora.sanctum.model;
+
+import com.flora.root.codec.json.model.JsonObject;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * SSH 密钥树（根概念 SSH_KEY）：SSH 私钥对象（SshKeyNode）。
+ * 用 sshKey root DEK 加密，parent 指向 sshKey root group。
+ */
+public final class SshKeyTree extends DataTree {
+
+    SshKeyTree(TreeContext ctx) {
+        super(RootTag.SSH_KEY, ctx);
+    }
+
+    @Override
+    protected boolean belongsTo(String type, String kind) {
+        return "sshKey".equals(type);
+    }
+
+    @Override
+    public SshKeyNode find(UUID uuid) {
+        JsonObject d = context().read(uuid);
+        if (!isOwned(d)) {
+            return null;
+        }
+        return new SshKeyNode(uuid, this);
+    }
+
+    public List<SshKeyNode> keys() {
+        List<SshKeyNode> out = new ArrayList<>();
+        for (TreeNode n : nodes()) {
+            out.add((SshKeyNode) n);
+        }
+        return out;
+    }
+
+    public SshKeyNode createSshKey(String name, String privateKeyPem) {
+        UUID keyUuid = UUID.randomUUID();
+        JsonObject key = new JsonObject();
+        key.put("version", 1);
+        key.put("type", "sshKey");
+        key.put("parent", context().vault().rootGroupUuid(RootTag.SSH_KEY).toString());
+        key.put("name", name);
+        key.put("privateKey", privateKeyPem);
+        key.put("updateTimestamp", context().nextTimestamp());
+        byte[] dek = context().vault().dekForRole(RootTag.SSH_KEY);
+        context().writeWithDek(keyUuid, key, dek);
+        return new SshKeyNode(keyUuid, this);
+    }
+}

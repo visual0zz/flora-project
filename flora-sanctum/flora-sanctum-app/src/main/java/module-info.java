@@ -17,4 +17,6 @@ module com.flora.sanctum.app {
     requires java.logging;
     requires com.formdev.flatlaf;
     requires com.github.weisj.jsvg;
+    requires com.sun.jna;
+    requires com.sun.jna.platform;
 }

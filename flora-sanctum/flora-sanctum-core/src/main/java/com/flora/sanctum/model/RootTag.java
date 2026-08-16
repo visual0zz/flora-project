@@ -9,21 +9,28 @@ package com.flora.sanctum.model;
  */
 public enum RootTag {
 
-    MANIFEST("manifest"),
-    DATA("data"),
-    ICON("icon"),
-    SSH_KEY("sshKey"),
-    REMOTE("remote");
+    MANIFEST("manifest", "manifest"),
+    DATA("data", "密码库"),
+    ICON("icon", "图标"),
+    SSH_KEY("sshKey", "SSH 密钥"),
+    REMOTE("remote", "远程");
 
     private final String tag;
+    private final String displayName;
 
-    RootTag(String tag) {
+    RootTag(String tag, String displayName) {
         this.tag = tag;
+        this.displayName = displayName;
     }
 
     /** 概念字符串（对象 parent 字段中的实际值）。 */
     public String tag() {
         return tag;
+    }
+
+    /** GUI 区段展示名（明文标签，独立于存储值）。 */
+    public String displayName() {
+        return displayName;
     }
 
     /** 解析概念 tag；null 或非根概念返回 null。 */

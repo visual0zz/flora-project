@@ -21,7 +21,7 @@ import java.util.List;
 /**
  * flora-sanctum 应用入口（单一可执行 jar）。
  * <p>
- * - 无参数：启动 JavaFX GUI。
+ * - 无参数：启动 Swing GUI。
  * - 有参数：经 flora-shell 命令基座处理命令行。
  * 命令：create / unlock / add / list / get / sync
  */

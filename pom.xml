@@ -17,6 +17,7 @@
         <module>flora-root</module>
         <module>flora-shell</module>
         <module>flora-garden</module>
+        <module>flora-playground</module>
         <module>flora-internal-evaluation</module>
         <module>flora-tangle</module>
         <module>flora-tangle/testbed</module>

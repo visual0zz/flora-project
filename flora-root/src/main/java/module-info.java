@@ -86,6 +86,8 @@ module com.flora.root {
     exports com.flora.root.fast.container.map;
     // 高性能元组容器
     exports com.flora.root.fast.container.tuple;
+    // 图形与噪声工具（PaperNoise 纸纤维噪声）
+    exports com.flora.root.graphics.noise;
     // Java 基础工具类（Converter 与各 *Util）
     exports com.flora.root.java;
     // JSON Schema 数据生成 mock

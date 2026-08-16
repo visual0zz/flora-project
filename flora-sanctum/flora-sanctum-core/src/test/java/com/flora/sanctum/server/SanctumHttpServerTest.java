@@ -40,7 +40,7 @@ class SanctumHttpServerTest {
     void httpEncryptDecryptRoundTrip() throws Exception {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
         ExternalKeyService svc = new ExternalKeyService(s);
-        UUID entry = s.createEntry(null, "holder", Map.of());
+        UUID entry = s.createEntry(null, "holder", com.flora.sanctum.model.EntryFields.EMPTY);
         UUID keyField = svc.createExternalKey(entry, "k", "material".getBytes(), "for app");
 
         SanctumHttpServer http = new SanctumHttpServer(() -> s, 0);

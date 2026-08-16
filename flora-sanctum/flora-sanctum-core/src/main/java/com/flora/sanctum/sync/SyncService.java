@@ -130,10 +130,11 @@ public final class SyncService {
             if (!com.flora.sanctum.store.BlockHeader.isBlock(deobf)) {
                 return 0;
             }
-            // 明文块负载从偏移 22；此处只解析 updateTimestamp（若为加密块无法解，返回 0）
-            if (deobf.length > 5 && (deobf[5] & 0x02) != 0) {
-                byte[] payload = new byte[deobf.length - 22];
-                System.arraycopy(deobf, 22, payload, 0, payload.length);
+            // 明文块负载从 PLAINTEXT_HEADER_LEN；flags 偏移 MAGIC_LEN+1 = 9（见设计 02）
+            if (deobf.length > com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 1
+                    && (deobf[com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 1] & 0x02) != 0) {
+                byte[] payload = new byte[deobf.length - com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN];
+                System.arraycopy(deobf, com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN, payload, 0, payload.length);
                 com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(
                         new String(payload, java.nio.charset.StandardCharsets.UTF_8));
                 Long ts = n.getLong("updateTimestamp");

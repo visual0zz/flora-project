@@ -4,11 +4,11 @@ import com.flora.shell.Command;
 import com.flora.shell.CommandResult;
 import com.flora.shell.Invocation;
 import com.flora.shell.spec.ArgSpec;
+import com.flora.sanctum.model.EntryFields;
 import com.flora.sanctum.model.Sanctum;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -40,7 +40,7 @@ public final class AddCommand implements Command {
         Path root = Path.of(ctx.args().get("path").asString());
         String name = ctx.args().get("name").asString();
         try (Sanctum s = MainUtil.openUnlocked(root)) {
-            UUID uuid = s.createEntry(null, name, Map.of());
+            UUID uuid = s.createEntry(null, name, EntryFields.EMPTY);
             ctx.log().info("added " + name + " -> " + uuid);}
         return CommandResult.success();
     }

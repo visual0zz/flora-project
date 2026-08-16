@@ -23,22 +23,24 @@ public final class BlockResolver {
      * @return 解密负载；候选 DEK 全部试解失败则返回 {@code null}（调用方按"非本库可解"处理）。
      */
     public byte[] decode(byte[] obfuscatedBlock) {
-        // 先解异或 + 读 keyId（信封头偏移 22）
+        // 先解异或 + 读 keyId（信封头偏移 MAGIC_LEN+2+16 = 26）
         byte[] block = deobfuscate(obfuscatedBlock);
-        if (block.length < 26) {
+        int keyIdOff = Envelope.MAGIC_LEN + 2 + 16;
+        int cipherMinLen = keyIdOff + 4;
+        if (block.length < cipherMinLen) {
             throw new IllegalArgumentException("block too short");
         }
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < Envelope.MAGIC_LEN; i++) {
             if (block[i] != Envelope.MAGIC[i]) {
                 throw new IllegalArgumentException("bad magic");
             }
         }
-        if (block[5] != Envelope.FLAG_CIPHER) {
+        if (block[Envelope.MAGIC_LEN + 1] != Envelope.FLAG_CIPHER) {
             // 明文块不在此解析
             return null;
         }
         byte[] keyId = new byte[4];
-        System.arraycopy(block, 22, keyId, 0, 4);
+        System.arraycopy(block, keyIdOff, keyId, 0, 4);
 
         List<byte[]> candidates = index.lookup(keyId);
         for (byte[] dek : candidates) {

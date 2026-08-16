@@ -55,14 +55,16 @@ public final class Block {
         return BlockHeader.keyId(deobfuscated);
     }
 
-    /** 是否密文块（flags 0x01）。 */
+    /** 是否密文块（flags 偏移 MAGIC_LEN+1 = 9，0x01）。 */
     public boolean isCipher() {
-        return deobfuscated.length >= 6 && (deobfuscated[5] & 0x01) != 0;
+        return deobfuscated.length >= com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 2
+                && (deobfuscated[com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 1] & 0x01) != 0;
     }
 
-    /** 是否明文块（flags 0x02）。 */
+    /** 是否明文块（flags 偏移 MAGIC_LEN+1 = 9，0x02）。 */
     public boolean isPlaintext() {
-        return deobfuscated.length >= 6 && (deobfuscated[5] & 0x02) != 0;
+        return deobfuscated.length >= com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 2
+                && (deobfuscated[com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 1] & 0x02) != 0;
     }
 
     @Override

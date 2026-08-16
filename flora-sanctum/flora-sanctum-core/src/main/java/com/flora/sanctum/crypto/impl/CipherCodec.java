@@ -53,12 +53,15 @@ public final class CipherCodec {
 
         // 信封头（真实值，用于 AAD）
         byte[] header = new byte[Envelope.HEADER_LEN];
-        System.arraycopy(Envelope.MAGIC, 0, header, 0, 4);
-        header[4] = Envelope.VERSION_1;
-        header[5] = Envelope.FLAG_CIPHER;
-        writeUuid(header, 6, uuid);
-        System.arraycopy(keyId, 0, header, 22, 4);
-        System.arraycopy(nonce, 0, header, 26, Envelope.NONCE_LEN);
+        System.arraycopy(Envelope.MAGIC, 0, header, 0, Envelope.MAGIC_LEN);
+        header[Envelope.MAGIC_LEN] = Envelope.VERSION_1;
+        header[Envelope.MAGIC_LEN + 1] = Envelope.FLAG_CIPHER;
+        int uuidOff = Envelope.MAGIC_LEN + 2;
+        writeUuid(header, uuidOff, uuid);
+        int keyIdOff = uuidOff + 16;
+        System.arraycopy(keyId, 0, header, keyIdOff, 4);
+        int nonceOff = keyIdOff + 4;
+        System.arraycopy(nonce, 0, header, nonceOff, Envelope.NONCE_LEN);
 
         // GCM-SIV 加密，AAD = header
         GCMSIVBlockCipher cipher = new GCMSIVBlockCipher(new AESEngine());
@@ -93,20 +96,23 @@ public final class CipherCodec {
             throw new IllegalArgumentException("block too short");
         }
         // 校验 magic
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < Envelope.MAGIC_LEN; i++) {
             if (block[i] != Envelope.MAGIC[i]) {
                 throw new IllegalArgumentException("bad magic");
             }
         }
-        if (block[4] != Envelope.VERSION_1) {
+        if (block[Envelope.MAGIC_LEN] != Envelope.VERSION_1) {
             throw new IllegalArgumentException("unsupported version");
         }
-        if (block[5] != Envelope.FLAG_CIPHER) {
+        if (block[Envelope.MAGIC_LEN + 1] != Envelope.FLAG_CIPHER) {
             throw new IllegalArgumentException("not a cipher block");
         }
-        UUID uuid = readUuid(block, 6);
+        int uuidOff = Envelope.MAGIC_LEN + 2;
+        int keyIdOff = uuidOff + 16;
+        int nonceOff = keyIdOff + 4;
+        UUID uuid = readUuid(block, uuidOff);
         byte[] nonce = new byte[Envelope.NONCE_LEN];
-        System.arraycopy(block, 26, nonce, 0, Envelope.NONCE_LEN);
+        System.arraycopy(block, nonceOff, nonce, 0, Envelope.NONCE_LEN);
         byte[] header = new byte[Envelope.HEADER_LEN];
         System.arraycopy(block, 0, header, 0, Envelope.HEADER_LEN);
 

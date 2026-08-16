@@ -58,15 +58,18 @@ class VaultUnlockerTest {
         manifest.put("mac", Base64.getEncoder().encodeToString(mac));
         payload = JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
 
-        // 明文块信封：magic+version+flags(0x02)+uuid+payload
-        byte[] block = new byte[6 + 16 + payload.length];
-        System.arraycopy(com.flora.sanctum.crypto.impl.Envelope.MAGIC, 0, block, 0, 4);
-        block[4] = 1;
-        block[5] = 2;
-        java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(block, 6, 16);
+        // 明文块信封：magic(8)+version(1)+flags(1)+uuid(16)+payload
+        byte[] block = new byte[com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN + payload.length];
+        System.arraycopy(com.flora.sanctum.crypto.impl.Envelope.MAGIC, 0, block, 0,
+                com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN);
+        block[com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN] = 1;
+        block[com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 1] = 2;
+        java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(block,
+                com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 2, 16);
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
-        System.arraycopy(payload, 0, block, 22, payload.length);
+        System.arraycopy(payload, 0, block,
+                com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN, payload.length);
         byte xor = rng.nextByte();
         byte[] obf = BlockHeader.obfuscate(block, xor);
 

@@ -38,9 +38,9 @@ public final class VaultUnlocker {
             throw new IllegalArgumentException("vault has no manifest");
         }
         byte[] full = manifestBlock.deobfuscated();
-        byte[] payload = new byte[full.length - 22];
-        System.arraycopy(full, 22, payload, 0, payload.length);
-        Manifest manifest = Manifest.fromJson(payload);
+byte[] payload = new byte[full.length - com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN];
+            System.arraycopy(full, com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN, payload, 0, payload.length);
+            Manifest manifest = Manifest.fromJson(payload);
         // 2. 派生 KEK
         byte[] salt = manifest.salt();
         Argon2Kdf kdf = new Argon2Kdf(salt, manifest.memoryKiB(), manifest.iterations(), manifest.parallelism());
@@ -151,9 +151,10 @@ public final class VaultUnlocker {
             if (b.isPlaintext()) {
                 try {
                     byte[] full = b.deobfuscated();
-                    // 明文块：magic(4)+version(1)+flags(1)+uuid(16)+payload，负载从偏移 22 开始
-                    byte[] payload = new byte[full.length - 22];
-                    System.arraycopy(full, 22, payload, 0, payload.length);
+                    // 明文块：magic(8)+version(1)+flags(1)+uuid(16)+payload，负载从 PLAINTEXT_HEADER_LEN 开始
+                    byte[] payload = new byte[full.length - com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN];
+                    System.arraycopy(full, com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN,
+                            payload, 0, payload.length);
                     String json = new String(payload, java.nio.charset.StandardCharsets.UTF_8);
                     com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(json);
                     if ("manifest".equals(n.getString("type"))) {

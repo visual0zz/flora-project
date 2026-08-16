@@ -106,8 +106,8 @@ public final class Sanctum implements AutoCloseable {
         for (com.flora.sanctum.store.Block b : store.scan()) {
             if (b.isPlaintext()) {
                 byte[] full = b.deobfuscated();
-                byte[] payload = new byte[full.length - 22];
-                System.arraycopy(full, 22, payload, 0, payload.length);
+                byte[] payload = new byte[full.length - com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN];
+                System.arraycopy(full, com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN, payload, 0, payload.length);
                 try {
                     JsonObject n = JsonUtil.parseObject(new String(payload, java.nio.charset.StandardCharsets.UTF_8));
                     if ("manifest".equals(n.getString("type"))) {
@@ -122,14 +122,17 @@ public final class Sanctum implements AutoCloseable {
 
     private void writeManifestPlaintextBlock(java.util.UUID uuid, JsonObject payload) {
         byte[] json = JsonUtil.toJsonString(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        byte[] block = new byte[6 + 16 + json.length];
-        System.arraycopy(com.flora.sanctum.crypto.impl.Envelope.MAGIC, 0, block, 0, 4);
-        block[4] = com.flora.sanctum.crypto.impl.Envelope.VERSION_1;
-        block[5] = com.flora.sanctum.crypto.impl.Envelope.FLAG_PLAINTEXT;
-        java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(block, 6, 16);
+        byte[] block = new byte[com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN + json.length];
+        System.arraycopy(com.flora.sanctum.crypto.impl.Envelope.MAGIC, 0, block, 0,
+                com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN);
+        block[com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN] = com.flora.sanctum.crypto.impl.Envelope.VERSION_1;
+        block[com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 1] = com.flora.sanctum.crypto.impl.Envelope.FLAG_PLAINTEXT;
+        java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(block,
+                com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 2, 16);
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
-        System.arraycopy(json, 0, block, 22, json.length);
+        System.arraycopy(json, 0, block,
+                com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN, json.length);
         byte xor = vault.random().nextByte();
         byte[] obf = com.flora.sanctum.store.BlockHeader.obfuscate(block, xor);
         // 经 ObjectStore 落盘（codec null = 裸明文写，见 04）
@@ -331,10 +334,10 @@ public final class Sanctum implements AutoCloseable {
      *
      * @param groupId  所属组 UUID（null=普通对象 root）
      * @param name     条目名
-     * @param fields   字段名 → 明文值
+     * @param fields   预设字段（password/url/username/labels，写入 entry 负载）
      * @return 新条目 UUID
      */
-    public UUID createEntry(UUID groupId, String name, Map<String, String> fields) {
+    public UUID createEntry(UUID groupId, String name, EntryFields fields) {
         return createEntry(groupId, name, fields, null, null);
     }
 
@@ -344,8 +347,9 @@ public final class Sanctum implements AutoCloseable {
      * @param iconId    内置图标集索引（可 null）
      * @param iconUuid  自定义图标对象 UUID（引用，非归属；可 null，优先于 iconId）
      */
-    public UUID createEntry(UUID groupId, String name, Map<String, String> fields, Integer iconId, UUID iconUuid) {
+    public UUID createEntry(UUID groupId, String name, EntryFields fields, Integer iconId, UUID iconUuid) {
         UUID entryUuid = UUID.randomUUID();
+        long now = System.currentTimeMillis();
         long ts = nextTimestamp();
         JsonObject entry = new JsonObject();
         entry.put("version", 1);
@@ -358,22 +362,48 @@ public final class Sanctum implements AutoCloseable {
         if (iconUuid != null) {
             entry.put("icon", iconUuid.toString());
         }
+        if (fields.password() != null) {
+            entry.put("password", fields.password());
+        }
+        if (fields.url() != null) {
+            entry.put("url", fields.url());
+        }
+        if (fields.username() != null) {
+            entry.put("username", fields.username());
+        }
+        if (!fields.labels().isEmpty()) {
+            entry.put("labels", fields.labels());
+        }
+        entry.put("createTime", now);
+        entry.put("updateTime", now);
         entry.put("updateTimestamp", ts);
         writeObject(entryUuid, entry, groupId);
-        // 字段各自独立对象，parent 指向条目
-        for (Map.Entry<String, String> f : fields.entrySet()) {
-            UUID fieldUuid = UUID.randomUUID();
-            JsonObject field = new JsonObject();
-            field.put("version", 1);
-            field.put("type", "field");
-            field.put("parent", entryUuid.toString());
-            field.put("fieldName", f.getKey());
-            field.put("value", f.getValue());
-            field.put("updateTimestamp", nextTimestamp());
-            writeObject(fieldUuid, field, groupId);
-        }
         refresh();
         return entryUuid;
+    }
+
+    /** 更新 entry 内置预设字段（password/url/username/labels）+ updateTime。 */
+    public void updateEntryBuiltins(UUID entryUuid, EntryFields fields) {
+        JsonObject entry = readObject(entryUuid);
+        if (entry == null || !"entry".equals(entry.getString("type"))) {
+            throw new IllegalArgumentException("entry not found");
+        }
+        UUID parentId = parentGroupUuid(entry);
+        long now = System.currentTimeMillis();
+        if (fields.password() != null) {
+            entry.put("password", fields.password());
+        }
+        if (fields.url() != null) {
+            entry.put("url", fields.url());
+        }
+        if (fields.username() != null) {
+            entry.put("username", fields.username());
+        }
+        entry.put("labels", fields.labels());
+        entry.put("updateTime", now);
+        entry.put("updateTimestamp", nextTimestamp());
+        writeObject(entryUuid, entry, parentId);
+        refresh();
     }
 
     /** 读取条目。 */

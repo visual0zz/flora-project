@@ -6,7 +6,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,7 +20,7 @@ class ExternalKeyServiceTest {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
         ExternalKeyService svc = new ExternalKeyService(s);
         // 建一个条目，再加外部密钥字段
-        UUID entry = s.createEntry(null, "holder", Map.of());
+        UUID entry = s.createEntry(null, "holder", EntryFields.EMPTY);
         UUID keyField = svc.createExternalKey(entry, "mykey", "secret-key-material".getBytes(StandardCharsets.UTF_8), "for app A");
 
         byte[] cipherBlock = svc.encrypt("hello world".getBytes(StandardCharsets.UTF_8), keyField);
@@ -35,7 +34,7 @@ class ExternalKeyServiceTest {
     void listShowsExternalKeys() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
         ExternalKeyService svc = new ExternalKeyService(s);
-        UUID entry = s.createEntry(null, "holder", Map.of());
+        UUID entry = s.createEntry(null, "holder", EntryFields.EMPTY);
         svc.createExternalKey(entry, "k1", "material1".getBytes(), "desc 1");
 
         var keys = svc.list();
@@ -47,7 +46,7 @@ class ExternalKeyServiceTest {
     void decryptFailsForWrongKey() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
         ExternalKeyService svc = new ExternalKeyService(s);
-        UUID entry = s.createEntry(null, "holder", Map.of());
+        UUID entry = s.createEntry(null, "holder", EntryFields.EMPTY);
         UUID keyA = svc.createExternalKey(entry, "a", "material-A".getBytes(), "A");
         svc.createExternalKey(entry, "b", "material-B".getBytes(), "B");
 

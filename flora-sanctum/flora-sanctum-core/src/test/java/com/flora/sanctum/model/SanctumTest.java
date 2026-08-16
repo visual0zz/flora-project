@@ -5,8 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -20,65 +19,50 @@ class SanctumTest {
     @Test
     void createEntryAndReadBack() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
-        Map<String, String> fields = new LinkedHashMap<>();
-        fields.put("username", "alice");
-        fields.put("password", "s3cret");
-        UUID entryUuid = s.createEntry(null, "微博", fields);
+        UUID entryUuid = s.createEntry(null, "微博",
+                new EntryFields("s3cret", null, "alice", List.of()));
 
         JsonObject entry = s.getEntry(entryUuid);
         assertNotNull(entry);
         assertEquals("entry", entry.getString("type"));
         assertEquals("微博", entry.getString("name"));
-
-        // 字段应作为独立对象存在
-        UUID fieldUuid = s.directory().childrenOf(entryUuid).stream()
-                .filter(u -> !u.equals(entryUuid)).findFirst().orElseThrow();
-        JsonObject field = s.getEntry(fieldUuid);
-        assertEquals("field", field.getString("type"));
+        // 内置字段直接读得到
+        assertEquals("alice", entry.getString("username"));
+        assertEquals("s3cret", entry.getString("password"));
+        assertNotNull(entry.getLong("createTime"));
+        assertNotNull(entry.getLong("updateTime"));
     }
 
     @Test
-    void deleteEntryRemovesFields() {
+    void deleteEntryRemovesBuiltin() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
-        Map<String, String> fields = new LinkedHashMap<>();
-        fields.put("password", "x");
-        UUID entryUuid = s.createEntry(null, "条目", fields);
-        int before = s.directory().childrenOf(entryUuid).size();
-        assertTrue(before > 0);
+        UUID entryUuid = s.createEntry(null, "条目",
+                new EntryFields("x", null, null, List.of()));
+        assertNotNull(s.getEntry(entryUuid).getString("password"));
 
         s.deleteEntry(entryUuid);
         assertNull(s.getEntry(entryUuid));
     }
 
     @Test
-    void deleteFieldRemovesOnlyThatField() {
+    void deleteCustomFieldPreservesBuiltinPassword() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
-        Map<String, String> fields = new LinkedHashMap<>();
-        fields.put("username", "alice");
-        fields.put("password", "s3cret");
-        UUID entryUuid = s.createEntry(null, "条目", fields);
-        UUID fieldUuid = s.directory().childrenOf(entryUuid).stream()
-                .filter(u -> {
-                    JsonObject f = s.getEntry(u);
-                    return f != null && "username".equals(f.getString("fieldName"));
-                })
-                .findFirst().orElseThrow();
+        UUID entryUuid = s.createEntry(null, "条目",
+                new EntryFields("s3cret", null, "alice", List.of()));
+        // 创建自定义字段（notes），模拟旧"密码+用户名"独立块 → 现在用 createFieldWithKind
+        UUID noteField = s.createFieldWithKind(entryUuid, null, "notes", "memo", null);
 
-        s.deleteField(fieldUuid);
-        assertNull(s.getEntry(fieldUuid));
-        // 其它字段仍在，条目仍在
+        s.deleteField(noteField);
+        assertNull(s.getEntry(noteField));
+        // entry 与内置密码仍在
         assertNotNull(s.getEntry(entryUuid));
-        assertTrue(s.directory().childrenOf(entryUuid).stream()
-                .anyMatch(u -> {
-                    JsonObject f = s.getEntry(u);
-                    return f != null && "password".equals(f.getString("fieldName"));
-                }));
+        assertEquals("s3cret", s.getEntry(entryUuid).getString("password"));
     }
 
     @Test
     void renameEntryPersistsName() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
-        UUID entryUuid = s.createEntry(null, "旧名", Map.of("k", "v"));
+        UUID entryUuid = s.createEntry(null, "旧名", EntryFields.EMPTY);
 
         s.renameEntry(entryUuid, "新名");
         assertEquals("新名", s.getEntry(entryUuid).getString("name"));
@@ -93,7 +77,7 @@ class SanctumTest {
     @Test
     void setEntryIconAssignsAndClears() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
-        UUID entryUuid = s.createEntry(null, "条目", Map.of("k", "v"));
+        UUID entryUuid = s.createEntry(null, "条目", EntryFields.EMPTY);
         UUID iconUuid = s.createIcon(new byte[]{1, 2, 3}, "png");
 
         s.setEntryIcon(entryUuid, iconUuid);
@@ -123,7 +107,7 @@ class SanctumTest {
     @Test
     void lockAndReunlock() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
-        UUID entryUuid = s.createEntry(null, "条目", Map.of("k", "v"));
+        UUID entryUuid = s.createEntry(null, "条目", EntryFields.EMPTY);
         s.lock();
         assertFalse(s.isUnlocked());
         s.unlock("pw".toCharArray());
@@ -136,10 +120,9 @@ class SanctumTest {
         char[] pw = "pw".toCharArray();
         Sanctum s = Sanctum.createAndUnlock(dir, pw);
         long wtBefore = s.vault().clock().warehouseTime();
-        s.close(); // 更新 warehouseTime + 重写 manifest + 锁定
+        s.close();
         assertFalse(s.isUnlocked());
 
-        // 重新打开解锁，应能读到新 manifest
         Sanctum s2 = Sanctum.open(dir);
         s2.unlock(pw);
         assertTrue(s2.isUnlocked());
@@ -151,9 +134,9 @@ class SanctumTest {
         char[] pw = "pw".toCharArray();
         Sanctum s = Sanctum.createAndUnlock(dir, pw);
         UUID group = s.createGroup(null, "社交");
-        UUID entry = s.createEntry(group, "微博", Map.of("password", "s3cret"));
+        UUID entry = s.createEntry(group, "微博",
+                new EntryFields("s3cret", null, null, List.of()));
 
-        // 锁定并重开，文件夹 DEK 树递归发现
         s.close();
         Sanctum s2 = Sanctum.open(dir);
         s2.unlock(pw);
@@ -162,6 +145,7 @@ class SanctumTest {
         JsonObject e = s2.getEntry(entry);
         assertNotNull(e);
         assertEquals("微博", e.getString("name"));
+        assertEquals("s3cret", e.getString("password"));
     }
 
     @Test
@@ -169,19 +153,17 @@ class SanctumTest {
         char[] oldPw = "old".toCharArray();
         char[] newPw = "new-pass".toCharArray();
         Sanctum s = Sanctum.createAndUnlock(dir, oldPw);
-        UUID entry = s.createEntry(null, "条目", Map.of("k", "v"));
+        UUID entry = s.createEntry(null, "条目", EntryFields.EMPTY);
 
         s.changeMasterPassword(newPw, 65536, 3, 4);
         s.close();
 
-        // 新密码可解锁
         Sanctum s2 = Sanctum.open(dir);
         s2.unlock(newPw);
         assertTrue(s2.isUnlocked());
         assertNotNull(s2.getEntry(entry));
         s2.close();
 
-        // 旧密码不可解锁
         Sanctum s3 = Sanctum.open(dir);
         assertThrows(IllegalArgumentException.class, () -> s3.unlock(oldPw));
     }
@@ -190,12 +172,11 @@ class SanctumTest {
     void gcKeepsReachableObjects() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
         UUID group = s.createGroup(null, "社交");
-        UUID entry = s.createEntry(group, "微博", Map.of("password", "s3cret"));
+        UUID entry = s.createEntry(group, "微博",
+                new EntryFields("s3cret", null, null, List.of()));
 
-        // 正常对象都在可达树内，不应被 GC 误删
         java.util.List<UUID> orphaned = s.collectGarbage();
         assertFalse(orphaned.contains(entry), "reachable entry should survive GC");
-        // 条目仍可读
         assertNotNull(s.getEntry(entry));
     }
 
@@ -217,24 +198,20 @@ class SanctumTest {
     @Test
     void rootParentsUseConceptTags() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
-        // 顶层 group / entry → parent 为根概念 data
         UUID group = s.createGroup(null, "社交");
-        UUID entry = s.createEntry(null, "顶层条目", Map.of("password", "x"));
+        UUID entry = s.createEntry(null, "顶层条目",
+                new EntryFields("x", null, null, List.of()));
         assertEquals("data", s.getEntry(group).getString("parent"));
         assertEquals("data", s.getEntry(entry).getString("parent"));
 
-        // remote → parent 为根概念 remote
         UUID remote = s.createRemote("origin", "git@example.com:r.git", null);
         assertEquals("remote", s.getEntry(remote).getString("parent"));
 
-        // icon / sshKey → parent 为对应 root group uuid
         UUID icon = s.createIcon(new byte[]{1}, "png");
         UUID ssh = s.createSshKey("k", "-----BEGIN PRIVATE KEY-----");
         assertEquals(s.vault().rootGroupUuid(RootTag.ICON).toString(), s.getEntry(icon).getString("parent"));
         assertEquals(s.vault().rootGroupUuid(RootTag.SSH_KEY).toString(), s.getEntry(ssh).getString("parent"));
 
-        // 三个 root group 的 parent 是概念 tag；manifest 明文块 parent=manifest
-        // （root group 块用 KEK 加密，getEntry 走 keyIdIndex 不含 KEK，故用 vault.resolve 直接解块验证）
         java.util.UUID dataRoot = s.vault().rootGroupUuid(RootTag.DATA);
         java.util.UUID iconRoot = s.vault().rootGroupUuid(RootTag.ICON);
         java.util.UUID sshRoot = s.vault().rootGroupUuid(RootTag.SSH_KEY);
@@ -246,7 +223,6 @@ class SanctumTest {
         assertEquals("sshKey", rootParent(s, sshRoot));
         assertEquals("manifest", s.vault().manifest().parent());
 
-        // 重开重解锁后概念 tag 结构与 root group 登记仍正确
         s.close();
         Sanctum s2 = Sanctum.open(dir);
         s2.unlock("pw".toCharArray());
@@ -257,7 +233,6 @@ class SanctumTest {
         assertEquals("manifest", s2.vault().manifest().parent());
     }
 
-    /** 直接解某个 root group 块的负载 parent（root group 块用 KEK 加密，getEntry/BlockResolver 不可读）。 */
     private static String rootParent(Sanctum s, java.util.UUID uuid) {
         byte[] kek = s.vault().kek();
         for (com.flora.sanctum.store.Block b : s.store().scan()) {
@@ -281,7 +256,6 @@ class SanctumTest {
         s.renameGroup(group, "新名");
         assertEquals("新名", s.getEntry(group).getString("name"));
 
-        // 重开重解锁后保持
         s.close();
         Sanctum s2 = Sanctum.open(dir);
         s2.unlock("pw".toCharArray());
@@ -291,18 +265,13 @@ class SanctumTest {
     @Test
     void updateFieldKindChangesKind() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
-        UUID entry = s.createEntry(null, "条目", Map.of("username", "alice"));
-        UUID field = s.directory().childrenOf(entry).stream()
-                .filter(u -> {
-                    JsonObject f = s.getEntry(u);
-                    return f != null && "username".equals(f.getString("fieldName"));
-                })
-                .findFirst().orElseThrow();
+        UUID entry = s.createEntry(null, "条目", EntryFields.EMPTY);
+        // 创建一个自定义字段（username 现在是内置，不再是独立块）
+        UUID field = s.createFieldWithKind(entry, null, "notes", "memo", null);
         assertNull(s.getEntry(field).getString("kind"));
         s.updateFieldKind(field, "totp");
         assertEquals("totp", s.getEntry(field).getString("kind"));
 
-        // 重开重解锁后保持
         s.close();
         Sanctum s2 = Sanctum.open(dir);
         s2.unlock("pw".toCharArray());
@@ -311,24 +280,19 @@ class SanctumTest {
 
     @Test
     void guiFlow_groupEntryFieldUpdate() {
-        // 模拟 GUI 核心操作链：建组 → 建条目 → 建字段 → 更新字段 → 按组列出条目
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
         UUID group = s.createGroup(null, "社交");
-        UUID entry = s.createEntry(group, "微博", java.util.Map.of("username", "alice", "password", "s3cret"));
+        UUID entry = s.createEntry(group, "微博",
+                new EntryFields("s3cret", null, "alice", List.of()));
 
-        // 更新某字段值
-        java.util.List<UUID> fieldUuids = s.directory().childrenOf(entry);
-        UUID passwordField = null;
-        for (UUID f : fieldUuids) {
-            JsonObject n = s.getEntry(f);
-            if (n != null && "password".equals(n.getString("fieldName"))) {
-                passwordField = f;
-            }
-        }
-        assertNotNull(passwordField);
-        s.updateField(passwordField, "new-password");
-        JsonObject updated = s.getEntry(passwordField);
-        assertEquals("new-password", updated.getString("value"));
+        // 更新内置密码
+        s.updateEntryBuiltins(entry, new EntryFields("new-password", null, "alice", List.of()));
+        assertEquals("new-password", s.getEntry(entry).getString("password"));
+
+        // 创建并更新自定义字段
+        UUID customField = s.createFieldWithKind(entry, group, "url", "https://x", null);
+        s.updateField(customField, "https://updated");
+        assertEquals("https://updated", s.getEntry(customField).getString("value"));
 
         // 按组列出条目（GUI 主界面逻辑）
         boolean entryInGroup = false;
@@ -340,5 +304,29 @@ class SanctumTest {
             }
         }
         assertTrue(entryInGroup);
+    }
+
+    @Test
+    void entryHasBuiltinPasswordUrlUsernameLabels() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        long before = System.currentTimeMillis();
+        UUID entryUuid = s.createEntry(null, "账号",
+                new EntryFields("p@ss", "https://example.com", "alice", List.of("work", "important")));
+        long after = System.currentTimeMillis();
+
+        JsonObject entry = s.getEntry(entryUuid);
+        assertEquals("p@ss", entry.getString("password"));
+        assertEquals("https://example.com", entry.getString("url"));
+        assertEquals("alice", entry.getString("username"));
+        assertEquals(List.of("work", "important"), com.flora.sanctum.model.EntryFields.labelsOf(entry));
+
+        long ct = entry.getLong("createTime");
+        assertTrue(ct >= before && ct <= after);
+        assertEquals(ct, entry.getLong("updateTime"));
+
+        // 更新内置字段，updateTime 应改变
+        s.updateEntryBuiltins(entryUuid, new EntryFields("p@ss2", "https://example.com", "alice", List.of()));
+        long updateTime2 = s.getEntry(entryUuid).getLong("updateTime");
+        assertTrue(updateTime2 >= ct);
     }
 }

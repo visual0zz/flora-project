@@ -111,14 +111,14 @@ public final class VaultCreator {
 
     private void writePlaintextBlock(UUID uuid, com.flora.root.codec.json.model.JsonObject payload, byte flags) {
         byte[] json = com.flora.root.codec.JsonUtil.toJsonString(payload).getBytes(StandardCharsets.UTF_8);
-        byte[] block = new byte[6 + 16 + json.length];
-        System.arraycopy(Envelope.MAGIC, 0, block, 0, 4);
-        block[4] = Envelope.VERSION_1;
-        block[5] = flags;
-        java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(block, 6, 16);
+        byte[] block = new byte[Envelope.PLAINTEXT_HEADER_LEN + json.length];
+        System.arraycopy(Envelope.MAGIC, 0, block, 0, Envelope.MAGIC_LEN);
+        block[Envelope.MAGIC_LEN] = Envelope.VERSION_1;
+        block[Envelope.MAGIC_LEN + 1] = flags;
+        java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(block, Envelope.MAGIC_LEN + 2, 16);
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
-        System.arraycopy(json, 0, block, 22, json.length);
+        System.arraycopy(json, 0, block, Envelope.PLAINTEXT_HEADER_LEN, json.length);
         byte xor = random.nextByte();
         byte[] obf = BlockHeader.obfuscate(block, xor);
         store.put(uuid, obf, null);

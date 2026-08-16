@@ -39,7 +39,7 @@ public final class BlockHeader {
         if (deobfuscated.length < Envelope.HEADER_LEN) {
             return false;
         }
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < Envelope.MAGIC_LEN; i++) {
             if (deobfuscated[i] != Envelope.MAGIC[i]) {
                 return false;
             }
@@ -47,23 +47,23 @@ public final class BlockHeader {
         return true;
     }
 
-    /** 从解异或后的块读取 uuid 偏移 6（16 字节）。 */
+    /** 从解异或后的块读取 uuid（偏移 magic_len+2，16 字节）。 */
     public static java.util.UUID uuid(byte[] deobfuscated) {
         if (!isBlock(deobfuscated)) {
             throw new IllegalArgumentException("not a block");
         }
-        java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(deobfuscated, 6, 16)
+        java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(deobfuscated, Envelope.MAGIC_LEN + 2, 16)
                 .order(java.nio.ByteOrder.BIG_ENDIAN);
         return new java.util.UUID(bb.getLong(), bb.getLong());
     }
 
-    /** 从解异或后的块读取 keyId 偏移 22（4 字节，仅密文块）。 */
+    /** 从解异或后的块读取 keyId（偏移 magic_len+2+16，4 字节，仅密文块）。 */
     public static byte[] keyId(byte[] deobfuscated) {
         if (!isBlock(deobfuscated)) {
             throw new IllegalArgumentException("not a block");
         }
         byte[] keyId = new byte[4];
-        System.arraycopy(deobfuscated, 22, keyId, 0, 4);
+        System.arraycopy(deobfuscated, Envelope.MAGIC_LEN + 2 + 16, keyId, 0, 4);
         return keyId;
     }
 }

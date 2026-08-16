@@ -1,4 +1,4 @@
-package com.flora.sanctum.sync;
+package com.flora.sanctum.app.sync;
 
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.RebaseCommand;
@@ -131,10 +131,10 @@ public final class SyncService {
                 return 0;
             }
             // 明文块负载从 PLAINTEXT_HEADER_LEN；flags 偏移 MAGIC_LEN+1 = 9（见设计 02）
-            if (deobf.length > com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 1
-                    && (deobf[com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 1] & 0x02) != 0) {
-                byte[] payload = new byte[deobf.length - com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN];
-                System.arraycopy(deobf, com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN, payload, 0, payload.length);
+            if (deobf.length > com.flora.sanctum.store.BlockFormat.MAGIC_LEN + 1
+                    && (deobf[com.flora.sanctum.store.BlockFormat.MAGIC_LEN + 1] & 0x02) != 0) {
+                byte[] payload = new byte[deobf.length - com.flora.sanctum.store.BlockFormat.PLAINTEXT_HEADER_LEN];
+                System.arraycopy(deobf, com.flora.sanctum.store.BlockFormat.PLAINTEXT_HEADER_LEN, payload, 0, payload.length);
                 com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(
                         new String(payload, java.nio.charset.StandardCharsets.UTF_8));
                 Long ts = n.getLong("updateTimestamp");

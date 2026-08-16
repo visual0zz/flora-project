@@ -1,4 +1,4 @@
-package com.flora.sanctum.server;
+package com.flora.sanctum.app.server;
 
 import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;

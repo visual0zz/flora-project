@@ -1,4 +1,4 @@
-package com.flora.sanctum.sync;
+package com.flora.sanctum.app.sync;
 
 import com.flora.sanctum.model.Sanctum;
 import org.junit.jupiter.api.Test;

@@ -1,4 +1,4 @@
-package com.flora.sanctum.server;
+package com.flora.sanctum.app.server;
 
 import com.flora.sanctum.model.ExternalKeyService;
 import com.flora.root.codec.JsonUtil;
@@ -40,7 +40,7 @@ class SanctumHttpServerTest {
     void httpEncryptDecryptRoundTrip() throws Exception {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
         ExternalKeyService svc = new ExternalKeyService(s);
-        UUID entry = s.createEntry(null, "holder", com.flora.sanctum.model.EntryFields.EMPTY);
+        UUID entry = s.objectTree().createEntry(null, "holder", com.flora.sanctum.model.EntryFields.EMPTY).uuid();
         UUID keyField = svc.createExternalKey(entry, "k", "material".getBytes(), "for app");
 
         SanctumHttpServer http = new SanctumHttpServer(() -> s, 0);

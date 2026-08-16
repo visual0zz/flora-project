@@ -51,6 +51,10 @@ public final class Sanctum implements AutoCloseable {
         this.vault = new VaultUnlocker(store).unlock(masterPassword);
         this.context = new TreeContext(store, vault);
         this.metadata = Metadata.from(vault.manifest());
+        com.flora.sanctum.store.Block manifestBlock = manifestStore.findBlock();
+        if (manifestBlock != null) {
+            this.metadata = this.metadata.withBlock(manifestBlock.file(), manifestBlock.line());
+        }
         this.config = new LibraryConfig(context);
         this.trees = List.of(
                 new ObjectTree(context),

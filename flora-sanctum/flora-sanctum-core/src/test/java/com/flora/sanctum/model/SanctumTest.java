@@ -309,4 +309,20 @@ class SanctumTest {
         assertTrue(s.findNode(icon.uuid()) instanceof IconNode);
         assertNull(s.findNode(UUID.randomUUID()));
     }
+
+    @Test
+    void nodeAndMetadataCarryBlockLocation() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        EntryNode entry = s.objectTree().createEntry(null, "条目", EntryFields.EMPTY);
+
+        // 节点应带原始块定位（文件 + 行号）
+        assertNotNull(entry.block());
+        assertEquals(entry.uuid(), entry.block().uuid());
+        assertNotNull(entry.file());
+        assertTrue(entry.line() >= 1);
+
+        // manifest 元数据也应带块定位
+        assertNotNull(s.metadata().file());
+        assertTrue(s.metadata().line() >= 1);
+    }
 }

@@ -62,6 +62,24 @@ public final class ManifestStore {
         return null;
     }
 
+    /** 查找 manifest 明文块（含物理定位）；不存在返回 null。 */
+    public Block findBlock() {
+        for (Block b : store.scan()) {
+            if (b.isPlaintext()) {
+                byte[] full = b.deobfuscated();
+                byte[] payload = payloadOf(full);
+                try {
+                    JsonObject n = JsonUtil.parseObject(new String(payload, StandardCharsets.UTF_8));
+                    if ("manifest".equals(n.getString("type"))) {
+                        return b;
+                    }
+                } catch (Exception ignore) {
+                }
+            }
+        }
+        return null;
+    }
+
     /** 写 manifest 明文块（构造 JSON + 计算 MAC + 落盘）。 */
     public void write(Manifest m, byte[] macKey) {
         UUID uuid = findUuid();

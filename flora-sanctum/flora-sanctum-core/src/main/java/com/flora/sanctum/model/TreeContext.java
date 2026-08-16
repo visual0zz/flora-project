@@ -27,6 +27,7 @@ public final class TreeContext {
     private final ObjectStore store;
     private final Vault vault;
     private final Map<UUID, JsonObject> objects = new LinkedHashMap<>();
+    private final Map<UUID, Block> blocks = new LinkedHashMap<>();
 
     TreeContext(ObjectStore store, Vault vault) {
         this.store = store;
@@ -42,10 +43,26 @@ public final class TreeContext {
             }
             try {
                 objects.put(b.uuid(), JsonUtil.parseObject(new String(plain, StandardCharsets.UTF_8)));
+                blocks.put(b.uuid(), b);
             } catch (Exception ignore) {
                 // 无法解析的块跳过
             }
         }
+    }
+
+    /** 某对象的原始块定位（文件+行号，供审计/去重/恢复）。已缓存直接返回；新写入对象惰性定位一次。 */
+    public Block blockOf(UUID uuid) {
+        Block cached = blocks.get(uuid);
+        if (cached != null) {
+            return cached;
+        }
+        for (Block b : store.scan()) {
+            if (b.uuid().equals(uuid)) {
+                blocks.put(uuid, b);
+                return b;
+            }
+        }
+        return null;
     }
 
     public Vault vault() {
@@ -106,10 +123,11 @@ public final class TreeContext {
         objects.put(uuid, payload);
     }
 
-    /** 删除对象并同步内存图。 */
+    /** 删除对象并同步内存图与块定位。 */
     public void delete(UUID uuid) {
         store.delete(uuid);
         objects.remove(uuid);
+        blocks.remove(uuid);
     }
 
     /** 找加密归属 DEK：条目/字段若在子文件夹下用该文件夹 DEK，否则用 data 根。 */

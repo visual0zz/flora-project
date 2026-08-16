@@ -40,6 +40,23 @@ public abstract class TreeNode {
         return ctx().read(uuid);
     }
 
+    /** 该对象在存储中的原始块（物理位置 + base58，供审计/去重/恢复）；不存在返回 null。 */
+    public com.flora.sanctum.store.Block block() {
+        return ctx().blockOf(uuid);
+    }
+
+    /** 原始块所在文件（不存在返回 null）。 */
+    public java.nio.file.Path file() {
+        com.flora.sanctum.store.Block b = block();
+        return b == null ? null : b.file();
+    }
+
+    /** 原始块所在行号（不存在返回 -1）。 */
+    public long line() {
+        com.flora.sanctum.store.Block b = block();
+        return b == null ? -1 : b.line();
+    }
+
     /** 父对象标识：父 uuid 或根概念 tag。 */
     public String parent() {
         JsonObject d = data();

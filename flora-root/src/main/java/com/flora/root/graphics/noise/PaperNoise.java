@@ -13,7 +13,7 @@ public final class PaperNoise {
     }
 
     /** 低频厚薄幅度权重（大面积明暗）。 */
-    public static final float LOW_AMP = 0.45f;
+    public static final float LOW_AMP = 0.35f;
     /** 中频纤维幅度权重（十字交叉走向）。 */
     public static final float MID_AMP = 0.2f;
     /** 高频白噪幅度权重（细微颗粒）。 */

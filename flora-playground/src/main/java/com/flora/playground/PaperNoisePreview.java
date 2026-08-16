@@ -29,7 +29,7 @@ public final class PaperNoisePreview {
     }
 
     public static void main(String[] args) {
-        int size = 320;
+        int size = 512;
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("PaperNoise 分量预览");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);

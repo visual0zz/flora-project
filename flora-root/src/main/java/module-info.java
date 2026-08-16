@@ -58,17 +58,6 @@ module com.flora.root {
     exports com.flora.root.container.tuple;
     // N 元 Sum Type 容器 Variant（任意多个类型任取其一）
     exports com.flora.root.container;
-    // 新加密抽象层（newcore）入口与注册中心
-    // 新加密抽象层常量（如 AsymmetricKeyType）
-    // 新加密抽象层算法接口
-    // 新加密抽象层材料接口（KEM / 密钥对 / 参数）
-    // 新加密抽象层组合器
-    // 新加密抽象层模式（CBC/CFB/OFB/CTR/GCM）
-    // 新加密抽象层填充与编码方案
-    // 高层加密方案门面
-    // 密钥交换引擎实现
-    // 密钥交换方案
-    // 熵度量门面与聚合
     exports com.flora.root.entropy;
     // 压缩复杂度熵度量
     exports com.flora.root.entropy.compress;
@@ -116,18 +105,6 @@ module com.flora.root {
     exports com.flora.root.runtime.virtual.filesys;
     // 虚拟文件系统后端实现
     exports com.flora.root.runtime.virtual.filesys.backend;
-    // 括号匹配分析
-    exports com.flora.root.syntax.bracket;
-    // 语法解析公共类型
-    exports com.flora.root.syntax.common;
-    // 语法定义模型
-    exports com.flora.root.syntax.common.definition;
-    // 语法解析公共异常
-    exports com.flora.root.syntax.common.exceptions;
-    // 表达式解析
-    exports com.flora.root.syntax.expr;
-    // PEG 语法解析器
-    exports com.flora.root.syntax.peg;
     // 语义/目的标注注解（如 ModuleEntry）
     exports com.flora.root.tag;
 

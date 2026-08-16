@@ -218,26 +218,37 @@ public final class SanctumGui {
     /** 白灰偏暖黄色调：仿 CodeBuddy 极简白灰，但背景略偏纸黄。 */
     private void applyPaperTheme() {
         java.awt.Color paper = new java.awt.Color(0xF8, 0xF4, 0xE9);
-        java.awt.Color paperLight = new java.awt.Color(0xFB, 0xF8, 0xEF);
-        java.awt.Color ink = new java.awt.Color(0x3C, 0x38, 0x30);
+        java.awt.Color paperLight = new java.awt.Color(0xF1, 0xED, 0xE1); // 按钮/下拉等控件底色（暖浅）
+        java.awt.Color fieldWhite = new java.awt.Color(0xFF, 0xFF, 0xFF); // 编辑框纯白
+        java.awt.Color ink = new java.awt.Color(0x5A, 0x55, 0x4D); // 文字图标淡灰棕
         java.awt.Color divider = new java.awt.Color(0xD8, 0xD2, 0xC0);
+        java.awt.Color selectionBg = new java.awt.Color(0xE4, 0xDD, 0xC9); // 暖灰棕选中（焦点/失焦一致）
         javax.swing.UIManager.put("Panel.background", paper);
         javax.swing.UIManager.put("Panel.foreground", ink);
         javax.swing.UIManager.put("Label.foreground", ink);
         javax.swing.UIManager.put("Component.background", paper);
         javax.swing.UIManager.put("Component.foreground", ink);
-        javax.swing.UIManager.put("TextField.background", paperLight);
+        javax.swing.UIManager.put("TextField.background", fieldWhite);
         javax.swing.UIManager.put("TextField.foreground", ink);
-        javax.swing.UIManager.put("TextArea.background", paperLight);
+        javax.swing.UIManager.put("TextArea.background", fieldWhite);
         javax.swing.UIManager.put("TextArea.foreground", ink);
-        javax.swing.UIManager.put("PasswordField.background", paperLight);
+        javax.swing.UIManager.put("PasswordField.background", fieldWhite);
         javax.swing.UIManager.put("PasswordField.foreground", ink);
         javax.swing.UIManager.put("Tree.background", paper);
         javax.swing.UIManager.put("Tree.foreground", ink);
+        javax.swing.UIManager.put("Tree.selectionBackground", selectionBg);
+        javax.swing.UIManager.put("Tree.selectionInactiveBackground", selectionBg);
+        javax.swing.UIManager.put("Tree.selectionForeground", ink);
         javax.swing.UIManager.put("List.background", paper);
         javax.swing.UIManager.put("List.foreground", ink);
+        javax.swing.UIManager.put("List.selectionBackground", selectionBg);
+        javax.swing.UIManager.put("List.selectionInactiveBackground", selectionBg);
+        javax.swing.UIManager.put("List.selectionForeground", ink);
         javax.swing.UIManager.put("Table.background", paper);
         javax.swing.UIManager.put("Table.foreground", ink);
+        javax.swing.UIManager.put("Table.selectionBackground", selectionBg);
+        javax.swing.UIManager.put("Table.selectionInactiveBackground", selectionBg);
+        javax.swing.UIManager.put("Table.selectionForeground", ink);
         javax.swing.UIManager.put("Viewport.background", paper);
         javax.swing.UIManager.put("ScrollPane.background", paper);
         javax.swing.UIManager.put("ScrollPane.border", javax.swing.BorderFactory.createEmptyBorder());
@@ -536,7 +547,17 @@ public final class SanctumGui {
         top.add(searchField);
         top.add(clearSearch);
         top.add(statusLabel);
-        root.add(top, BorderLayout.NORTH);
+        // 按钮栏下方加 1px 细线（与竖线同色）
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+        header.add(top, BorderLayout.NORTH);
+        JPanel hLine = new JPanel();
+        hLine.setOpaque(true);
+        hLine.setBackground(new java.awt.Color(0xD8, 0xD2, 0xC0));
+        hLine.setPreferredSize(new Dimension(0, 1));
+        hLine.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        header.add(hLine, BorderLayout.SOUTH);
+        root.add(header, BorderLayout.NORTH);
 
         // 左：组树（"全部"根隐藏，四区段为顶层）
         groupTree = new JTree();
@@ -562,6 +583,7 @@ public final class SanctumGui {
         treeScroll.setOpaque(false);
         treeScroll.getViewport().setOpaque(false);
         groupTree.setOpaque(false);
+        groupTree.setBorder(new javax.swing.border.EmptyBorder(8, 10, 8, 10));
 
         // 中：条目列表（子文件夹 + 条目混合）
         entryModel = new DefaultListModel<>();
@@ -592,11 +614,12 @@ public final class SanctumGui {
         entryScroll.setOpaque(false);
         entryScroll.getViewport().setOpaque(false);
         entryList.setOpaque(false);
+        entryList.setBorder(new javax.swing.border.EmptyBorder(8, 10, 8, 10));
 
         // 右：编辑面板（无容器边框，区域间只保留 JSplitPane 一条分界线）
         editPanel = new JPanel();
         editPanel.setLayout(new BoxLayout(editPanel, BoxLayout.Y_AXIS));
-        editPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder());
+        editPanel.setBorder(new javax.swing.border.EmptyBorder(8, 10, 8, 10));
         editPanel.setOpaque(false);
         JScrollPane editScroll = new JScrollPane(editPanel);
         editScroll.setBorder(javax.swing.BorderFactory.createEmptyBorder());
@@ -605,9 +628,11 @@ public final class SanctumGui {
 
         JSplitPane rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, entryScroll, editScroll);
         rightSplit.setDividerLocation(280);
+        keepDividerRatio(rightSplit, 280);
         rightSplit.setOpaque(false);
         JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treeScroll, rightSplit);
         mainSplit.setDividerLocation(220);
+        keepDividerRatio(mainSplit, 220);
         mainSplit.setOpaque(false);
         root.add(mainSplit, BorderLayout.CENTER);
 
@@ -1152,6 +1177,26 @@ public final class SanctumGui {
         b.setContentAreaFilled(false);
         b.setMargin(new Insets(3, 10, 3, 10));
         return b;
+    }
+
+    /** JSplitPane 分隔线记忆百分比：resize 时按初始比例重设，避免全屏/窗口切换后位置失衡。 */
+    private static void keepDividerRatio(JSplitPane split, int initialDivider) {
+        split.addComponentListener(new java.awt.event.ComponentAdapter() {
+            private double ratio = -1;
+
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                int w = split.getWidth();
+                if (w <= 0) {
+                    return;
+                }
+                if (ratio < 0) {
+                    ratio = initialDivider / (double) w;
+                } else {
+                    split.setDividerLocation((int) Math.round(ratio * w));
+                }
+            }
+        });
     }
 
     /** 构造一行：左标签 + 右文本字段（高度受限）。required=true 时标签标红加粗。 */
@@ -1712,65 +1757,22 @@ public final class SanctumGui {
             g.drawImage(cached, 0, 0, null);
         }
 
-        /** 按面板尺寸渲染暖白 Perlin 噪声图（基色 #F8F4E9，幅度 ±8，quintic fade + 梯度内插）。 */
+        /** 按面板尺寸渲染暖白纸纤维噪声图（复用 flora-root PaperNoise，基色 #F8F4E9，幅度 ±25）。 */
         private static BufferedImage renderPaper(int w, int h) {
             BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
             int[] px = new int[w * h];
             for (int y = 0; y < h; y++) {
                 for (int x = 0; x < w; x++) {
-                    float n = perlinNoise(x, y); // 约 -1..1
-                    int d = (int) Math.round(n * 8); // ±8
-                    int r = clamp(0xF8 + d);
-                    int g = clamp(0xF4 + d);
-                    int b = clamp(0xE9 + d);
+                    float n = com.flora.root.graphics.noise.PaperNoise.paper(x, y);
+                    int d = (int) Math.round(n * 25);
+                    int r = com.flora.root.graphics.noise.PaperNoise.clamp(0xF8 + d);
+                    int g = com.flora.root.graphics.noise.PaperNoise.clamp(0xF4 + d);
+                    int b = com.flora.root.graphics.noise.PaperNoise.clamp(0xE9 + d);
                     px[y * w + x] = (r << 16) | (g << 8) | b;
                 }
             }
             img.setRGB(0, 0, w, h, px, 0, w);
             return img;
-        }
-
-        /** 确定性 2D Perlin 噪声：32px 网格梯度 + quintic fade + 双线性插值，输出约 -1..1。 */
-        private static float perlinNoise(int x, int y) {
-            int cell = 32;
-            int gx = x / cell;
-            int gy = y / cell;
-            float fx = (x - gx * cell) / (float) cell;
-            float fy = (y - gy * cell) / (float) cell;
-            float u = fade(fx);
-            float v = fade(fy);
-            float aa = grad(gx, gy, fx, fy);
-            float ba = grad(gx + 1, gy, fx - 1, fy);
-            float ab = grad(gx, gy + 1, fx, fy - 1);
-            float bb = grad(gx + 1, gy + 1, fx - 1, fy - 1);
-            float x1 = aa + u * (ba - aa);
-            float x2 = ab + u * (bb - ab);
-            return x1 + v * (x2 - x1);
-        }
-
-        private static float grad(int ix, int iy, float fx, float fy) {
-            int h = (int) (hash(ix, iy) * 0xFFFFFFL);
-            switch (h & 3) {
-                case 0: return fx + fy;
-                case 1: return -fx + fy;
-                case 2: return fx - fy;
-                default: return -fx - fy;
-            }
-        }
-
-        private static float fade(float t) {
-            return t * t * t * (t * (t * 6 - 15) + 10);
-        }
-
-        private static float hash(int x, int y) {
-            long h = x * 374761393L + y * 668265263L + 1103515245L;
-            h = (h ^ (h >>> 13)) * 1274126177L;
-            h = h ^ (h >>> 16);
-            return (h & 0xFFFFFFL) / (float) 0xFFFFFFL;
-        }
-
-        private static int clamp(int v) {
-            return v < 0 ? 0 : (v > 255 ? 255 : v);
         }
     }
 

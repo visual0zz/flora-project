@@ -34,13 +34,13 @@ public final class Vault {
     private final java.util.Map<java.util.UUID, byte[]> folderDeks = new java.util.LinkedHashMap<>();
     private byte[] kek; // 解锁期间驻留内存，锁定/关闭时清除
 
-    Vault(ObjectStore store, Manifest manifest, KeyIdIndex keyIdIndex, SecureRandomSource random, byte[] kek) {
+    Vault(ObjectStore store, Manifest manifest, KeyIdIndex keyIdIndex, SecureRandomSource random, byte[] kek, long baseTimestamp) {
         this.store = store;
         this.manifest = manifest;
         this.keyIdIndex = keyIdIndex;
         this.resolver = new BlockResolver(keyIdIndex);
         this.random = random;
-        this.clock = new WarehouseClock(manifest.warehouseTime());
+        this.clock = new WarehouseClock(baseTimestamp);
         this.kek = kek == null ? null : kek.clone();
     }
 
@@ -142,7 +142,6 @@ public final class Vault {
     /** 换主密码/更新 KDF 参数后替换内存 manifest（供后续 close/写回使用新值）。 */
     public void replaceManifest(Manifest manifest) {
         this.manifest = manifest;
-        this.clock = new WarehouseClock(manifest.warehouseTime());
     }
 
     public KeyIdIndex keyIdIndex() {
@@ -160,7 +159,7 @@ public final class Vault {
     /**
      * 解密一个密文块为负载字节；非本库可解返回 null。
      */
-    public byte[] resolve(byte[] obfuscatedBlock) {
-        return resolver.decode(obfuscatedBlock);
+    public byte[] resolve(byte[] obfuscatedBlock, long timestamp) {
+        return resolver.decode(obfuscatedBlock, timestamp);
     }
 }

@@ -48,7 +48,6 @@ public final class RemoteNode extends TreeNode {
             value.put("keyRef", keyRef);
         }
         remote.put("value", value);
-        remote.put("updateTimestamp", ctx().nextTimestamp());
         byte[] dek = ctx().vault().dekForRole(RootTag.DATA);
         ctx().writeWithDek(uuid(), remote, dek);
     }

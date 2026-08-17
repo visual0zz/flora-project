@@ -111,17 +111,18 @@ class SanctumTest {
     }
 
     @Test
-    void closeUpdatesWarehouseTimeAndReunlock() {
+    void closeLocksAndReunlockWorks() {
         char[] pw = "pw".toCharArray();
         Sanctum s = Sanctum.createAndUnlock(dir, pw);
-        long wtBefore = s.vault().clock().warehouseTime();
+        long anchor = s.vault().clock().baseTimestamp();
         s.close();
         assertFalse(s.isUnlocked());
 
         Sanctum s2 = Sanctum.open(dir);
         s2.unlock(pw);
         assertTrue(s2.isUnlocked());
-        assertTrue(s2.vault().manifest().warehouseTime() >= wtBefore);
+        // 会话时钟锚点 = 全库块最大时间戳（解锁时扫描），与关闭前一致
+        assertTrue(s2.vault().clock().baseTimestamp() >= anchor);
     }
 
     @Test

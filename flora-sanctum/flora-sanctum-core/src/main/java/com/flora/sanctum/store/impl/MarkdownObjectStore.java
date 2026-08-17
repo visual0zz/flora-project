@@ -50,20 +50,20 @@ public final class MarkdownObjectStore implements ObjectStore {
         if (codec == null) {
             return data;
         }
-        return codec.decode(block.obfuscated());
+        return codec.decode(block.obfuscated(), block.timestamp());
     }
 
     @Override
-    public void put(UUID blockUuid, byte[] data, Codec codec) {
-        byte[] toWrite = codec == null ? data : codec.encode(data);
+    public void put(UUID blockUuid, byte[] data, Codec codec, long timestamp) {
+        byte[] toWrite = codec == null ? data : codec.encode(data, timestamp);
         // 已有则原位替换，否则新建独立文件
         Block existing = find(blockUuid);
         if (existing != null) {
-            replace(existing, toWrite);
+            replace(existing, toWrite, timestamp);
         } else {
             Path file = root.resolve(blockUuid + ".md");
             try {
-                Files.writeString(file, Base58.encode(toWrite) + "\n", StandardCharsets.UTF_8);
+                Files.writeString(file, timestamp + ":" + Base58.encode(toWrite) + "\n", StandardCharsets.UTF_8);
             } catch (IOException e) {
                 throw new IllegalStateException("write failed: " + file, e);
             }
@@ -78,12 +78,13 @@ public final class MarkdownObjectStore implements ObjectStore {
         }
         try {
             List<String> lines = Files.readAllLines(block.file(), StandardCharsets.UTF_8);
+            String token = block.timestamp() + ":" + block.base58();
             // 独立文件（恰一行且只含该块）→ 物理删
-            if (lines.size() == 1 && lines.get(0).trim().equals(block.base58())) {
+            if (lines.size() == 1 && lines.get(0).trim().equals(token)) {
                 Files.deleteIfExists(block.file());
                 return;
             }
-            // 共享文件 → 软删除：首字符后插入 !（只改该串，保留行内其它正文）
+            // 共享文件 → 软删除：base58 首字符后插入 !（只改该串，保留行内其它正文）
             if (block.base58().length() < 1) {
                 return;
             }
@@ -129,23 +130,28 @@ public final class MarkdownObjectStore implements ObjectStore {
             List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
             for (int i = 0; i < lines.size(); i++) {
                 String line = lines.get(i);
-                // 提取连续 base58 串
+                // 提取 "数字:base58" 块（时间戳前缀 + 冒号 + base58 密文）
                 for (int start = 0; start < line.length(); ) {
-                    int s = start;
-                    while (s < line.length() && !isBase58Char(line.charAt(s))) {
+                    int tsStart = start;
+                    while (tsStart < line.length() && Character.isDigit(line.charAt(tsStart))) {
+                        tsStart++;
+                    }
+                    if (tsStart == start || tsStart >= line.length() || line.charAt(tsStart) != ':') {
+                        start = nextCandidateStart(line, tsStart);
+                        continue;
+                    }
+                    int s = tsStart + 1;
+                    while (s < line.length() && isBase58Char(line.charAt(s))) {
                         s++;
                     }
-                    if (s >= line.length()) {
-                        break;
+                    if (s == tsStart + 1) {
+                        start = nextCandidateStart(line, s);
+                        continue;
                     }
-                    int e = s;
-                    while (e < line.length() && isBase58Char(line.charAt(e))) {
-                        e++;
-                    }
-                    String candidate = line.substring(s, e);
-                    // 软删除块（含 ! 断开）不识别
-                    addIfBlock(file, i + 1, candidate, out);
-                    start = e;
+                    String ts = line.substring(start, tsStart);
+                    String candidate = line.substring(tsStart + 1, s);
+                    addIfBlock(file, i + 1, ts, candidate, out);
+                    start = s;
                 }
             }
         } catch (IOException e) {
@@ -153,7 +159,15 @@ public final class MarkdownObjectStore implements ObjectStore {
         }
     }
 
-    private void addIfBlock(Path file, long line, String candidate, List<Block> out) {
+    /** 跳到下一个可能候选起点：跳过非数字字符，直到下一段连续数字开头。 */
+    private static int nextCandidateStart(String line, int from) {
+        while (from < line.length() && !Character.isDigit(line.charAt(from))) {
+            from++;
+        }
+        return from;
+    }
+
+    private void addIfBlock(Path file, long line, String timestamp, String candidate, List<Block> out) {
         if (candidate.length() < 12) {
             return;
         }
@@ -170,7 +184,7 @@ public final class MarkdownObjectStore implements ObjectStore {
             return;
         }
         if (BlockHeader.isBlock(deobfuscated)) {
-            out.add(new Block(file, line, candidate, bytes, deobfuscated));
+            out.add(new Block(file, line, Long.parseLong(timestamp), candidate, bytes, deobfuscated));
         }
     }
 
@@ -183,13 +197,15 @@ public final class MarkdownObjectStore implements ObjectStore {
         return null;
     }
 
-    private void replace(Block block, byte[] newBytes) {
+    private void replace(Block block, byte[] newBytes, long timestamp) {
         String newBase58 = Base58.encode(newBytes);
+        String oldToken = block.timestamp() + ":" + block.base58();
+        String newToken = timestamp + ":" + newBase58;
         try {
             List<String> lines = Files.readAllLines(block.file(), StandardCharsets.UTF_8);
             int idx = (int) block.line() - 1;
             if (idx >= 0 && idx < lines.size()) {
-                lines.set(idx, lines.get(idx).replace(block.base58(), newBase58));
+                lines.set(idx, lines.get(idx).replace(oldToken, newToken));
                 Files.write(block.file(), lines, StandardCharsets.UTF_8);
             }
         } catch (IOException e) {

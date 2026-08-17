@@ -55,12 +55,12 @@ public final class ExternalKeyService {
         return out;
     }
 
-    /** 用指定外部密钥加密。 */
+    /** 用指定外部密钥加密。内部信封（非块存储）无时间戳，timestamp=0。 */
     public byte[] encrypt(byte[] data, UUID fieldUuid) {
         byte[] keyMaterial = externalKeyMaterial(fieldUuid);
         byte[] encKey = KeyDerivation.encKey(keyMaterial);
         CipherCodec codec = new CipherCodec(encKey, keyMaterial, sanctum.vault().random());
-        return codec.encode(fieldUuid, data, codec.makeKeyIdWith(keyMaterial));
+        return codec.encode(fieldUuid, data, codec.makeKeyIdWith(keyMaterial), 0);
     }
 
     /** 解密：靠密文头 keyId 在 externalKey 密钥索引定位候选，再 tag 试解确证（不遍历全部密钥）。 */
@@ -83,7 +83,7 @@ public final class ExternalKeyService {
             byte[] encKey = KeyDerivation.encKey(keyMaterial);
             CipherCodec codec = new CipherCodec(encKey, keyMaterial, sanctum.vault().random());
             try {
-                return codec.decode(obfuscated).plaintext;
+                return codec.decode(obfuscated, 0).plaintext;
             } catch (IllegalStateException ignore) {
                 // tag 不符 → 试下一个候选（同 keyId 碰撞）
             }
@@ -107,7 +107,6 @@ public final class ExternalKeyService {
         // 外部密钥是条目下的字段，属普通对象树 → 用 data 根 DEK 加密、仓库时间戳（经 TreeContext）
         byte[] dek = sanctum.vault().dekForRole(RootTag.DATA);
         TreeContext ctx = sanctum.objectTree().context();
-        field.put("updateTimestamp", ctx.nextTimestamp());
         ctx.writeWithDek(fieldUuid, field, dek);
         keyIndex.register(keyMaterial); // 新密钥立即入索引，无需全量重建
         return fieldUuid;
@@ -145,7 +144,7 @@ public final class ExternalKeyService {
     }
 
     private JsonObject readNode(Block b) {
-        byte[] plain = sanctum.vault().resolve(b.obfuscated());
+        byte[] plain = sanctum.vault().resolve(b.obfuscated(), b.timestamp());
         if (plain == null) {
             return null;
         }

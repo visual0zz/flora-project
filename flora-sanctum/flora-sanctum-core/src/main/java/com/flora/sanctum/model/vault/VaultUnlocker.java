@@ -54,7 +54,8 @@ byte[] payload = new byte[full.length - com.flora.sanctum.crypto.impl.Envelope.P
             throw e;
         }
         KeyIdIndex index = new KeyIdIndex();
-        Vault vault = new Vault(store, manifest, index, new SecureRandomSource(), kek);
+        long baseTimestamp = maxBlockTimestamp(blocks);
+        Vault vault = new Vault(store, manifest, index, new SecureRandomSource(), kek, baseTimestamp);
         // 4. 用 KEK 试解各 group，找到 KEK 能解开的顶层 root group，解出并登记其 DEK
         discoverRootDeks(vault, kek, blocks);
         // KEK 由 Vault 驻留（锁定/关闭时 clearSecrets）
@@ -130,7 +131,7 @@ byte[] payload = new byte[full.length - com.flora.sanctum.crypto.impl.Envelope.P
         try {
             byte[] encK = com.flora.sanctum.crypto.KeyDerivation.encKey(dk);
             com.flora.sanctum.crypto.impl.CipherCodec gc = new com.flora.sanctum.crypto.impl.CipherCodec(encK, dk, vault.random());
-            return gc.decode(b.obfuscated()).plaintext;
+            return gc.decode(b.obfuscated(), b.timestamp()).plaintext;
         } catch (Exception e) {
             return null;
         }
@@ -140,7 +141,7 @@ byte[] payload = new byte[full.length - com.flora.sanctum.crypto.impl.Envelope.P
         try {
             byte[] encK = com.flora.sanctum.crypto.KeyDerivation.encKey(parentDek);
             com.flora.sanctum.crypto.impl.CipherCodec gc = new com.flora.sanctum.crypto.impl.CipherCodec(encK, parentDek, vault.random());
-            return gc.decode(wrapped).plaintext;
+            return gc.decode(wrapped, 0).plaintext;
         } catch (Exception e) {
             return null;
         }
@@ -153,8 +154,21 @@ byte[] payload = new byte[full.length - com.flora.sanctum.crypto.impl.Envelope.P
         vault.keyIdIndex().register(dek);
     }
 
-    private Block findManifest(List<Block> blocks) {
+    /** 会话时钟锚点 = max(全库最大块时间戳, min(最大+1年, 当前毫秒))（见设计 02"仓库时间戳"）。
+     *  既避免时间回拨导致时钟倒退，又封顶于真实当前时间，防止锚点被 +1 年无限制前移。 */
+    private static long maxBlockTimestamp(List<Block> blocks) {
+        long max = 1;
         for (Block b : blocks) {
+            if (b.timestamp() > max) {
+                max = b.timestamp();
+            }
+        }
+        long plusYear = max + 365L * 24 * 3600 * 1000; // +1 年（毫秒）
+        long cappedNow = Math.min(plusYear, System.currentTimeMillis());
+        return Math.max(max, cappedNow);
+    }
+
+    private Block findManifest(List<Block> blocks) {        for (Block b : blocks) {
             if (b.isPlaintext()) {
                 try {
                     byte[] full = b.deobfuscated();

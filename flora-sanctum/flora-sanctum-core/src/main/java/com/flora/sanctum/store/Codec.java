@@ -7,9 +7,9 @@ package com.flora.sanctum.store;
  */
 public interface Codec {
 
-    /** 编码（加密或恒等），输入解码后的字节，输出落盘前的字节。 */
-    byte[] encode(byte[] data);
+    /** 编码（加密或恒等），输入解码后的字节，输出落盘前的字节。timestamp 为块级时间戳（AAD）。 */
+    byte[] encode(byte[] data, long timestamp);
 
-    /** 解码（解密或恒等），输入落盘字节，输出解码后的字节。 */
-    byte[] decode(byte[] data);
+    /** 解码（解密或恒等），输入落盘字节，输出解码后的字节。timestamp 为块级时间戳（AAD）。 */
+    byte[] decode(byte[] data, long timestamp);
 }

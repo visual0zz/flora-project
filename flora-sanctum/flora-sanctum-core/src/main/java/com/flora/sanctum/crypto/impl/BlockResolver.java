@@ -20,9 +20,11 @@ public final class BlockResolver {
     /**
      * 解析一个密文块（含随机异或混淆的落盘字节）。
      *
+     * @param obfuscatedBlock 落盘块字节
+     * @param timestamp       块级时间戳（重建 AAD）
      * @return 解密负载；候选 DEK 全部试解失败则返回 {@code null}（调用方按"非本库可解"处理）。
      */
-    public byte[] decode(byte[] obfuscatedBlock) {
+    public byte[] decode(byte[] obfuscatedBlock, long timestamp) {
         // 先解异或 + 读 keyId（信封头偏移 MAGIC_LEN+2+16 = 26）
         byte[] block = deobfuscate(obfuscatedBlock);
         int keyIdOff = Envelope.MAGIC_LEN + 2 + 16;
@@ -47,7 +49,7 @@ public final class BlockResolver {
             byte[] encKey = deriveEncKey(dek);
             CipherCodec codec = new CipherCodec(encKey, dek);
             try {
-                return codec.decode(obfuscatedBlock).plaintext;
+                return codec.decode(obfuscatedBlock, timestamp).plaintext;
             } catch (IllegalStateException e) {
                 // tag 验证失败 → 试下一个候选
             }

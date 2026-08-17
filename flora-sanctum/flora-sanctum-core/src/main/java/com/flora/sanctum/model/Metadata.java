@@ -21,21 +21,20 @@ public final class Metadata {
     private final int memoryKiB;
     private final int iterations;
     private final int parallelism;
-    private final long warehouseTime;
     private final long updateTimestamp;
     private final java.nio.file.Path file;
     private final long line;
 
     public Metadata(int version, String cryptoVersion, String kdf, byte[] salt,
                     int memoryKiB, int iterations, int parallelism,
-                    long warehouseTime, long updateTimestamp) {
+                    long updateTimestamp) {
         this(version, cryptoVersion, kdf, salt, memoryKiB, iterations, parallelism,
-                warehouseTime, updateTimestamp, null, -1);
+                updateTimestamp, null, -1);
     }
 
     Metadata(int version, String cryptoVersion, String kdf, byte[] salt,
              int memoryKiB, int iterations, int parallelism,
-             long warehouseTime, long updateTimestamp,
+             long updateTimestamp,
              java.nio.file.Path file, long line) {
         this.version = version;
         this.cryptoVersion = cryptoVersion;
@@ -44,7 +43,6 @@ public final class Metadata {
         this.memoryKiB = memoryKiB;
         this.iterations = iterations;
         this.parallelism = parallelism;
-        this.warehouseTime = warehouseTime;
         this.updateTimestamp = updateTimestamp;
         this.file = file;
         this.line = line;
@@ -54,13 +52,13 @@ public final class Metadata {
     public static Metadata from(Manifest m) {
         return new Metadata(m.version(), m.cryptoVersion(), m.kdf(), m.salt(),
                 m.memoryKiB(), m.iterations(), m.parallelism(),
-                m.warehouseTime(), m.updateTimestamp());
+                m.updateTimestamp());
     }
 
     /** 附加 manifest 块的物理定位（文件+行号），返回新实例。 */
     public Metadata withBlock(java.nio.file.Path file, long line) {
         return new Metadata(version, cryptoVersion, kdf, salt, memoryKiB, iterations, parallelism,
-                warehouseTime, updateTimestamp, file, line);
+                updateTimestamp, file, line);
     }
 
     /** manifest 块所在文件（未定位返回 null）。 */
@@ -101,10 +99,6 @@ public final class Metadata {
         return parallelism;
     }
 
-    public long warehouseTime() {
-        return warehouseTime;
-    }
-
     public long updateTimestamp() {
         return updateTimestamp;
     }
@@ -113,7 +107,7 @@ public final class Metadata {
     public String toString() {
         return "Metadata{v" + version + ", " + cryptoVersion + ", kdf=" + kdf
                 + ", m=" + memoryKiB + ", i=" + iterations + ", p=" + parallelism
-                + ", warehouseTime=" + warehouseTime + "}";
+                + ", updateTimestamp=" + updateTimestamp + "}";
     }
 
     @Override
@@ -122,8 +116,7 @@ public final class Metadata {
             return false;
         }
         return version == m.version && memoryKiB == m.memoryKiB && iterations == m.iterations
-                && parallelism == m.parallelism && warehouseTime == m.warehouseTime
-                && updateTimestamp == m.updateTimestamp
+                && parallelism == m.parallelism && updateTimestamp == m.updateTimestamp
                 && cryptoVersion.equals(m.cryptoVersion) && kdf.equals(m.kdf)
                 && Arrays.equals(salt, m.salt);
     }

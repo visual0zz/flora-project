@@ -7,7 +7,8 @@ import java.util.Base64;
  * manifest 明文引导块（见设计 02"manifest"）。
  * <p>
  * 负载 JSON：{version, type:"manifest", parent:"manifest", cryptoVersion, kdf, salt, params{m,i,p},
- * warehouseTime, updateTimestamp, mac}。明文 + MAC，MAC 覆盖信封头 + 负载全部内容。
+ * updateTimestamp, mac}。明文 + MAC，MAC 覆盖信封头 + 负载全部内容。时间戳存于块前缀（见 04b），
+ * 不依赖仓库锚点持久化。
  */
 public final class Manifest {
 
@@ -19,13 +20,12 @@ public final class Manifest {
     private final int memoryKiB;
     private final int iterations;
     private final int parallelism;
-    private final long warehouseTime;
     private final long updateTimestamp;
     private final byte[] mac;
 
     public Manifest(int version, String parent, String cryptoVersion, String kdf, byte[] salt,
                     int memoryKiB, int iterations, int parallelism,
-                    long warehouseTime, long updateTimestamp, byte[] mac) {
+                    long updateTimestamp, byte[] mac) {
         this.version = version;
         this.parent = parent;
         this.cryptoVersion = cryptoVersion;
@@ -34,7 +34,6 @@ public final class Manifest {
         this.memoryKiB = memoryKiB;
         this.iterations = iterations;
         this.parallelism = parallelism;
-        this.warehouseTime = warehouseTime;
         this.updateTimestamp = updateTimestamp;
         this.mac = mac;
     }
@@ -71,10 +70,6 @@ public final class Manifest {
         return parallelism;
     }
 
-    public long warehouseTime() {
-        return warehouseTime;
-    }
-
     public long updateTimestamp() {
         return updateTimestamp;
     }
@@ -102,7 +97,6 @@ public final class Manifest {
         sb.append(kdf).append('|');
         sb.append(Base64.getEncoder().encodeToString(salt)).append('|');
         sb.append(memoryKiB).append(',').append(iterations).append(',').append(parallelism).append('|');
-        sb.append(warehouseTime).append('|');
         sb.append(updateTimestamp).append('|');
         return sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
@@ -135,7 +129,6 @@ public final class Manifest {
                 params.getInt("m"),
                 params.getInt("i"),
                 params.getInt("p"),
-                n.getLong("warehouseTime") == null ? 1 : n.getLong("warehouseTime"),
                 n.getLong("updateTimestamp") == null ? 1 : n.getLong("updateTimestamp"),
                 Base64.getDecoder().decode(n.getString("mac"))
         );

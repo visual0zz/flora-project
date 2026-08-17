@@ -42,7 +42,6 @@ public final class GroupNode extends ObjectNode {
         }
         UUID parentId = ctx().parentGroupUuid(group);
         group.put("name", newName);
-        group.put("updateTimestamp", ctx().nextTimestamp());
         ctx().write(uuid(), group, parentId);
     }
 

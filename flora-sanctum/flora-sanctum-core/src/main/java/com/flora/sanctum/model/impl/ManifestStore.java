@@ -98,7 +98,6 @@ public final class ManifestStore {
         params.put("i", m.iterations());
         params.put("p", m.parallelism());
         manifest.put("params", params);
-        manifest.put("warehouseTime", m.warehouseTime());
         manifest.put("updateTimestamp", m.updateTimestamp());
         manifest.put("mac", Base64.getEncoder().encodeToString(mac));
         writePlaintextBlock(uuid, manifest);
@@ -122,6 +121,6 @@ public final class ManifestStore {
         System.arraycopy(json, 0, block, Envelope.PLAINTEXT_HEADER_LEN, json.length);
         byte xor = random.nextByte();
         byte[] obf = BlockHeader.obfuscate(block, xor);
-        store.put(uuid, obf, null);
+        store.put(uuid, obf, null, payload.getLong("updateTimestamp"));
     }
 }

@@ -73,7 +73,6 @@ public final class EntryNode extends ObjectNode {
         }
         UUID groupId = ctx().parentGroupUuid(entry);
         entry.put("name", newName);
-        entry.put("updateTimestamp", ctx().nextTimestamp());
         ctx().write(uuid(), entry, groupId);
     }
 
@@ -96,7 +95,6 @@ public final class EntryNode extends ObjectNode {
         }
         entry.put("labels", fields.labels());
         entry.put("updateTime", now);
-        entry.put("updateTimestamp", ctx().nextTimestamp());
         ctx().write(uuid(), entry, groupId);
     }
 
@@ -114,7 +112,6 @@ public final class EntryNode extends ObjectNode {
             entry.put("icon", iconUuid.toString());
             entry.remove("iconId");
         }
-        entry.put("updateTimestamp", ctx().nextTimestamp());
         ctx().write(uuid(), entry, groupId);
     }
 
@@ -131,7 +128,6 @@ public final class EntryNode extends ObjectNode {
         if (kind != null) {
             field.put("kind", kind);
         }
-        field.put("updateTimestamp", ctx().nextTimestamp());
         ctx().write(fieldUuid, field, groupId);
         return tree().field(fieldUuid);
     }

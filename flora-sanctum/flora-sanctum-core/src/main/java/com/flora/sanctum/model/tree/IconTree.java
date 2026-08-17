@@ -50,7 +50,6 @@ public final class IconTree extends DataTree {
         icon.put("parent", context().vault().rootGroupUuid(RootTag.ICON).toString());
         icon.put("data", Base64.getEncoder().encodeToString(data));
         icon.put("format", format);
-        icon.put("updateTimestamp", context().nextTimestamp());
         byte[] dek = context().vault().dekForRole(RootTag.ICON);
         context().writeWithDek(iconUuid, icon, dek);
         return new IconNode(iconUuid, this);

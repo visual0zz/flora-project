@@ -49,14 +49,13 @@ class VaultUnlockerTest {
         params.put("i", 3);
         params.put("p", 4);
         manifest.put("params", params);
-        manifest.put("warehouseTime", 1);
         manifest.put("updateTimestamp", 1);
 
         // 先定 uuid，再计算覆盖 uuid + 全部负载字段的 MAC（与 Manifest.canonical 一致）
         UUID uuid = UUID.randomUUID();
         byte[] payload = JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
         String canonical = uuid + "|1|manifest|manifest|gcm-siv-1|argon2id|" + Base64.getEncoder().encodeToString(salt)
-                + "|65536,3,4|1|1|";
+                + "|65536,3,4|1|";
         byte[] mac = hmac(macKey, canonical.getBytes(StandardCharsets.UTF_8));
         manifest.put("mac", Base64.getEncoder().encodeToString(mac));
         payload = JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
@@ -79,7 +78,7 @@ class VaultUnlockerTest {
         ObjectStore store = new MarkdownObjectStore(dir);
         java.nio.file.Path f = dir.resolve(uuid + ".md");
         try {
-            java.nio.file.Files.writeString(f, Base58.encode(obf) + "\n");
+            java.nio.file.Files.writeString(f, "1:" + Base58.encode(obf) + "\n");
         } catch (java.io.IOException e) {
             throw new IllegalStateException(e);
         }

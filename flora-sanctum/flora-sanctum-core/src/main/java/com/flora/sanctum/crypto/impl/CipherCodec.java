@@ -17,7 +17,9 @@ import java.util.UUID;
  * 密文块格式（加密时真实值）：
  * {@code magic(4)+version(1)+flags(1)+uuid(16)+keyId(4)+nonce(16)+ciphertext+tag(16)}。
  * <p>
- * AAD = 整个信封头（magic‖version‖flags‖uuid‖keyId‖nonce），GCM-SIV tag 全量认证。
+ * AAD = 整个信封头（magic‖version‖flags‖uuid‖keyId‖nonce）‖ 块级时间戳（十进制 UTF-8），
+ * GCM-SIV tag 全量认证。明文负载先 deflate 压缩再加密（降低冗余与长度暴露）。
+ * 时间戳不存于负载 JSON，由块前缀 {@code timestamp:base58} 提供，解码时经参数传入以重建 AAD。
  * 落盘/读盘时，整个字节序列与每块随机 xorByte 逐字节异或；xorByte 不落盘，
  * 读取时从落盘首字节反推：{@code xorByte = bytes[0] ^ MAGIC[0]}。
  */
@@ -40,11 +42,12 @@ public final class CipherCodec {
     /**
      * 加密对象负载，返回含随机异或混淆的落盘块字节（含完整信封 + tag）。
      *
-     * @param uuid       对象 UUID
-     * @param plaintext  明文负载
-     * @param keyId      keyId（4 字节），由调用方提供（DEK 派生）
+     * @param uuid        对象 UUID
+     * @param plaintext   明文负载（将被 deflate 压缩后加密）
+     * @param keyId       keyId（4 字节），由调用方提供（DEK 派生）
+     * @param timestamp   块级时间戳（进入 AAD 认证）
      */
-    public byte[] encode(UUID uuid, byte[] plaintext, byte[] keyId) {
+    public byte[] encode(UUID uuid, byte[] plaintext, byte[] keyId, long timestamp) {
         if (keyId.length != 4) {
             throw new IllegalArgumentException("keyId must be 4 bytes");
         }
@@ -63,12 +66,16 @@ public final class CipherCodec {
         int nonceOff = keyIdOff + 4;
         System.arraycopy(nonce, 0, header, nonceOff, Envelope.NONCE_LEN);
 
-        // GCM-SIV 加密，AAD = header
+        // AAD = 信封头 ‖ 时间戳
+        byte[] aad = concat(header, Long.toString(timestamp).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        byte[] compressed = deflate(plaintext);
+
+        // GCM-SIV 加密，AAD = aad
         GCMSIVBlockCipher cipher = new GCMSIVBlockCipher(new AESEngine());
-        CipherParameters params = new AEADParameters(new KeyParameter(encKey), Envelope.TAG_LEN * 8, nonce, header);
+        CipherParameters params = new AEADParameters(new KeyParameter(encKey), Envelope.TAG_LEN * 8, nonce, aad);
         cipher.init(true, params);
-        byte[] ct = new byte[cipher.getOutputSize(plaintext.length)];
-        int n = cipher.processBytes(plaintext, 0, plaintext.length, ct, 0);
+        byte[] ct = new byte[cipher.getOutputSize(compressed.length)];
+        int n = cipher.processBytes(compressed, 0, compressed.length, ct, 0);
         try {
             n += cipher.doFinal(ct, n);
         } catch (InvalidCipherTextException e) {
@@ -89,8 +96,11 @@ public final class CipherCodec {
 
     /**
      * 解码并解密落盘块（含随机异或混淆）。返回 [uuid, plaintext]。
+     *
+     * @param obfuscated 落盘块字节
+     * @param timestamp  块级时间戳（重建 AAD 认证）
      */
-    public DecodedBlock decode(byte[] obfuscated) {
+    public DecodedBlock decode(byte[] obfuscated, long timestamp) {
         byte[] block = deobfuscate(obfuscated);
         if (block.length < Envelope.HEADER_LEN) {
             throw new IllegalArgumentException("block too short");
@@ -119,8 +129,9 @@ public final class CipherCodec {
         byte[] ciphertext = new byte[block.length - Envelope.HEADER_LEN];
         System.arraycopy(block, Envelope.HEADER_LEN, ciphertext, 0, ciphertext.length);
 
+        byte[] aad = concat(header, Long.toString(timestamp).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
         GCMSIVBlockCipher cipher = new GCMSIVBlockCipher(new AESEngine());
-        CipherParameters params = new AEADParameters(new KeyParameter(encKey), Envelope.TAG_LEN * 8, nonce, header);
+        CipherParameters params = new AEADParameters(new KeyParameter(encKey), Envelope.TAG_LEN * 8, nonce, aad);
         cipher.init(false, params);
         byte[] out = new byte[cipher.getOutputSize(ciphertext.length)];
         int n = cipher.processBytes(ciphertext, 0, ciphertext.length, out, 0);
@@ -129,9 +140,9 @@ public final class CipherCodec {
         } catch (InvalidCipherTextException e) {
             throw new IllegalStateException("decrypt failed: authentication failed", e);
         }
-        byte[] plain = new byte[n];
-        System.arraycopy(out, 0, plain, 0, n);
-        return new DecodedBlock(uuid, plain);
+        byte[] compressed = new byte[n];
+        System.arraycopy(out, 0, compressed, 0, n);
+        return new DecodedBlock(uuid, inflate(compressed));
     }
 
     /** 加密时使用，生成 keyId = byte1 ‖ SHA256(DEK‖byte1)[0:3]。 */
@@ -176,6 +187,43 @@ public final class CipherCodec {
         System.arraycopy(a, 0, r, 0, a.length);
         System.arraycopy(b, 0, r, a.length, b.length);
         return r;
+    }
+
+    /** deflate 压缩明文（RFC 1951 原始流）。 */
+    private static byte[] deflate(byte[] in) {
+        java.util.zip.Deflater def = new java.util.zip.Deflater();
+        def.setInput(in);
+        def.finish();
+        byte[] buf = new byte[8192];
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        while (!def.finished()) {
+            int n = def.deflate(buf);
+            out.write(buf, 0, n);
+        }
+        def.end();
+        return out.toByteArray();
+    }
+
+    /** inflate 解压（对应 deflate）。 */
+    private static byte[] inflate(byte[] in) {
+        java.util.zip.Inflater inf = new java.util.zip.Inflater();
+        inf.setInput(in);
+        byte[] buf = new byte[8192];
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        try {
+            while (!inf.finished()) {
+                int n = inf.inflate(buf);
+                if (n == 0) {
+                    break;
+                }
+                out.write(buf, 0, n);
+            }
+        } catch (java.util.zip.DataFormatException e) {
+            throw new IllegalStateException("inflate failed", e);
+        } finally {
+            inf.end();
+        }
+        return out.toByteArray();
     }
 
     private static byte[] sha256(byte[] in) {

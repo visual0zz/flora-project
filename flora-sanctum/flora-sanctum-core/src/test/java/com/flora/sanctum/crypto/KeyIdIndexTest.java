@@ -36,11 +36,11 @@ class KeyIdIndexTest {
         UUID uuid = UUID.randomUUID();
         byte[] plain = "secret data 密码".getBytes(StandardCharsets.UTF_8);
         byte[] keyId = codec.makeKeyId();
-        byte[] block = codec.encode(uuid, plain, keyId);
+        byte[] block = codec.encode(uuid, plain, keyId, 0);
 
         // 通过 resolver 解析（候选含三个 DEK，应命中 dek2）
         BlockResolver resolver = new BlockResolver(index);
-        byte[] decoded = resolver.decode(block);
+        byte[] decoded = resolver.decode(block, 0);
         assertNotNull(decoded);
         assertArrayEquals(plain, decoded);
     }
@@ -51,12 +51,12 @@ class KeyIdIndexTest {
         byte[] dekUsed = new byte[32];
         rng.nextBytes(dekUsed);
         CipherCodec codec = new CipherCodec(derive(dekUsed), dekUsed, rng);
-        byte[] block = codec.encode(UUID.randomUUID(), "x".getBytes(), codec.makeKeyId());
+        byte[] block = codec.encode(UUID.randomUUID(), "x".getBytes(), codec.makeKeyId(), 0);
 
         // 索引里没有任何 DEK
         KeyIdIndex empty = new KeyIdIndex();
         BlockResolver resolver = new BlockResolver(empty);
-        assertNull(resolver.decode(block));
+        assertNull(resolver.decode(block, 0));
     }
 
     @Test

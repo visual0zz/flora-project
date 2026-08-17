@@ -77,19 +77,12 @@ public final class Sanctum implements AutoCloseable {
         this.trees = null;
     }
 
-    /** 关闭库：更新 warehouseTime 并重写 manifest（含重算 MAC），然后锁定。 */
+    /** 关闭库：锁定（会话时间戳锚点不持久化，见 02"仓库时间戳"）。 */
     @Override
     public void close() {
         if (vault == null) {
             return;
         }
-        vault.clock().close();
-        long newWarehouseTime = vault.clock().warehouseTime();
-        Manifest m = vault.manifest();
-        byte[] macKey = m.manifestMacKey(vault.kek());
-        Manifest updated = new Manifest(m.version(), RootTag.MANIFEST.tag(), m.cryptoVersion(), m.kdf(), m.salt(),
-                m.memoryKiB(), m.iterations(), m.parallelism(), newWarehouseTime, m.updateTimestamp(), new byte[0]);
-        manifestStore.write(updated, macKey);
         lock();
     }
 

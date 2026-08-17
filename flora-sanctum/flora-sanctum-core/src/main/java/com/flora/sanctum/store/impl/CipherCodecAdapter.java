@@ -24,14 +24,14 @@ public final class CipherCodecAdapter implements Codec {
     }
 
     @Override
-    public byte[] encode(byte[] data) {
+    public byte[] encode(byte[] data, long timestamp) {
         byte[] keyId = codec.makeKeyId();
-        return codec.encode(objectUuid, data, keyId);
+        return codec.encode(objectUuid, data, keyId, timestamp);
     }
 
     @Override
-    public byte[] decode(byte[] data) {
-        CipherCodec.DecodedBlock d = codec.decode(data);
+    public byte[] decode(byte[] data, long timestamp) {
+        CipherCodec.DecodedBlock d = codec.decode(data, timestamp);
         return d.plaintext;
     }
 }

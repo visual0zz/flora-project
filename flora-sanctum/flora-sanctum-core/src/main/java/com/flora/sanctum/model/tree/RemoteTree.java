@@ -65,7 +65,6 @@ public final class RemoteTree extends DataTree {
             value.put("keyRef", keyRef);
         }
         remote.put("value", value);
-        remote.put("updateTimestamp", context().nextTimestamp());
         byte[] dek = context().vault().dekForRole(RootTag.DATA);
         context().writeWithDek(remoteUuid, remote, dek);
         return new RemoteNode(remoteUuid, this);

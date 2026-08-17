@@ -69,7 +69,6 @@ public final class FieldNode extends ObjectNode {
     }
 
     private void touchAndWrite(JsonObject field) {
-        field.put("updateTimestamp", ctx().nextTimestamp());
         ctx().write(uuid(), field, groupIdOf(field));
     }
 

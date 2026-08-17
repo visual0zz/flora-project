@@ -10,12 +10,12 @@ import com.flora.sanctum.store.Codec;
 public final class RawCodec implements Codec {
 
     @Override
-    public byte[] encode(byte[] data) {
+    public byte[] encode(byte[] data, long timestamp) {
         return data;
     }
 
     @Override
-    public byte[] decode(byte[] data) {
+    public byte[] decode(byte[] data, long timestamp) {
         return data;
     }
 }

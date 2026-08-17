@@ -49,13 +49,13 @@ public final class MasterKeyRotator {
                 }
                 byte[] plain;
                 try {
-                    plain = oldCodec.decode(b.obfuscated()).plaintext;
+                    plain = oldCodec.decode(b.obfuscated(), b.timestamp()).plaintext;
                 } catch (Exception e) {
                     continue; // 非 KEK 包裹（不期望发生），跳过
                 }
                 JsonObject n = JsonUtil.parseObject(new String(plain, StandardCharsets.UTF_8));
                 byte[] oldWrapped = Base64.getDecoder().decode(n.getString("dek"));
-                byte[] dek = oldCodec.decode(oldWrapped).plaintext;
+                byte[] dek = oldCodec.decode(oldWrapped, 0).plaintext;
                 byte[] newWrapped = ctx.wrapDek(dek, newKek);
                 n = JsonUtil.parseObject(new String(plain, StandardCharsets.UTF_8));
                 n.put("dek", Base64.getEncoder().encodeToString(newWrapped));
@@ -64,7 +64,7 @@ public final class MasterKeyRotator {
             // 更新 manifest 的 MAC（用新 KEK）
             Manifest updated = new Manifest(m.version(), RootTag.MANIFEST.tag(), m.cryptoVersion(), m.kdf(),
                     m.salt(), memoryKiB, iterations, parallelism,
-                    vault.clock().warehouseTime(), m.updateTimestamp(), new byte[0]);
+                    m.updateTimestamp(), new byte[0]);
             byte[] macKey = updated.manifestMacKey(newKek);
             new ManifestStore(ctx.store(), ctx.random()).write(updated, macKey);
             vault.replaceManifest(updated);

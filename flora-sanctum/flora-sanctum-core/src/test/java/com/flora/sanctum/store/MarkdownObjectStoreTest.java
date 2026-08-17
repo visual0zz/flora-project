@@ -37,7 +37,7 @@ class MarkdownObjectStoreTest {
         UUID uuid = UUID.randomUUID();
         byte[] plain = "hello 密码".getBytes(StandardCharsets.UTF_8);
 
-        store.put(uuid, plain, new CipherCodecAdapter(codec, uuid));
+        store.put(uuid, plain, new CipherCodecAdapter(codec, uuid), 1);
         byte[] got = store.get(uuid, new CipherCodecAdapter(codec, uuid));
         assertArrayEquals(plain, got);
     }
@@ -47,7 +47,7 @@ class MarkdownObjectStoreTest {
         MarkdownObjectStore store = newStore();
         CipherCodec codec = newCodec();
         UUID uuid = UUID.randomUUID();
-        store.put(uuid, "data".getBytes(), new CipherCodecAdapter(codec, uuid));
+        store.put(uuid, "data".getBytes(), new CipherCodecAdapter(codec, uuid), 1);
         assertTrue(java.nio.file.Files.exists(dir.resolve(uuid + ".md")));
         List<Block> blocks = store.scan();
         assertEquals(1, blocks.size());
@@ -59,8 +59,8 @@ class MarkdownObjectStoreTest {
         MarkdownObjectStore store = newStore();
         CipherCodec codec = newCodec();
         UUID uuid = UUID.randomUUID();
-        store.put(uuid, "v1".getBytes(), new CipherCodecAdapter(codec, uuid));
-        store.put(uuid, "v2-updated".getBytes(), new CipherCodecAdapter(codec, uuid));
+        store.put(uuid, "v1".getBytes(), new CipherCodecAdapter(codec, uuid), 1);
+        store.put(uuid, "v2-updated".getBytes(), new CipherCodecAdapter(codec, uuid), 2);
         byte[] got = store.get(uuid, new CipherCodecAdapter(codec, uuid));
         assertArrayEquals("v2-updated".getBytes(), got);
         // 仍是一个文件一个块
@@ -72,7 +72,7 @@ class MarkdownObjectStoreTest {
         MarkdownObjectStore store = newStore();
         CipherCodec codec = newCodec();
         UUID uuid = UUID.randomUUID();
-        store.put(uuid, "data".getBytes(), new CipherCodecAdapter(codec, uuid));
+        store.put(uuid, "data".getBytes(), new CipherCodecAdapter(codec, uuid), 1);
         store.delete(uuid);
         assertFalse(java.nio.file.Files.exists(dir.resolve(uuid + ".md")));
         assertTrue(store.scan().isEmpty());
@@ -84,14 +84,16 @@ class MarkdownObjectStoreTest {
         CipherCodec codec = newCodec();
         UUID u1 = UUID.randomUUID();
         UUID u2 = UUID.randomUUID();
-        store.put(u1, "block-one-data".getBytes(), new CipherCodecAdapter(codec, u1));
-        store.put(u2, "block-two-data".getBytes(), new CipherCodecAdapter(codec, u2));
-        // 取两个块的 base58，合并进一个共享文件
-        String b1 = store.scan().stream().filter(b -> b.uuid().equals(u1)).findFirst().get().base58();
-        String b2 = store.scan().stream().filter(b -> b.uuid().equals(u2)).findFirst().get().base58();
+        store.put(u1, "block-one-data".getBytes(), new CipherCodecAdapter(codec, u1), 1);
+        store.put(u2, "block-two-data".getBytes(), new CipherCodecAdapter(codec, u2), 2);
+        // 取两个块的 时间戳:base58 token，合并进一个共享文件
+        Block b1b = store.scan().stream().filter(b -> b.uuid().equals(u1)).findFirst().get();
+        Block b2b = store.scan().stream().filter(b -> b.uuid().equals(u2)).findFirst().get();
+        String t1 = b1b.timestamp() + ":" + b1b.base58();
+        String t2 = b2b.timestamp() + ":" + b2b.base58();
         java.nio.file.Files.delete(dir.resolve(u1 + ".md"));
         java.nio.file.Files.delete(dir.resolve(u2 + ".md"));
-        java.nio.file.Files.writeString(dir.resolve("shared.md"), b1 + "\n" + b2 + "\n");
+        java.nio.file.Files.writeString(dir.resolve("shared.md"), t1 + "\n" + t2 + "\n");
 
         // 删除 u1 → 软删除（首字符后插 !）
         store.delete(u1);

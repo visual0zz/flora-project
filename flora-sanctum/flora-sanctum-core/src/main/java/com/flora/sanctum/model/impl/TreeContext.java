@@ -39,7 +39,7 @@ public final class TreeContext {
 
     private void scanAll() {
         for (Block b : store.scan()) {
-            byte[] plain = vault.resolve(b.obfuscated());
+            byte[] plain = vault.resolve(b.obfuscated(), b.timestamp());
             if (plain == null) {
                 continue;
             }
@@ -121,7 +121,8 @@ public final class TreeContext {
         byte[] json = JsonUtil.toJsonString(payload).getBytes(StandardCharsets.UTF_8);
         byte[] encKey = KeyDerivation.encKey(dek);
         CipherCodec codec = new CipherCodec(encKey, dek, vault.random());
-        store.put(uuid, json, new CipherCodecAdapter(codec, uuid));
+        long ts = nextTimestamp();
+        store.put(uuid, json, new CipherCodecAdapter(codec, uuid), ts);
         objects.put(uuid, payload);
     }
 
@@ -140,20 +141,19 @@ public final class TreeContext {
         return vault.dekForRole(RootTag.DATA);
     }
 
-    /** 用父 DEK 包裹一个 DEK（AES-GCM-SIV，nonce 随机）。 */
+    /** 用父 DEK 包裹一个 DEK（AES-GCM-SIV，nonce 随机；内部信封无块时间戳，timestamp=0）。 */
     public byte[] wrapDek(byte[] dek, byte[] parentDek) {
         byte[] encKey = KeyDerivation.encKey(parentDek);
         CipherCodec codec = new CipherCodec(encKey, parentDek, vault.random());
-        return codec.encode(UUID.randomUUID(), dek, codec.makeKeyIdWith(parentDek));
+        return codec.encode(UUID.randomUUID(), dek, codec.makeKeyIdWith(parentDek), 0);
     }
 
-    /** 计算本次写入的 updateTimestamp（仓库时间戳规则：max(会话偏移+锚点, 全库最大)）。 */
+    /** 计算本次写入的时间戳（仓库时间戳规则：max(会话锚点+单调偏移, 全库当前最大块时间戳)）。 */
     public long nextTimestamp() {
         long maxExisting = 1;
-        for (JsonObject n : objects.values()) {
-            Long t = n.getLong("updateTimestamp");
-            if (t != null && t > maxExisting) {
-                maxExisting = t;
+        for (Block b : store.scan()) {
+            if (b.timestamp() > maxExisting) {
+                maxExisting = b.timestamp();
             }
         }
         return vault.clock().nextTimestamp(maxExisting);

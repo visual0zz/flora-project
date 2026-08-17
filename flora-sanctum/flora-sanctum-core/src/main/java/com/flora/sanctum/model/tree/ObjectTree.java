@@ -96,7 +96,6 @@ public final class ObjectTree extends DataTree {
         group.put("name", name);
         group.put("parent", parentId == null ? RootTag.DATA.tag() : parentId.toString());
         group.put("dek", Base64.getEncoder().encodeToString(wrapped));
-        group.put("updateTimestamp", context().nextTimestamp());
         context().write(groupUuid, group, parentId);
         context().vault().addFolderDek(groupUuid, dek);
         return new GroupNode(groupUuid, this);
@@ -111,7 +110,6 @@ public final class ObjectTree extends DataTree {
     public EntryNode createEntry(UUID groupId, String name, EntryFields fields, Integer iconId, UUID iconUuid) {
         UUID entryUuid = UUID.randomUUID();
         long now = System.currentTimeMillis();
-        long ts = context().nextTimestamp();
         JsonObject entry = new JsonObject();
         entry.put("version", 1);
         entry.put("type", "entry");
@@ -137,7 +135,6 @@ public final class ObjectTree extends DataTree {
         }
         entry.put("createTime", now);
         entry.put("updateTime", now);
-        entry.put("updateTimestamp", ts);
         context().write(entryUuid, entry, groupId);
         return new EntryNode(entryUuid, this);
     }

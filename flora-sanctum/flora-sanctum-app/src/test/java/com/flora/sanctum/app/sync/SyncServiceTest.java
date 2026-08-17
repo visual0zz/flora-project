@@ -38,13 +38,9 @@ class SyncServiceTest {
         srcSync.initIfNeeded();
         srcSync.commit("v1");
 
-        // 克隆到目标
+        // 克隆到目标（本地 git）
         Path dst = dir.resolve("dst");
-        org.eclipse.jgit.api.Git.cloneRepository()
-                .setURI(src.toUri().toString())
-                .setDirectory(dst.toFile())
-                .call()
-                .close();
+        new SyncService(src).clone(src.toUri().toString(), dst);
 
         assertTrue(Files.isDirectory(dst.resolve(".git")));
         assertTrue(Files.list(dst).count() > 0);

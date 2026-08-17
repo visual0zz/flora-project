@@ -36,26 +36,6 @@
             <artifactId>jsvg</artifactId>
             <version>2.0.0</version>
         </dependency>
-        <!-- JNA：Windows 标题栏颜色覆盖（DWMWA_CAPTION_COLOR，Win11+） -->
-        <dependency>
-            <groupId>net.java.dev.jna</groupId>
-            <artifactId>jna</artifactId>
-            <version>5.14.0</version>
-        </dependency>
-        <dependency>
-            <groupId>net.java.dev.jna</groupId>
-            <artifactId>jna-platform</artifactId>
-            <version>5.14.0</version>
-        </dependency>
-        <!-- Git 同步（JGit + SSH 传输，自 core 迁入） -->
-        <dependency>
-            <groupId>org.eclipse.jgit</groupId>
-            <artifactId>org.eclipse.jgit</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.jgit</groupId>
-            <artifactId>org.eclipse.jgit.ssh.apache</artifactId>
-        </dependency>
     </dependencies>
 
     <build>

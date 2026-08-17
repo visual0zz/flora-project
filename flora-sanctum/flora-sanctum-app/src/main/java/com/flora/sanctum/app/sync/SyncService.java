@@ -1,27 +1,34 @@
 package com.flora.sanctum.app.sync;
 
-import org.eclipse.jgit.api.Git;
-import org.eclipse.jgit.api.RebaseCommand;
-import org.eclipse.jgit.api.Status;
-import org.eclipse.jgit.lib.Repository;
-import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
-
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Git 同步封装（见设计 06"Git 同步"）。
+ * Git 同步封装（见设计 06"Git 同步"），基于本地 git 命令（ProcessBuilder），无 jgit 依赖。
  * <p>
  * 同步是可选能力，仅当库目录命中"完全托管"时使用。流程：
- * 更新 manifest → commit 全部改动 → 对每个远端 fetch+pull --rebase+冲突自动解决 → push。
- * 本阶段实现基础：init（缺）、commit、pull --rebase、push（默认 origin）。
+ * init（缺）→ commit 全部改动 → 对 origin fetch+pull --rebase+冲突自动解决 → push。
+ * <p>
+ * 冲突仲裁（见设计 06）：冲突发生在同一文件被两端同时修改时。按块时间戳（落盘
+ * {@code timestamp:base58} 冒号前数字）大者 wins；被覆盖方复制到 {@code .conflict} 供核查。
+ * <p>
+ * SSH 私钥经 {@link #setSshCommand} 指定（{@code GIT_SSH_COMMAND} 注入，临时进程级，不写全局配置）。
  */
 public final class SyncService {
 
     private final Path root;
+    private String sshCommand;
 
     public SyncService(Path root) {
         this.root = root;
+    }
+
+    /** 设置本次同步使用的 SSH 命令（如 {@code "ssh -i /path/key -o IdentitiesOnly=yes"}）。 */
+    public void setSshCommand(String sshCommand) {
+        this.sshCommand = sshCommand;
     }
 
     /** 是否已是 git 仓库。 */
@@ -32,22 +39,7 @@ public final class SyncService {
     /** 初始化 git 仓库（若缺）。 */
     public void initIfNeeded() throws Exception {
         if (!isGitRepo()) {
-            Git.init().setDirectory(root.toFile()).call().close();
-        }
-    }
-
-    /** 提交全部改动。作者信息可配置，默认 sanctum <local>。 */
-    public void commit(String message) throws Exception {
-        try (Repository repo = openRepo();
-             Git git = new Git(repo)) {
-            git.add().addFilepattern(".").call();
-            Status status = git.status().call();
-            if (status.isClean()) {
-                return;
-            }
-            git.commit().setMessage(message)
-                    .setAuthor("sanctum", "local@sanctum")
-                    .call();
+            run("init");
         }
     }
 
@@ -77,93 +69,123 @@ public final class SyncService {
         }
     }
 
-    /** pull --rebase + push 到 origin。冲突按 updateTimestamp 自动解决（见设计 06）。 */
+    /** 提交全部改动。作者信息可配置，默认 sanctum <local>。无改动则 no-op。 */
+    public void commit(String message) throws Exception {
+        run("add", "-A");
+        String status = run("status", "--porcelain");
+        if (status.isBlank()) {
+            return;
+        }
+        run("commit", "-m", message,
+                "--author=Sanctum <local@sanctum>",
+                "--no-verify");
+    }
+
+    /** pull --rebase + push 到 origin。冲突按时间戳自动解决（见设计 06）。 */
     public void sync() throws Exception {
         initIfNeeded();
         commit("sanctum sync");
-        try (Repository repo = openRepo();
-             Git git = new Git(repo)) {
-            if (git.remoteList().call().stream().anyMatch(r -> "origin".equals(r.getName()))) {
-                org.eclipse.jgit.api.PullResult pull = git.pull().setRemote("origin").setRebase(true).call();
-                org.eclipse.jgit.api.RebaseResult result = pull.getRebaseResult();
-                // 若 rebase 冲突，按 updateTimestamp 自动解决
-                if (result != null && result.getStatus() == org.eclipse.jgit.api.RebaseResult.Status.CONFLICTS) {
-                    resolveConflicts(git, repo);
-                    git.rebase().setOperation(RebaseCommand.Operation.CONTINUE).call();
-                }
-            }
-            git.push().setRemote("origin").call();
+        run("fetch", "origin");
+        String rebase = run("rebase", "origin");
+        if (rebase.contains("CONFLICT")) {
+            resolveConflicts();
+            run("rebase", "--continue");
         }
+        run("push", "origin", "HEAD");
     }
 
-    /** 冲突自动解决：读 ours/theirs，按 updateTimestamp 大者 wins；对方版本记 .conflict。 */
-    private void resolveConflicts(Git git, Repository repo) throws Exception {
-        for (String path : git.status().call().getConflicting()) {
-            byte[] ours = readBlob(repo, path, "ours");
-            byte[] theirs = readBlob(repo, path, "theirs");
-            long oursTs = tsOf(ours);
-            long theirsTs = tsOf(theirs);
-            byte[] winner = oursTs >= theirsTs ? ours : theirs;
-            byte[] loser = oursTs >= theirsTs ? theirs : ours;
-            java.nio.file.Path target = root.resolve(path);
-            if (target.getParent() != null) {
-                Files.createDirectories(target.getParent());
+    /** 克隆远程仓库到本地目录（用于从远端恢复库）。 */
+    public void clone(String uri, Path target) throws Exception {
+        runIn(target.getParent(), "clone", uri, target.getFileName().toString());
+    }
+
+    /** 冲突自动解决：对每个冲突文件读 ours/theirs，按时间戳大者 wins；被覆盖方记 .conflict。 */
+    private void resolveConflicts() throws Exception {
+        String status = run("status", "--porcelain");
+        for (String line : status.split("\n")) {
+            if (line.isBlank()) {
+                continue;
             }
-            Files.write(target, winner);
-            git.add().addFilepattern(path).call();
-            if (loser != null) {
-                java.nio.file.Path conflictFile = root.resolve(".conflict/" + path.replace('/', '_'));
-                if (conflictFile.getParent() != null) {
-                    Files.createDirectories(conflictFile.getParent());
+            // 未合并冲突文件：首位两个状态码，其后为路径（含 rename 的用 -> 分隔取右侧）
+            if (line.startsWith("UU")) {
+                String path = line.substring(3).trim();
+                int arrow = path.indexOf("->");
+                if (arrow >= 0) {
+                    path = path.substring(arrow + 2).trim();
                 }
-                Files.write(conflictFile, loser);
+                resolveFile(path);
             }
         }
     }
 
-    private long tsOf(byte[] block) {
+    private void resolveFile(String path) throws Exception {
+        byte[] ours = runBytes("show", ":2:" + path);
+        byte[] theirs = runBytes("show", ":3:" + path);
+        long oursTs = tsOf(ours);
+        long theirsTs = tsOf(theirs);
+        boolean oursWins = oursTs >= theirsTs;
+        byte[] winner = oursWins ? ours : theirs;
+        byte[] loser = oursWins ? theirs : ours;
+        Path target = root.resolve(path);
+        if (target.getParent() != null) {
+            Files.createDirectories(target.getParent());
+        }
+        Files.write(target, winner);
+        if (loser != null) {
+            Path conflictFile = root.resolve(".conflict/" + path.replace('/', '_'));
+            if (conflictFile.getParent() != null) {
+                Files.createDirectories(conflictFile.getParent());
+            }
+            Files.write(conflictFile, loser);
+        }
+        run("add", "--", path);
+    }
+
+    /** 从块内容解析时间戳：落盘格式 {@code timestamp:base58}，时间戳为冒号前数字（见设计 04b）。 */
+    private static long tsOf(byte[] block) {
         if (block == null) {
             return 0;
         }
         try {
-            byte[] deobf = com.flora.sanctum.store.BlockHeader.deobfuscate(block);
-            if (!com.flora.sanctum.store.BlockHeader.isBlock(deobf)) {
+            String text = new String(block, StandardCharsets.UTF_8).trim();
+            int colon = text.indexOf(':');
+            if (colon <= 0) {
                 return 0;
             }
-            // 明文块负载从 PLAINTEXT_HEADER_LEN；flags 偏移 MAGIC_LEN+1 = 9（见设计 02）
-            if (deobf.length > com.flora.sanctum.store.BlockFormat.MAGIC_LEN + 1
-                    && (deobf[com.flora.sanctum.store.BlockFormat.MAGIC_LEN + 1] & 0x02) != 0) {
-                byte[] payload = new byte[deobf.length - com.flora.sanctum.store.BlockFormat.PLAINTEXT_HEADER_LEN];
-                System.arraycopy(deobf, com.flora.sanctum.store.BlockFormat.PLAINTEXT_HEADER_LEN, payload, 0, payload.length);
-                com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(
-                        new String(payload, java.nio.charset.StandardCharsets.UTF_8));
-                Long ts = n.getLong("updateTimestamp");
-                return ts == null ? 0 : ts;
-            }
-        } catch (Exception ignore) {
+            return Long.parseLong(text.substring(0, colon));
+        } catch (NumberFormatException | IndexOutOfBoundsException e) {
+            return 0;
         }
-        return 0;
     }
 
-    private byte[] readBlob(Repository repo, String path, String stage) throws Exception {
-        int want = "theirs".equals(stage) ? 3 : 2; // stage: 1=base, 2=ours, 3=theirs
-        var index = repo.readDirCache();
-        for (int i = 0; i < index.getEntryCount(); i++) {
-            var entry = index.getEntry(i);
-            if (entry.getStage() == want && entry.getPathString().equals(path)) {
-                try (var reader = repo.newObjectReader()) {
-                    var obj = reader.open(entry.getObjectId());
-                    return obj.getBytes();
-                }
-            }
-        }
-        return null;
+    private String run(String... args) throws Exception {
+        return new String(runBytes(args), StandardCharsets.UTF_8);
     }
 
-    private Repository openRepo() throws Exception {
-        FileRepositoryBuilder builder = new FileRepositoryBuilder();
-        builder.setWorkTree(root.toFile());
-        builder.setMustExist(true);
-        return builder.build();
+    private byte[] runBytes(String... args) throws Exception {
+        return runIn(root, args);
+    }
+
+    private byte[] runIn(Path cwd, String... args) throws Exception {
+        List<String> cmd = new ArrayList<>();
+        cmd.add("git");
+        for (String a : args) {
+            cmd.add(a);
+        }
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        pb.directory(cwd.toFile());
+        pb.redirectErrorStream(true);
+        if (sshCommand != null && !sshCommand.isBlank()) {
+            pb.environment().put("GIT_SSH_COMMAND", sshCommand);
+        }
+        Process p = pb.start();
+        byte[] out = p.getInputStream().readAllBytes();
+        int exit = p.waitFor();
+        if (exit != 0) {
+            throw new java.io.IOException(
+                    "git " + String.join(" ", args) + " failed (exit " + exit + "): "
+                            + new String(out, StandardCharsets.UTF_8));
+        }
+        return out;
     }
 }

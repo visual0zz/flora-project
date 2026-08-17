@@ -26,18 +26,6 @@
                 <artifactId>bcprov-jdk18on</artifactId>
                 <version>1.80</version>
             </dependency>
-            <!-- Git：JGit（commit/push/pull） -->
-            <dependency>
-                <groupId>org.eclipse.jgit</groupId>
-                <artifactId>org.eclipse.jgit</artifactId>
-                <version>6.10.0.202406032230-r</version>
-            </dependency>
-            <!-- JGit SSH 传输（基于 Apache MINA SSHD） -->
-            <dependency>
-                <groupId>org.eclipse.jgit</groupId>
-                <artifactId>org.eclipse.jgit.ssh.apache</artifactId>
-                <version>6.10.0.202406032230-r</version>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 

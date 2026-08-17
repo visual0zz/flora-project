@@ -20,10 +20,6 @@ module com.flora.sanctum.app {
     requires java.logging;
     requires java.net.http;
     requires jdk.httpserver;
-    requires org.eclipse.jgit;
-    requires org.eclipse.jgit.ssh.apache;
     requires com.formdev.flatlaf;
     requires com.github.weisj.jsvg;
-    requires com.sun.jna;
-    requires com.sun.jna.platform;
 }

@@ -115,8 +115,6 @@ public final class SanctumGui {
             frame.setSize(520, 400);
             frame.setLocationRelativeTo(null);
             frame.setVisible(true);
-            // Windows 标题栏颜色需窗口已显示后才能取到 HWND
-            SwingUtilities.invokeLater(this::applyWindowsTitleBar);
         });
     }
 
@@ -172,50 +170,6 @@ public final class SanctumGui {
     /** macOS：标题栏颜色由系统默认（避免 draggableWindowBackground 劫持 JSplitPane divider 拖动）。 */
     private void applyMacTitleBar() {
         // 故意为空：保留 macOS 系统标题栏（含红黄绿按钮 + 拖动）不被自定义行为劫持
-    }
-
-    /** Windows：Win11 DWM 设置标题栏颜色（DWMWA_CAPTION_COLOR）；旧版本忽略。 */
-    private void applyWindowsTitleBar() {
-        if (!isWindows() || !isWin11()) {
-            return;
-        }
-        try {
-            com.sun.jna.platform.win32.WinDef.HWND hwnd =
-                    new com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Native.getComponentPointer(frame));
-            // DWMWA_CAPTION_COLOR = 35；COLORREF = 0x00BBGGRR（R 在低字节）。偏暖黄 #F5EBD0
-            int color = 0xF5 | (0xEB << 8) | (0xD0 << 16);
-            com.sun.jna.Memory mem = new com.sun.jna.Memory(4);
-            mem.setInt(0, color);
-            Dwm.INSTANCE.DwmSetWindowAttribute(hwnd, 35, mem, 4);
-        } catch (Throwable ignore) {
-            // 不支持则保留系统默认标题栏
-        }
-    }
-
-    private static boolean isWindows() {
-        return System.getProperty("os.name", "").toLowerCase().contains("win");
-    }
-
-    /** Windows 11 build >= 22000 才支持 DWMWA_CAPTION_COLOR。 */
-    private static boolean isWin11() {
-        String v = System.getProperty("os.version", "");
-        int dot = v.lastIndexOf('.');
-        if (dot < 0) {
-            return false;
-        }
-        try {
-            return Integer.parseInt(v.substring(dot + 1)) >= 22000;
-        } catch (NumberFormatException e) {
-            return false;
-        }
-    }
-
-    /** dwmapi.dll 最小绑定（DwmSetWindowAttribute 用于标题栏颜色）。 */
-    private interface Dwm extends com.sun.jna.win32.StdCallLibrary {
-        Dwm INSTANCE = com.sun.jna.Native.load("dwmapi", Dwm.class);
-
-        int DwmSetWindowAttribute(com.sun.jna.platform.win32.WinDef.HWND hwnd,
-                                  int attribute, com.sun.jna.Pointer value, int size);
     }
 
     private static boolean isMac() {

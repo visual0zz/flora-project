@@ -202,60 +202,9 @@ public final class SanctumGui {
         return System.getProperty("os.name", "").toLowerCase().contains("mac");
     }
 
-    /** 白灰偏暖黄色调：仿 CodeBuddy 极简白灰，但背景略偏纸黄。 */
+    /** 白灰偏暖黄色调：仿 CodeBuddy 极简白灰，但背景略偏纸黄。统一主题见 {@link UiTheme}。 */
     private void applyPaperTheme() {
-        java.awt.Color paper = new java.awt.Color(0xF8, 0xF4, 0xE9);
-        java.awt.Color paperLight = new java.awt.Color(0xF1, 0xED, 0xE1); // 按钮/下拉等控件底色（暖浅）
-        java.awt.Color fieldWhite = new java.awt.Color(0xFF, 0xFF, 0xFF); // 编辑框纯白
-        java.awt.Color ink = new java.awt.Color(0x5A, 0x55, 0x4D); // 文字图标淡灰棕
-        java.awt.Color divider = new java.awt.Color(0xD8, 0xD2, 0xC0);
-        java.awt.Color selectionBg = new java.awt.Color(0xE4, 0xDD, 0xC9); // 暖灰棕选中（焦点/失焦一致）
-        javax.swing.UIManager.put("Panel.background", paper);
-        javax.swing.UIManager.put("Panel.foreground", ink);
-        javax.swing.UIManager.put("Label.foreground", ink);
-        javax.swing.UIManager.put("Component.background", paper);
-        javax.swing.UIManager.put("Component.foreground", ink);
-        javax.swing.UIManager.put("TextField.background", fieldWhite);
-        javax.swing.UIManager.put("TextField.foreground", ink);
-        javax.swing.UIManager.put("TextArea.background", fieldWhite);
-        javax.swing.UIManager.put("TextArea.foreground", ink);
-        javax.swing.UIManager.put("PasswordField.background", fieldWhite);
-        javax.swing.UIManager.put("PasswordField.foreground", ink);
-        javax.swing.UIManager.put("Tree.background", paper);
-        javax.swing.UIManager.put("Tree.foreground", ink);
-        javax.swing.UIManager.put("Tree.selectionBackground", selectionBg);
-        javax.swing.UIManager.put("Tree.selectionInactiveBackground", selectionBg);
-        javax.swing.UIManager.put("Tree.selectionForeground", ink);
-        javax.swing.UIManager.put("List.background", paper);
-        javax.swing.UIManager.put("List.foreground", ink);
-        javax.swing.UIManager.put("List.selectionBackground", selectionBg);
-        javax.swing.UIManager.put("List.selectionInactiveBackground", selectionBg);
-        javax.swing.UIManager.put("List.selectionForeground", ink);
-        javax.swing.UIManager.put("Table.background", paper);
-        javax.swing.UIManager.put("Table.foreground", ink);
-        javax.swing.UIManager.put("Table.selectionBackground", selectionBg);
-        javax.swing.UIManager.put("Table.selectionInactiveBackground", selectionBg);
-        javax.swing.UIManager.put("Table.selectionForeground", ink);
-        javax.swing.UIManager.put("Viewport.background", paper);
-        javax.swing.UIManager.put("ScrollPane.background", paper);
-        javax.swing.UIManager.put("ScrollPane.border", javax.swing.BorderFactory.createEmptyBorder());
-        javax.swing.UIManager.put("Button.background", paperLight);
-        javax.swing.UIManager.put("Button.foreground", ink);
-        javax.swing.UIManager.put("ComboBox.background", paperLight);
-        javax.swing.UIManager.put("ComboBox.foreground", ink);
-        javax.swing.UIManager.put("Spinner.background", paperLight);
-        javax.swing.UIManager.put("Spinner.foreground", ink);
-        javax.swing.UIManager.put("ToolBar.background", paper);
-        javax.swing.UIManager.put("ToolBar.border", javax.swing.BorderFactory.createEmptyBorder());
-        javax.swing.UIManager.put("SplitPane.dividerSize", 1);
-        javax.swing.UIManager.put("SplitPane.background", divider);
-        javax.swing.UIManager.put("SplitPaneDivider.border",
-                javax.swing.BorderFactory.createLineBorder(divider));
-        javax.swing.UIManager.put("TitledBorder.border",
-                javax.swing.BorderFactory.createLineBorder(divider));
-        javax.swing.UIManager.put("TitledBorder.titleColor", ink);
-        javax.swing.UIManager.put("TableHeader.background", paperLight);
-        javax.swing.UIManager.put("TableHeader.foreground", ink);
+        UiTheme.apply();
     }
 
     // ---- 系统托盘 ----
@@ -291,7 +240,7 @@ public final class SanctumGui {
     // ================= 解锁屏 =================
 
     private JPanel buildUnlockPanel() {
-        JPanel panel = new PaperPanel(new BorderLayout());
+        JPanel panel = new UiTheme.PaperPanel(new BorderLayout());
         panel.setBorder(new EmptyBorder(16, 20, 16, 20));
 
         JLabel title = new JLabel("flora-sanctum");
@@ -504,7 +453,7 @@ public final class SanctumGui {
     // ================= 主界面 =================
 
     private JPanel buildMainPanel() {
-        JPanel root = new PaperPanel(new BorderLayout());
+        JPanel root = new UiTheme.PaperPanel(new BorderLayout());
 
         // 顶部工具栏（SVG 图标按钮 + tooltip，去文字标签；尺寸 24→29 ≈ +20%）
         newEntryBtn = iconButton(SvgIcon.get("new-entry", 29), "新建条目");
@@ -1688,51 +1637,6 @@ public final class SanctumGui {
         dialog.setSize(320, 320);
         dialog.setLocationRelativeTo(frame);
         dialog.setVisible(true);
-    }
-
-    /** 纸感底纹背景面板：确定性平滑值噪声按面板尺寸整体渲染（函数全局连续，平铺无接缝）。 */
-    private static final class PaperPanel extends JPanel {
-        private BufferedImage cached;
-        private int cachedW = -1;
-        private int cachedH = -1;
-
-        PaperPanel(LayoutManager layout) {
-            super(layout);
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            int w = getWidth();
-            int h = getHeight();
-            if (w <= 0 || h <= 0) {
-                return;
-            }
-            if (cached == null || cachedW != w || cachedH != h) {
-                cached = renderPaper(w, h);
-                cachedW = w;
-                cachedH = h;
-            }
-            g.drawImage(cached, 0, 0, null);
-        }
-
-        /** 按面板尺寸渲染暖白纸纤维噪声图（复用 flora-root PaperNoise，基色 #F8F4E9，幅度 ±25）。 */
-        private static BufferedImage renderPaper(int w, int h) {
-            BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
-            int[] px = new int[w * h];
-            for (int y = 0; y < h; y++) {
-                for (int x = 0; x < w; x++) {
-                    float n = com.flora.root.graphics.noise.PaperNoise.paper(x, y);
-                    int d = (int) Math.round(n * 25);
-                    int r = com.flora.root.graphics.noise.PaperNoise.clamp(0xF8 + d);
-                    int g = com.flora.root.graphics.noise.PaperNoise.clamp(0xF4 + d);
-                    int b = com.flora.root.graphics.noise.PaperNoise.clamp(0xE9 + d);
-                    px[y * w + x] = (r << 16) | (g << 8) | b;
-                }
-            }
-            img.setRGB(0, 0, w, h, px, 0, w);
-            return img;
-        }
     }
 
     /** 组树渲染器：按 userObject 类型渲染文本（RootTag→区段展示名；UUID→group name；其它 fallback）。 */

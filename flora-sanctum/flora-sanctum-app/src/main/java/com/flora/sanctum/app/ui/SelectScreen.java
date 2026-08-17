@@ -5,8 +5,6 @@ import com.flora.sanctum.app.bootstrap.RepoImporter;
 import com.flora.sanctum.app.bootstrap.VaultForm;
 import com.flora.root.codec.json.model.JsonObject;
 
-import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -14,11 +12,8 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.nio.file.Path;
@@ -43,7 +38,8 @@ public final class SelectScreen {
     }
 
     public void show() {
-        JPanel root = new JPanel(new BorderLayout(0, 16));
+        UiTheme.apply();
+        JPanel root = new UiTheme.PaperPanel(new BorderLayout(0, 16));
         root.setBorder(new EmptyBorder(24, 28, 24, 28));
 
         JLabel title = new JLabel("flora-sanctum");
@@ -52,6 +48,7 @@ public final class SelectScreen {
         root.add(title, BorderLayout.NORTH);
 
         JPanel buttons = new JPanel(new GridLayout(1, 3, 12, 0));
+        buttons.setOpaque(false);
         buttons.add(makeButton("新建", "建立一个新的密码仓库（普通或独立）", this::newVault));
         buttons.add(makeButton("导入", "从远程 git 仓库克隆导入", this::importVault));
         buttons.add(makeButton("打开", "打开已存在的仓库", this::openVault));
@@ -106,6 +103,7 @@ public final class SelectScreen {
 
     private void importVault() {
         JPanel form = new JPanel(new GridLayout(2, 2, 8, 8));
+        form.setOpaque(false);
         JTextField urlField = new JTextField(28);
         JTextField dirField = new JTextField(28);
         form.add(new JLabel("远程地址："));

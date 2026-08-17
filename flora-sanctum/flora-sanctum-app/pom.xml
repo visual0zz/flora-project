@@ -83,6 +83,26 @@
                     <addModules>com.flora.sanctum.app</addModules>
                 </configuration>
             </plugin>
+            <!-- 分发 zip：lib(应用 jar + 全量依赖) + 多平台脚本 + 应用配置（见设计"形态与启动"） -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <descriptors>
+                        <descriptor>src/assembly/distribution.xml</descriptor>
+                    </descriptors>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-dist</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>

@@ -17,6 +17,7 @@ import com.flora.shell.UsageScenario;
 
 import java.util.Arrays;
 import java.util.List;
+import java.nio.file.Path;
 
 /**
  * flora-sanctum 应用入口（单一可执行 jar）。
@@ -32,8 +33,20 @@ public final class Main {
 
     public static void main(String[] args) {
         if (args.length < 1) {
-            // 无参数 → 启动 GUI
-            com.flora.sanctum.app.ui.SanctumGui.launch(args);
+            // 无参数 → 启动 GUI（先做形态识别：独立仓库形态直接解锁该仓库）
+            // 仓库根经启动脚本 -Dflora.repo 传入（与配置/脚本同目录）；未传则回退到当前工作目录
+            String repoProp = System.getProperty("flora.repo");
+            Path repoRoot = repoProp != null && !repoProp.isBlank()
+                    ? Path.of(repoProp).toAbsolutePath()
+                    : Path.of("").toAbsolutePath();
+            if (com.flora.sanctum.app.bootstrap.VaultForm.detect(repoRoot) == com.flora.sanctum.app.bootstrap.VaultForm.Type.STANDALONE) {
+                Path root = com.flora.sanctum.app.bootstrap.VaultForm.vaultRoot(repoRoot);
+                com.flora.sanctum.app.ui.SanctumGui.launchDirect(repoRoot, root, args);
+            } else {
+                // 应用形态 → 选择界面（新建/导入/打开）
+                new com.flora.sanctum.app.ui.SelectScreen(vaultRoot ->
+                        com.flora.sanctum.app.ui.SanctumGui.launchOpen(vaultRoot, args)).show();
+            }
             return;
         }
         // 配置命令日志输出到控制台

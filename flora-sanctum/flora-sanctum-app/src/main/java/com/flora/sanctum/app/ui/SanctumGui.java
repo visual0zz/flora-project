@@ -73,7 +73,7 @@ public final class SanctumGui {
 
     private final java.util.concurrent.atomic.AtomicReference<Sanctum> current =
             new java.util.concurrent.atomic.AtomicReference<>();
-    private final UserConfig config = new UserConfig();
+    private final UserConfig config;
     private com.flora.sanctum.app.server.SanctumHttpServer httpServer;
     private Sanctum sanctum;
     private JFrame frame;
@@ -93,9 +93,35 @@ public final class SanctumGui {
     private java.util.Timer autoLockTimer;
     private java.util.Timer clipboardTimer;
     private String openVaultPath;
+    /** 独立仓库形态：直接指向的仓库数据根（解锁屏不再显示最近库列表，只解锁该仓库）。 */
+    private Path directVaultRoot;
+
+    /** 应用形态：读系统级配置（~/.flora-sanctum/config.json）。 */
+    private SanctumGui() {
+        this.config = new UserConfig();
+    }
+
+    /** 独立仓库形态：读仓库级配置（config.json 与脚本同目录，即仓库根）。 */
+    private SanctumGui(Path repoRoot) {
+        this.config = new UserConfig(repoRoot);
+    }
 
     public static void launch(String[] args) {
         new SanctumGui().run(args);
+    }
+
+    /** 独立仓库形态：直接解锁指定数据根，不进入选择/最近库界面；配置读仓库根下的仓库级配置。 */
+    public static void launchDirect(Path repoRoot, Path vaultRoot, String[] args) {
+        SanctumGui gui = new SanctumGui(repoRoot);
+        gui.directVaultRoot = vaultRoot;
+        gui.run(args);
+    }
+
+    /** 应用形态：从选择界面打开一个仓库（系统级配置 + 直接解锁指定数据根）。 */
+    public static void launchOpen(Path vaultRoot, String[] args) {
+        SanctumGui gui = new SanctumGui();
+        gui.directVaultRoot = vaultRoot;
+        gui.run(args);
     }
 
     private void run(String[] args) {
@@ -363,6 +389,10 @@ public final class SanctumGui {
         });
 
         java.util.function.Consumer<String> unlock = sel -> {
+            if (directVaultRoot != null) {
+                doUnlock(directVaultRoot, pwField, error);
+                return;
+            }
             String path = sel != null ? sel
                     : (recentList.getSelectedValue() != null ? recentList.getSelectedValue() : null);
             if (path == null) {
@@ -379,6 +409,14 @@ public final class SanctumGui {
         String last = config.lastVault();
         if (last != null && recentList.getModel().getSize() > 0) {
             recentList.setSelectedValue(last, true);
+        }
+        // 独立仓库形态：隐藏最近库列表，直接锁定指定仓库
+        if (directVaultRoot != null) {
+            center.setVisible(false);
+            recentLabel.setVisible(false);
+            vaultName.setText("库：" + directVaultRoot.getFileName());
+            unlockBtn.setText("解锁");
+            pwField.requestFocusInWindow();
         }
         return panel;
     }

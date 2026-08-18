@@ -69,7 +69,6 @@ class VaultFormTest {
         assertEquals(repo.resolve("data"), vaultRoot);
         assertTrue(Files.isDirectory(repo.resolve("lib")));
         assertTrue(Files.exists(repo.resolve("lib").resolve("x.jar")));
-        assertTrue(Files.exists(repo.resolve("start.sh")));
         assertTrue(Files.exists(repo.resolve("start.cmd")));
         assertTrue(Files.exists(repo.resolve("config.json")));
     }

@@ -12,7 +12,7 @@ import java.nio.file.Path;
  * 新建仓库（见设计"形态与启动"）。
  * <ul>
  *   <li><b>普通仓库</b>：在目标目录直接建数据块结构（该目录即 vault 根）。</li>
- *   <li><b>独立仓库</b>：把应用自身复制为 {@code { lib/, data/, start.cmd, start.sh, config.json }}，
+ *   <li><b>独立仓库</b>：把应用自身复制为 {@code { lib/, data/, start.cmd, config.json }}，
  *       复制应用级配置为仓库级配置（不含密钥等加密信息），之后可由该仓库自己的脚本启动。</li>
  * </ul>
  */
@@ -50,25 +50,28 @@ public final class RepoCreator {
             }
         }
         // 写启动脚本
-        writeScripts(dir);
+        writeScript(dir);
         // 复制应用级配置为仓库级
         VaultForm.writeRepoConfig(dir, appConfig);
         return data;
     }
 
-    /** 写入多平台启动脚本（module-path 启动，保持 JPMS 模块化；经 -Dflora.repo 传入仓库根）。 */
-    private static void writeScripts(Path dir) throws IOException {
-        // 脚本位于独立仓库根，config.json 也在仓库根；仓库根经 -Dflora.repo 传给 Main
-        String sh = "#!/usr/bin/env bash\n"
-                + "cd \"$(dirname \"$0\")\"\n"
-                + "java -Dflora.repo=\"$PWD\" --module-path lib --module com.flora.sanctum.app/com.flora.sanctum.app.Main \"$@\"\n";
-        String cmd = "@echo off\r\n"
-                + "cd /d \"%~dp0\"\r\n"
-                + "java -Dflora.repo=%CD% --module-path lib --module com.flora.sanctum.app/com.flora.sanctum.app.Main %*\r\n";
-        Path shFile = dir.resolve("start.sh");
+    /** 写入跨平台启动脚本（双头脚本：bash 段 + :windows cmd 段，module-path 启动；经 -Dflora.repo 传入仓库根）。 */
+    private static void writeScript(Path dir) throws IOException {
+        // 脚本位于独立仓库根，config.json 也在仓库根；仓库根经 -Dflora.repo 传给 Main。
+        // 必须用 LF 换行（bash 段在 CRLF 下无法解析）；cmd 亦兼容 LF 批处理。
+        String script = "#!/usr/bin/env bash\n"
+                + "@goto :windows || true\n"
+                + "# Cross-platform launcher for standalone repo; repo root is this script's directory.\n"
+                + "cd \"$(dirname \"$0\")\" || exit 1\n"
+                + "exec java -Dflora.repo=\"$PWD\" --module-path lib --module com.flora.sanctum.app/com.flora.sanctum.app.Main \"$@\" || exit 1\n"
+                + "\n"
+                + ":windows\n"
+                + "@echo off\n"
+                + "cd /d \"%~dp0\"\n"
+                + "java -Dflora.repo=%CD% --module-path lib --module com.flora.sanctum.app/com.flora.sanctum.app.Main %*\n";
         Path cmdFile = dir.resolve("start.cmd");
-        Files.writeString(shFile, sh);
-        Files.writeString(cmdFile, cmd);
-        shFile.toFile().setExecutable(true);
+        Files.writeString(cmdFile, script);
+        cmdFile.toFile().setExecutable(true);
     }
 }

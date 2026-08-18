@@ -91,7 +91,7 @@ public final class SelectScreen {
                 JsonObject appConfig = loadAppConfig();
                 RepoCreator.createStandalone(dir, libSource(), appConfig);
                 JOptionPane.showMessageDialog(frame,
-                        "独立仓库已创建。请用仓库内的启动脚本（start.cmd / start.sh）启动。");
+                        "独立仓库已创建。请用仓库内的启动脚本（start.cmd）启动。");
                 // 不打开（独立仓库由自身脚本启动）
                 frame.dispose();
             }

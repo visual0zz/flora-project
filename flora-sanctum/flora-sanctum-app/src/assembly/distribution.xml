@@ -10,13 +10,9 @@
     <includeBaseDirectory>true</includeBaseDirectory>
     <baseDirectory>flora-sanctum</baseDirectory>
     <files>
-        <!-- 启动脚本（经 -Dflora.repo 传仓库根，module-path 启动） -->
+        <!-- 启动脚本（跨平台双头脚本：bash 段 + :windows cmd 段；经 -Dflora.repo 传仓库根，module-path 启动） -->
         <file>
             <source>src/main/resources/script/start.cmd</source>
-            <outputDirectory>/</outputDirectory>
-        </file>
-        <file>
-            <source>src/main/resources/script/start.sh</source>
             <outputDirectory>/</outputDirectory>
             <fileMode>0755</fileMode>
         </file>

@@ -106,25 +106,25 @@ public final class SanctumGui {
         this.config = new UserConfig(repoRoot);
     }
 
-    public static void launch(String[] args) {
-        new SanctumGui().run(args);
+    public static void launch() {
+        new SanctumGui().run();
     }
 
     /** 独立仓库形态：直接解锁指定数据根，不进入选择/最近库界面；配置读仓库根下的仓库级配置。 */
-    public static void launchDirect(Path repoRoot, Path vaultRoot, String[] args) {
+    public static void launchDirect(Path repoRoot, Path vaultRoot) {
         SanctumGui gui = new SanctumGui(repoRoot);
         gui.directVaultRoot = vaultRoot;
-        gui.run(args);
+        gui.run();
     }
 
     /** 应用形态：从选择界面打开一个仓库（系统级配置 + 直接解锁指定数据根）。 */
-    public static void launchOpen(Path vaultRoot, String[] args) {
+    public static void launchOpen(Path vaultRoot) {
         SanctumGui gui = new SanctumGui();
         gui.directVaultRoot = vaultRoot;
-        gui.run(args);
+        gui.run();
     }
 
-    private void run(String[] args) {
+    private void run() {
         applyTheme(config.theme());
         try {
             httpServer = new com.flora.sanctum.app.server.SanctumHttpServer(current::get, 0);

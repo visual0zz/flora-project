@@ -18,12 +18,6 @@
             <artifactId>flora-sanctum-core</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <!-- 命令框架基座（复用 flora-shell，不重复建设） -->
-        <dependency>
-            <groupId>io.gitee.visual0zz</groupId>
-            <artifactId>flora-shell</artifactId>
-            <version>${project.version}</version>
-        </dependency>
         <!-- 现代扁平外观 -->
         <dependency>
             <groupId>com.formdev</groupId>

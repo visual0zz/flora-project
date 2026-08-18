@@ -19,8 +19,8 @@
 
 | 形态 | 结构 | 启动行为 |
 |---|---|---|
-| **应用形态**（分发 zip） | `zip: { lib/全量jar, start.cmd, start.sh, config.json }` | 首次进入 → 选择界面（新建/导入/打开） |
-| **独立仓库形态**（自复制） | `文件夹: { lib/全量jar, data/, start.cmd, start.sh, config.json }` | 直接 → 解锁界面（输密码或退出），无选择界面 |
+| **应用形态**（分发 zip） | `zip: { lib/全量jar, start.cmd, config.json }` | 首次进入 → 选择界面（新建/导入/打开） |
+| **独立仓库形态**（自复制） | `文件夹: { lib/全量jar, data/, start.cmd, config.json }` | 直接 → 解锁界面（输密码或退出），无选择界面 |
 
 - **独立仓库不带 JRE**：靠本地 `java` 指令 + `lib/` 全量 jar 运行；脚本按 module-path 拼 `requires`（保持 JPMS 模块化）。
 - **打开独立仓库 = 当前 jar 直接加载它的 `data/`**（复用当前 lib，不转跑它自己的脚本）——"打开"一律是当前进程加载对应 `data/`；独立仓库自己的脚本只用于"脱离应用形态、单独启动该仓库"。
@@ -37,11 +37,12 @@
 
 ## 4. 启动分流（Main）
 
+GUI 为唯一交互入口，启动时做形态识别：
+
 ```
-Main.main(args)
-├── 有参数 → flora-shell CLI（现状不变）
-└── 无参数 → 启动形态识别
-    ├── 位于独立仓库内（当前目录存在仓库级 config.json + data/）
+Main.main
+└── 启动形态识别
+    ├── 位于独立仓库内（-Dflora.repo 指向仓库根，含 data/）
     │     → 直接加载该仓库 data/，进入解锁界面（不出现选择界面）
     └── 应用形态
           → 进入选择界面：新建 / 导入 / 打开
@@ -62,7 +63,7 @@ Main.main(args)
 ### 5.1 新建仓库
 
 - **普通仓库**：在当前选中目录建 `data/` 结构（纯 markdown 块），用当前 jar 加载。
-- **独立仓库**：把应用自身复制为 `{ lib/全量jar, data/, start.cmd, start.sh, config.json }`，复制应用级配置为仓库级配置（不含密钥），**不打开**（由用户之后用该仓库脚本启动）。
+- **独立仓库**：把应用自身复制为 `{ lib/全量jar, data/, start.cmd, config.json }`，复制应用级配置为仓库级配置（不含密钥），**不打开**（由用户之后用该仓库脚本启动）。
 
 ### 5.2 导入仓库
 
@@ -82,8 +83,7 @@ Main.main(args)
 ```
 flora-sanctum-0.1.zip
 ├── lib/            # 全量依赖 jar（app/core/shell/root + bc/flatlaf/jsvg）
-├── start.cmd       # Windows 启动：java --module-path lib -m com.flora.sanctum.app/com.flora.sanctum.app.Main
-├── start.sh        # Linux/macOS 启动：同上
+├── start.cmd       # 跨平台双头启动脚本（bash 段 + :windows cmd 段）：java --module-path lib -m com.flora.sanctum.app/com.flora.sanctum.app.Main
 └── config.json     # 应用级默认配置（新建独立仓库时复制为仓库级）
 ```
 
@@ -102,7 +102,7 @@ flora-sanctum-0.1.zip
 | 新增 `app/bootstrap/RepoCreator.java` | 新建普通/独立仓库（独立=自复制） |
 | 新增 `app/bootstrap/RepoImporter.java` | git clone + 结构分类 + 空仓库建结构 |
 | `pom.xml` | 加 maven-assembly-plugin 打分发 zip；加启动脚本模板资源 |
-| 资源 `start.cmd` / `start.sh` 模板 | 多平台启动脚本 |
+| 资源 `start.cmd` 模板（跨平台双头脚本） | 多平台启动脚本 |
 
 ## 8. 决策点与开放问题
 

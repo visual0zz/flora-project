@@ -23,6 +23,7 @@ public final class ObjectTree extends DataTree {
     @Override
     protected boolean belongsTo(String type, String kind) {
         return "group".equals(type) || "entry".equals(type)
+                || "customField".equals(type)
                 || ("field".equals(type) && !"remote".equals(kind));
     }
 
@@ -121,21 +122,28 @@ public final class ObjectTree extends DataTree {
         if (iconUuid != null) {
             entry.put("icon", iconUuid.toString());
         }
-        if (fields.password() != null) {
-            entry.put("password", fields.password());
-        }
-        if (fields.url() != null) {
-            entry.put("url", fields.url());
-        }
-        if (fields.username() != null) {
-            entry.put("username", fields.username());
-        }
-        if (!fields.labels().isEmpty()) {
-            entry.put("labels", fields.labels());
-        }
-        entry.put("createTime", now);
-        entry.put("updateTime", now);
         context().write(entryUuid, entry, groupId);
+        // 预设字段独立块（createTime/updateTime 必写；其余有值才写）
+        writePreset(entryUuid, groupId, "createTime", String.valueOf(now));
+        writePreset(entryUuid, groupId, "updateTime", String.valueOf(now));
+        writePreset(entryUuid, groupId, "password", fields.password());
+        writePreset(entryUuid, groupId, "url", fields.url());
+        writePreset(entryUuid, groupId, "username", fields.username());
+        writePreset(entryUuid, groupId, "labels", EntryFields.labelsToString(fields.labels()));
         return new EntryNode(entryUuid, this);
+    }
+
+    /** 写预设字段块（确定性 uuid，value 空则不写）。 */
+    private void writePreset(UUID entryUuid, UUID groupId, String name, String value) {
+        if (value == null || value.isEmpty()) {
+            return;
+        }
+        JsonObject f = new JsonObject();
+        f.put("version", 1);
+        f.put("type", "field");
+        f.put("parent", entryUuid.toString());
+        f.put("fieldName", name);
+        f.put("value", value);
+        context().write(EntryFields.presetUuid(entryUuid, name), f, groupId);
     }
 }

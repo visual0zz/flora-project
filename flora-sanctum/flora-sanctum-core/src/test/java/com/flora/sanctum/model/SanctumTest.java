@@ -242,8 +242,8 @@ class SanctumTest {
         entry.updateBuiltins(new EntryFields("new-password", null, "alice", List.of()));
         assertEquals("new-password", s.objectTree().entry(entry.uuid()).password());
 
-        // 创建并更新自定义字段
-        FieldNode custom = entry.createField("url", "https://x", null);
+        // 创建并更新自定义字段（预设名 url 不可用于自定义字段）
+        FieldNode custom = entry.createField("website", "https://x", null);
         custom.updateValue("https://updated");
         assertEquals("https://updated", s.objectTree().field(custom.uuid()).value());
 

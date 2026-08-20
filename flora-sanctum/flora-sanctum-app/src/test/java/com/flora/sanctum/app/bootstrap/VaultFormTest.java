@@ -29,10 +29,10 @@ class VaultFormTest {
         Files.createDirectories(repo.resolve("data"));
         Files.createDirectories(repo.resolve("lib"));
         Files.writeString(repo.resolve("data").resolve("a.md"), "1:abc\n");
-        Files.writeString(repo.resolve("config.json"), "{}");
+        Files.writeString(repo.resolve("standalone.json"), "{}");
         assertEquals(VaultForm.Type.STANDALONE, VaultForm.detect(repo));
         assertEquals(repo.resolve("data"), VaultForm.dataDir(repo));
-        assertEquals(repo.resolve("config.json"), VaultForm.configFile(repo));
+        assertEquals(repo.resolve("standalone.json"), VaultForm.configFile(repo));
     }
 
     @Test
@@ -48,6 +48,7 @@ class VaultFormTest {
     void writeAndReadRepoConfig() throws Exception {
         Path repo = dir.resolve("cfg");
         Files.createDirectories(repo.resolve("data"));
+        Files.writeString(repo.resolve("standalone.json"), "{}");
         JsonObject app = new JsonObject();
         app.put("theme", "dark");
         VaultForm.writeRepoConfig(repo, app);
@@ -56,21 +57,18 @@ class VaultFormTest {
     }
 
     @Test
-    void createStandaloneCopiesLibAndData() throws Exception {
+    void createStandaloneWritesLayout() throws Exception {
         Path repo = dir.resolve("newStandalone");
-        Path libSource = dir.resolve("libsrc");
-        Files.createDirectories(libSource);
-        Files.writeString(libSource.resolve("x.jar"), "jarbytes");
 
         JsonObject cfg = new JsonObject();
         cfg.put("theme", "system");
-        Path vaultRoot = RepoCreator.createStandalone(repo, libSource, cfg);
+        Path vaultRoot = RepoCreator.createStandalone(repo, cfg);
 
         assertEquals(repo.resolve("data"), vaultRoot);
+        assertTrue(Files.isDirectory(repo.resolve("data")));
         assertTrue(Files.isDirectory(repo.resolve("lib")));
-        assertTrue(Files.exists(repo.resolve("lib").resolve("x.jar")));
         assertTrue(Files.exists(repo.resolve("start.cmd")));
-        assertTrue(Files.exists(repo.resolve("config.json")));
+        assertTrue(Files.exists(repo.resolve("standalone.json")));
     }
 
     @Test

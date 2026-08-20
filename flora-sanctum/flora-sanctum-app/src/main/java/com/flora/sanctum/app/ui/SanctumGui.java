@@ -12,12 +12,14 @@ import com.flora.sanctum.model.RootTag;
 import com.flora.sanctum.model.Sanctum;
 import com.flora.sanctum.model.tree.SshKeyNode;
 import com.flora.sanctum.model.tree.TreeNode;
+import com.flora.root.codec.json.model.JsonObject;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
 import javax.swing.Icon;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
@@ -93,34 +95,32 @@ public final class SanctumGui {
     private java.util.Timer autoLockTimer;
     private java.util.Timer clipboardTimer;
     private String openVaultPath;
-    /** 独立仓库形态：直接指向的仓库数据根（解锁屏不再显示最近库列表，只解锁该仓库）。 */
-    private Path directVaultRoot;
+    /** 独立仓库形态（standalone.json 判定）：无历史仓库列表页。 */
+    private boolean standalone;
+    /** 当前仓库数据根（解锁目标 / 锁定后直接回到该仓库解锁页）。 */
+    private Path pendingRoot;
 
-    /** 应用形态：读系统级配置（~/.flora-sanctum/config.json）。 */
+    /** 应用形态：读系统级配置（~/.flora-sanctum/config.json），页面从历史仓库列表开始。 */
     private SanctumGui() {
         this.config = new UserConfig();
+        this.standalone = false;
     }
 
-    /** 独立仓库形态：读仓库级配置（config.json 与脚本同目录，即仓库根）。 */
+    /** 独立仓库形态：读仓库级配置（仓库根 standalone.json），页面从该仓库解锁页开始。 */
     private SanctumGui(Path repoRoot) {
         this.config = new UserConfig(repoRoot);
+        this.standalone = true;
     }
 
+    /** 应用形态入口：历史仓库列表页。 */
     public static void launch() {
         new SanctumGui().run();
     }
 
-    /** 独立仓库形态：直接解锁指定数据根，不进入选择/最近库界面；配置读仓库根下的仓库级配置。 */
+    /** 独立仓库形态：直接进入指定数据根的解锁页。 */
     public static void launchDirect(Path repoRoot, Path vaultRoot) {
         SanctumGui gui = new SanctumGui(repoRoot);
-        gui.directVaultRoot = vaultRoot;
-        gui.run();
-    }
-
-    /** 应用形态：从选择界面打开一个仓库（系统级配置 + 直接解锁指定数据根）。 */
-    public static void launchOpen(Path vaultRoot) {
-        SanctumGui gui = new SanctumGui();
-        gui.directVaultRoot = vaultRoot;
+        gui.pendingRoot = vaultRoot;
         gui.run();
     }
 
@@ -137,8 +137,12 @@ public final class SanctumGui {
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             applyMacTitleBar();
             installTray();
-            frame.setContentPane(buildUnlockPanel());
-            frame.setSize(520, 400);
+            if (standalone) {
+                showUnlockPage(pendingRoot);
+            } else {
+                showHistoryPage();
+            }
+            frame.setSize(560, 440);
             frame.setLocationRelativeTo(null);
             frame.setVisible(true);
         });
@@ -239,36 +243,216 @@ public final class SanctumGui {
 
     // ================= 解锁屏 =================
 
-    private JPanel buildUnlockPanel() {
-        JPanel panel = new UiTheme.PaperPanel(new BorderLayout());
+    // ================= 页面切换 =================
+
+    private void showHistoryPage() {
+        frame.setContentPane(buildHistoryPanel());
+        frame.setSize(600, 480);
+        frame.revalidate();
+    }
+
+    private void showUnlockPage(Path root) {
+        pendingRoot = root;
+        frame.setContentPane(buildUnlockPanel(root));
+        frame.setSize(520, 420);
+        frame.revalidate();
+    }
+
+    private void showEditPage() {
+        frame.setContentPane(buildMainPanel());
+        frame.setSize(960, 640);
+        frame.revalidate();
+    }
+
+    private void showSettingsPage() {
+        frame.setContentPane(buildSettingsPanel());
+        frame.setSize(420, 420);
+        frame.revalidate();
+    }
+
+    // ================= 历史仓库列表页（应用形态首页，含新建/导入/打开） =================
+
+    private JPanel buildHistoryPanel() {
+        JPanel panel = new UiTheme.PaperPanel(new BorderLayout(0, 10));
         panel.setBorder(new EmptyBorder(16, 20, 16, 20));
 
         JLabel title = new JLabel("flora-sanctum");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
         panel.add(title, BorderLayout.NORTH);
 
-        // 中：最近库列表
+        // 中：最近仓库列表（双击打开）
         JLabel recentLabel = new JLabel("最近打开的库");
         recentLabel.setFont(recentLabel.getFont().deriveFont(Font.BOLD, 12f));
-        JList<String> recentList = new JList<>(recentModel());
+        DefaultListModel<String> model = new DefaultListModel<>();
+        for (String p : config.recentVaults()) {
+            model.addElement(p);
+        }
+        JList<String> recentList = new JList<>(model);
         recentList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        recentList.setVisibleRowCount(5);
+        recentList.setVisibleRowCount(6);
         recentList.setOpaque(false);
+        recentList.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    String sel = recentList.getSelectedValue();
+                    if (sel != null) {
+                        openForUnlock(Path.of(sel));
+                    }
+                }
+            }
+        });
         JScrollPane recentScroll = new JScrollPane(recentList);
         recentScroll.setOpaque(false);
-        recentScroll.setBorder(javax.swing.BorderFactory.createEmptyBorder());
+        recentScroll.setBorder(BorderFactory.createEmptyBorder());
         recentScroll.getViewport().setOpaque(false);
-
         JPanel center = new JPanel(new BorderLayout(0, 6));
         center.setOpaque(false);
         center.add(recentLabel, BorderLayout.NORTH);
         center.add(recentScroll, BorderLayout.CENTER);
+        panel.add(center, BorderLayout.CENTER);
 
-        JButton browseBtn = new JButton("打开其他库…");
-        JPanel centerBottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 4));
-        centerBottom.setOpaque(false);
-        centerBottom.add(browseBtn);
-        center.add(centerBottom, BorderLayout.SOUTH);
+        // 底部操作：新建 / 导入 / 打开 / 设置
+        JButton newBtn = new JButton("新建仓库");
+        newBtn.setToolTipText("建立一个新的密码仓库（普通或独立）");
+        newBtn.addActionListener(e -> doNewVault());
+        JButton importBtn = new JButton("导入仓库");
+        importBtn.setToolTipText("从远程 git 仓库克隆导入");
+        importBtn.addActionListener(e -> doImportVault());
+        JButton openBtn = new JButton("打开仓库");
+        openBtn.setToolTipText("打开已存在的仓库");
+        openBtn.addActionListener(e -> doOpenVault());
+        JButton settingsBtn2 = new JButton("应用设置");
+        settingsBtn2.addActionListener(e -> showSettingsPage());
+        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        bottom.setOpaque(false);
+        bottom.add(newBtn);
+        bottom.add(importBtn);
+        bottom.add(openBtn);
+        bottom.add(settingsBtn2);
+        panel.add(bottom, BorderLayout.SOUTH);
+
+        // 预选上次打开的库
+        String last = config.lastVault();
+        if (last != null && model.getSize() > 0) {
+            recentList.setSelectedValue(last, true);
+        }
+        return panel;
+    }
+
+    /** 应用形态：把某仓库带入解锁页（记录最近打开）。 */
+    private void openForUnlock(Path root) {
+        Path dataRoot = com.flora.sanctum.app.bootstrap.VaultForm.dataDir(root);
+        if (dataRoot == null) {
+            dataRoot = root;
+        }
+        config.addRecentVault(root.toAbsolutePath().toString());
+        showUnlockPage(dataRoot);
+    }
+
+    // ---- 新建 / 导入 / 打开（原 SelectScreen 入口，合并进历史页） ----
+
+    private void doNewVault() {
+        Object[] choices = {"普通仓库", "独立仓库"};
+        int choice = JOptionPane.showOptionDialog(frame, "选择要建立的仓库类型：", "新建仓库",
+                JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, choices, choices[0]);
+        if (choice < 0) {
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        chooser.setDialogTitle("选择目标目录");
+        if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        Path dir = chooser.getSelectedFile().toPath();
+        try {
+            if (choice == 0) {
+                Path root = com.flora.sanctum.app.bootstrap.RepoCreator.createNormal(dir);
+                showUnlockPage(root);
+            } else {
+                com.flora.sanctum.app.bootstrap.RepoCreator.createStandalone(dir, loadAppConfig());
+                JOptionPane.showMessageDialog(frame,
+                        "独立仓库已创建。请用仓库内的启动脚本（start.cmd）启动。");
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(frame, "创建失败：" + ex.getMessage(), "错误",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void doImportVault() {
+        JPanel form = new JPanel(new GridLayout(2, 2, 8, 8));
+        form.setOpaque(false);
+        JTextField urlField = new JTextField(28);
+        JTextField dirField = new JTextField(28);
+        form.add(new JLabel("远程地址："));
+        form.add(urlField);
+        form.add(new JLabel("本地目录："));
+        form.add(dirField);
+        int r = JOptionPane.showConfirmDialog(frame, form, "导入仓库", JOptionPane.OK_CANCEL_OPTION);
+        if (r != JOptionPane.OK_OPTION) {
+            return;
+        }
+        String url = urlField.getText().trim();
+        String local = dirField.getText().trim();
+        if (url.isEmpty() || local.isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "远程地址与本地目录不能为空", "错误", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        try {
+            com.flora.sanctum.app.bootstrap.RepoImporter.Result result =
+                    com.flora.sanctum.app.bootstrap.RepoImporter.importRemote(url, Path.of(local));
+            if (result.vaultRoot != null) {
+                showUnlockPage(result.vaultRoot);
+            }
+        } catch (IllegalArgumentException e) {
+            JOptionPane.showMessageDialog(frame, e.getMessage(), "导入失败", JOptionPane.ERROR_MESSAGE);
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(frame, "导入失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void doOpenVault() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        if (chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
+            Path dir = chooser.getSelectedFile().toPath();
+            if (com.flora.sanctum.app.bootstrap.VaultForm.detect(dir)
+                    == com.flora.sanctum.app.bootstrap.VaultForm.Type.NOT_A_VAULT) {
+                JOptionPane.showMessageDialog(frame, "该目录不是 flora-sanctum 仓库", "打开失败",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            openForUnlock(dir);
+        }
+    }
+
+    private static JsonObject loadAppConfig() {
+        try {
+            return com.flora.root.codec.JsonUtil.parseObject(
+                    java.nio.file.Files.readString(
+                            Path.of(System.getProperty("user.home"), ".flora-sanctum", "config.json")));
+        } catch (Exception e) {
+            return new JsonObject();
+        }
+    }
+
+    // ================= 解锁页（针对特定仓库） =================
+
+    private JPanel buildUnlockPanel(Path root) {
+        JPanel panel = new UiTheme.PaperPanel(new BorderLayout());
+        panel.setBorder(new EmptyBorder(16, 20, 16, 20));
+
+        JLabel title = new JLabel("解锁 · " + (root == null ? "" : root.getFileName()));
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
+        panel.add(title, BorderLayout.NORTH);
+
+        JPanel center = new JPanel(new BorderLayout(0, 6));
+        center.setOpaque(false);
+        JLabel vaultName = new JLabel("库：" + (root == null ? "" : root));
+        vaultName.setFont(vaultName.getFont().deriveFont(Font.ITALIC, 11f));
+        center.add(vaultName, BorderLayout.CENTER);
         panel.add(center, BorderLayout.CENTER);
 
         // 底：主密码 + 解锁
@@ -282,100 +466,44 @@ public final class SanctumGui {
         bottom.add(new JLabel("主密码："), c);
 
         JPasswordField pwField = new JPasswordField();
-        JLabel vaultName = new JLabel("");
-        vaultName.setFont(vaultName.getFont().deriveFont(Font.ITALIC, 11f));
         c.gridx = 1;
         c.weightx = 1.0;
         bottom.add(pwField, c);
 
+        JButton unlockBtn = new JButton("解锁");
         c.gridx = 0;
         c.gridy = 1;
-        c.weightx = 0;
-        bottom.add(vaultName, c);
-
-        JButton unlockBtn = new JButton("解锁 / 新建");
-        c.gridx = 0;
-        c.gridy = 2;
         c.gridwidth = 2;
         c.weightx = 1.0;
         bottom.add(unlockBtn, c);
 
         JLabel error = new JLabel();
         error.setForeground(java.awt.Color.RED.darker());
-        c.gridy = 3;
+        c.gridy = 2;
         bottom.add(error, c);
 
-        JLabel hint = new JLabel("选中库后直接输密码回车进入；路径不存在则新建库");
+        JLabel hint = new JLabel("输入主密码解锁；仓库不存在则自动新建");
         hint.setFont(hint.getFont().deriveFont(Font.ITALIC, 11f));
-        c.gridy = 4;
+        c.gridy = 3;
         bottom.add(hint, c);
+
+        // 应用形态：解锁页提供"回到历史列表"入口；独立形态不提供
+        if (!standalone) {
+            JButton backBtn = new JButton("回到历史列表");
+            backBtn.setToolTipText("返回历史仓库列表页");
+            backBtn.addActionListener(e -> showHistoryPage());
+            c.gridy = 4;
+            bottom.add(backBtn, c);
+        }
         panel.add(bottom, BorderLayout.SOUTH);
 
-        // 行为：选中最近库 → 预填路径并聚焦密码框
-        recentList.addListSelectionListener(e -> {
-            if (e.getValueIsAdjusting()) {
-                return;
-            }
-            String sel = recentList.getSelectedValue();
-            if (sel == null) {
-                return;
-            }
-            Path p = Path.of(sel);
-            vaultName.setText("库：" + p.getFileName());
-            pwField.setText("");
-            pwField.requestFocusInWindow();
-        });
+        java.util.function.Consumer<JPasswordField> unlock = f ->
+                doUnlock(root, f, error);
+        unlockBtn.addActionListener(e -> unlock.accept(pwField));
+        pwField.addActionListener(e -> unlock.accept(pwField));
 
-        browseBtn.addActionListener(e -> {
-            JFileChooser chooser = new JFileChooser();
-            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-            if (chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
-                String path = chooser.getSelectedFile().getAbsolutePath();
-                config.addRecentVault(path);
-                recentList.setModel(recentModel());
-                recentList.setSelectedValue(path, true);
-            }
-        });
-
-        java.util.function.Consumer<String> unlock = sel -> {
-            if (directVaultRoot != null) {
-                doUnlock(directVaultRoot, pwField, error);
-                return;
-            }
-            String path = sel != null ? sel
-                    : (recentList.getSelectedValue() != null ? recentList.getSelectedValue() : null);
-            if (path == null) {
-                error.setText("请选择或打开一个库");
-                return;
-            }
-            doUnlock(Path.of(path), pwField, error);
-        };
-
-        unlockBtn.addActionListener(e -> unlock.accept(null));
-        pwField.addActionListener(e -> unlock.accept(null));
-
-        // 预选上次打开的库
-        String last = config.lastVault();
-        if (last != null && recentList.getModel().getSize() > 0) {
-            recentList.setSelectedValue(last, true);
-        }
-        // 独立仓库形态：隐藏最近库列表，直接锁定指定仓库
-        if (directVaultRoot != null) {
-            center.setVisible(false);
-            recentLabel.setVisible(false);
-            vaultName.setText("库：" + directVaultRoot.getFileName());
-            unlockBtn.setText("解锁");
-            pwField.requestFocusInWindow();
-        }
+        pwField.requestFocusInWindow();
         return panel;
-    }
-
-    private DefaultListModel<String> recentModel() {
-        DefaultListModel<String> m = new DefaultListModel<>();
-        for (String p : config.recentVaults()) {
-            m.addElement(p);
-        }
-        return m;
     }
 
     private void doUnlock(Path root, JPasswordField pwField, JLabel error) {
@@ -400,9 +528,7 @@ public final class SanctumGui {
             config.setLastVault(openVaultPath);
             frame.setTitle("flora-sanctum(" + root.getFileName() + ")");
             current.set(sanctum);
-            frame.setContentPane(buildMainPanel());
-            frame.setSize(960, 640);
-            frame.revalidate();
+            showEditPage();
             startAutoLockTimer();
         } catch (Exception ex) {
             // 统一提示"解锁失败"，不区分密码错/数据损坏（见设计 03）
@@ -441,13 +567,28 @@ public final class SanctumGui {
         openVaultPath = null;
         stopTimers();
         frame.setTitle("flora-sanctum");
-        frame.setContentPane(buildUnlockPanel());
-        frame.setSize(520, 400);
-        frame.revalidate();
+        // 锁定后直接回到该仓库的解锁页（不退回历史列表）；独立形态同样
+        if (pendingRoot != null) {
+            showUnlockPage(pendingRoot);
+        } else {
+            showHistoryPage();
+        }
     }
 
+    /** 切换仓库：应用形态回到历史列表页；独立形态无切换（等同锁定回到解锁页）。 */
     private void switchVault() {
-        lock();
+        if (sanctum != null) {
+            sanctum.close();
+        }
+        current.set(null);
+        openVaultPath = null;
+        stopTimers();
+        frame.setTitle("flora-sanctum");
+        if (standalone) {
+            showUnlockPage(pendingRoot);
+        } else {
+            showHistoryPage();
+        }
     }
 
     // ================= 主界面 =================
@@ -468,6 +609,7 @@ public final class SanctumGui {
         addRemoteBtn = iconButton(SvgIcon.get("remote", 29), "添加远程");
         statusLabel = new JLabel();
         syncBtn.setVisible(isFullyManaged());
+        switchBtn.setVisible(!standalone); // 独立形态无历史列表，不提供切换
         importImageBtn.setVisible(false);
         addSshBtn.setVisible(false);
         addRemoteBtn.setVisible(false);
@@ -1173,6 +1315,10 @@ public final class SanctumGui {
                 statusLabel.setText("字段名不能为空");
                 return;
             }
+            if (com.flora.sanctum.model.EntryFields.isPreset(fn)) {
+                statusLabel.setText("预设字段名不可用于自定义字段");
+                return;
+            }
             resetAutoLock();
             try {
                 EntryNode entryNode = sanctum.objectTree().entry(entryUuid);
@@ -1594,49 +1740,74 @@ public final class SanctumGui {
     // ================= 设置 =================
 
     private void openSettings() {
-        JDialog dialog = new JDialog(frame, "设置", true);
-        JPanel box = new JPanel(new GridLayout(0, 1, 8, 8));
-        box.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
+        showSettingsPage();
+    }
 
-        box.add(new JLabel("主题（light/dark/system）"));
+    /** 仓库/应用设置页（独立页面，非对话框）。 */
+    private JPanel buildSettingsPanel() {
+        JPanel box = new UiTheme.PaperPanel(new BorderLayout(0, 8));
+        box.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
+
+        JLabel title = new JLabel("设置");
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
+        box.add(title, BorderLayout.NORTH);
+
+        JPanel form = new JPanel(new GridLayout(0, 2, 8, 8));
+        form.setOpaque(false);
+
+        form.add(new JLabel("主题（light/dark/system）"));
         JTextField themeField = new JTextField(config.theme());
-        box.add(themeField);
-        JButton saveTheme = new JButton("保存主题");
-        saveTheme.addActionListener(e -> config.setTheme(themeField.getText()));
-        box.add(saveTheme);
+        form.add(themeField);
 
-        box.add(new JLabel("自动锁定（秒）"));
+        form.add(new JLabel("自动锁定（秒）"));
         JTextField lockField = new JTextField(String.valueOf(config.lockTimeoutSeconds()));
-        box.add(lockField);
-        JButton saveLock = new JButton("保存");
-        saveLock.addActionListener(e -> {
+        form.add(lockField);
+
+        form.add(new JLabel("剪贴板清空（秒）"));
+        JTextField clipField = new JTextField(String.valueOf(config.clipboardClearSeconds()));
+        form.add(clipField);
+
+        form.add(new JLabel("启用同步"));
+        JCheckBox syncCheck = new JCheckBox("", config.syncEnabled());
+        syncCheck.setOpaque(false);
+        form.add(syncCheck);
+
+        box.add(form, BorderLayout.CENTER);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        actions.setOpaque(false);
+        JButton saveBtn = new JButton("保存");
+        saveBtn.addActionListener(e -> {
+            config.setTheme(themeField.getText());
             try {
                 config.setLockTimeoutSeconds(Integer.parseInt(lockField.getText()));
             } catch (NumberFormatException ignore) {
             }
-        });
-        box.add(saveLock);
-
-        box.add(new JLabel("剪贴板清空（秒）"));
-        JTextField clipField = new JTextField(String.valueOf(config.clipboardClearSeconds()));
-        box.add(clipField);
-        JButton saveClip = new JButton("保存");
-        saveClip.addActionListener(e -> {
             try {
                 config.setClipboardClearSeconds(Integer.parseInt(clipField.getText()));
             } catch (NumberFormatException ignore) {
             }
+            config.setSyncEnabled(syncCheck.isSelected());
+            statusLabel = new JLabel("设置已保存");
+            backFromSettings();
         });
-        box.add(saveClip);
+        JButton backBtn = new JButton("返回");
+        backBtn.addActionListener(e -> backFromSettings());
+        actions.add(saveBtn);
+        actions.add(backBtn);
+        box.add(actions, BorderLayout.SOUTH);
+        return box;
+    }
 
-        JButton close = new JButton("关闭");
-        close.addActionListener(e -> dialog.dispose());
-        box.add(close);
-
-        dialog.setContentPane(box);
-        dialog.setSize(320, 320);
-        dialog.setLocationRelativeTo(frame);
-        dialog.setVisible(true);
+    /** 从设置页返回：已解锁回编辑页，否则回历史页（独立形态回解锁页）。 */
+    private void backFromSettings() {
+        if (sanctum != null && sanctum.isUnlocked()) {
+            showEditPage();
+        } else if (standalone) {
+            showUnlockPage(pendingRoot);
+        } else {
+            showHistoryPage();
+        }
     }
 
     /** 组树渲染器：按 userObject 类型渲染文本（RootTag→区段展示名；UUID→group name；其它 fallback）。 */

@@ -12,7 +12,8 @@ import java.nio.file.Path;
 /**
  * 用户配置目录（见设计 07"用户配置目录"）。
  * <p>
- * 全局配置存于 {@code ~/.flora-sanctum/config.json}（用户级，跨所有库一份）：
+ * 应用形态存于 {@code ~/.flora-sanctum/config.json}（用户级，跨所有库一份）；
+ * 独立仓库形态存于仓库根的 {@code standalone.json}（仓库级）。两类配置同结构：
  * 外观偏好（主题/强调色）、自动锁定时长、剪贴板清空时长、同步开关等。
  * 不存放任何密码学材料/密钥/密文块。
  */
@@ -28,7 +29,9 @@ public final class UserConfig {
 
     public UserConfig(Path dir) {
         this.dir = dir;
-        this.file = dir.resolve("config.json");
+        // 独立仓库：优先仓库根 standalone.json；否则回退目录内 config.json（应用形态/兼容）
+        Path standalone = dir.resolve("standalone.json");
+        this.file = Files.isRegularFile(standalone) ? standalone : dir.resolve("config.json");
         this.data = load();
     }
 

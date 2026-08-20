@@ -9,8 +9,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -43,19 +44,27 @@ class MarkdownObjectStoreTest {
     }
 
     @Test
-    void putCreatesIndependentFile() {
+    void putCreatesGitStylePath() throws Exception {
         MarkdownObjectStore store = newStore();
         CipherCodec codec = newCodec();
         UUID uuid = UUID.randomUUID();
         store.put(uuid, "data".getBytes(), new CipherCodecAdapter(codec, uuid), 1);
-        assertTrue(java.nio.file.Files.exists(dir.resolve(uuid + ".md")));
+        // 路径：{前2字符}/{后30字符}.md（无连字符）
+        String hex = uuid.toString().replace("-", "");
+        Path file = dir.resolve(hex.substring(0, 2)).resolve(hex.substring(2) + ".md");
+        assertTrue(java.nio.file.Files.exists(file), "expected file at " + file);
+        assertFalse(java.nio.file.Files.exists(dir.resolve(uuid + ".md")));
         List<Block> blocks = store.scan();
         assertEquals(1, blocks.size());
         assertEquals(uuid, blocks.get(0).uuid());
+        // 文件内容恰为一行 timestamp:base58
+        String content = java.nio.file.Files.readString(file).trim();
+        assertEquals(1, content.lines().count());
+        assertTrue(content.matches("\\d+:[1-9A-HJ-NP-Za-km-z]+"));
     }
 
     @Test
-    void updateReplacesInPlace() {
+    void updateOverwritesSingleFile() {
         MarkdownObjectStore store = newStore();
         CipherCodec codec = newCodec();
         UUID uuid = UUID.randomUUID();
@@ -63,43 +72,55 @@ class MarkdownObjectStoreTest {
         store.put(uuid, "v2-updated".getBytes(), new CipherCodecAdapter(codec, uuid), 2);
         byte[] got = store.get(uuid, new CipherCodecAdapter(codec, uuid));
         assertArrayEquals("v2-updated".getBytes(), got);
-        // 仍是一个文件一个块
         assertEquals(1, store.scan().size());
     }
 
     @Test
-    void deleteIndependentFile() {
+    void deleteRemovesFile() {
         MarkdownObjectStore store = newStore();
         CipherCodec codec = newCodec();
         UUID uuid = UUID.randomUUID();
         store.put(uuid, "data".getBytes(), new CipherCodecAdapter(codec, uuid), 1);
         store.delete(uuid);
-        assertFalse(java.nio.file.Files.exists(dir.resolve(uuid + ".md")));
+        String hex = uuid.toString().replace("-", "");
+        Path file = dir.resolve(hex.substring(0, 2)).resolve(hex.substring(2) + ".md");
+        assertFalse(java.nio.file.Files.exists(file));
         assertTrue(store.scan().isEmpty());
     }
 
     @Test
-    void sharedFileSoftDelete() throws Exception {
+    void manyBlocksSpreadAcrossSubdirs() {
         MarkdownObjectStore store = newStore();
         CipherCodec codec = newCodec();
-        UUID u1 = UUID.randomUUID();
-        UUID u2 = UUID.randomUUID();
-        store.put(u1, "block-one-data".getBytes(), new CipherCodecAdapter(codec, u1), 1);
-        store.put(u2, "block-two-data".getBytes(), new CipherCodecAdapter(codec, u2), 2);
-        // 取两个块的 时间戳:base58 token，合并进一个共享文件
-        Block b1b = store.scan().stream().filter(b -> b.uuid().equals(u1)).findFirst().get();
-        Block b2b = store.scan().stream().filter(b -> b.uuid().equals(u2)).findFirst().get();
-        String t1 = b1b.timestamp() + ":" + b1b.base58();
-        String t2 = b2b.timestamp() + ":" + b2b.base58();
-        java.nio.file.Files.delete(dir.resolve(u1 + ".md"));
-        java.nio.file.Files.delete(dir.resolve(u2 + ".md"));
-        java.nio.file.Files.writeString(dir.resolve("shared.md"), t1 + "\n" + t2 + "\n");
+        int n = 64;
+        for (int i = 0; i < n; i++) {
+            UUID uuid = UUID.randomUUID();
+            store.put(uuid, ("data-" + i).getBytes(), new CipherCodecAdapter(codec, uuid), i);
+        }
+        assertEquals(n, store.scan().size());
+        assertEquals(n, store.list().size());
+        // 每个文件一层子目录（root 下直接子项都是目录，非 md）
+        try (var stream = java.nio.file.Files.list(dir)) {
+            assertTrue(stream.allMatch(p -> java.nio.file.Files.isDirectory(p)
+                    || !p.getFileName().toString().endsWith(".md")));
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
 
-        // 删除 u1 → 软删除（首字符后插 !）
-        store.delete(u1);
-        String shared = java.nio.file.Files.readString(dir.resolve("shared.md"));
-        assertTrue(shared.contains("!"), "should be soft-deleted with !");
-        // u2 仍可读
-        assertTrue(store.scan().stream().anyMatch(b -> b.uuid().equals(u2)));
+    /** uuid 前 2 字符（分片目录）在 256 个桶上分布均匀：v4 UUID 第 1 字节是 8 位随机。 */
+    @Test
+    void uuidPrefixUniform() {
+        Map<String, Integer> counts = new HashMap<>();
+        int n = 4096;
+        for (int i = 0; i < n; i++) {
+            String hex = UUID.randomUUID().toString().replace("-", "");
+            counts.merge(hex.substring(0, 2), 1, Integer::sum);
+        }
+        // 4096 样本 × 1/256 ≈ 16/桶；均匀性：极差 < 4 倍均值（无冷热桶）
+        int mean = n / 256;
+        for (int c : counts.values()) {
+            assertTrue(c > mean / 4 && c < mean * 4, "prefix count out of range: " + c);
+        }
     }
 }

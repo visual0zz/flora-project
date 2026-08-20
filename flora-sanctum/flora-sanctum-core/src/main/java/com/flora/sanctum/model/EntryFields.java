@@ -1,12 +1,15 @@
 package com.flora.sanctum.model;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 /**
- * 条目内置预设字段（password / url / username / labels）。
+ * 条目内置预设字段（password / url / username / labels / createTime / updateTime）。
  * <p>
- * 与 entry 负载 JSON 中的预定义字段一一对应；不再以独立 field 块存储。
- * labels 不可变（{@link List#copyOf}）；password 必填校验由调用方决定。
+ * 自 2026-08 起预设字段改为独立块存储（type=field，fieldName 固定为预设名），
+ * 不再是 entry 负载 JSON 中的字段。labels 不可变（{@link List#copyOf}）。
  *
  * @param password 口令（必填语义）
  * @param url     服务 URL
@@ -17,6 +20,10 @@ public final class EntryFields {
 
     /** 全部字段为 null/空列表。 */
     public static final EntryFields EMPTY = new EntryFields(null, null, null, List.of());
+
+    /** 预设字段名集合（独立块存储，GUI 固定显示不可删除）。 */
+    public static final Set<String> PRESET_NAMES = Set.of(
+            "password", "url", "username", "labels", "createTime", "updateTime");
 
     private final String password;
     private final String url;
@@ -44,6 +51,16 @@ public final class EntryFields {
 
     public List<String> labels() {
         return labels;
+    }
+
+    /** 判断字段名是否为预设字段（预设字段以独立块存储且不可删除）。 */
+    public static boolean isPreset(String name) {
+        return name != null && PRESET_NAMES.contains(name);
+    }
+
+    /** 预设字段块的确定性 uuid：{@code nameUUIDFromBytes(entryUuid + "/" + fieldName)}，可稳定定位/更新。 */
+    public static UUID presetUuid(UUID entryUuid, String name) {
+        return UUID.nameUUIDFromBytes((entryUuid + "/" + name).getBytes(StandardCharsets.UTF_8));
     }
 
     /**

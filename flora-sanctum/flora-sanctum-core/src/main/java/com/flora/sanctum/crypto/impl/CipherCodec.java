@@ -1,12 +1,5 @@
 package com.flora.sanctum.crypto.impl;
 
-import org.bouncycastle.crypto.CipherParameters;
-import org.bouncycastle.crypto.InvalidCipherTextException;
-import org.bouncycastle.crypto.engines.AESEngine;
-import org.bouncycastle.crypto.modes.GCMSIVBlockCipher;
-import org.bouncycastle.crypto.params.AEADParameters;
-import org.bouncycastle.crypto.params.KeyParameter;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;
@@ -70,26 +63,13 @@ public final class CipherCodec {
         byte[] aad = concat(header, Long.toString(timestamp).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
         byte[] compressed = deflate(plaintext);
 
-        // GCM-SIV 加密，AAD = aad
-        GCMSIVBlockCipher cipher = new GCMSIVBlockCipher(new AESEngine());
-        CipherParameters params = new AEADParameters(new KeyParameter(encKey), Envelope.TAG_LEN * 8, nonce, aad);
-        cipher.init(true, params);
-        byte[] ct = new byte[cipher.getOutputSize(compressed.length)];
-        int n = cipher.processBytes(compressed, 0, compressed.length, ct, 0);
-        try {
-            n += cipher.doFinal(ct, n);
-        } catch (InvalidCipherTextException e) {
-            throw new IllegalStateException("encrypt failed", e);
-        }
-        // ct 实际含 ciphertext + tag（GCM 模式末尾附加 tag）
-        int ctLen = n;
-        byte[] tag = new byte[Envelope.TAG_LEN];
-        System.arraycopy(ct, ctLen - Envelope.TAG_LEN, tag, 0, Envelope.TAG_LEN);
+        // GCM-SIV 加密，AAD = aad，输出 = 密文 ‖ tag
+        byte[] encrypted = GcmSiv.encrypt(encKey, nonce, aad, compressed);
 
         // 拼完整真实块：header + ciphertext + tag
-        byte[] block = new byte[header.length + ctLen];
+        byte[] block = new byte[header.length + encrypted.length];
         System.arraycopy(header, 0, block, 0, header.length);
-        System.arraycopy(ct, 0, block, header.length, ctLen);
+        System.arraycopy(encrypted, 0, block, header.length, encrypted.length);
 
         return obfuscate(block);
     }
@@ -130,18 +110,13 @@ public final class CipherCodec {
         System.arraycopy(block, Envelope.HEADER_LEN, ciphertext, 0, ciphertext.length);
 
         byte[] aad = concat(header, Long.toString(timestamp).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
-        GCMSIVBlockCipher cipher = new GCMSIVBlockCipher(new AESEngine());
-        CipherParameters params = new AEADParameters(new KeyParameter(encKey), Envelope.TAG_LEN * 8, nonce, aad);
-        cipher.init(false, params);
-        byte[] out = new byte[cipher.getOutputSize(ciphertext.length)];
-        int n = cipher.processBytes(ciphertext, 0, ciphertext.length, out, 0);
+        // GCM-SIV 解密并验证 tag（认证失败抛 IllegalStateException，与调用方契约一致）
+        final byte[] compressed;
         try {
-            n += cipher.doFinal(out, n);
-        } catch (InvalidCipherTextException e) {
+            compressed = GcmSiv.decrypt(encKey, nonce, aad, ciphertext);
+        } catch (IllegalArgumentException e) {
             throw new IllegalStateException("decrypt failed: authentication failed", e);
         }
-        byte[] compressed = new byte[n];
-        System.arraycopy(out, 0, compressed, 0, n);
         return new DecodedBlock(uuid, inflate(compressed));
     }
 

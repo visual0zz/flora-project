@@ -6,7 +6,7 @@
  * 本模块使用 AGPL-3.0 许可证（见 flora-sanctum/LICENSE）。
  */
 module com.flora.sanctum.core {
-    // 加密、密钥派生、块信封（Bouncy Castle）——内部实现（impl）不导出
+    // 加密、密钥派生、块信封（纯 JDK + 自研实现）——内部实现（impl）不导出
     exports com.flora.sanctum.crypto;
     // 纯字节存储引擎（不负责加密，Codec 由外部注入）——内部实现（impl）不导出
     exports com.flora.sanctum.store;
@@ -19,6 +19,5 @@ module com.flora.sanctum.core {
     // 用户配置目录（~/.flora-sanctum）
     exports com.flora.sanctum.config;
 
-    requires org.bouncycastle.provider;
     requires com.flora.root;
 }

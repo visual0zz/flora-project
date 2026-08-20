@@ -17,19 +17,4 @@
         <module>flora-sanctum-core</module>
         <module>flora-sanctum-app</module>
     </modules>
-
-    <dependencyManagement>
-        <dependencies>
-            <!-- 密码学：Argon2 / GCM-SIV / HKDF 等 Bouncy Castle -->
-            <dependency>
-                <groupId>org.bouncycastle</groupId>
-                <artifactId>bcprov-jdk18on</artifactId>
-                <version>1.80</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
-
-    <properties>
-        <bouncycastle.version>1.80</bouncycastle.version>
-    </properties>
 </project>

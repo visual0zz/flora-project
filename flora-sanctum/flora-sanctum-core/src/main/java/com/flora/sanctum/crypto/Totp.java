@@ -5,10 +5,10 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 
 /**
- * TOTP（RFC 6238，用 HmacOTP 生成，见设计 02"TOTP"）。
+ * TOTP（RFC 6238，见设计 02"TOTP"）。
  * <p>
  * TOTP 种子作为 {@code kind:"totp"} 的字段存储；本类从种子生成验证码，无需服务端。
- * HMAC-SHA1 走 JDK JCA（与 BC 实现同为 RFC 2104 标准，输出逐字节一致，见 TotpTest 的 RFC 6238 向量）。
+ * HMAC-SHA1 走 JDK JCA（RFC 2104 标准，经 TotpTest 的 RFC 6238 向量验证）。
  */
 public final class Totp {
 

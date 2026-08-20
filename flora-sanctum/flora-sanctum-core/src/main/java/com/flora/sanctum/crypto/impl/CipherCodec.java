@@ -8,7 +8,7 @@ import java.util.UUID;
  * 块信封编解码（见设计 02/04b）。
  * <p>
  * 密文块格式（加密时真实值）：
- * {@code magic(4)+version(1)+flags(1)+uuid(16)+keyId(4)+nonce(16)+ciphertext+tag(16)}。
+ * {@code magic(8)+version(1)+flags(1)+uuid(16)+keyId(4)+nonce(12)+ciphertext+tag(16)}。
  * <p>
  * AAD = 整个信封头（magic‖version‖flags‖uuid‖keyId‖nonce）‖ 块级时间戳（十进制 UTF-8），
  * GCM-SIV tag 全量认证。明文负载先 deflate 压缩再加密（降低冗余与长度暴露）。

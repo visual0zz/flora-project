@@ -10,7 +10,7 @@ import java.awt.image.BufferedImage;
 /**
  * flora-sanctum 统一 UI 主题（白灰偏暖黄纸感风格）。
  * <p>
- * 供所有界面（解锁屏、主界面、选择界面等）共用，保证配色与透明方案一致：
+ * 供所有界面（解锁页、编辑页、历史列表页、设置页等）共用，保证配色与透明方案一致：
  * 纸感底纹背景（PaperPanel）+ 暖浅控件底色 + 纯白输入框 + 淡灰棕文字/分隔线。
  */
 public final class UiTheme {

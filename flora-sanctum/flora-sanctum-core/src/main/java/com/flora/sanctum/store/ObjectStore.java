@@ -3,10 +3,9 @@ package com.flora.sanctum.store;
 /**
  * 存储引擎接口（内部，不对外暴露；见设计 04）。
  * <p>
- * 底层为"库根文件夹里的 markdown 块集合"（见设计 04b）：每个对象一个或多个
- * base58 块。编解码由调用方注入 Codec（明文或密文）；存储层不感知密码学。
- * <p>
- * 独立文件（整文件仅一个块）默认；写入时原位替换对应 base58 串。
+ * 底层为"库根文件夹里的 markdown 块集合"（见设计 04b）：一文件一块，
+ * {@code {前2字符}/{剩余30字符}.md}，内容单行 {@code timestamp:base58}。
+ * 编解码由调用方注入 Codec（明文或密文）；存储层不感知密码学。
  */
 public interface ObjectStore {
 
@@ -20,14 +19,14 @@ public interface ObjectStore {
     byte[] get(java.util.UUID blockUuid, Codec codec);
 
     /**
-     * 写入/更新某对象：重新加密（若 codec 非 null）并原位替换或新建独立文件。
+     * 写入/更新某对象：重新加密（若 codec 非 null）并覆盖对应文件。
      *
      * @param timestamp 块级时间戳（落盘为 {@code timestamp:base58} 前缀，且作为 codec 的 AAD）
      */
     void put(java.util.UUID blockUuid, byte[] data, Codec codec, long timestamp);
 
     /**
-     * 删除某对象：独立文件可物理删，共享文件软删除（插入 ! 标记）。
+     * 删除某对象：物理删除对应文件。
      */
     void delete(java.util.UUID blockUuid);
 

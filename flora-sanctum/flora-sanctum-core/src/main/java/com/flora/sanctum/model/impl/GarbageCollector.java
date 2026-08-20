@@ -15,7 +15,7 @@ import java.util.UUID;
 
 /**
  * 垃圾收集：从根集合（manifest 明文块 + parent 为根概念 tag 的块）出发，
- * 沿归属边(parent)与引用边(icon/keyRef)遍历，不可达的孤立块列入清单并软删除。
+ * 沿归属边(parent)与引用边(icon/keyRef)遍历，不可达的孤立块删除并返回其 uuid 列表。
  */
 public final class GarbageCollector {
 
@@ -25,7 +25,7 @@ public final class GarbageCollector {
         this.ctx = ctx;
     }
 
-    /** 收集孤立块并软删除，返回被删除的 uuid 列表。 */
+    /** 收集并删除孤立块，返回被删除的 uuid 列表。 */
     public List<UUID> collect() {
         List<Block> blocks = ctx.store().scan();
         Set<UUID> reachable = new HashSet<>();
@@ -66,7 +66,7 @@ public final class GarbageCollector {
                 }
             }
         }
-        // 不可达 = 孤立 → 软删除
+        // 不可达 = 孤立 → 删除
         List<UUID> orphaned = new ArrayList<>();
         for (Block b : blocks) {
             if (!reachable.contains(b.uuid())) {

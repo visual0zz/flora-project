@@ -71,7 +71,7 @@ public abstract class TreeNode {
         return data() != null;
     }
 
-    /** 删除节点（软删除，存储层处理）。 */
+    /** 删除节点（物理删除对应存储块）。 */
     public void delete() {
         ctx().delete(uuid);
     }

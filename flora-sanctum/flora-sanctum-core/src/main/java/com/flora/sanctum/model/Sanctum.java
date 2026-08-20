@@ -159,7 +159,7 @@ public final class Sanctum implements AutoCloseable {
         new MasterKeyRotator(context).rotate(newPassword, memoryKiB, iterations, parallelism);
     }
 
-    /** 收集垃圾（委托 GarbageCollector），返回被软删除的孤立块 uuid。 */
+    /** 收集垃圾（委托 GarbageCollector），返回被删除的孤立块 uuid。 */
     public List<UUID> collectGarbage() {
         return new GarbageCollector(context).collect();
     }

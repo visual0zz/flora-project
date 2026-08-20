@@ -1,16 +1,14 @@
 package com.flora.sanctum.crypto;
 
-import org.bouncycastle.crypto.digests.SHA1Digest;
-import org.bouncycastle.crypto.macs.HMac;
-import org.bouncycastle.crypto.params.KeyParameter;
-
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 
 /**
  * TOTP（RFC 6238，用 HmacOTP 生成，见设计 02"TOTP"）。
  * <p>
  * TOTP 种子作为 {@code kind:"totp"} 的字段存储；本类从种子生成验证码，无需服务端。
+ * HMAC-SHA1 走 JDK JCA（与 BC 实现同为 RFC 2104 标准，输出逐字节一致，见 TotpTest 的 RFC 6238 向量）。
  */
 public final class Totp {
 
@@ -48,11 +46,12 @@ public final class Totp {
     }
 
     private static byte[] hmacSha1(byte[] key, byte[] data) {
-        HMac mac = new HMac(new SHA1Digest());
-        mac.init(new KeyParameter(key));
-        mac.update(data, 0, data.length);
-        byte[] out = new byte[mac.getMacSize()];
-        mac.doFinal(out, 0);
-        return out;
+        try {
+            Mac mac = Mac.getInstance("HmacSHA1");
+            mac.init(new SecretKeySpec(key, "HmacSHA1"));
+            return mac.doFinal(data);
+        } catch (java.security.GeneralSecurityException e) {
+            throw new IllegalStateException("HmacSHA1 failed", e);
+        }
     }
 }

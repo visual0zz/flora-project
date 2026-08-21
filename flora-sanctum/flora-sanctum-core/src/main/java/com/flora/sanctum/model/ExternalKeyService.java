@@ -59,11 +59,12 @@ public final class ExternalKeyService {
     public byte[] encrypt(byte[] data, UUID fieldUuid) {
         byte[] keyMaterial = externalKeyMaterial(fieldUuid);
         byte[] encKey = KeyDerivation.encKey(keyMaterial);
-        CipherCodec codec = new CipherCodec(encKey, keyMaterial, sanctum.vault().random());
-        return codec.encode(fieldUuid, data, codec.makeKeyIdWith(keyMaterial), 0);
+        CipherCodec codec = new CipherCodec(encKey, keyMaterial, sanctum.vault().repoKeyIdSeed(),
+                sanctum.vault().random());
+        return codec.encode(fieldUuid, data, 0);
     }
 
-    /** 解密：靠密文头 keyId 在 externalKey 密钥索引定位候选，再 tag 试解确证（不遍历全部密钥）。 */
+    /** 解密：从密文头 (nonce, keyId) 恢复 dekId 定位候选，再 tag 试解确证（与系统块同一机制）。 */
     public byte[] decrypt(String cipherBase58) {
         byte[] obfuscated;
         try {
@@ -72,20 +73,29 @@ public final class ExternalKeyService {
             throw new IllegalArgumentException("invalid base58");
         }
         byte[] block = BlockHeader.deobfuscate(obfuscated);
-        int keyIdOff = BlockFormat.MAGIC_LEN + 2 + 16;
-        if (block.length < keyIdOff + 4 || !BlockHeader.isBlock(block)) {
+        int nonceOff = BlockFormat.MAGIC_LEN + 2 + 16;
+        int keyIdOff = nonceOff + BlockFormat.NONCE_LEN;
+        if (block.length < keyIdOff + BlockFormat.KEYID_LEN || !BlockHeader.isBlock(block)) {
             throw new IllegalArgumentException("not a block");
         }
-        byte[] keyId = new byte[4];
-        System.arraycopy(block, keyIdOff, keyId, 0, 4);
+        byte[] nonce = new byte[BlockFormat.NONCE_LEN];
+        System.arraycopy(block, nonceOff, nonce, 0, BlockFormat.NONCE_LEN);
+        byte[] keyId = new byte[BlockFormat.KEYID_LEN];
+        System.arraycopy(block, keyIdOff, keyId, 0, BlockFormat.KEYID_LEN);
+        byte[] repoSeed = sanctum.vault().repoKeyIdSeed();
+        if (repoSeed == null) {
+            throw new IllegalArgumentException("decrypt failed");
+        }
+        byte[] dekId = com.flora.sanctum.crypto.KeyIdDeriver.resolveDekId(repoSeed, nonce, keyId);
         ensureIndex();
-        for (byte[] keyMaterial : keyIndex.lookup(keyId)) {
+        for (byte[] keyMaterial : keyIndex.lookup(dekId)) {
             byte[] encKey = KeyDerivation.encKey(keyMaterial);
-            CipherCodec codec = new CipherCodec(encKey, keyMaterial, sanctum.vault().random());
+            CipherCodec codec = new CipherCodec(encKey, keyMaterial, sanctum.vault().repoKeyIdSeed(),
+                    sanctum.vault().random());
             try {
                 return codec.decode(obfuscated, 0).plaintext;
             } catch (IllegalStateException ignore) {
-                // tag 不符 → 试下一个候选（同 keyId 碰撞）
+                // tag 不符 → 试下一个候选（同 dekId 碰撞）
             }
         }
         throw new IllegalArgumentException("decrypt failed");
@@ -96,7 +106,7 @@ public final class ExternalKeyService {
         UUID fieldUuid = UUID.randomUUID();
         JsonObject field = new JsonObject();
         field.put("version", 1);
-        field.put("type", "field");
+        field.put("type", NodeType.FIELD.tag());
         field.put("parent", entryUuid.toString());
         field.put("fieldName", fieldName);
         field.put("kind", "externalKey");

@@ -35,8 +35,8 @@ public abstract class TreeNode {
         return tree.context();
     }
 
-    /** 节点类型（group/entry/field/icon/sshKey/remote）。 */
-    public abstract String type();
+    /** 节点类型（ROOT/GROUP/ENTRY/FIELD/ICON/SSH_KEY/REMOTE 等）。 */
+    public abstract NodeType type();
 
     /** 节点负载（内存图读取）。 */
     public JsonObject data() {

@@ -20,8 +20,8 @@ public final class GroupNode extends ObjectNode {
     }
 
     @Override
-    public String type() {
-        return "group";
+    public NodeType type() {
+        return NodeType.GROUP;
     }
 
     public String name() {

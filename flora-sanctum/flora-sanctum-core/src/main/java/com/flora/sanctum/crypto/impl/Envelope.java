@@ -18,8 +18,10 @@ public final class Envelope {
     public static final int PLAINTEXT_HEADER_LEN = BlockFormat.PLAINTEXT_HEADER_LEN;
     public static final int HEADER_LEN = BlockFormat.HEADER_LEN;
     public static final byte VERSION_1 = BlockFormat.VERSION_1;
+    public static final byte VERSION_2 = BlockFormat.VERSION_2;
     public static final byte FLAG_CIPHER = BlockFormat.FLAG_CIPHER;
     public static final byte FLAG_PLAINTEXT = BlockFormat.FLAG_PLAINTEXT;
     public static final int TAG_LEN = BlockFormat.TAG_LEN;
     public static final int NONCE_LEN = BlockFormat.NONCE_LEN;
+    public static final int KEYID_LEN = BlockFormat.KEYID_LEN;
 }

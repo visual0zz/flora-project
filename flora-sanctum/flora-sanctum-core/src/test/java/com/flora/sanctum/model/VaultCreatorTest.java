@@ -28,9 +28,8 @@ class VaultCreatorTest {
         Vault vault = unlocker.unlock(pw);
         assertNotNull(vault);
         assertEquals("gcm-siv-1", vault.manifest().cryptoVersion());
-        // KEK + 三个顶层 root DEK 各 256 个 keyId，共约 1024（KEK 参与解锁引导预筛，见 VaultUnlocker）
-        int size = vault.keyIdIndex().size();
-        assertTrue(size >= 900 && size <= 1024, "expected ~1024 keyIds, got " + size);
+        // 新机制：三个顶层 root DEK 各 1 条 dekId 索引（KEK 不再入索引，见设计"keyId 防关联"）
+        assertEquals(3, vault.keyIdIndex().size());
     }
 
     @Test

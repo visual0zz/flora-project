@@ -17,8 +17,8 @@ public final class IconNode extends TreeNode {
     }
 
     @Override
-    public String type() {
-        return "icon";
+    public NodeType type() {
+        return NodeType.ICON;
     }
 
     public byte[] iconData() {

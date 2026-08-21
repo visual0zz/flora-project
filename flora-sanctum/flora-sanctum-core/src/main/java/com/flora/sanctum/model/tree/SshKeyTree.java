@@ -21,7 +21,7 @@ public final class SshKeyTree extends DataTree {
 
     @Override
     protected boolean belongsTo(String type, String kind) {
-        return "sshKey".equals(type);
+        return NodeType.fromTag(type) == NodeType.SSH_KEY;
     }
 
     @Override
@@ -45,7 +45,7 @@ public final class SshKeyTree extends DataTree {
         UUID keyUuid = UUID.randomUUID();
         JsonObject key = new JsonObject();
         key.put("version", 1);
-        key.put("type", "sshKey");
+        key.put("type", NodeType.SSH_KEY.tag());
         key.put("parent", context().vault().rootGroupUuid(RootTag.SSH_KEY).toString());
         key.put("name", name);
         key.put("privateKey", privateKeyPem);

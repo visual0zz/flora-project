@@ -27,6 +27,7 @@ public final class VaultCreator {
 
     private final ObjectStore store;
     private final SecureRandomSource random = new SecureRandomSource();
+    private byte[] repoKeyIdSeed; // 本次创建生成的仓库级 keyId 派生种子（写入 DATA 根 json；创建后清除）
 
     public VaultCreator(ObjectStore store) {
         this.store = store;
@@ -44,14 +45,23 @@ public final class VaultCreator {
         random.nextBytes(salt);
         Argon2Kdf kdf = new Argon2Kdf(salt, memoryKiB, iterations, parallelism);
         byte[] kek = kdf.derive(masterPassword);
+        // 仓库级 keyId 派生种子（存 DATA 根 json，解锁时读取；见设计"keyId 防关联"）
+        byte[] seed = new byte[32];
+        random.nextBytes(seed);
+        repoKeyIdSeed = seed;
         try {
             byte[] macKey = kdf.manifestMacKey(kek);
             writeManifestBlock(salt, memoryKiB, iterations, parallelism, macKey, kek);
-            // 三个顶层 group：各持独立随机 DEK（用 KEK 包裹），parent 为根概念 tag
+            // 三个顶层 root group：各持独立随机 DEK（用 KEK 包裹），parent 为根概念 tag
             for (RootTag tag : new RootTag[]{RootTag.DATA, RootTag.ICON, RootTag.SSH_KEY}) {
-                writeRootGroup(tag, kek);
+                writeRootGroup(tag, kek, seed);
             }
         } finally {
+            if (repoKeyIdSeed != null) {
+                java.util.Arrays.fill(repoKeyIdSeed, (byte) 0);
+                repoKeyIdSeed = null;
+            }
+            java.util.Arrays.fill(seed, (byte) 0);
             java.util.Arrays.fill(kek, (byte) 0);
         }
     }
@@ -61,7 +71,7 @@ public final class VaultCreator {
         UUID uuid = UUID.randomUUID();
         com.flora.root.codec.json.model.JsonObject manifest = new com.flora.root.codec.json.model.JsonObject();
         manifest.put("version", 1);
-        manifest.put("type", "manifest");
+        manifest.put("type", NodeType.MANIFEST.tag());
         manifest.put("parent", RootTag.MANIFEST.tag());
         manifest.put("cryptoVersion", "gcm-siv-1");
         manifest.put("kdf", "argon2id");
@@ -79,32 +89,38 @@ public final class VaultCreator {
         writePlaintextBlock(uuid, manifest, Envelope.FLAG_PLAINTEXT, 1);
     }
 
-    private void writeRootGroup(RootTag tag, byte[] kek) {
+    private void writeRootGroup(RootTag tag, byte[] kek, byte[] repoKeyIdSeed) {
         com.flora.root.codec.json.model.JsonObject group = new com.flora.root.codec.json.model.JsonObject();
         group.put("version", 1);
-        group.put("type", "group");
+        group.put("type", NodeType.ROOT.tag());
         group.put("parent", tag.tag());
-        // 生成独立随机 DEK，用 KEK 包裹（存于 group 密文块内）
+        // 生成独立随机 DEK，用 KEK 包裹（存于 root group 密文块内）
         byte[] dek = new byte[32];
         random.nextBytes(dek);
         byte[] wrapped = wrap(dek, kek);
         group.put("dek", Base64.getEncoder().encodeToString(wrapped));
+        // DATA 根承载仓库级 keyId 派生种子（仅存一份）
+        if (tag == RootTag.DATA) {
+            group.put("repoKeyIdSeed", Base64.getEncoder().encodeToString(repoKeyIdSeed));
+        }
         writeCipherBlock(group, kek, 1);
     }
 
     /** 用 KEK 包裹一个 DEK（AES-GCM-SIV，nonce 随机；内部信封无块时间戳，timestamp=0）。 */
     private byte[] wrap(byte[] dek, byte[] kek) {
         byte[] encKey = com.flora.sanctum.crypto.KeyDerivation.encKey(kek);
-        com.flora.sanctum.crypto.impl.CipherCodec codec = new com.flora.sanctum.crypto.impl.CipherCodec(encKey, dek, random);
-        return codec.encode(UUID.randomUUID(), dek, codec.makeKeyIdWith(kek), 0);
+        com.flora.sanctum.crypto.impl.CipherCodec codec =
+                new com.flora.sanctum.crypto.impl.CipherCodec(encKey, kek, repoKeyIdSeed, random);
+        return codec.encode(UUID.randomUUID(), dek, 0);
     }
 
     private void writeCipherBlock(com.flora.root.codec.json.model.JsonObject payload, byte[] keyMaterial, long timestamp) {
         byte[] json = com.flora.root.codec.JsonUtil.toJsonString(payload).getBytes(StandardCharsets.UTF_8);
         byte[] encKey = com.flora.sanctum.crypto.KeyDerivation.encKey(keyMaterial);
-        com.flora.sanctum.crypto.impl.CipherCodec codec = new com.flora.sanctum.crypto.impl.CipherCodec(encKey, keyMaterial, random);
+        com.flora.sanctum.crypto.impl.CipherCodec codec =
+                new com.flora.sanctum.crypto.impl.CipherCodec(encKey, keyMaterial, repoKeyIdSeed, random);
         UUID uuid = UUID.randomUUID();
-        byte[] block = codec.encode(uuid, json, codec.makeKeyIdWith(keyMaterial), timestamp);
+        byte[] block = codec.encode(uuid, json, timestamp);
         store.put(uuid, block, null, timestamp);
     }
 

@@ -22,9 +22,9 @@ public final class ObjectTree extends DataTree {
 
     @Override
     protected boolean belongsTo(String type, String kind) {
-        return "group".equals(type) || "entry".equals(type)
-                || "customField".equals(type)
-                || ("field".equals(type) && !"remote".equals(kind));
+        NodeType t = NodeType.fromTag(type);
+        return t == NodeType.GROUP || t == NodeType.ENTRY || t == NodeType.CUSTOM_FIELD
+                || (t == NodeType.FIELD && !"remote".equals(kind));
     }
 
     @Override
@@ -33,14 +33,16 @@ public final class ObjectTree extends DataTree {
         if (!isOwned(d)) {
             return null;
         }
+        NodeType nt = NodeType.fromTag(d.getString("type"));
         // objects root group 是基础设施（持 root DEK），不暴露为普通节点
-        if ("group".equals(d.getString("type"))
-                && uuid.equals(context().vault().rootGroupUuid(RootTag.DATA))) {
+        // （新库 type=root；兼容旧库 type=group 的 root group）
+        if ((nt == NodeType.ROOT)
+                || (nt == NodeType.GROUP && uuid.equals(context().vault().rootGroupUuid(RootTag.DATA)))) {
             return null;
         }
-        return switch (d.getString("type")) {
-            case "group" -> new GroupNode(uuid, this);
-            case "entry" -> new EntryNode(uuid, this);
+        return switch (nt) {
+            case GROUP -> new GroupNode(uuid, this);
+            case ENTRY -> new EntryNode(uuid, this);
             default -> new FieldNode(uuid, this);
         };
     }
@@ -93,7 +95,7 @@ public final class ObjectTree extends DataTree {
         byte[] wrapped = context().wrapDek(dek, parentDek);
         JsonObject group = new JsonObject();
         group.put("version", 1);
-        group.put("type", "group");
+        group.put("type", NodeType.GROUP.tag());
         group.put("name", name);
         group.put("parent", parentId == null ? RootTag.DATA.tag() : parentId.toString());
         group.put("dek", Base64.getEncoder().encodeToString(wrapped));
@@ -113,7 +115,7 @@ public final class ObjectTree extends DataTree {
         long now = System.currentTimeMillis();
         JsonObject entry = new JsonObject();
         entry.put("version", 1);
-        entry.put("type", "entry");
+        entry.put("type", NodeType.ENTRY.tag());
         entry.put("name", name);
         entry.put("parent", groupId == null ? RootTag.DATA.tag() : groupId.toString());
         if (iconId != null) {
@@ -140,7 +142,7 @@ public final class ObjectTree extends DataTree {
         }
         JsonObject f = new JsonObject();
         f.put("version", 1);
-        f.put("type", "field");
+        f.put("type", NodeType.FIELD.tag());
         f.put("parent", entryUuid.toString());
         f.put("fieldName", name);
         f.put("value", value);

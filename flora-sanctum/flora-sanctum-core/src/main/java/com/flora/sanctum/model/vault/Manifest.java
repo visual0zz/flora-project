@@ -116,7 +116,7 @@ public final class Manifest {
     public static Manifest fromJson(byte[] payload) {
         com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(
                 new String(payload, java.nio.charset.StandardCharsets.UTF_8));
-        if (!"manifest".equals(n.getString("type"))) {
+        if (NodeType.MANIFEST != NodeType.fromTag(n.getString("type"))) {
             throw new IllegalArgumentException("not a manifest");
         }
         com.flora.root.codec.json.model.JsonObject params = n.getObject("params");

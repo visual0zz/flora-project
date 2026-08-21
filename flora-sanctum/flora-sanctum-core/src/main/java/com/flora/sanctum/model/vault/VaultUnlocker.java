@@ -72,8 +72,8 @@ byte[] payload = new byte[full.length - com.flora.sanctum.crypto.impl.Envelope.P
      * 虽 parent 也是概念 tag，但其块用 data 根 DEK 加密，KEK 解不开，按普通文件夹登记）。
      */
     private void discoverRootDeks(Vault vault, byte[] kek, List<Block> blocks) {
-        // KEK 入 keyId 索引，供块 keyId 预筛（root group 块用 KEK 加密）
-        vault.keyIdIndex().register(kek);
+        // root group 块用 KEK 加密，但 keyId 由 repoKeyIdSeed 派生（解锁时尚未读出），
+        // 无法用 keyId 预筛 → 直接对每块用已知 DEK 试解（GCM tag 确证）。
         java.util.List<byte[]> known = new java.util.ArrayList<>();
         known.add(kek); // 不 clone：后续以引用是否即 KEK 判断 root group
         boolean progress = true;
@@ -81,10 +81,6 @@ byte[] payload = new byte[full.length - com.flora.sanctum.crypto.impl.Envelope.P
             progress = false;
             for (Block b : blocks) {
                 if (!b.isCipher()) {
-                    continue;
-                }
-                // keyId 预筛：无已知密钥命中则跳过，避免对每块试解全部 known
-                if (vault.keyIdIndex().lookup(b.keyId()).isEmpty()) {
                     continue;
                 }
                 for (byte[] dk : known) {
@@ -95,11 +91,19 @@ byte[] payload = new byte[full.length - com.flora.sanctum.crypto.impl.Envelope.P
                     try {
                         com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(
                                 new String(plain, java.nio.charset.StandardCharsets.UTF_8));
-                        if ("group".equals(n.getString("type")) && n.getString("dek") != null) {
+                        NodeType nt = NodeType.fromTag(n.getString("type"));
+                        if ((nt == NodeType.ROOT || nt == NodeType.GROUP) && n.getString("dek") != null) {
                             if (dk == kek) {
                                 // root group：parent 为根概念 tag
                                 RootTag tag = RootTag.fromTag(n.getString("parent"));
                                 vault.addRootGroupUuid(tag, b.uuid());
+                                // DATA 根承载仓库级 keyId 派生种子
+                                if (tag == RootTag.DATA) {
+                                    String seedB64 = n.getString("repoKeyIdSeed");
+                                    if (seedB64 != null) {
+                                        vault.setRepoKeyIdSeed(java.util.Base64.getDecoder().decode(seedB64));
+                                    }
+                                }
                                 if (vault.rootDek(tag) == null) {
                                     byte[] wrapped = java.util.Base64.getDecoder().decode(n.getString("dek"));
                                     byte[] dek = unwrap(vault, dk, wrapped);
@@ -178,7 +182,7 @@ byte[] payload = new byte[full.length - com.flora.sanctum.crypto.impl.Envelope.P
                             payload, 0, payload.length);
                     String json = new String(payload, java.nio.charset.StandardCharsets.UTF_8);
                     com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(json);
-                    if ("manifest".equals(n.getString("type"))) {
+                    if (NodeType.MANIFEST == NodeType.fromTag(n.getString("type"))) {
                         return b;
                     }
                 } catch (Exception ignore) {

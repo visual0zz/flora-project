@@ -25,7 +25,7 @@ class SanctumTest {
         EntryNode entry = s.objectTree().createEntry(null, "微博",
                 new EntryFields("s3cret", null, "alice", List.of()));
 
-        assertEquals("entry", entry.type());
+        assertEquals(NodeType.ENTRY, entry.type());
         assertEquals("微博", entry.name());
         assertEquals("alice", entry.username());
         assertEquals("s3cret", entry.password());
@@ -92,11 +92,11 @@ class SanctumTest {
 
         SshKeyNode key = s.sshKeyTree().createSshKey("mykey", "-----BEGIN OPENSSH PRIVATE KEY-----");
         assertNotNull(s.sshKeyTree().find(key.uuid()));
-        assertEquals("sshKey", key.type());
+        assertEquals(NodeType.SSH_KEY, key.type());
 
         RemoteNode remote = s.remoteTree().addRemote("origin", "git@example.com:repo.git", "mykey");
         assertNotNull(s.remoteTree().find(remote.uuid()));
-        assertEquals("remote", remote.type());
+        assertEquals(NodeType.REMOTE, remote.type());
     }
 
     @Test
@@ -108,6 +108,23 @@ class SanctumTest {
         s.unlock("pw".toCharArray());
         assertTrue(s.isUnlocked());
         assertNotNull(s.objectTree().entry(entry.uuid()));
+    }
+
+    @Test
+    void repoKeyIdSeedPersistsAcrossReunlock() {
+        char[] pw = "pw".toCharArray();
+        Sanctum s = Sanctum.createAndUnlock(dir, pw);
+        byte[] seed1 = s.vault().repoKeyIdSeed();
+        assertNotNull(seed1);
+        assertEquals(32, seed1.length);
+        s.close();
+
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlock(pw);
+        byte[] seed2 = s2.vault().repoKeyIdSeed();
+        assertNotNull(seed2);
+        assertArrayEquals(seed1, seed2);
+        s2.close();
     }
 
     @Test

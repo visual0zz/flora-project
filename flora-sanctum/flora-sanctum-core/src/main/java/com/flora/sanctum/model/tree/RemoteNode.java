@@ -17,8 +17,8 @@ public final class RemoteNode extends TreeNode {
     }
 
     @Override
-    public String type() {
-        return "remote"; // 语义类型（存储 type=field, kind=remote）
+    public NodeType type() {
+        return NodeType.REMOTE; // 语义类型（存储 type=field, kind=remote）
     }
 
     public String name() {

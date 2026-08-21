@@ -22,7 +22,7 @@ public final class IconTree extends DataTree {
 
     @Override
     protected boolean belongsTo(String type, String kind) {
-        return "icon".equals(type);
+        return NodeType.fromTag(type) == NodeType.ICON;
     }
 
     @Override
@@ -46,7 +46,7 @@ public final class IconTree extends DataTree {
         UUID iconUuid = UUID.randomUUID();
         JsonObject icon = new JsonObject();
         icon.put("version", 1);
-        icon.put("type", "icon");
+        icon.put("type", NodeType.ICON.tag());
         icon.put("parent", context().vault().rootGroupUuid(RootTag.ICON).toString());
         icon.put("data", Base64.getEncoder().encodeToString(data));
         icon.put("format", format);

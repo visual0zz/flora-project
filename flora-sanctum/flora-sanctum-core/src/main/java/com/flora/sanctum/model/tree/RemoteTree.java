@@ -21,7 +21,7 @@ public final class RemoteTree extends DataTree {
 
     @Override
     protected boolean belongsTo(String type, String kind) {
-        return "field".equals(type) && "remote".equals(kind);
+        return NodeType.fromTag(type) == NodeType.FIELD && "remote".equals(kind);
     }
 
     @Override
@@ -55,10 +55,10 @@ public final class RemoteTree extends DataTree {
         UUID remoteUuid = UUID.randomUUID();
         JsonObject remote = new JsonObject();
         remote.put("version", 1);
-        remote.put("type", "field");
+        remote.put("type", NodeType.FIELD.tag());
         remote.put("parent", RootTag.REMOTE.tag());
         remote.put("fieldName", name);
-        remote.put("kind", "remote");
+        remote.put("kind", com.flora.sanctum.model.FieldKind.REMOTE.tag());
         JsonObject value = new JsonObject();
         value.put("url", url);
         if (keyRef != null) {

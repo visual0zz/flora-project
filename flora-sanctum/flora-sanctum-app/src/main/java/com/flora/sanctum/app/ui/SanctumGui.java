@@ -1,6 +1,7 @@
 package com.flora.sanctum.app.ui;
 
 import com.flora.sanctum.config.UserConfig;
+import com.flora.sanctum.model.NodeType;
 import com.flora.sanctum.model.tree.DataTree;
 import com.flora.sanctum.model.tree.EntryNode;
 import com.flora.sanctum.model.FieldKind;
@@ -88,7 +89,7 @@ public final class SanctumGui {
     /** 与 entryModel 平行的条目 UUID 列表（UI 只显示名称，按索引定位 UUID）。 */
     private final List<UUID> entryUuids = new ArrayList<>();
     /** 与 entryUuids 平行的列表项类型（group/entry/icon/sshKey/field），供图标与双击导航。 */
-    private final List<String> listItemTypes = new ArrayList<>();
+    private final List<NodeType> listItemTypes = new ArrayList<>();
     private JPanel editPanel;
     private JLabel statusLabel;
     private UUID selectedEntry;
@@ -663,7 +664,7 @@ public final class SanctumGui {
             refreshEntryList(searchField.getText());
             // 选中文件夹 → 右侧编辑面板显示文件夹编辑
             Object sel = currentSelection();
-            if (sel instanceof UUID u && "group".equals(typeOf(u))) {
+            if (sel instanceof UUID u && typeOf(u) == NodeType.GROUP) {
                 renderGroupPanel(u);
             } else {
                 clearEditPanel();
@@ -694,7 +695,7 @@ public final class SanctumGui {
                 // 双击子文件夹 → 进入该文件夹（树联动选中）
                 if (e.getClickCount() == 2) {
                     int idx = entryList.locationToIndex(e.getPoint());
-                    if (idx >= 0 && idx < listItemTypes.size() && "group".equals(listItemTypes.get(idx))) {
+                    if (idx >= 0 && idx < listItemTypes.size() && listItemTypes.get(idx) == NodeType.GROUP) {
                         navigateToGroup(entryUuids.get(idx));
                     }
                 }
@@ -849,7 +850,7 @@ public final class SanctumGui {
             for (IconNode icon : sanctum.iconTree().icons()) {
                 entryModel.addElement(iconLabel(icon));
                 entryUuids.add(icon.uuid());
-                listItemTypes.add("icon");
+                listItemTypes.add(NodeType.ICON);
             }
             return;
         }
@@ -857,7 +858,7 @@ public final class SanctumGui {
             for (SshKeyNode key : sanctum.sshKeyTree().keys()) {
                 entryModel.addElement(key.name());
                 entryUuids.add(key.uuid());
-                listItemTypes.add("sshKey");
+                listItemTypes.add(NodeType.SSH_KEY);
             }
             return;
         }
@@ -865,7 +866,7 @@ public final class SanctumGui {
             for (RemoteNode r : sanctum.remoteTree().remotes()) {
                 entryModel.addElement(r.name());
                 entryUuids.add(r.uuid());
-                listItemTypes.add("field");
+                listItemTypes.add(NodeType.FIELD);
             }
             return;
         }
@@ -888,14 +889,14 @@ public final class SanctumGui {
                 }
                 entryModel.addElement(gname);
                 entryUuids.add(g.uuid());
-                listItemTypes.add("group");
+                listItemTypes.add(NodeType.GROUP);
             } else if (n instanceof EntryNode e) {
                 if (!q.isEmpty() && !matchesFilter(e, q)) {
                     continue;
                 }
                 entryModel.addElement(e.name());
                 entryUuids.add(e.uuid());
-                listItemTypes.add("entry");
+                listItemTypes.add(NodeType.ENTRY);
             }
         }
     }
@@ -958,14 +959,14 @@ public final class SanctumGui {
             return;
         }
         selectedEntry = u;
-        String type = typeOf(u);
-        if ("group".equals(type)) {
+        NodeType type = typeOf(u);
+        if (type == NodeType.GROUP) {
             renderGroupPanel(u);
-        } else if ("icon".equals(type)) {
+        } else if (type == NodeType.ICON) {
             renderIconPanel(u);
-        } else if ("sshKey".equals(type)) {
+        } else if (type == NodeType.SSH_KEY) {
             renderSshKeyPanel(u);
-        } else if ("remote".equals(type) || "field".equals(type)) {
+        } else if (type == NodeType.REMOTE || type == NodeType.FIELD) {
             renderRemotePanel(u);
         } else {
             renderEntry(selectedEntry);
@@ -1663,12 +1664,12 @@ public final class SanctumGui {
         RootTag section = sectionOf(sel);
         UUID entryUuid = selectedEntryUuid();
         if (entryUuid != null) {
-            String type = typeOf(entryUuid);
-            String what = switch (type == null ? "" : type) {
-                case "group" -> "该文件夹";
-                case "icon" -> "该图标";
-                case "sshKey" -> "该 SSH 密钥";
-                case "remote" -> "该远程配置";
+            NodeType type = typeOf(entryUuid);
+            String what = switch (type == null ? NodeType.ENTRY : type) {
+                case GROUP -> "该文件夹";
+                case ICON -> "该图标";
+                case SSH_KEY -> "该 SSH 密钥";
+                case REMOTE -> "该远程配置";
                 default -> "该条目";
             };
             int ok = JOptionPane.showConfirmDialog(frame, "删除" + what + "?", "确认", JOptionPane.YES_NO_OPTION);
@@ -1700,8 +1701,8 @@ public final class SanctumGui {
         }
     }
 
-    /** 对象类型（group/entry/field/icon/sshKey），未知返回 null。 */
-    private String typeOf(UUID uuid) {
+    /** 对象类型，未知返回 null。 */
+    private NodeType typeOf(UUID uuid) {
         TreeNode n = sanctum.findNode(uuid);
         return n == null ? null : n.type();
     }
@@ -1839,8 +1840,8 @@ public final class SanctumGui {
         public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index,
                                                                boolean isSelected, boolean cellHasFocus) {
             super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-            String type = index >= 0 && index < listItemTypes.size() ? listItemTypes.get(index) : null;
-            setIcon("group".equals(type) ? SvgIcon.get("folder", 24) : SvgIcon.get("entry", 24));
+            NodeType type = index >= 0 && index < listItemTypes.size() ? listItemTypes.get(index) : null;
+            setIcon(type == NodeType.GROUP ? SvgIcon.get("folder", 24) : SvgIcon.get("entry", 24));
             return this;
         }
     }

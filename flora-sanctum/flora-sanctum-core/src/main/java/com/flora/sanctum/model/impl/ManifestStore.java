@@ -38,7 +38,7 @@ public final class ManifestStore {
                 byte[] payload = payloadOf(full);
                 try {
                     JsonObject n = JsonUtil.parseObject(new String(payload, StandardCharsets.UTF_8));
-                    if ("manifest".equals(n.getString("type"))) {
+                    if (NodeType.MANIFEST == NodeType.fromTag(n.getString("type"))) {
                         return b.uuid();
                     }
                 } catch (Exception ignore) {
@@ -72,7 +72,7 @@ public final class ManifestStore {
                 byte[] payload = payloadOf(full);
                 try {
                     JsonObject n = JsonUtil.parseObject(new String(payload, StandardCharsets.UTF_8));
-                    if ("manifest".equals(n.getString("type"))) {
+                    if (NodeType.MANIFEST == NodeType.fromTag(n.getString("type"))) {
                         return b;
                     }
                 } catch (Exception ignore) {
@@ -88,7 +88,7 @@ public final class ManifestStore {
         byte[] mac = m.computeMac(macKey, uuid);
         JsonObject manifest = new JsonObject();
         manifest.put("version", m.version());
-        manifest.put("type", "manifest");
+        manifest.put("type", NodeType.MANIFEST.tag());
         manifest.put("parent", RootTag.MANIFEST.tag());
         manifest.put("cryptoVersion", m.cryptoVersion());
         manifest.put("kdf", m.kdf());

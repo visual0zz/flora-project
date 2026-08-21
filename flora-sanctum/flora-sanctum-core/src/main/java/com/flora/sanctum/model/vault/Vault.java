@@ -33,12 +33,13 @@ public final class Vault {
     private final java.util.Map<RootTag, java.util.UUID> rootGroupUuidByTag = new java.util.LinkedHashMap<>();
     private final java.util.Map<java.util.UUID, byte[]> folderDeks = new java.util.LinkedHashMap<>();
     private byte[] kek; // 解锁期间驻留内存，锁定/关闭时清除
+    private byte[] repoKeyIdSeed; // 仓库级 keyId 派生种子（DATA 根 json 存储），锁定/关闭时清除
 
     Vault(ObjectStore store, Manifest manifest, KeyIdIndex keyIdIndex, SecureRandomSource random, byte[] kek, long baseTimestamp) {
         this.store = store;
         this.manifest = manifest;
         this.keyIdIndex = keyIdIndex;
-        this.resolver = new BlockResolver(keyIdIndex);
+        this.resolver = new BlockResolver(keyIdIndex, this::repoKeyIdSeed);
         this.random = random;
         this.clock = new WarehouseClock(baseTimestamp);
         this.kek = kek == null ? null : kek.clone();
@@ -106,6 +107,19 @@ public final class Vault {
         return kek == null ? null : kek.clone();
     }
 
+    /** 仓库级 keyId 派生种子（解锁期间；未存储则 null）。 */
+    public byte[] repoKeyIdSeed() {
+        return repoKeyIdSeed == null ? null : repoKeyIdSeed.clone();
+    }
+
+    /** 登记仓库级 keyId 派生种子（解锁时从 DATA 根 json 读取）。 */
+    public void setRepoKeyIdSeed(byte[] seed) {
+        if (repoKeyIdSeed != null) {
+            java.util.Arrays.fill(repoKeyIdSeed, (byte) 0);
+        }
+        this.repoKeyIdSeed = seed == null ? null : seed.clone();
+    }
+
     /** 换主密码后更新驻留 KEK。 */
     public void replaceKek(byte[] newKek) {
         if (kek != null) {
@@ -128,6 +142,10 @@ public final class Vault {
             java.util.Arrays.fill(d, (byte) 0);
         }
         folderDeks.clear();
+        if (repoKeyIdSeed != null) {
+            java.util.Arrays.fill(repoKeyIdSeed, (byte) 0);
+            repoKeyIdSeed = null;
+        }
         keyIdIndex.clear();
     }
 

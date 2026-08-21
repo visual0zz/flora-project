@@ -26,7 +26,8 @@ public final class LibraryConfig {
     public List<RemoteConfig> remotes() {
         List<RemoteConfig> out = new ArrayList<>();
         for (JsonObject n : ctx.objects().values()) {
-            if ("field".equals(n.getString("type")) && "remote".equals(n.getString("kind"))) {
+            if (NodeType.fromTag(n.getString("type")) == NodeType.FIELD
+                    && "remote".equals(n.getString("kind"))) {
                 JsonObject value = n.getObject("value");
                 out.add(new RemoteConfig(n.getString("fieldName"),
                         value == null ? null : value.getString("url"),

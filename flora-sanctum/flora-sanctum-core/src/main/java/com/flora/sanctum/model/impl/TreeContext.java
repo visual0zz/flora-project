@@ -120,7 +120,7 @@ public final class TreeContext {
     private void writeCipherBlock(UUID uuid, JsonObject payload, byte[] dek) {
         byte[] json = JsonUtil.toJsonString(payload).getBytes(StandardCharsets.UTF_8);
         byte[] encKey = KeyDerivation.encKey(dek);
-        CipherCodec codec = new CipherCodec(encKey, dek, vault.random());
+        CipherCodec codec = new CipherCodec(encKey, dek, vault.repoKeyIdSeed(), vault.random());
         long ts = nextTimestamp();
         store.put(uuid, json, new CipherCodecAdapter(codec, uuid), ts);
         objects.put(uuid, payload);
@@ -144,8 +144,8 @@ public final class TreeContext {
     /** 用父 DEK 包裹一个 DEK（AES-GCM-SIV，nonce 随机；内部信封无块时间戳，timestamp=0）。 */
     public byte[] wrapDek(byte[] dek, byte[] parentDek) {
         byte[] encKey = KeyDerivation.encKey(parentDek);
-        CipherCodec codec = new CipherCodec(encKey, parentDek, vault.random());
-        return codec.encode(UUID.randomUUID(), dek, codec.makeKeyIdWith(parentDek), 0);
+        CipherCodec codec = new CipherCodec(encKey, parentDek, vault.repoKeyIdSeed(), vault.random());
+        return codec.encode(UUID.randomUUID(), dek, 0);
     }
 
     /** 计算本次写入的时间戳（仓库时间戳规则：max(会话锚点+单调偏移, 全库当前最大块时间戳)）。 */

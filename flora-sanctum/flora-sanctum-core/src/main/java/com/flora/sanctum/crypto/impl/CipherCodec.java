@@ -1,16 +1,22 @@
 package com.flora.sanctum.crypto.impl;
 
+import com.flora.sanctum.crypto.KeyIdDeriver;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;
 
 /**
- * 块信封编解码（见设计 02/04b）。
+ * 块信封编解码（见设计"keyId 防关联"）。
  * <p>
- * 密文块格式（加密时真实值）：
- * {@code magic(8)+version(1)+flags(1)+uuid(16)+keyId(4)+nonce(12)+ciphertext+tag(16)}。
+ * 密文块格式（VERSION_2，内部存储与外部加密数据同一结构）：
+ * {@code magic(8)+version(1)+flags(1)+uuid(16)+nonce(12)+keyId(8)+ciphertext+tag(16)}。
  * <p>
- * AAD = 整个信封头（magic‖version‖flags‖uuid‖keyId‖nonce）‖ 块级时间戳（十进制 UTF-8），
+ * nonce 置于 keyId 前：解析时先读 nonce（作 keyId 派生的 seed），再读 keyId。
+ * keyId 在 encode 内部生成（防关联随机化），经 {@link KeyIdDeriver} 对合派生，
+ * 解密侧用 {@link KeyIdDeriver#resolveDekId} 从 (nonce, keyId) 恢复内部标识定位。
+ * <p>
+ * AAD = 整个信封头（magic‖version‖flags‖uuid‖nonce‖keyId）‖ 块级时间戳（十进制 UTF-8），
  * GCM-SIV tag 全量认证。明文负载先 deflate 压缩再加密（降低冗余与长度暴露）。
  * 时间戳不存于负载 JSON，由块前缀 {@code timestamp:base58} 提供，解码时经参数传入以重建 AAD。
  * 落盘/读盘时，整个字节序列与每块随机 xorByte 逐字节异或；xorByte 不落盘，
@@ -21,43 +27,48 @@ public final class CipherCodec {
     private final byte[] encKey;
     private final byte[] dek;
     private final SecureRandomSource random;
+    private final byte[] repoKeyIdSeed; // 仓库级 keyId 派生种子（null 时 keyId 用确定性 fallback，仅测试）
 
     public CipherCodec(byte[] encKey, byte[] dek) {
-        this(encKey, dek, new SecureRandomSource());
+        this(encKey, dek, null, new SecureRandomSource());
     }
 
     public CipherCodec(byte[] encKey, byte[] dek, SecureRandomSource random) {
+        this(encKey, dek, null, random);
+    }
+
+    /** @param repoKeyIdSeed 仓库级 keyId 派生种子；产品路径必须非 null（null 仅用于无定位需求的测试） */
+    public CipherCodec(byte[] encKey, byte[] dek, byte[] repoKeyIdSeed, SecureRandomSource random) {
         this.encKey = encKey.clone();
         this.dek = dek.clone();
         this.random = random;
+        this.repoKeyIdSeed = repoKeyIdSeed == null ? null : repoKeyIdSeed.clone();
     }
 
     /**
      * 加密对象负载，返回含随机异或混淆的落盘块字节（含完整信封 + tag）。
+     * nonce 与 keyId 均在内部生成（nonce 随机；keyId 经 KeyIdDeriver 从 repoKeyIdSeed‖nonce 派生）。
      *
-     * @param uuid        对象 UUID
-     * @param plaintext   明文负载（将被 deflate 压缩后加密）
-     * @param keyId       keyId（4 字节），由调用方提供（DEK 派生）
-     * @param timestamp   块级时间戳（进入 AAD 认证）
+     * @param uuid      对象 UUID
+     * @param plaintext 明文负载（将被 deflate 压缩后加密）
+     * @param timestamp 块级时间戳（进入 AAD 认证）
      */
-    public byte[] encode(UUID uuid, byte[] plaintext, byte[] keyId, long timestamp) {
-        if (keyId.length != 4) {
-            throw new IllegalArgumentException("keyId must be 4 bytes");
-        }
+    public byte[] encode(UUID uuid, byte[] plaintext, long timestamp) {
         byte[] nonce = new byte[Envelope.NONCE_LEN];
         random.nextBytes(nonce);
+        byte[] keyId = makeKeyId(nonce);
 
-        // 信封头（真实值，用于 AAD）
+        // 信封头（真实值，用于 AAD）：magic(8)+version(1)+flags(1)+uuid(16)+nonce(12)+keyId(8)
         byte[] header = new byte[Envelope.HEADER_LEN];
         System.arraycopy(Envelope.MAGIC, 0, header, 0, Envelope.MAGIC_LEN);
-        header[Envelope.MAGIC_LEN] = Envelope.VERSION_1;
+        header[Envelope.MAGIC_LEN] = Envelope.VERSION_2;
         header[Envelope.MAGIC_LEN + 1] = Envelope.FLAG_CIPHER;
         int uuidOff = Envelope.MAGIC_LEN + 2;
         writeUuid(header, uuidOff, uuid);
-        int keyIdOff = uuidOff + 16;
-        System.arraycopy(keyId, 0, header, keyIdOff, 4);
-        int nonceOff = keyIdOff + 4;
+        int nonceOff = uuidOff + 16;
         System.arraycopy(nonce, 0, header, nonceOff, Envelope.NONCE_LEN);
+        int keyIdOff = nonceOff + Envelope.NONCE_LEN;
+        System.arraycopy(keyId, 0, header, keyIdOff, keyId.length);
 
         // AAD = 信封头 ‖ 时间戳
         byte[] aad = concat(header, Long.toString(timestamp).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
@@ -91,15 +102,15 @@ public final class CipherCodec {
                 throw new IllegalArgumentException("bad magic");
             }
         }
-        if (block[Envelope.MAGIC_LEN] != Envelope.VERSION_1) {
+        if (block[Envelope.MAGIC_LEN] != Envelope.VERSION_2) {
             throw new IllegalArgumentException("unsupported version");
         }
         if (block[Envelope.MAGIC_LEN + 1] != Envelope.FLAG_CIPHER) {
             throw new IllegalArgumentException("not a cipher block");
         }
         int uuidOff = Envelope.MAGIC_LEN + 2;
-        int keyIdOff = uuidOff + 16;
-        int nonceOff = keyIdOff + 4;
+        int nonceOff = uuidOff + 16;
+        int keyIdOff = nonceOff + Envelope.NONCE_LEN;
         UUID uuid = readUuid(block, uuidOff);
         byte[] nonce = new byte[Envelope.NONCE_LEN];
         System.arraycopy(block, nonceOff, nonce, 0, Envelope.NONCE_LEN);
@@ -120,19 +131,14 @@ public final class CipherCodec {
         return new DecodedBlock(uuid, inflate(compressed));
     }
 
-    /** 加密时使用，生成 keyId = byte1 ‖ SHA256(DEK‖byte1)[0:3]。 */
-    public byte[] makeKeyId() {
-        return makeKeyIdWith(dek);
-    }
-
-    /** 用任意密钥材料生成 keyId（KEK 包裹的根 group 用 KEK；文件夹 DEK 用 DEK）。 */
-    public byte[] makeKeyIdWith(byte[] keyMaterial) {
-        byte[] byte1 = new byte[1];
-        random.nextBytes(byte1);
-        byte[] hash = sha256(concat(keyMaterial, byte1));
-        byte[] keyId = new byte[4];
-        keyId[0] = byte1[0];
-        System.arraycopy(hash, 0, keyId, 1, 3);
+    /** 生成 keyId：repoKeyIdSeed 非空时经 KeyIdDeriver（可逆、防关联）；否则确定性 fallback（仅测试）。 */
+    public byte[] makeKeyId(byte[] nonce) {
+        if (repoKeyIdSeed != null) {
+            return KeyIdDeriver.makeKeyId(repoKeyIdSeed, nonce, dek);
+        }
+        byte[] hash = sha256(concat(dek, nonce));
+        byte[] keyId = new byte[Envelope.KEYID_LEN];
+        System.arraycopy(hash, 0, keyId, 0, keyId.length);
         return keyId;
     }
 

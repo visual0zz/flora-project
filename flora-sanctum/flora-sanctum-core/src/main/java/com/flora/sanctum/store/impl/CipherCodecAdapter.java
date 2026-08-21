@@ -25,8 +25,8 @@ public final class CipherCodecAdapter implements Codec {
 
     @Override
     public byte[] encode(byte[] data, long timestamp) {
-        byte[] keyId = codec.makeKeyId();
-        return codec.encode(objectUuid, data, keyId, timestamp);
+        // keyId 由 CipherCodec 内部生成（nonce 随机 + KeyIdDeriver 派生）
+        return codec.encode(objectUuid, data, timestamp);
     }
 
     @Override

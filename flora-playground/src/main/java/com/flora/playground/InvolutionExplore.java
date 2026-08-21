@@ -626,6 +626,141 @@ public final class InvolutionExplore {
         return out;
     }
 
+    // ================= 配对预言机攻击模型 =================
+
+    /** 拆分 x 为 (L, R) 两半。 */
+    static byte[][] split(byte[] x) {
+        int half = x.length / 2;
+        return new byte[][]{java.util.Arrays.copyOfRange(x, 0, half),
+                java.util.Arrays.copyOfRange(x, half, x.length)};
+    }
+
+    /** 配对判定预言机 O(x, y)：回答 f_seed(x) == y。 */
+    static boolean oracle(byte[] x, byte[] y, byte[] seed, int rounds) {
+        byte[][] s = split(x);
+        byte[][] out = mirrorFeistel(s[0], s[1], seed, rounds);
+        byte[] o = concat(out[0], out[1]);
+        return java.util.Arrays.equals(o, y);
+    }
+
+    static byte[] toBytes(long v, int len) {
+        byte[] b = new byte[len];
+        for (int i = 0; i < len; i++) {
+            b[i] = (byte) ((v >>> (8 * i)) & 0xFF);
+        }
+        return b;
+    }
+
+    /**
+     * 配对预言机模型实验：
+     * O1 反推 seed：攻击者只有 O，无样本。逐个候选算 f_cand(x0) 并查询 O，验证候选。
+     *    期望查询数 ≈ 2^{|seed|-1}（预言机不提供加速，无二分可能）。
+     * O2 预测新对：攻击者选 x*，穷举 y 查询 O(x*, y)，期望 2^{块宽-1} 次找到配对。
+     */
+    static void experimentOracle() {
+        System.out.println();
+        System.out.println("=== 配对预言机 O(x,y) 模型 ===");
+        int half = 8; // 64 位半块
+        int rounds = 5;
+        // O1：反推 seed
+        for (int bytes : new int[]{1, 2}) {
+            int k = bytes * 8;
+            byte[] seed = new byte[bytes];
+            SR.nextBytes(seed);
+            byte[] x0 = new byte[half * 2];
+            SR.nextBytes(x0);
+            long queries = 0;
+            byte[] found = null;
+            for (long cand = 0; cand < (1L << k); cand++) {
+                byte[] c = toBytes(cand, bytes);
+                byte[][] yc = mirrorFeistel(split(x0)[0], split(x0)[1], c, rounds);
+                queries++;
+                if (oracle(x0, concat(yc[0], yc[1]), seed, rounds)) {
+                    found = c;
+                    break;
+                }
+            }
+            System.out.printf("O1 反推 %d 位 seed: 查询 %d 次 (期望 ~2^%d), 命中=%s → 预言机不加速%n",
+                    k, queries, k - 1, java.util.Arrays.equals(found, seed));
+        }
+        // O2：预测新对（穷举 y，半块 1 字节 → 块 16 位）
+        int halfS = 1;
+        int blockBits = halfS * 16;
+        byte[] seed = new byte[2];
+        SR.nextBytes(seed);
+        byte[] xstar = new byte[halfS * 2];
+        SR.nextBytes(xstar);
+        byte[][] ty = mirrorFeistel(split(xstar)[0], split(xstar)[1], seed, rounds);
+        byte[] trueY = concat(ty[0], ty[1]);
+        long q = 0;
+        boolean hit = false;
+        for (int v = 0; v < (1 << (halfS * 16)); v++) { // 穷举全部 2^16 个候选 y
+            byte[] y = toBytes(v, halfS * 2);
+            q++;
+            if (oracle(xstar, y, seed, rounds)) {
+                hit = java.util.Arrays.equals(y, trueY);
+                break;
+            }
+        }
+        System.out.printf("O2 预测新对（块 %d 位）: 穷举 %d 次查询找到 (期望 ~2^%d), 匹配=%s%n",
+                blockBits, q, blockBits - 1, hit);
+    }
+
+    /** 防关联实验：同 DEK 大量密文的 keyId 碰撞（暴露"同密钥"的次数）。 */
+    static void linkabilityTest() {
+        System.out.println();
+        System.out.println("=== 防关联：同 DEK 密文的 keyId 碰撞 ===");
+        // 现状：keyId = byte1(8bit 随机) + SHA256(DEK‖byte1)[0:3] → 同 DEK 只有 256 种 keyId
+        byte[] dek = new byte[32];
+        SR.nextBytes(dek);
+        int n = 10000;
+        java.util.Set<Integer> seen = new java.util.HashSet<>();
+        int collisions = 0;
+        for (int i = 0; i < n; i++) {
+            int byte1 = SR.nextInt(256);
+            byte[] h = prf(dek, new byte[]{(byte) byte1}, 3);
+            int keyId = (byte1 << 24) | ((h[0] & 0xFF) << 16) | ((h[1] & 0xFF) << 8) | (h[2] & 0xFF);
+            if (!seen.add(keyId)) {
+                collisions++;
+            }
+        }
+        System.out.printf("现状（同 DEK 仅 256 种 keyId）: %d 次加密, keyId 重复 %d 次 → 可判断同密钥%n", n, collisions);
+        // 你的方案：seed 随机 → keyId 全宽随机（用 64 位模拟，10000 次碰撞概率 ~0）
+        java.util.Set<Long> seen2 = new java.util.HashSet<>();
+        int collisions2 = 0;
+        for (int i = 0; i < n; i++) {
+            long keyId = SR.nextLong();
+            if (!seen2.add(keyId)) {
+                collisions2++;
+            }
+        }
+        System.out.printf("你的方案（seed 随机 → keyId 全宽）: %d 次加密, keyId 重复 %d 次 → 无关联暴露%n", n, collisions2);
+    }
+
+    /** seed 宽度评估：同 DEK 加密 2^20 次，不同 seed 位宽下碰撞次数（防关联的熵需求）。 */
+    static void seedSizeTest() {
+        System.out.println();
+        System.out.println("=== seed 宽度评估：同 DEK 加密 1<<20 次，seed 碰撞（=同 keyId，暴露同密钥） ===");
+        int n = 1 << 20;
+        for (int bytes : new int[]{4, 8, 16}) {
+            java.util.Set<Long> seen = new java.util.HashSet<>();
+            int collisions = 0;
+            for (int i = 0; i < n; i++) {
+                long v = 0;
+                for (int b = 0; b < bytes; b++) {
+                    v = (v << 8) | (SR.nextInt(256) & 0xFF);
+                }
+                if (!seen.add(v)) {
+                    collisions++;
+                }
+            }
+            double expect = bytes == 4 ? (double) n * (n - 1) / 2 / (1L << 32) : 0;
+            System.out.printf("seed %d 位 (%d 字节): 碰撞 %d 次 (理论 32 位≈%.0f, 64+ 位≈0)%n",
+                    bytes * 8, bytes, collisions, expect);
+        }
+        System.out.println("结论：64 位 seed 在 100 万次同密钥加密下碰撞≈0；32 位不可用。");
+    }
+
     // ================= 入口 =================
 
     public static void main(String[] args) {
@@ -639,6 +774,9 @@ public final class InvolutionExplore {
         traceG();
         predictA();
         indistinguishG();
+        experimentOracle();
+        linkabilityTest();
+        seedSizeTest();
         System.out.println();
         System.out.println("=== 小结 ===");
         System.out.println("A/G 满足：对合 + seed 反推困难。G 额外满足充分混合（两半都动、雪崩扩散）。");

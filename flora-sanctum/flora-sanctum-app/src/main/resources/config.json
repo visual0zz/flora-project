@@ -1,6 +1,2 @@
 {
-  "theme": "system",
-  "lockTimeoutSeconds": 300,
-  "clipboardClearSeconds": 30,
-  "syncEnabled": true
 }

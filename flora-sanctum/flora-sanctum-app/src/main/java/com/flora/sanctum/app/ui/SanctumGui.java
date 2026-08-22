@@ -129,7 +129,8 @@ public final class SanctumGui {
     }
 
     private void run() {
-        applyTheme(config.theme());
+        // 启动时未解锁无法读仓库设置，主题用默认；解锁后按仓库主题应用
+        applyTheme(com.flora.sanctum.model.LibraryConfig.DEFAULT_THEME);
         try {
             httpServer = new com.flora.sanctum.app.server.SanctumHttpServer(current::get, 0);
             httpServer.start();
@@ -643,6 +644,7 @@ public final class SanctumGui {
             config.setLastVault(openVaultPath);
             frame.setTitle("flora-sanctum(" + root.getFileName() + ")");
             current.set(sanctum);
+            applyTheme(sanctum.config().theme()); // 解锁后应用仓库主题
             showEditPage();
             startAutoLockTimer();
         } catch (Exception ex) {
@@ -665,7 +667,7 @@ public final class SanctumGui {
             public void run() {
                 SwingUtilities.invokeLater(SanctumGui.this::lock);
             }
-        }, config.lockTimeoutSeconds() * 1000L);
+        }, sanctum.config().lockTimeoutSeconds() * 1000L);
     }
 
     private void resetAutoLock() {
@@ -724,7 +726,7 @@ public final class SanctumGui {
         addSshBtn = iconButton(SvgIcon.get("ssh", 29), "添加 SSH 密钥");
         addRemoteBtn = iconButton(SvgIcon.get("remote", 29), "添加远程");
         statusLabel = new JLabel();
-        syncBtn.setVisible(isFullyManaged() && config.syncEnabled());
+        syncBtn.setVisible(isFullyManaged());
         switchBtn.setVisible(!standalone); // 独立形态无历史列表，不提供切换
         importImageBtn.setVisible(false);
         addSshBtn.setVisible(false);
@@ -1641,7 +1643,7 @@ public final class SanctumGui {
                     copiedPlaintext = null;
                 }
             }
-        }, config.clipboardClearSeconds() * 1000L);
+        }, sanctum.config().clipboardClearSeconds() * 1000L);
     }
 
     // ================= 图标 / SSH / 远程 =================
@@ -1895,10 +1897,6 @@ public final class SanctumGui {
             return;
         }
         try {
-            if (!config.syncEnabled()) {
-                statusLabel.setText("同步已关闭");
-                return;
-            }
             com.flora.sanctum.app.sync.SyncService sync = new com.flora.sanctum.app.sync.SyncService(sanctum.root());
             if (!sync.isFullyManaged()) {
                 statusLabel.setText("非完全托管，跳过同步");
@@ -1924,49 +1922,88 @@ public final class SanctumGui {
 
     /** 仓库/应用设置页（独立页面，非对话框）。 */
     private JPanel buildSettingsPanel() {
-        JPanel box = new UiTheme.PaperPanel(new BorderLayout(0, 8));
-        box.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
+        JPanel box = new UiTheme.PaperPanel(new BorderLayout());
+        // 设置存仓库（加密），未解锁时无法读写
+        if (sanctum == null || !sanctum.isUnlocked()) {
+            box.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
+            JLabel hint = new JLabel("请先打开一个仓库再配置仓库设置", JLabel.CENTER);
+            hint.setFont(hint.getFont().deriveFont(Font.PLAIN, 13f));
+            box.add(hint, BorderLayout.CENTER);
+            JButton backBtn = new JButton("返回");
+            backBtn.addActionListener(e -> backFromSettings());
+            JPanel p = new JPanel(new FlowLayout());
+            p.setOpaque(false);
+            p.add(backBtn);
+            box.add(p, BorderLayout.SOUTH);
+            return box;
+        }
+        com.flora.sanctum.model.LibraryConfig lc = sanctum.config();
 
-        JLabel title = new JLabel("设置");
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
-        box.add(title, BorderLayout.NORTH);
+        // 左：tab 列表（圆角色 + 名称，风格与主界面文件夹列表一致）
+        String[] tabs = {"主题", "自动锁定", "剪贴板清空"};
+        JList<String> tabList = new JList<>(tabs);
+        tabList.setFixedCellHeight(44);
+        tabList.setOpaque(false);
+        tabList.setBorder(new EmptyBorder(8, 8, 8, 8));
+        tabList.setCellRenderer(new SettingsTabRenderer());
 
-        JPanel form = new JPanel(new GridLayout(0, 2, 8, 8));
-        form.setOpaque(false);
+        // 右：按 tab 切换的设置内容
+        JPanel right = new JPanel(new java.awt.CardLayout());
+        right.setOpaque(false);
 
-        form.add(new JLabel("主题（light/dark/system）"));
-        JTextField themeField = new JTextField(config.theme());
-        form.add(themeField);
+        JPanel themeCard = new JPanel(new GridLayout(2, 1, 0, 6));
+        themeCard.setOpaque(false);
+        themeCard.setBorder(new EmptyBorder(12, 12, 12, 12));
+        themeCard.add(new JLabel("界面主题"));
+        javax.swing.JComboBox<String> themeCombo =
+                new javax.swing.JComboBox<>(new String[]{"system", "light", "dark"});
+        themeCombo.setSelectedItem(lc.theme());
+        themeCard.add(themeCombo);
+        right.add(themeCard, "主题");
 
-        form.add(new JLabel("自动锁定（秒）"));
-        JTextField lockField = new JTextField(String.valueOf(config.lockTimeoutSeconds()));
-        form.add(lockField);
+        JPanel lockCard = new JPanel(new GridLayout(2, 1, 0, 6));
+        lockCard.setOpaque(false);
+        lockCard.setBorder(new EmptyBorder(12, 12, 12, 12));
+        lockCard.add(new JLabel("自动锁定（秒）"));
+        JTextField lockField = new JTextField(String.valueOf(lc.lockTimeoutSeconds()));
+        lockCard.add(lockField);
+        right.add(lockCard, "自动锁定");
 
-        form.add(new JLabel("剪贴板清空（秒）"));
-        JTextField clipField = new JTextField(String.valueOf(config.clipboardClearSeconds()));
-        form.add(clipField);
+        JPanel clipCard = new JPanel(new GridLayout(2, 1, 0, 6));
+        clipCard.setOpaque(false);
+        clipCard.setBorder(new EmptyBorder(12, 12, 12, 12));
+        clipCard.add(new JLabel("剪贴板清空（秒）"));
+        JTextField clipField = new JTextField(String.valueOf(lc.clipboardClearSeconds()));
+        clipCard.add(clipField);
+        right.add(clipCard, "剪贴板清空");
 
-        form.add(new JLabel("启用同步"));
-        JCheckBox syncCheck = new JCheckBox("", config.syncEnabled());
-        syncCheck.setOpaque(false);
-        form.add(syncCheck);
+        tabList.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                java.awt.CardLayout cl = (java.awt.CardLayout) right.getLayout();
+                cl.show(right, tabs[tabList.getSelectedIndex()]);
+            }
+        });
+        tabList.setSelectedIndex(0);
 
-        box.add(form, BorderLayout.CENTER);
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, tabList, right);
+        split.setDividerLocation(120);
+        split.setOpaque(false);
+        box.add(split, BorderLayout.CENTER);
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         actions.setOpaque(false);
         JButton saveBtn = new JButton("保存");
         saveBtn.addActionListener(e -> {
-            config.setTheme(themeField.getText());
+            lc.setTheme((String) themeCombo.getSelectedItem());
             try {
-                config.setLockTimeoutSeconds(Integer.parseInt(lockField.getText()));
+                lc.setLockTimeoutSeconds(Integer.parseInt(lockField.getText()));
             } catch (NumberFormatException ignore) {
             }
             try {
-                config.setClipboardClearSeconds(Integer.parseInt(clipField.getText()));
+                lc.setClipboardClearSeconds(Integer.parseInt(clipField.getText()));
             } catch (NumberFormatException ignore) {
             }
-            config.setSyncEnabled(syncCheck.isSelected());
+            applyTheme(lc.theme());
             JOptionPane.showMessageDialog(frame, "设置已保存", "设置", JOptionPane.INFORMATION_MESSAGE);
             backFromSettings();
         });
@@ -2019,6 +2056,18 @@ public final class SanctumGui {
             super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
             NodeType type = index >= 0 && index < listItemTypes.size() ? listItemTypes.get(index) : null;
             setIcon(type == NodeType.GROUP ? SvgIcon.get("folder", 24) : SvgIcon.get("entry", 24));
+            return this;
+        }
+    }
+
+    /** 设置页 tab 列表渲染器：圆角色 + 名称，风格与主界面文件夹列表一致。 */
+    private static final class SettingsTabRenderer extends javax.swing.DefaultListCellRenderer {
+        @Override
+        public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                                                               boolean isSelected, boolean cellHasFocus) {
+            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            setIcon(new LetterIcon(String.valueOf(value)));
+            setBorder(new EmptyBorder(6, 8, 6, 8));
             return this;
         }
     }

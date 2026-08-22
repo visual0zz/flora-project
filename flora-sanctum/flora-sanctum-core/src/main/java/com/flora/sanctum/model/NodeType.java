@@ -18,6 +18,8 @@ public enum NodeType {
     FIELD("field"),
     /** 自定义字段（kind 可为 null）。 */
     CUSTOM_FIELD("customField"),
+    /** 仓库级设置项（key/value，存 DATA 根下，不显示为普通对象）。 */
+    CONFIG("config"),
     ICON("icon"),
     SSH_KEY("sshKey"),
     /** 语义类型：存储为 field + kind=remote。 */

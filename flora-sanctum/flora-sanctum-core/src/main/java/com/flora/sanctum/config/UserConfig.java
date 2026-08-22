@@ -76,17 +76,6 @@ public final class UserConfig {
         save();
     }
 
-    /** 同步开关（默认 true）。 */
-    public boolean syncEnabled() {
-        Boolean v = data.getBool("syncEnabled");
-        return v == null || v;
-    }
-
-    public void setSyncEnabled(boolean enabled) {
-        data.put("syncEnabled", enabled);
-        save();
-    }
-
     /** 最近打开的库路径列表（按最近使用在前，最多保留 {@link #recentLimit} 条）。 */
     public java.util.List<String> recentVaults() {
         JsonArray arr = data.getArray("recentVaults");

@@ -132,7 +132,7 @@ public final class UserConfig {
     }
 
     /** 最近库列表上限。 */
-    public static final int recentLimit = 10;
+    public static final int recentLimit = 50;
 
     private JsonObject load() {
         try {

@@ -280,82 +280,167 @@ public final class SanctumGui {
         JPanel panel = new UiTheme.PaperPanel(new BorderLayout(0, 10));
         panel.setBorder(new EmptyBorder(16, 20, 16, 20));
 
+        // 顶部：左标题，右操作按钮（新建/打开/克隆/设置）
         JLabel title = new JLabel("flora-sanctum");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
-        panel.add(title, BorderLayout.NORTH);
-
-        // 中：最近仓库列表（双击打开）
-        JLabel recentLabel = new JLabel("最近打开的库");
-        recentLabel.setFont(recentLabel.getFont().deriveFont(Font.BOLD, 12f));
-        DefaultListModel<String> model = new DefaultListModel<>();
-        for (String p : config.recentVaults()) {
-            model.addElement(p);
-        }
-        JList<String> recentList = new JList<>(model);
-        recentList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        recentList.setVisibleRowCount(6);
-        recentList.setOpaque(false);
-        recentList.setCellRenderer(new RecentVaultRenderer());
-        recentList.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                if (e.getClickCount() == 2) {
-                    String sel = recentList.getSelectedValue();
-                    if (sel != null) {
-                        openForUnlock(Path.of(sel));
-                    }
-                }
-            }
-        });
-        JScrollPane recentScroll = new JScrollPane(recentList);
-        recentScroll.setOpaque(false);
-        recentScroll.setBorder(BorderFactory.createEmptyBorder());
-        recentScroll.getViewport().setOpaque(false);
-        JPanel center = new JPanel(new BorderLayout(0, 6));
-        center.setOpaque(false);
-        center.add(recentLabel, BorderLayout.NORTH);
-        center.add(recentScroll, BorderLayout.CENTER);
-        panel.add(center, BorderLayout.CENTER);
-
-        // 底部操作：新建 / 导入 / 打开 / 设置
         JButton newBtn = new JButton("新建仓库");
         newBtn.setToolTipText("建立一个新的密码仓库（普通或独立）");
         newBtn.addActionListener(e -> doNewVault());
-        JButton importBtn = new JButton("导入仓库");
-        importBtn.setToolTipText("从远程 git 仓库克隆导入");
-        importBtn.addActionListener(e -> doImportVault());
         JButton openBtn = new JButton("打开仓库");
         openBtn.setToolTipText("打开已存在的仓库");
         openBtn.addActionListener(e -> doOpenVault());
-        JButton settingsBtn2 = new JButton("应用设置");
-        settingsBtn2.addActionListener(e -> showSettingsPage());
-        JButton removeBtn = new JButton("删除记录");
-        removeBtn.setToolTipText("从历史列表移除选中的记录");
-        removeBtn.addActionListener(e -> {
-            String sel = recentList.getSelectedValue();
-            if (sel != null) {
-                config.removeRecentVault(sel);
-                model.removeElement(sel);
-                if (sel.equals(config.lastVault())) {
-                    config.setLastVault(null);
+        JButton cloneBtn = new JButton("克隆仓库");
+        cloneBtn.setToolTipText("从远程 git 仓库克隆导入");
+        cloneBtn.addActionListener(e -> doImportVault());
+        JButton settingsBtn = new JButton("应用设置");
+        settingsBtn.addActionListener(e -> showSettingsPage());
+        JPanel topBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        topBtns.setOpaque(false);
+        topBtns.add(newBtn);
+        topBtns.add(openBtn);
+        topBtns.add(cloneBtn);
+        topBtns.add(settingsBtn);
+        JPanel top = new JPanel(new BorderLayout());
+        top.setOpaque(false);
+        top.add(title, BorderLayout.WEST);
+        top.add(topBtns, BorderLayout.EAST);
+        panel.add(top, BorderLayout.NORTH);
+
+        // 中：历史仓库列表（逐行组件：圆形字母图标 + 名称/简化路径 + 打开文件夹/删除）
+        JPanel list = new JPanel(new java.awt.GridBagLayout());
+        list.setOpaque(false);
+        java.awt.GridBagConstraints gbc = new java.awt.GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = 0; // 必须显式初始化（默认 RELATIVE(-1) 会使首两条同 gridy 重叠）
+        gbc.weightx = 1.0;
+        gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gbc.anchor = java.awt.GridBagConstraints.NORTH;
+        for (String p : config.recentVaults()) {
+            list.add(buildRecentRow(list, p), gbc);
+            gbc.gridy++;
+        }
+        gbc.weighty = 1.0; // 底部留白
+        list.add(javax.swing.Box.createVerticalGlue(), gbc);
+        JScrollPane scroll = new JScrollPane(list);
+        scroll.setOpaque(false);
+        scroll.setBorder(BorderFactory.createEmptyBorder());
+        scroll.getViewport().setOpaque(false);
+        scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        panel.add(scroll, BorderLayout.CENTER);
+        return panel;
+    }
+
+    /** 单个历史仓库行：圆形字母图标 + 名称/简化路径 + 打开文件夹/删除按钮；双击行打开仓库。 */
+    private JPanel buildRecentRow(JPanel list, String path) {
+        boolean exists = Files.exists(Path.of(path));
+        String name = dirName(path);
+        JPanel row = new JPanel(new BorderLayout(12, 0));
+        row.setOpaque(false);
+        row.setBorder(new EmptyBorder(8, 10, 8, 10));
+        // 显式固定行高：嵌套布局的 preferredSize 高度可能被算小导致文字溢出与相邻行叠压，
+        // 固定行高让所有组件在行内垂直居中，绝不超过行边界。
+        int rowH = 56;
+        row.setPreferredSize(new Dimension(0, rowH));
+        row.setMinimumSize(new Dimension(0, rowH));
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, rowH));
+
+        // 左：圆形字母图标
+        row.add(new JLabel(new LetterIcon(name)), BorderLayout.WEST);
+
+        // 中：名称（粗体）+ 简化路径（灰字）。用 GridLayout(2,1) 而非 BoxLayout：
+        // GridLayout 强制两行等高 = 容器总高/2，不会按 JLabel preferred 截断高度，
+        // 避免 HTML 单 JLabel 换行溢出导致与下方条目重叠。
+        JPanel text = new JPanel(new GridLayout(2, 1, 0, 2));
+        text.setOpaque(false);
+        JLabel nameLabel = new JLabel(name, JLabel.LEFT);
+        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 14f));
+        JLabel pathLabel = new JLabel(simplifyPath(path), JLabel.LEFT);
+        pathLabel.setFont(pathLabel.getFont().deriveFont(Font.PLAIN, 11f));
+        pathLabel.setForeground(new java.awt.Color(0x8A, 0x84, 0x78));
+        if (!exists) {
+            nameLabel.setText("<html><strike>" + name + "</strike> <font color='#999'>（失效）</font></html>");
+            pathLabel.setText("<html><strike>" + simplifyPath(path) + "</strike></html>");
+        }
+        text.add(nameLabel);
+        text.add(pathLabel);
+        row.add(text, BorderLayout.CENTER);
+
+        // 右：打开文件夹 / 删除
+        JButton openFolderBtn = new JButton("打开文件夹");
+        openFolderBtn.setEnabled(exists);
+        openFolderBtn.addActionListener(e -> openInFileManager(path));
+        JButton delBtn = new JButton("删除");
+        delBtn.addActionListener(e -> {
+            config.removeRecentVault(path);
+            list.remove(row);
+            list.revalidate();
+            list.repaint();
+            if (path.equals(config.lastVault())) {
+                config.setLastVault(null);
+            }
+        });
+        JPanel btns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        btns.setOpaque(false);
+        btns.add(openFolderBtn);
+        btns.add(delBtn);
+        row.add(btns, BorderLayout.EAST);
+
+        // 单击行 → 打开该仓库解锁（按钮点击不冒泡，不受影响）
+        row.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 1) {
+                    openForUnlock(Path.of(path));
                 }
             }
         });
-        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
-        bottom.setOpaque(false);
-        bottom.add(newBtn);
-        bottom.add(importBtn);
-        bottom.add(openBtn);
-        bottom.add(removeBtn);
-        bottom.add(settingsBtn2);
-        panel.add(bottom, BorderLayout.SOUTH);
+        return row;
+    }
 
-        // 预选上次打开的库
-        String last = config.lastVault();
-        if (last != null && model.getSize() > 0) {
-            recentList.setSelectedValue(last, true);
+    /** 目录名（历史项显示名）。 */
+    private static String dirName(String path) {
+        Path p = Path.of(path);
+        Path n = p.getFileName();
+        return n == null ? path : n.toString();
+    }
+
+    /** 简化路径：home 前缀替换为 ~，段数过多时中间省略。 */
+    private static String simplifyPath(String path) {
+        String home = System.getProperty("user.home");
+        String p = path;
+        if (home != null && p.startsWith(home)) {
+            p = "~" + p.substring(home.length());
         }
-        return panel;
+        String[] parts = p.split("/");
+        if (parts.length > 4) {
+            p = parts[0] + "/…/" + parts[parts.length - 2] + "/" + parts[parts.length - 1];
+        }
+        return p;
+    }
+
+    /** 在系统文件管理器中打开目录（Desktop.open，跨平台 fallback）。 */
+    private static void openInFileManager(String path) {
+        try {
+            java.awt.Desktop desktop = java.awt.Desktop.getDesktop();
+            if (desktop.isSupported(java.awt.Desktop.Action.OPEN)) {
+                desktop.open(new java.io.File(path));
+                return;
+            }
+        } catch (Exception ignore) {
+        }
+        try {
+            String os = System.getProperty("os.name", "").toLowerCase();
+            ProcessBuilder pb;
+            if (os.contains("mac")) {
+                pb = new ProcessBuilder("open", path);
+            } else if (os.contains("win")) {
+                pb = new ProcessBuilder("explorer", path);
+            } else {
+                pb = new ProcessBuilder("xdg-open", path);
+            }
+            pb.start();
+        } catch (Exception ignore) {
+        }
     }
 
     /** 应用形态：把某仓库带入解锁页（记录最近打开）。打开语义：仓库必须已存在。 */
@@ -461,61 +546,69 @@ public final class SanctumGui {
     // ================= 解锁页（针对特定仓库） =================
 
     private JPanel buildUnlockPanel(Path root) {
-        JPanel panel = new UiTheme.PaperPanel(new BorderLayout());
-        panel.setBorder(new EmptyBorder(16, 20, 16, 20));
-
-        JLabel title = new JLabel("解锁 · " + (root == null ? "" : root.getFileName()));
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
-        panel.add(title, BorderLayout.NORTH);
-
-        JPanel center = new JPanel(new BorderLayout(0, 6));
-        center.setOpaque(false);
-        JLabel vaultName = new JLabel("库：" + (root == null ? "" : root));
-        vaultName.setFont(vaultName.getFont().deriveFont(Font.ITALIC, 11f));
-        center.add(vaultName, BorderLayout.CENTER);
-        panel.add(center, BorderLayout.CENTER);
-
-        // 底：主密码 + 解锁
-        JPanel bottom = new JPanel(new GridBagLayout());
-        bottom.setOpaque(false);
+        // 垂直居中的紧凑卡片：标题（含库路径副标题）→ 密码行 → 解锁 → 提示/返回
+        JPanel panel = new UiTheme.PaperPanel(new java.awt.GridBagLayout());
+        panel.setBorder(new EmptyBorder(16, 24, 16, 24));
         GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(4, 0, 4, 6);
+        c.gridx = 0;
         c.fill = GridBagConstraints.HORIZONTAL;
-        c.gridx = 0;
+        c.insets = new Insets(3, 0, 3, 0);
+
+        String name = root == null ? "" : root.getFileName().toString();
+        String path = root == null ? "" : root.toString();
+
+        // 顶部弹性（内容垂直居中）
         c.gridy = 0;
-        bottom.add(new JLabel("主密码："), c);
+        c.weighty = 1.0;
+        panel.add(javax.swing.Box.createVerticalGlue(), c);
 
-        JPasswordField pwField = new JPasswordField();
-        c.gridx = 1;
-        c.weightx = 1.0;
-        bottom.add(pwField, c);
-
-        JButton unlockBtn = new JButton("解锁");
-        c.gridx = 0;
+        JLabel title = new JLabel("<html><div style='text-align:center'>" + name + "</div>"
+                + "<div style='text-align:center;color:#8A8478;font-size:10pt'>" + path + "</div></html>");
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
+        title.setHorizontalAlignment(JLabel.CENTER);
         c.gridy = 1;
-        c.gridwidth = 2;
-        c.weightx = 1.0;
-        bottom.add(unlockBtn, c);
+        c.weighty = 0;
+        c.insets = new Insets(0, 0, 18, 0);
+        panel.add(title, c);
 
-        JLabel error = new JLabel();
-        error.setForeground(java.awt.Color.RED.darker());
+        // 主密码行
+        JPanel pwRow = new JPanel(new BorderLayout(8, 0));
+        pwRow.setOpaque(false);
+        pwRow.add(new JLabel("主密码："), BorderLayout.WEST);
+        JPasswordField pwField = new JPasswordField();
+        pwRow.add(pwField, BorderLayout.CENTER);
         c.gridy = 2;
-        bottom.add(error, c);
+        c.insets = new Insets(3, 0, 3, 0);
+        panel.add(pwRow, c);
 
-        JLabel hint = new JLabel(pendingIsNew ? "输入主密码创建新仓库" : "输入主密码解锁");
-        hint.setFont(hint.getFont().deriveFont(Font.ITALIC, 11f));
+        // 解锁 / 创建按钮
+        JButton unlockBtn = new JButton(pendingIsNew ? "创建并解锁" : "解锁");
         c.gridy = 3;
-        bottom.add(hint, c);
+        panel.add(unlockBtn, c);
 
-        // 应用形态：解锁页提供"回到历史列表"入口；独立形态不提供
+        JLabel error = new JLabel("", JLabel.CENTER);
+        error.setForeground(java.awt.Color.RED.darker());
+        c.gridy = 4;
+        panel.add(error, c);
+
+        JLabel hint = new JLabel(pendingIsNew ? "输入主密码创建新仓库" : "输入主密码解锁", JLabel.CENTER);
+        hint.setFont(hint.getFont().deriveFont(Font.ITALIC, 11f));
+        c.gridy = 5;
+        panel.add(hint, c);
+
+        // 应用形态：提供"回到历史列表"入口；独立形态不提供
         if (!standalone) {
             JButton backBtn = new JButton("回到历史列表");
             backBtn.setToolTipText("返回历史仓库列表页");
             backBtn.addActionListener(e -> showHistoryPage());
-            c.gridy = 4;
-            bottom.add(backBtn, c);
+            c.gridy = 6;
+            panel.add(backBtn, c);
         }
-        panel.add(bottom, BorderLayout.SOUTH);
+
+        // 底部弹性（内容垂直居中）
+        c.gridy = 7;
+        c.weighty = 1.0;
+        panel.add(javax.swing.Box.createVerticalGlue(), c);
 
         java.util.function.Consumer<JPasswordField> unlock = f ->
                 doUnlock(root, f, error);
@@ -1930,17 +2023,100 @@ public final class SanctumGui {
         }
     }
 
-    /** 历史列表渲染器：路径已失效（不存在）的记录显示删除线并标注。 */
-    private static final class RecentVaultRenderer extends javax.swing.DefaultListCellRenderer {
-        @Override
-        public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index,
-                                                               boolean isSelected, boolean cellHasFocus) {
-            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-            String path = String.valueOf(value);
-            if (!Files.exists(Path.of(path))) {
-                setText("<html><strike>" + path + "</strike> <font color='#999'>（失效）</font></html>");
+    /** 圆形字母图标：彩色圆底 + 名称首字母（最多 2 个），颜色按名称 hash 稳定选取。 */
+    private static final class LetterIcon implements javax.swing.Icon {
+        private static final java.awt.Color[] COLORS = {
+                new java.awt.Color(0x5B, 0x8D, 0xEF), new java.awt.Color(0xE8, 0x6B, 0x6B),
+                new java.awt.Color(0x57, 0xB8, 0x94), new java.awt.Color(0xE0, 0xA8, 0x4D),
+                new java.awt.Color(0x9B, 0x72, 0xD6), new java.awt.Color(0x4C, 0xB3, 0xC8),
+                new java.awt.Color(0xD6, 0x77, 0xB8), new java.awt.Color(0x8A, 0xB4, 0x5F),
+        };
+        private final String text;
+        private final java.awt.Color bg;
+        private final int size = 40;
+
+        LetterIcon(String name) {
+            String base = name == null || name.isBlank() ? "?" : name.trim();
+            this.text = iconText(base);
+            int h = Math.abs(base.hashCode());
+            this.bg = COLORS[h % COLORS.length];
+        }
+
+        /**
+         * 图标字符：先按分隔符（空格/连字符/下划线）与驼峰拆分为单词，
+         * 若得 ≥2 个单词取前两个单词首字母；否则（单单词/无单词模式）取整个字符串首字符。
+         */
+        static String iconText(String s) {
+            if (s == null || s.isBlank()) {
+                return "?";
             }
-            return this;
+            String trimmed = s.trim();
+            java.util.List<String> words = new java.util.ArrayList<>();
+            for (String part : trimmed.split("[\\s\\-_]+")) {
+                if (part.isEmpty()) {
+                    continue;
+                }
+                words.addAll(camelSplit(part));
+            }
+            if (words.size() >= 2) {
+                return ("" + words.get(0).charAt(0) + words.get(1).charAt(0)).toUpperCase();
+            }
+            if (words.size() == 1) {
+                return words.get(0).substring(0, 1).toUpperCase();
+            }
+            return trimmed.substring(0, 1).toUpperCase();
+        }
+
+        /** 驼峰拆分：小写→大写边界，以及"HTTPServer"式 大写→大写+小写 边界。 */
+        static java.util.List<String> camelSplit(String s) {
+            java.util.List<String> out = new java.util.ArrayList<>();
+            StringBuilder cur = new StringBuilder();
+            for (int i = 0; i < s.length(); i++) {
+                char c = s.charAt(i);
+                if (i > 0) {
+                    char prev = s.charAt(i - 1);
+                    boolean boundary = (Character.isLowerCase(prev) && Character.isUpperCase(c))
+                            || (Character.isUpperCase(prev) && Character.isUpperCase(c)
+                            && i + 1 < s.length() && Character.isLowerCase(s.charAt(i + 1)));
+                    if (boundary) {
+                        out.add(cur.toString());
+                        cur = new StringBuilder();
+                    }
+                }
+                cur.append(c);
+            }
+            if (cur.length() > 0) {
+                out.add(cur.toString());
+            }
+            return out;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return size;
+        }
+
+        @Override
+        public void paintIcon(java.awt.Component c, java.awt.Graphics g, int x, int y) {
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                    java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(bg);
+            g2.fillOval(x, y, size, size);
+            g2.setColor(java.awt.Color.WHITE);
+            java.awt.Font font = new java.awt.Font(java.awt.Font.SANS_SERIF, java.awt.Font.BOLD, size * 2 / 3);
+            g2.setFont(font);
+            java.awt.FontMetrics fm = g2.getFontMetrics();
+            int tw = fm.stringWidth(text);
+            int tx = x + (size - tw) / 2;
+            int ty = y + (size - fm.getHeight()) / 2 + fm.getAscent();
+            g2.drawString(text, tx, ty);
+            g2.dispose();
         }
     }
 }

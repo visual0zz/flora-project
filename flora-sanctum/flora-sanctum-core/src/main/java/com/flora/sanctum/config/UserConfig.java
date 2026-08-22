@@ -111,6 +111,15 @@ public final class UserConfig {
         save();
     }
 
+    /** 从最近库列表移除一条记录。 */
+    public void removeRecentVault(String path) {
+        java.util.List<String> list = recentVaults();
+        if (list.remove(path)) {
+            data.put("recentVaults", JsonArray.fromList(list));
+            save();
+        }
+    }
+
     /** 上次打开的库路径（用于锁定后预选，null 表示无）。 */
     public String lastVault() {
         String v = data.getString("lastVault");

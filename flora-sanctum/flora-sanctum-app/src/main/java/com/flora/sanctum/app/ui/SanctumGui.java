@@ -101,6 +101,8 @@ public final class SanctumGui {
     private boolean standalone;
     /** 当前仓库数据根（解锁目标 / 锁定后直接回到该仓库解锁页）。 */
     private Path pendingRoot;
+    /** 当前解锁页是否对应"新建"（true）还是"打开"（false）：新建走 createAndUnlock，打开只 open+unlock 不自动新建。 */
+    private boolean pendingIsNew;
 
     /** 应用形态：读系统级配置（~/.flora-sanctum/config.json），页面从历史仓库列表开始。 */
     private SanctumGui() {
@@ -293,6 +295,7 @@ public final class SanctumGui {
         recentList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         recentList.setVisibleRowCount(6);
         recentList.setOpaque(false);
+        recentList.setCellRenderer(new RecentVaultRenderer());
         recentList.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
@@ -326,11 +329,24 @@ public final class SanctumGui {
         openBtn.addActionListener(e -> doOpenVault());
         JButton settingsBtn2 = new JButton("应用设置");
         settingsBtn2.addActionListener(e -> showSettingsPage());
+        JButton removeBtn = new JButton("删除记录");
+        removeBtn.setToolTipText("从历史列表移除选中的记录");
+        removeBtn.addActionListener(e -> {
+            String sel = recentList.getSelectedValue();
+            if (sel != null) {
+                config.removeRecentVault(sel);
+                model.removeElement(sel);
+                if (sel.equals(config.lastVault())) {
+                    config.setLastVault(null);
+                }
+            }
+        });
         JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         bottom.setOpaque(false);
         bottom.add(newBtn);
         bottom.add(importBtn);
         bottom.add(openBtn);
+        bottom.add(removeBtn);
         bottom.add(settingsBtn2);
         panel.add(bottom, BorderLayout.SOUTH);
 
@@ -342,13 +358,14 @@ public final class SanctumGui {
         return panel;
     }
 
-    /** 应用形态：把某仓库带入解锁页（记录最近打开）。 */
+    /** 应用形态：把某仓库带入解锁页（记录最近打开）。打开语义：仓库必须已存在。 */
     private void openForUnlock(Path root) {
         Path dataRoot = com.flora.sanctum.app.bootstrap.VaultForm.dataDir(root);
         if (dataRoot == null) {
             dataRoot = root;
         }
         config.addRecentVault(root.toAbsolutePath().toString());
+        pendingIsNew = false;
         showUnlockPage(dataRoot);
     }
 
@@ -371,6 +388,7 @@ public final class SanctumGui {
         try {
             if (choice == 0) {
                 Path root = com.flora.sanctum.app.bootstrap.RepoCreator.createNormal(dir);
+                pendingIsNew = true;
                 showUnlockPage(root);
             } else {
                 com.flora.sanctum.app.bootstrap.RepoCreator.createStandalone(dir, loadAppConfig());
@@ -484,7 +502,7 @@ public final class SanctumGui {
         c.gridy = 2;
         bottom.add(error, c);
 
-        JLabel hint = new JLabel("输入主密码解锁；仓库不存在则自动新建");
+        JLabel hint = new JLabel(pendingIsNew ? "输入主密码创建新仓库" : "输入主密码解锁");
         hint.setFont(hint.getFont().deriveFont(Font.ITALIC, 11f));
         c.gridy = 3;
         bottom.add(hint, c);
@@ -515,15 +533,17 @@ public final class SanctumGui {
             return;
         }
         try {
-            sanctum = Sanctum.open(root);
-            try {
-                sanctum.unlock(pw);
-            } catch (IllegalArgumentException noManifest) {
-                if (noManifest.getMessage() != null && noManifest.getMessage().contains("no manifest")) {
-                    sanctum = Sanctum.createAndUnlock(root, pw);
-                } else {
-                    throw noManifest;
+            if (pendingIsNew) {
+                // 新建：显式创建并解锁
+                sanctum = Sanctum.createAndUnlock(root, pw);
+            } else {
+                // 打开：仓库必须已存在，失败不自动新建
+                if (!Files.exists(root)) {
+                    error.setText("仓库不存在或已被删除");
+                    return;
                 }
+                sanctum = Sanctum.open(root);
+                sanctum.unlock(pw);
             }
             openVaultPath = root.toAbsolutePath().toString();
             config.addRecentVault(openVaultPath);
@@ -569,8 +589,9 @@ public final class SanctumGui {
         openVaultPath = null;
         stopTimers();
         frame.setTitle("flora-sanctum");
-        // 锁定后直接回到该仓库的解锁页（不退回历史列表）；独立形态同样
+        // 锁定后直接回到该仓库的解锁页（不退回历史列表）；独立形态同样。此时是"打开"语义（库已存在）
         if (pendingRoot != null) {
+            pendingIsNew = false;
             showUnlockPage(pendingRoot);
         } else {
             showHistoryPage();
@@ -610,7 +631,7 @@ public final class SanctumGui {
         addSshBtn = iconButton(SvgIcon.get("ssh", 29), "添加 SSH 密钥");
         addRemoteBtn = iconButton(SvgIcon.get("remote", 29), "添加远程");
         statusLabel = new JLabel();
-        syncBtn.setVisible(isFullyManaged());
+        syncBtn.setVisible(isFullyManaged() && config.syncEnabled());
         switchBtn.setVisible(!standalone); // 独立形态无历史列表，不提供切换
         importImageBtn.setVisible(false);
         addSshBtn.setVisible(false);
@@ -708,6 +729,18 @@ public final class SanctumGui {
         entryList.setOpaque(false);
         entryList.setBorder(new javax.swing.border.EmptyBorder(8, 10, 8, 10));
 
+        // 搜索视图横幅（黄色，搜索时显示，区分"搜索视图"与"文件夹内容"）
+        searchBanner = new JLabel();
+        searchBanner.setOpaque(true);
+        searchBanner.setBackground(new java.awt.Color(0xFF, 0xF3, 0xCD));
+        searchBanner.setForeground(new java.awt.Color(0x8A, 0x6D, 0x3B));
+        searchBanner.setBorder(new javax.swing.border.EmptyBorder(4, 10, 4, 10));
+        searchBanner.setVisible(false);
+        JPanel entryPanel = new JPanel(new BorderLayout());
+        entryPanel.setOpaque(false);
+        entryPanel.add(searchBanner, BorderLayout.NORTH);
+        entryPanel.add(entryScroll, BorderLayout.CENTER);
+
         // 右：编辑面板（无容器边框，区域间只保留 JSplitPane 一条分界线）
         editPanel = new JPanel();
         editPanel.setLayout(new BoxLayout(editPanel, BoxLayout.Y_AXIS));
@@ -718,7 +751,7 @@ public final class SanctumGui {
         editScroll.setOpaque(false);
         editScroll.getViewport().setOpaque(false);
 
-        JSplitPane rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, entryScroll, editScroll);
+        JSplitPane rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, entryPanel, editScroll);
         rightSplit.setDividerLocation(280);
         keepDividerRatio(rightSplit, 280);
         rightSplit.setOpaque(false);
@@ -846,6 +879,26 @@ public final class SanctumGui {
         RootTag section = sectionOf(sel);
         UUID groupId = section == null ? groupIdOf(sel) : null;
 
+        // 全局搜索：搜索非空时跨区段/文件夹搜索所有条目（不分当前选择）
+        if (!q.isEmpty()) {
+            for (TreeNode n : sanctum.objectTree().nodes()) {
+                if (n instanceof EntryNode e && matchesFilter(e, q)) {
+                    String path = folderPathOf(e);
+                    entryModel.addElement(path.isEmpty() ? e.name() : e.name() + "  ·  " + path);
+                    entryUuids.add(e.uuid());
+                    listItemTypes.add(NodeType.ENTRY);
+                }
+            }
+            if (searchBanner != null) {
+                searchBanner.setText("搜索视图 · " + entryModel.size() + " 条结果");
+                searchBanner.setVisible(true);
+            }
+            return;
+        }
+        if (searchBanner != null) {
+            searchBanner.setVisible(false);
+        }
+
         if (RootTag.ICON == section) {
             for (IconNode icon : sanctum.iconTree().icons()) {
                 entryModel.addElement(iconLabel(icon));
@@ -866,7 +919,7 @@ public final class SanctumGui {
             for (RemoteNode r : sanctum.remoteTree().remotes()) {
                 entryModel.addElement(r.name());
                 entryUuids.add(r.uuid());
-                listItemTypes.add(NodeType.FIELD);
+                listItemTypes.add(NodeType.REMOTE);
             }
             return;
         }
@@ -920,6 +973,31 @@ public final class SanctumGui {
             }
         }
         return false;
+    }
+
+    /** 条目所属文件夹路径（如"社交/工作"），顶层返回空串。 */
+    private String folderPathOf(EntryNode e) {
+        String parent = e.parent();
+        if (parent == null || RootTag.isRoot(parent)) {
+            return "";
+        }
+        List<String> names = new ArrayList<>();
+        String cur = parent;
+        while (cur != null && !RootTag.isRoot(cur)) {
+            UUID id;
+            try {
+                id = UUID.fromString(cur);
+            } catch (IllegalArgumentException ex) {
+                break;
+            }
+            String[] info = groupsById().get(id);
+            if (info == null) {
+                break;
+            }
+            names.add(0, info[1] == null || info[1].isBlank() ? "未命名" : info[1]);
+            cur = info[0];
+        }
+        return String.join("/", names);
     }
 
     /** 当前树选中节点（null=未选）。 */
@@ -1421,6 +1499,8 @@ public final class SanctumGui {
     }
 
     private JTextField searchFieldRef;
+    /** 搜索视图横幅（中间区域上方，黄色；搜索时显示）。 */
+    private JLabel searchBanner;
     private JButton importImageBtn;
     private JButton addSshBtn;
     private JButton addRemoteBtn;
@@ -1722,6 +1802,10 @@ public final class SanctumGui {
             return;
         }
         try {
+            if (!config.syncEnabled()) {
+                statusLabel.setText("同步已关闭");
+                return;
+            }
             com.flora.sanctum.app.sync.SyncService sync = new com.flora.sanctum.app.sync.SyncService(sanctum.root());
             if (!sync.isFullyManaged()) {
                 statusLabel.setText("非完全托管，跳过同步");
@@ -1790,7 +1874,7 @@ public final class SanctumGui {
             } catch (NumberFormatException ignore) {
             }
             config.setSyncEnabled(syncCheck.isSelected());
-            statusLabel = new JLabel("设置已保存");
+            JOptionPane.showMessageDialog(frame, "设置已保存", "设置", JOptionPane.INFORMATION_MESSAGE);
             backFromSettings();
         });
         JButton backBtn = new JButton("返回");
@@ -1842,6 +1926,20 @@ public final class SanctumGui {
             super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
             NodeType type = index >= 0 && index < listItemTypes.size() ? listItemTypes.get(index) : null;
             setIcon(type == NodeType.GROUP ? SvgIcon.get("folder", 24) : SvgIcon.get("entry", 24));
+            return this;
+        }
+    }
+
+    /** 历史列表渲染器：路径已失效（不存在）的记录显示删除线并标注。 */
+    private static final class RecentVaultRenderer extends javax.swing.DefaultListCellRenderer {
+        @Override
+        public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                                                               boolean isSelected, boolean cellHasFocus) {
+            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            String path = String.valueOf(value);
+            if (!Files.exists(Path.of(path))) {
+                setText("<html><strike>" + path + "</strike> <font color='#999'>（失效）</font></html>");
+            }
             return this;
         }
     }

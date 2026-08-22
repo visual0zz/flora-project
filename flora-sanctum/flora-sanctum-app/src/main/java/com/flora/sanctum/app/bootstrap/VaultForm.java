@@ -13,9 +13,8 @@ import java.util.stream.Stream;
  * 形态由 {@code standalone.json} 判定（判断逻辑落在 jar 内，不依赖脚本传参）：
  * <ul>
  *   <li><b>独立仓库</b>：目录含 {@code standalone.json}（仓库根），结构为
- *       {@code { standalone.json, data/, lib/, 启动脚本 }}。</li>
- *   <li><b>普通仓库</b>：目录本身就是数据根（两层目录 + {@code *.md} 块文件，
- *       等价于独立仓库的 {@code data/} 内部结构）。</li>
+ *       {@code { standalone.json, lib/, 启动脚本 }}，数据块（两层目录 + *.md）直接在仓库根。</li>
+ *   <li><b>普通仓库</b>：目录本身就是数据根（两层目录 + {@code *.md} 块文件）。</li>
  *   <li><b>非仓库</b>：无上述结构。</li>
  * </ul>
  * 独立仓库形态只读自身 {@code standalone.json}，不读系统配置；其结构与应用级配置相同
@@ -34,7 +33,6 @@ public final class VaultForm {
 
     /** 独立仓库判定文件（与脚本同目录，jar 启动时检测自身同目录/工作目录是否存在）。 */
     private static final String STANDALONE_JSON = "standalone.json";
-    private static final String DATA_DIR = "data";
 
     private VaultForm() {
     }
@@ -57,15 +55,12 @@ public final class VaultForm {
         return Type.NOT_A_VAULT;
     }
 
-    /** 仓库的数据根：独立仓库为 {@code dir/data}；普通仓库为 {@code dir} 本身；非仓库返回 null。 */
+    /** 仓库的数据根：独立仓库与普通仓库均为 {@code dir} 本身（无 data 层）；非仓库返回 null。 */
     public static Path dataDir(Path dir) {
         if (dir == null || !Files.isDirectory(dir)) {
             return null;
         }
-        if (Files.isRegularFile(dir.resolve(STANDALONE_JSON))) {
-            return dir.resolve(DATA_DIR);
-        }
-        if (hasBlockFiles(dir)) {
+        if (Files.isRegularFile(dir.resolve(STANDALONE_JSON)) || hasBlockFiles(dir)) {
             return dir;
         }
         return null;

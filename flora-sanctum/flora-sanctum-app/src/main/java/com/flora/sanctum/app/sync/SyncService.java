@@ -45,6 +45,7 @@ public final class SyncService {
 
     /**
      * 完全托管判定（见设计 06）：库根全部是 markdown 文件（含无块/用户正文），无其它扩展名/复杂子目录。
+     * 独立仓库的 {@code lib/} 目录不算（应用分发内容，非数据）。
      */
     public boolean isFullyManaged() {
         if (!Files.isDirectory(root)) {
@@ -56,6 +57,9 @@ public final class SyncService {
                     continue;
                 }
                 if (p.startsWith(root.resolve(".conflict"))) {
+                    continue;
+                }
+                if (p.startsWith(root.resolve("lib"))) {
                     continue;
                 }
                 String name = p.getFileName().toString();

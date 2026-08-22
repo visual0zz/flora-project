@@ -26,8 +26,9 @@ public final class RepoCreator {
     }
 
     /**
-     * 新建独立仓库：把应用自身（lib/ + 启动脚本 + standalone.json）复制到目标目录，并建 data/。
-     * 返回独立仓库的 vault 根（{@code dir/data}）。应用自身不打开它。
+     * 新建独立仓库：把应用自身（lib/ + 启动脚本 + standalone.json）复制到目标目录，
+     * 数据块（两层目录 + md）直接建在仓库根（无 data 层）。返回仓库根（即 vault 根）。
+     * 应用自身不打开它。
      *
      * @param dir       独立仓库目标目录
      * @param appConfig 应用级配置（复制为仓库级，不含密钥）
@@ -35,9 +36,7 @@ public final class RepoCreator {
     public static Path createStandalone(Path dir, JsonObject appConfig) throws IOException {
         Files.createDirectories(dir);
         Path lib = dir.resolve("lib");
-        Path data = dir.resolve("data");
         Files.createDirectories(lib);
-        Files.createDirectories(data);
         // 复制应用自身 jar：以主类 jar 所在目录为源（module-path 分发目录 / fat jar 所在目录）
         Path libSource = mainJarDirectory();
         if (libSource != null && Files.isDirectory(libSource)) {
@@ -49,7 +48,7 @@ public final class RepoCreator {
         }
         writeScript(dir);
         VaultForm.writeRepoConfig(dir, appConfig);
-        return data;
+        return dir;
     }
 
     /**

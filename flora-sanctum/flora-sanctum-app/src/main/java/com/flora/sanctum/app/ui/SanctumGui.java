@@ -90,6 +90,8 @@ public final class SanctumGui {
     private final List<UUID> entryUuids = new ArrayList<>();
     /** 与 entryUuids 平行的列表项类型（group/entry/icon/sshKey/field），供图标与双击导航。 */
     private final List<NodeType> listItemTypes = new ArrayList<>();
+    /** 与 listItemTypes 平行的条目图标 id（"builtin:name" 或 uuid；无则 null），列表渲染优先用。 */
+    private final List<String> listItemIcons = new ArrayList<>();
     private JPanel editPanel;
     private JLabel statusLabel;
     private UUID selectedEntry;
@@ -142,6 +144,15 @@ public final class SanctumGui {
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             applyMacTitleBar();
             installTray();
+            // 窗口 resize 即时保存当前页面类别（引导/主页面）的尺寸到全局配置
+            frame.addComponentListener(new java.awt.event.ComponentAdapter() {
+                @Override
+                public void componentResized(java.awt.event.ComponentEvent e) {
+                    if (currentWindowKey != null && frame.getWidth() > 0 && frame.getHeight() > 0) {
+                        config.setWindowSize(currentWindowKey, frame.getWidth(), frame.getHeight());
+                    }
+                }
+            });
             if (standalone) {
                 showUnlockPage(pendingRoot);
             } else {
@@ -252,27 +263,34 @@ public final class SanctumGui {
 
     private void showHistoryPage() {
         frame.setContentPane(buildHistoryPanel());
-        frame.setSize(600, 480);
+        applyWindowSize("ui.window.guide", 600, 480);
         frame.revalidate();
     }
 
     private void showUnlockPage(Path root) {
         pendingRoot = root;
         frame.setContentPane(buildUnlockPanel(root));
-        frame.setSize(520, 420);
+        applyWindowSize("ui.window.guide", 600, 480);
         frame.revalidate();
     }
 
     private void showEditPage() {
         frame.setContentPane(buildMainPanel());
-        frame.setSize(960, 640);
+        applyWindowSize("ui.window.main", 960, 640);
         frame.revalidate();
     }
 
     private void showSettingsPage() {
         frame.setContentPane(buildSettingsPanel());
-        frame.setSize(420, 420);
+        applyWindowSize("ui.window.main", 960, 640); // 与主界面同尺寸类别
         frame.revalidate();
+    }
+
+    /** 应用窗口尺寸：有存储值用之，否则默认；resize 时由 frame 监听即时保存。 */
+    private void applyWindowSize(String key, int defaultW, int defaultH) {
+        currentWindowKey = key;
+        int[] sz = config.windowSize(key);
+        frame.setSize(sz != null ? sz[0] : defaultW, sz != null ? sz[1] : defaultH);
     }
 
     // ================= 历史仓库列表页（应用形态首页，含新建/导入/打开） =================
@@ -293,14 +311,11 @@ public final class SanctumGui {
         JButton cloneBtn = new JButton("克隆仓库");
         cloneBtn.setToolTipText("从远程 git 仓库克隆导入");
         cloneBtn.addActionListener(e -> doImportVault());
-        JButton settingsBtn = new JButton("应用设置");
-        settingsBtn.addActionListener(e -> showSettingsPage());
         JPanel topBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         topBtns.setOpaque(false);
         topBtns.add(newBtn);
         topBtns.add(openBtn);
         topBtns.add(cloneBtn);
-        topBtns.add(settingsBtn);
         JPanel top = new JPanel(new BorderLayout());
         top.setOpaque(false);
         top.add(title, BorderLayout.WEST);
@@ -357,7 +372,7 @@ public final class SanctumGui {
         nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 14f));
         JLabel pathLabel = new JLabel(simplifyPath(path), JLabel.LEFT);
         pathLabel.setFont(pathLabel.getFont().deriveFont(Font.PLAIN, 11f));
-        pathLabel.setForeground(new java.awt.Color(0x8A, 0x84, 0x78));
+        pathLabel.setForeground(UiTheme.INK_MUTED);
         if (!exists) {
             nameLabel.setText("<html><strike>" + name + "</strike> <font color='#999'>（失效）</font></html>");
             pathLabel.setText("<html><strike>" + simplifyPath(path) + "</strike></html>");
@@ -572,7 +587,7 @@ public final class SanctumGui {
         panel.add(icon, c);
 
         JLabel title = new JLabel("<html><div style='text-align:center'>" + name + "</div>"
-                + "<div style='text-align:center;color:#8A8478;font-size:10pt'>" + path + "</div></html>");
+                + "<div style='text-align:center;color:#8E9196;font-size:10pt'>" + path + "</div></html>");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
         title.setHorizontalAlignment(JLabel.CENTER);
         c.gridy = 2;
@@ -590,44 +605,47 @@ public final class SanctumGui {
         c.insets = new Insets(3, 0, 3, 0);
         panel.add(pwRow, c);
 
-        // 解锁 / 创建按钮
+        // 解锁 / 创建按钮（与"回到历史列表"等宽居中；转圈以 JLayer 画在按钮右内侧，不占排版）
         JButton unlockBtn = new JButton(pendingIsNew ? "创建并解锁" : "解锁");
+        unlockBtn.setPreferredSize(new Dimension(170, 32));
+        SpinnerIcon spinner = new SpinnerIcon(26);
+        javax.swing.JLayer<JButton> unlockLayer = new javax.swing.JLayer<>(unlockBtn,
+                new UnlockSpinnerUI(spinner));
+        javax.swing.Timer spinnerTimer = new javax.swing.Timer(50, e -> {
+            spinner.angle += 24;
+            unlockLayer.repaint();
+        });
         c.gridy = 4;
-        panel.add(unlockBtn, c);
+        c.fill = java.awt.GridBagConstraints.NONE;
+        c.anchor = java.awt.GridBagConstraints.CENTER;
+        panel.add(unlockLayer, c);
+        c.fill = java.awt.GridBagConstraints.HORIZONTAL;
 
         JLabel error = new JLabel("", JLabel.CENTER);
         error.setForeground(java.awt.Color.RED.darker());
         c.gridy = 5;
         panel.add(error, c);
 
-        // 解锁中转圈（异步解锁时显示）
-        SpinnerIcon spinner = new SpinnerIcon(26);
-        JLabel loading = new JLabel(spinner);
-        loading.setHorizontalAlignment(JLabel.CENTER);
-        loading.setVisible(false);
-        javax.swing.Timer spinnerTimer = new javax.swing.Timer(50, e -> {
-            spinner.angle += 24;
-            loading.repaint();
-        });
-        c.gridy = 6;
-        panel.add(loading, c);
-
         // 应用形态：提供"回到历史列表"入口；独立形态不提供
         if (!standalone) {
             JButton backBtn = new JButton("回到历史列表");
             backBtn.setToolTipText("返回历史仓库列表页");
+            backBtn.setPreferredSize(new Dimension(170, 32));
             backBtn.addActionListener(e -> showHistoryPage());
-            c.gridy = 7;
+            c.gridy = 6;
+            c.fill = java.awt.GridBagConstraints.NONE;
+            c.anchor = java.awt.GridBagConstraints.CENTER;
             panel.add(backBtn, c);
+            c.fill = java.awt.GridBagConstraints.HORIZONTAL;
         }
 
         // 底部弹性（内容垂直居中）
-        c.gridy = 8;
+        c.gridy = 7;
         c.weighty = 1.0;
         panel.add(javax.swing.Box.createVerticalGlue(), c);
 
         java.util.function.Consumer<JPasswordField> unlock = f ->
-                doUnlock(root, f, error, loading, unlockBtn, spinnerTimer);
+                doUnlock(root, f, error, unlockLayer, unlockBtn, spinnerTimer);
         unlockBtn.addActionListener(e -> unlock.accept(pwField));
         pwField.addActionListener(e -> unlock.accept(pwField));
 
@@ -635,7 +653,8 @@ public final class SanctumGui {
         return panel;
     }
 
-    private void doUnlock(Path root, JPasswordField pwField, JLabel error, JLabel loading,
+    private void doUnlock(Path root, JPasswordField pwField, JLabel error,
+                          javax.swing.JLayer<JButton> unlockLayer,
                           JButton unlockBtn, javax.swing.Timer spinnerTimer) {
         char[] pw = pwField.getPassword();
         if (pw.length == 0) {
@@ -644,9 +663,10 @@ public final class SanctumGui {
         }
         char[] pwCopy = pw.clone();
         java.util.Arrays.fill(pw, (char) 0);
-        // 转圈 + 禁用控件
+        // 转圈（JLayer 画在按钮右内侧）+ 禁用控件
         error.setText("");
-        loading.setVisible(true);
+        unlockLayer.putClientProperty("spinner.visible", Boolean.TRUE);
+        unlockLayer.repaint();
         spinnerTimer.start();
         unlockBtn.setEnabled(false);
         pwField.setEnabled(false);
@@ -675,7 +695,8 @@ public final class SanctumGui {
             final Sanctum s = result[0];
             final String msg = failMsg[0];
             SwingUtilities.invokeLater(() -> {
-                loading.setVisible(false);
+                unlockLayer.putClientProperty("spinner.visible", Boolean.FALSE);
+                unlockLayer.repaint();
                 spinnerTimer.stop();
                 unlockBtn.setEnabled(true);
                 pwField.setEnabled(true);
@@ -734,45 +755,21 @@ public final class SanctumGui {
         }
     }
 
-    /** 切换仓库：应用形态回到历史列表页；独立形态无切换（等同锁定回到解锁页）。 */
-    private void switchVault() {
-        if (sanctum != null) {
-            sanctum.close();
-        }
-        current.set(null);
-        openVaultPath = null;
-        stopTimers();
-        frame.setTitle("flora-sanctum");
-        if (standalone) {
-            showUnlockPage(pendingRoot);
-        } else {
-            showHistoryPage();
-        }
-    }
-
     // ================= 主界面 =================
 
     private JPanel buildMainPanel() {
-        // 中间区域（工具栏+条目列表）用更深纸纹底色；左右卡片用浅色（见 CardPanel）
-        JPanel root = new UiTheme.PaperPanel(new BorderLayout(), 0xE9, 0xE1, 0xCD, 28);
+        // 中间区域用暖纸底色（openhanako Warm Paper）；工具栏略深，左右卡片更白
+        JPanel root = new UiTheme.PaperPanel(new BorderLayout());
 
         // 顶部工具栏（SVG 图标按钮 + tooltip，去文字标签；尺寸 24→29 ≈ +20%）
-        newEntryBtn = iconButton(SvgIcon.get("new-entry", 29), "新建条目");
-        newGroupBtn = iconButton(SvgIcon.get("new-group", 29), "新建文件夹");
-        delBtn = iconButton(SvgIcon.get("delete", 29), "删除");
-        syncBtn = iconButton(SvgIcon.get("sync", 29), "同步");
-        settingsBtn = iconButton(SvgIcon.get("settings", 29), "设置");
-        switchBtn = iconButton(SvgIcon.get("switch", 29), "切换库");
-        lockBtn = iconButton(SvgIcon.get("lock", 29), "锁定");
-        importImageBtn = iconButton(SvgIcon.get("import-image", 29), "导入图片");
-        addSshBtn = iconButton(SvgIcon.get("ssh", 29), "添加 SSH 密钥");
-        addRemoteBtn = iconButton(SvgIcon.get("remote", 29), "添加远程");
+        newEntryBtn = iconButton(SvgIcon.get("ui/new-entry", 29), "新建条目");
+        newGroupBtn = iconButton(SvgIcon.get("ui/new-group", 29), "新建文件夹");
+        delBtn = iconButton(SvgIcon.get("ui/trash", 29), "删除");
+        syncBtn = iconButton(SvgIcon.get("ui/sync", 29), "同步");
+        settingsBtn = iconButton(SvgIcon.get("ui/settings", 29), "设置");
+        lockBtn = iconButton(SvgIcon.get("ui/lock", 29), "锁定");
         statusLabel = new JLabel();
         syncBtn.setVisible(isFullyManaged());
-        switchBtn.setVisible(!standalone); // 独立形态无历史列表，不提供切换
-        importImageBtn.setVisible(false);
-        addSshBtn.setVisible(false);
-        addRemoteBtn.setVisible(false);
 
         JTextField searchField = new JTextField(14);
         searchFieldRef = searchField;
@@ -782,25 +779,28 @@ public final class SanctumGui {
         clearSearch.setMargin(new Insets(0, 0, 0, 0));
 
         JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
-        top.setOpaque(false);
+        top.setOpaque(true);
+        top.setBackground(UiTheme.PAPER_LIGHT); // 工具栏略深于中间底色
         top.add(newEntryBtn);
         top.add(newGroupBtn);
         top.add(delBtn);
         top.add(syncBtn);
         top.add(settingsBtn);
-        top.add(switchBtn);
         top.add(lockBtn);
-        top.add(importImageBtn);
-        top.add(addSshBtn);
-        top.add(addRemoteBtn);
         top.add(new JLabel("搜索:"));
         top.add(searchField);
         top.add(clearSearch);
         top.add(statusLabel);
-        // 按钮栏与下方内容同一纸感背景（无分界线，视觉一体）
+        // 按钮栏与下方内容之间加 1px 分割线
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
         header.add(top, BorderLayout.NORTH);
+        JPanel hLine = new JPanel();
+        hLine.setOpaque(true);
+        hLine.setBackground(UiTheme.DIVIDER);
+        hLine.setPreferredSize(new Dimension(0, 1));
+        hLine.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        header.add(hLine, BorderLayout.SOUTH);
         root.add(header, BorderLayout.NORTH);
 
         // 左：组树（"全部"根隐藏，四区段为顶层）
@@ -828,9 +828,11 @@ public final class SanctumGui {
         treeScroll.getViewport().setOpaque(false);
         groupTree.setOpaque(false);
         groupTree.setBorder(new javax.swing.border.EmptyBorder(8, 10, 8, 10));
-        // 组树圆角悬浮卡片
-        CardPanel treeCard = new CardPanel(new BorderLayout(), 10);
-        treeCard.add(treeScroll, BorderLayout.CENTER);
+        // 左栏：方形侧边栏（略深底色，无圆角）
+        JPanel leftPanel = new JPanel(new BorderLayout());
+        leftPanel.setOpaque(true);
+        leftPanel.setBackground(UiTheme.PAPER_LIGHT);
+        leftPanel.add(treeScroll, BorderLayout.CENTER);
 
         // 中：条目列表（子文件夹 + 条目混合）
         entryModel = new DefaultListModel<>();
@@ -889,10 +891,11 @@ public final class SanctumGui {
         editCard.add(editScroll, BorderLayout.CENTER);
 
         JSplitPane rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, entryPanel, editCard);
+        rightSplit.setDividerSize(0); // 去除右边卡片与中间列表之间的分割线
         rightSplit.setDividerLocation(280);
         keepDividerRatio(rightSplit, "ui.divider.right", 280);
         rightSplit.setOpaque(false);
-        JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treeCard, rightSplit);
+        JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftPanel, rightSplit);
         mainSplit.setDividerLocation(220);
         keepDividerRatio(mainSplit, "ui.divider.main", 220);
         mainSplit.setOpaque(false);
@@ -903,11 +906,7 @@ public final class SanctumGui {
         delBtn.addActionListener(e -> doDelete());
         syncBtn.addActionListener(e -> doSync());
         settingsBtn.addActionListener(e -> openSettings());
-        switchBtn.addActionListener(e -> switchVault());
         lockBtn.addActionListener(e -> lock());
-        importImageBtn.addActionListener(e -> doImportImage());
-        addSshBtn.addActionListener(e -> addSshKey());
-        addRemoteBtn.addActionListener(e -> addRemote());
         searchField.addActionListener(e -> refreshEntryList(searchField.getText()));
         clearSearch.addActionListener(e -> {
             searchField.setText("");
@@ -917,15 +916,9 @@ public final class SanctumGui {
         return root;
     }
 
-    /** 根据当前树选择切换工具栏按钮可见性。 */
+    /** 根据当前树选择切换工具栏按钮可用性。 */
     private void updateToolbar() {
         RootTag section = sectionOf(currentSelection());
-        boolean iconSec = RootTag.ICON == section;
-        boolean sshSec = RootTag.SSH_KEY == section;
-        boolean remoteSec = RootTag.REMOTE == section;
-        importImageBtn.setVisible(iconSec);
-        addSshBtn.setVisible(sshSec);
-        addRemoteBtn.setVisible(remoteSec);
         // 新建条目/文件夹：仅密码库文件夹上下文可用
         boolean objectsCtx = section == null && currentGroupId() != null; // 选中了普通文件夹
         boolean objectsRoot = RootTag.DATA == section; // 密码库根（可建文件夹）
@@ -957,20 +950,8 @@ public final class SanctumGui {
             addGroupNode(objectsNode, g.uuid(), g.name());
         }
 
-        DefaultMutableTreeNode iconNode = new DefaultMutableTreeNode("图标");
-        iconNode.setUserObject(RootTag.ICON);
-        treeRoot.add(iconNode);
-
-        DefaultMutableTreeNode sshNode = new DefaultMutableTreeNode("SSH 密钥");
-        sshNode.setUserObject(RootTag.SSH_KEY);
-        treeRoot.add(sshNode);
-
-        DefaultMutableTreeNode remoteNode = new DefaultMutableTreeNode("远程");
-        remoteNode.setUserObject(RootTag.REMOTE);
-        treeRoot.add(remoteNode);
-
         groupTree.setModel(new DefaultTreeModel(treeRoot));
-        // 根隐藏，四区段展开
+        // 根隐藏，密码库区段展开
         for (int r = 0; r < groupTree.getRowCount(); r++) {
             groupTree.expandRow(r);
         }
@@ -1005,12 +986,19 @@ public final class SanctumGui {
         return groupCache;
     }
 
+    /** 文件夹设置的图标 id（无则 null）。 */
+    private String groupIconOf(UUID groupUuid) {
+        GroupNode g = sanctum.objectTree().group(groupUuid);
+        return g == null ? null : g.icon();
+    }
+
     // ---- 条目列表 ----
 
     private void refreshEntryList(String filter) {
         entryModel.clear();
         entryUuids.clear();
         listItemTypes.clear();
+        listItemIcons.clear();
         String q = filter == null ? "" : filter.trim().toLowerCase();
         Object sel = currentSelection();
         RootTag section = sectionOf(sel);
@@ -1024,6 +1012,7 @@ public final class SanctumGui {
                     entryModel.addElement(path.isEmpty() ? e.name() : e.name() + "  ·  " + path);
                     entryUuids.add(e.uuid());
                     listItemTypes.add(NodeType.ENTRY);
+                    listItemIcons.add(e.icon());
                 }
             }
             if (searchBanner != null) {
@@ -1041,6 +1030,7 @@ public final class SanctumGui {
                 entryModel.addElement(iconLabel(icon));
                 entryUuids.add(icon.uuid());
                 listItemTypes.add(NodeType.ICON);
+                listItemIcons.add(icon.uuid().toString());
             }
             return;
         }
@@ -1049,6 +1039,7 @@ public final class SanctumGui {
                 entryModel.addElement(key.name());
                 entryUuids.add(key.uuid());
                 listItemTypes.add(NodeType.SSH_KEY);
+                listItemIcons.add(null);
             }
             return;
         }
@@ -1057,6 +1048,7 @@ public final class SanctumGui {
                 entryModel.addElement(r.name());
                 entryUuids.add(r.uuid());
                 listItemTypes.add(NodeType.REMOTE);
+                listItemIcons.add(null);
             }
             return;
         }
@@ -1080,6 +1072,7 @@ public final class SanctumGui {
                 entryModel.addElement(gname);
                 entryUuids.add(g.uuid());
                 listItemTypes.add(NodeType.GROUP);
+                listItemIcons.add(g.icon());
             } else if (n instanceof EntryNode e) {
                 if (!q.isEmpty() && !matchesFilter(e, q)) {
                     continue;
@@ -1087,6 +1080,7 @@ public final class SanctumGui {
                 entryModel.addElement(e.name());
                 entryUuids.add(e.uuid());
                 listItemTypes.add(NodeType.ENTRY);
+                listItemIcons.add(e.icon());
             }
         }
     }
@@ -1095,6 +1089,106 @@ public final class SanctumGui {
     private String iconLabel(IconNode icon) {
         String format = icon.format();
         return (format == null ? "图标" : "图标 [" + format + "]");
+    }
+
+    // ---- 内置图标库（/icons/library/*.svg）与选择 ----
+
+    private static final String[] BUILTIN_ICONS =
+            {"folder", "entry", "key", "lock", "note", "star", "flag", "heart", "gear", "shield"};
+    private static final String BUILTIN_PREFIX = "builtin:";
+
+    private static String builtinIconId(String name) {
+        return BUILTIN_PREFIX + name;
+    }
+
+    private static boolean isBuiltinIcon(String id) {
+        return id != null && id.startsWith(BUILTIN_PREFIX);
+    }
+
+    private static String builtinName(String id) {
+        return id == null ? "" : id.substring(BUILTIN_PREFIX.length());
+    }
+
+    /** 设置页图标详情：缩略图 + 名称。 */
+    private void renderSettingsIcon(String id, JPanel target) {
+        target.removeAll();
+        Icon ic = iconById(id, 48);
+        if (ic != null) {
+            JLabel pic = new JLabel(ic);
+            pic.setAlignmentX(0f);
+            target.add(pic);
+            target.add(javax.swing.Box.createVerticalStrut(6));
+        }
+        addInfoLabel(isBuiltinIcon(id) ? "内置图标：" + builtinName(id) : "用户导入图标", target);
+        target.revalidate();
+        target.repaint();
+    }
+
+    /** 按图标 id 渲染 Icon（内置 SvgIcon / 用户 iconTree 字节），失败返回 null。 */
+    private Icon iconById(String id, int size) {
+        if (isBuiltinIcon(id)) {
+            Icon ic = SvgIcon.get("library/" + id.substring(BUILTIN_PREFIX.length()), size);
+            return ic != null ? ic : SvgIcon.get("ui/entry", size);
+        }
+        if (id != null) {
+            try {
+                IconNode node = sanctum.iconTree().find(UUID.fromString(id));
+                if (node != null) {
+                    byte[] data = node.iconData();
+                    if ("svg".equalsIgnoreCase(node.format())) {
+                        Icon ic = SvgIcon.fromBytes(data, size);
+                        if (ic != null) {
+                            return ic;
+                        }
+                    } else if (data.length > 0) {
+                        java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(
+                                new java.io.ByteArrayInputStream(data));
+                        if (img != null) {
+                            return new javax.swing.ImageIcon(
+                                    img.getScaledInstance(size, size, java.awt.Image.SCALE_SMOOTH));
+                        }
+                    }
+                }
+            } catch (Exception ignore) {
+            }
+        }
+        return null;
+    }
+
+    /** 弹窗网格选择图标（内置 + 用户），选中后回调 id（"builtin:name" 或 uuid 字符串）。 */
+    private void chooseIconDialog(String title, java.util.function.Consumer<String> onPick) {
+        JDialog dialog = new JDialog(frame, title, true);
+        JPanel grid = new JPanel(new GridLayout(0, 5, 8, 8));
+        grid.setOpaque(false);
+        grid.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        for (String name : BUILTIN_ICONS) {
+            String id = builtinIconId(name);
+            grid.add(makeIconCell(iconById(id, 32), () -> {
+                onPick.accept(id);
+                dialog.dispose();
+            }));
+        }
+        for (IconNode node : sanctum.iconTree().icons()) {
+            String id = node.uuid().toString();
+            grid.add(makeIconCell(iconById(id, 32), () -> {
+                onPick.accept(id);
+                dialog.dispose();
+            }));
+        }
+        if (grid.getComponentCount() == 0) {
+            grid.add(new JLabel("图标库为空"));
+        }
+        dialog.setContentPane(new JScrollPane(grid));
+        dialog.pack();
+        dialog.setLocationRelativeTo(frame);
+        dialog.setVisible(true);
+    }
+
+    private JButton makeIconCell(Icon icon, Runnable action) {
+        JButton b = new JButton(icon);
+        b.setPreferredSize(new Dimension(48, 48));
+        b.addActionListener(e -> action.run());
+        return b;
     }
 
     private boolean matchesFilter(EntryNode entry, String q) {
@@ -1178,11 +1272,11 @@ public final class SanctumGui {
         if (type == NodeType.GROUP) {
             renderGroupPanel(u);
         } else if (type == NodeType.ICON) {
-            renderIconPanel(u);
+            renderIconPanel(u, editPanel);
         } else if (type == NodeType.SSH_KEY) {
-            renderSshKeyPanel(u);
+            renderSshKeyPanel(u, editPanel);
         } else if (type == NodeType.REMOTE || type == NodeType.FIELD) {
-            renderRemotePanel(u);
+            renderRemotePanel(u, editPanel);
         } else {
             renderEntry(selectedEntry);
         }
@@ -1196,40 +1290,40 @@ public final class SanctumGui {
         }
     }
 
-    /** 图标详情面板：预览图片 + 提示。 */
-    private void renderIconPanel(UUID iconUuid) {
-        editPanel.removeAll();
+    /** 图标详情面板：预览图片 + 提示。渲染到指定目标面板。 */
+    private void renderIconPanel(UUID iconUuid, JPanel target) {
+        target.removeAll();
         IconNode icon = sanctum.iconTree().find(iconUuid);
-        addInfoLabel("图标 [格式 " + (icon == null ? "?" : icon.format()) + "]");
-        addInfoLabel("自定义图标，可在条目编辑中选择使用");
-        editPanel.revalidate();
-        editPanel.repaint();
+        addInfoLabel("图标 [格式 " + (icon == null ? "?" : icon.format()) + "]", target);
+        addInfoLabel("自定义图标，可在条目编辑中选择使用", target);
+        target.revalidate();
+        target.repaint();
     }
 
-    /** SSH 密钥详情面板。 */
-    private void renderSshKeyPanel(UUID keyUuid) {
-        editPanel.removeAll();
+    /** SSH 密钥详情面板。渲染到指定目标面板。 */
+    private void renderSshKeyPanel(UUID keyUuid, JPanel target) {
+        target.removeAll();
         SshKeyNode key = sanctum.sshKeyTree().find(keyUuid);
-        addInfoLabel("SSH 密钥：" + (key == null ? "?" : key.name()));
-        addInfoLabel("私钥已加密存储");
-        editPanel.revalidate();
-        editPanel.repaint();
+        addInfoLabel("SSH 密钥：" + (key == null ? "?" : key.name()), target);
+        addInfoLabel("私钥已加密存储", target);
+        target.revalidate();
+        target.repaint();
     }
 
-    /** 远程配置详情面板。 */
-    private void renderRemotePanel(UUID remoteUuid) {
-        editPanel.removeAll();
+    /** 远程配置详情面板。渲染到指定目标面板。 */
+    private void renderRemotePanel(UUID remoteUuid, JPanel target) {
+        target.removeAll();
         RemoteNode remote = sanctum.remoteTree().find(remoteUuid);
-        addInfoLabel("远程：" + (remote == null ? "?" : remote.name()));
-        editPanel.revalidate();
-        editPanel.repaint();
+        addInfoLabel("远程：" + (remote == null ? "?" : remote.name()), target);
+        target.revalidate();
+        target.repaint();
     }
 
     /** 添加一行受 max height 约束的只读信息标签。 */
-    private void addInfoLabel(String text) {
+    private void addInfoLabel(String text, JPanel target) {
         JLabel label = new JLabel(text);
         label.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
-        editPanel.add(label);
+        target.add(label);
     }
 
     /** 当前选中条目（按列表索引从平行 UUID 列表解析）。 */
@@ -1255,10 +1349,10 @@ public final class SanctumGui {
             return;
         }
         JPanel nameRow = new JPanel(new BorderLayout(6, 0));
+        nameRow.setOpaque(false);
         nameRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-        JLabel nameTag = new JLabel("名称*");
+        JLabel nameTag = new JLabel("名称 :");
         nameTag.setFont(nameTag.getFont().deriveFont(Font.BOLD, 14f));
-        nameTag.setForeground(new java.awt.Color(180, 60, 60));
         JTextField nameField = new JTextField(group.name() == null ? "" : group.name());
         nameField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         nameRow.add(nameTag, BorderLayout.WEST);
@@ -1293,10 +1387,24 @@ public final class SanctumGui {
                 clearEditPanel();
             }
         });
+        JButton iconBtn = new JButton("选择图标");
+        iconBtn.addActionListener(e -> chooseIconDialog("文件夹图标", id -> {
+            resetAutoLock();
+            try {
+                group.setIcon(id);
+                rebuildGroupTree();
+                renderGroupPanel(groupUuid);
+                statusLabel.setText("已设置图标");
+            } catch (Exception ex) {
+                statusLabel.setText("设置图标失败");
+            }
+        }));
         JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        actionRow.setOpaque(false);
         actionRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
         actionRow.add(saveBtn);
         actionRow.add(delGroupBtn);
+        actionRow.add(iconBtn);
         editPanel.add(actionRow);
         editPanel.revalidate();
         editPanel.repaint();
@@ -1336,6 +1444,7 @@ public final class SanctumGui {
             String val = field.value();
             String kind = field.kind();
             JPanel row = new JPanel(new BorderLayout(6, 0));
+            row.setOpaque(false);
             row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
             JLabel fLabel = new JLabel((fn == null ? "" : fn) + " :");
             fLabel.setPreferredSize(new Dimension(110, 24));
@@ -1344,6 +1453,7 @@ public final class SanctumGui {
             row.add(fValue, BorderLayout.CENTER);
             // EAST：kind 下拉 + 删除按钮
             JPanel east = new JPanel();
+            east.setOpaque(false);
             east.setLayout(new BoxLayout(east, BoxLayout.Y_AXIS));
             east.setMaximumSize(new Dimension(Integer.MAX_VALUE, 52));
             JComboBox<String> kindCombo = new JComboBox<>(kindOptions().toArray(new String[0]));
@@ -1416,6 +1526,7 @@ public final class SanctumGui {
         JButton iconBtn = new JButton("选择图标");
         iconBtn.addActionListener(e -> chooseEntryIcon(entryUuid));
         JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        actionRow.setOpaque(false);
         actionRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
         actionRow.add(saveBtn);
         actionRow.add(addFieldBtn);
@@ -1485,6 +1596,7 @@ public final class SanctumGui {
     /** 构造一行：左标签 + 右文本字段（高度受限）。required=true 时标签标红加粗。 */
     private JPanel makeEntryRow(String label, JTextField field, boolean required) {
         JPanel row = new JPanel(new BorderLayout(0, 0));
+        row.setOpaque(false); // 透明透出卡片背景，与编辑栏对齐
         javax.swing.border.EmptyBorder pad = new javax.swing.border.EmptyBorder(0, 0, 8, 0);
         row.setBorder(pad);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
@@ -1502,6 +1614,7 @@ public final class SanctumGui {
     /** 只读信息行（创建时间/更新时间）。 */
     private JPanel makeInfoRow(String label, String text) {
         JPanel row = new JPanel(new BorderLayout(0, 0));
+        row.setOpaque(false); // 透明透出卡片背景，与编辑栏对齐
         row.setBorder(new javax.swing.border.EmptyBorder(0, 0, 8, 0));
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
         JLabel tag = new JLabel(label);
@@ -1655,15 +1768,24 @@ public final class SanctumGui {
     private JTextField searchFieldRef;
     /** 搜索视图横幅（中间区域上方，黄色；搜索时显示）。 */
     private JLabel searchBanner;
-    private JButton importImageBtn;
-    private JButton addSshBtn;
-    private JButton addRemoteBtn;
+    /** 当前窗口尺寸的存储 key（"guide" 引导页 / "main" 主页面），resize 时即时保存。 */
+    private String currentWindowKey;
+    // ---- 设置页三栏 ----
+    private JTree settingsTree;
+    private JList<String> settingsEntryList;
+    private DefaultListModel<String> settingsEntryModel;
+    private final List<String> settingsEntryIds = new ArrayList<>();
+    private final List<String> settingsEntryKeys = new ArrayList<>();
+    private final List<SettingsKind> settingsEntryKinds = new ArrayList<>();
+    private JPanel settingsEditPanel;
+    private javax.swing.JComboBox<String> settingsThemeCombo;
+    private JTextField settingsLockField;
+    private JTextField settingsClipField;
     private JButton newEntryBtn;
     private JButton newGroupBtn;
     private JButton delBtn;
     private JButton syncBtn;
     private JButton settingsBtn;
-    private JButton switchBtn;
     private JButton lockBtn;
 
     private void copyPassword(UUID entryUuid) {
@@ -1805,35 +1927,21 @@ public final class SanctumGui {
         }
     }
 
-    /** 为条目选择一个已导入的自定义图标（或清除图标）。 */
+    /** 为条目选择图标（内置 + 用户图标库）。 */
     private void chooseEntryIcon(UUID entryUuid) {
-        List<IconNode> icons = sanctum.iconTree().icons();
-        if (icons.isEmpty()) {
-            statusLabel.setText("请先在\"图标\"区导入图片");
-            return;
-        }
-        String[] choices = icons.stream()
-                .map(icon -> iconLabel(icon) + "  [" + icon.uuid() + "]")
-                .toArray(String[]::new);
-        Object chosen = JOptionPane.showInputDialog(frame, "选择图标:", "条目图标",
-                JOptionPane.PLAIN_MESSAGE, null, choices, choices[0]);
-        if (chosen == null) {
-            return;
-        }
-        String sel = chosen.toString();
-        int idx = sel.lastIndexOf('[');
-        String uuidStr = sel.substring(idx + 1, sel.length() - 1);
-        resetAutoLock();
-        try {
-            EntryNode entry = sanctum.objectTree().entry(entryUuid);
-            if (entry != null) {
-                entry.setIcon(UUID.fromString(uuidStr));
+        chooseIconDialog("选择图标", id -> {
+            resetAutoLock();
+            try {
+                EntryNode entry = sanctum.objectTree().entry(entryUuid);
+                if (entry != null) {
+                    entry.setIcon(id);
+                    renderEntry(entryUuid);
+                    statusLabel.setText("已设置图标");
+                }
+            } catch (Exception ex) {
+                statusLabel.setText("设置图标失败");
             }
-            renderEntry(entryUuid);
-            statusLabel.setText("已设置图标");
-        } catch (Exception ex) {
-            statusLabel.setText("设置图标失败");
-        }
+        });
     }
 
     // ================= 新建 / 删除 =================
@@ -1979,6 +2087,31 @@ public final class SanctumGui {
         showSettingsPage();
     }
 
+    /** 漂浮提示（toast）：短暂显示后自动消失，不打断交互。 */
+    private void showToast(String message) {
+        javax.swing.JWindow toast = new javax.swing.JWindow(frame);
+        JLabel label = new JLabel(message, JLabel.CENTER);
+        label.setOpaque(true);
+        label.setBackground(new java.awt.Color(60, 60, 60, 230));
+        label.setForeground(java.awt.Color.WHITE);
+        label.setBorder(new EmptyBorder(8, 18, 8, 18));
+        label.setFont(label.getFont().deriveFont(Font.PLAIN, 13f));
+        toast.setContentPane(label);
+        toast.pack();
+        int x = frame.getX() + (frame.getWidth() - toast.getWidth()) / 2;
+        int y = frame.getY() + frame.getHeight() - toast.getHeight() - 40;
+        toast.setLocation(x, y);
+        toast.setAlwaysOnTop(true);
+        toast.setVisible(true);
+        java.util.Timer t = new java.util.Timer(true);
+        t.schedule(new java.util.TimerTask() {
+            @Override
+            public void run() {
+                SwingUtilities.invokeLater(toast::dispose);
+            }
+        }, 1800);
+    }
+
     /** 仓库/应用设置页（独立页面，非对话框）。 */
     private JPanel buildSettingsPanel() {
         JPanel box = new UiTheme.PaperPanel(new BorderLayout());
@@ -1998,80 +2131,282 @@ public final class SanctumGui {
         }
         com.flora.sanctum.model.LibraryConfig lc = sanctum.config();
 
-        // 左：tab 列表（圆角色 + 名称，风格与主界面文件夹列表一致）
-        String[] tabs = {"主题", "自动锁定", "剪贴板清空"};
-        JList<String> tabList = new JList<>(tabs);
-        tabList.setFixedCellHeight(44);
-        tabList.setOpaque(false);
-        tabList.setBorder(new EmptyBorder(8, 8, 8, 8));
-        tabList.setCellRenderer(new SettingsTabRenderer());
+        // 顶部按钮栏（模仿主界面工具栏：略深底 + 分割线），图标按钮"确定 / 返回"
+        JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 6));
+        topBar.setOpaque(true);
+        topBar.setBackground(UiTheme.PAPER_LIGHT);
+        JButton okBtn = iconButton(SvgIcon.get("ui/check", 29), "保存设置并返回");
+        JButton backBtn = iconButton(SvgIcon.get("ui/close", 29), "返回");
+        backBtn.addActionListener(e -> backFromSettings());
+        topBar.add(okBtn);
+        topBar.add(backBtn);
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+        header.add(topBar, BorderLayout.NORTH);
+        JPanel hLine = new JPanel();
+        hLine.setOpaque(true);
+        hLine.setBackground(UiTheme.DIVIDER);
+        hLine.setPreferredSize(new Dimension(0, 1));
+        hLine.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        header.add(hLine, BorderLayout.SOUTH);
+        box.add(header, BorderLayout.NORTH);
 
-        // 右：按 tab 切换的设置内容
-        JPanel right = new JPanel(new java.awt.CardLayout());
-        right.setOpaque(false);
+        // 左栏：root 列表（设置 / 图标 / SSH 密钥 / 远程）
+        settingsTree = new JTree();
+        settingsTree.setRootVisible(false);
+        settingsTree.setRowHeight(36);
+        settingsTree.setCellRenderer(new SettingsTreeRenderer());
+        DefaultMutableTreeNode top = new DefaultMutableTreeNode("设置");
+        DefaultMutableTreeNode setNode = new DefaultMutableTreeNode("设置");
+        setNode.setUserObject(NodeType.CONFIG);
+        DefaultMutableTreeNode iconNode = new DefaultMutableTreeNode("图标");
+        iconNode.setUserObject(RootTag.ICON);
+        DefaultMutableTreeNode sshNode = new DefaultMutableTreeNode("SSH 密钥");
+        sshNode.setUserObject(RootTag.SSH_KEY);
+        DefaultMutableTreeNode remoteNode = new DefaultMutableTreeNode("远程");
+        remoteNode.setUserObject(RootTag.REMOTE);
+        top.add(setNode);
+        top.add(iconNode);
+        top.add(sshNode);
+        top.add(remoteNode);
+        settingsTree.setModel(new DefaultTreeModel(top));
+        settingsTree.addTreeSelectionListener(e -> refreshSettingsEntries());
+        JPanel left = new JPanel(new BorderLayout());
+        left.setOpaque(true);
+        left.setBackground(UiTheme.PAPER_LIGHT);
+        left.add(settingsTree, BorderLayout.CENTER);
 
-        JPanel themeCard = new JPanel(new GridLayout(2, 1, 0, 6));
-        themeCard.setOpaque(false);
-        themeCard.setBorder(new EmptyBorder(12, 12, 12, 12));
-        themeCard.add(new JLabel("界面主题"));
-        javax.swing.JComboBox<String> themeCombo =
-                new javax.swing.JComboBox<>(new String[]{"system", "light", "dark"});
-        themeCombo.setSelectedItem(lc.theme());
-        themeCard.add(themeCombo);
-        right.add(themeCard, "主题");
-
-        JPanel lockCard = new JPanel(new GridLayout(2, 1, 0, 6));
-        lockCard.setOpaque(false);
-        lockCard.setBorder(new EmptyBorder(12, 12, 12, 12));
-        lockCard.add(new JLabel("自动锁定（秒）"));
-        JTextField lockField = new JTextField(String.valueOf(lc.lockTimeoutSeconds()));
-        lockCard.add(lockField);
-        right.add(lockCard, "自动锁定");
-
-        JPanel clipCard = new JPanel(new GridLayout(2, 1, 0, 6));
-        clipCard.setOpaque(false);
-        clipCard.setBorder(new EmptyBorder(12, 12, 12, 12));
-        clipCard.add(new JLabel("剪贴板清空（秒）"));
-        JTextField clipField = new JTextField(String.valueOf(lc.clipboardClearSeconds()));
-        clipCard.add(clipField);
-        right.add(clipCard, "剪贴板清空");
-
-        tabList.addListSelectionListener(e -> {
+        // 中栏：条目列表（选中 root 后显示其条目）
+        settingsEntryModel = new DefaultListModel<>();
+        settingsEntryList = new JList<>(settingsEntryModel);
+        settingsEntryList.setFixedCellHeight(40);
+        settingsEntryList.setOpaque(false);
+        settingsEntryList.setBorder(new EmptyBorder(8, 10, 8, 10));
+        settingsEntryList.setCellRenderer(new SettingsEntryRenderer());
+        settingsEntryList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
-                java.awt.CardLayout cl = (java.awt.CardLayout) right.getLayout();
-                cl.show(right, tabs[tabList.getSelectedIndex()]);
+                showSettingsSelection();
             }
         });
-        tabList.setSelectedIndex(0);
+        JScrollPane entryScroll = new JScrollPane(settingsEntryList);
+        entryScroll.setBorder(javax.swing.BorderFactory.createEmptyBorder());
+        entryScroll.setOpaque(false);
+        entryScroll.getViewport().setOpaque(false);
 
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, tabList, right);
-        split.setDividerLocation(120);
-        split.setOpaque(false);
-        box.add(split, BorderLayout.CENTER);
+        // 右栏：编辑面板（白色圆角悬浮卡片）
+        settingsEditPanel = new JPanel();
+        settingsEditPanel.setLayout(new BoxLayout(settingsEditPanel, BoxLayout.Y_AXIS));
+        settingsEditPanel.setBorder(new EmptyBorder(8, 10, 8, 10));
+        settingsEditPanel.setOpaque(false);
+        JScrollPane editScroll = new JScrollPane(settingsEditPanel);
+        editScroll.setBorder(javax.swing.BorderFactory.createEmptyBorder());
+        editScroll.setOpaque(false);
+        editScroll.getViewport().setOpaque(false);
+        CardPanel editCard = new CardPanel(new BorderLayout(), 6);
+        editCard.add(editScroll, BorderLayout.CENTER);
 
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
-        actions.setOpaque(false);
-        JButton saveBtn = new JButton("保存");
-        saveBtn.addActionListener(e -> {
-            lc.setTheme((String) themeCombo.getSelectedItem());
-            try {
-                lc.setLockTimeoutSeconds(Integer.parseInt(lockField.getText()));
-            } catch (NumberFormatException ignore) {
-            }
-            try {
-                lc.setClipboardClearSeconds(Integer.parseInt(clipField.getText()));
-            } catch (NumberFormatException ignore) {
-            }
-            applyTheme(lc.theme());
-            JOptionPane.showMessageDialog(frame, "设置已保存", "设置", JOptionPane.INFORMATION_MESSAGE);
+        // 三栏：左 root + 中条目 + 右编辑（右分割线不显示，比例存储保留）
+        JSplitPane rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, entryScroll, editCard);
+        rightSplit.setDividerSize(0);
+        rightSplit.setDividerLocation(240);
+        keepDividerRatio(rightSplit, "ui.divider.right", 240);
+        rightSplit.setOpaque(false);
+        JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, left, rightSplit);
+        mainSplit.setDividerLocation(160);
+        keepDividerRatio(mainSplit, "ui.divider.main", 160);
+        mainSplit.setOpaque(false);
+        box.add(mainSplit, BorderLayout.CENTER);
+
+        // 默认选中"设置" root
+        settingsTree.setSelectionPath(new javax.swing.tree.TreePath(new Object[]{top, setNode}));
+
+        okBtn.addActionListener(e -> {
+            saveSettingsItems();
+            showToast("设置已保存");
             backFromSettings();
         });
-        JButton backBtn = new JButton("返回");
-        backBtn.addActionListener(e -> backFromSettings());
-        actions.add(saveBtn);
-        actions.add(backBtn);
-        box.add(actions, BorderLayout.SOUTH);
         return box;
+    }
+
+    /** 设置页中栏刷新：按左栏选中的 root 列出条目。 */
+    private void refreshSettingsEntries() {
+        settingsEntryModel.clear();
+        settingsEntryIds.clear();
+        settingsEntryKeys.clear();
+        settingsEntryKinds.clear();
+        Object sel = settingsTree.getLastSelectedPathComponent();
+        if (!(sel instanceof DefaultMutableTreeNode node)) {
+            return;
+        }
+        Object uo = node.getUserObject();
+        if (uo == NodeType.CONFIG) {
+            addSettingsEntry("主题", "theme");
+            addSettingsEntry("自动锁定", "lock");
+            addSettingsEntry("剪贴板清空", "clip");
+            settingsEntryList.setSelectedIndex(0);
+        } else if (uo instanceof RootTag tag) {
+            switch (tag) {
+                case ICON -> {
+                    // 内置图标（不可删除）
+                    for (String name : BUILTIN_ICONS) {
+                        settingsEntryModel.addElement("内置 · " + name);
+                        settingsEntryIds.add(builtinIconId(name));
+                        settingsEntryKinds.add(SettingsKind.ICON);
+                    }
+                    // 用户导入图标
+                    for (IconNode icon : sanctum.iconTree().icons()) {
+                        settingsEntryModel.addElement(iconLabel(icon));
+                        settingsEntryIds.add(icon.uuid().toString());
+                        settingsEntryKinds.add(SettingsKind.ICON);
+                    }
+                }
+                case SSH_KEY -> {
+                    for (SshKeyNode key : sanctum.sshKeyTree().keys()) {
+                        settingsEntryModel.addElement(key.name());
+                        settingsEntryIds.add(key.uuid().toString());
+                        settingsEntryKinds.add(SettingsKind.SSH_KEY);
+                    }
+                }
+                case REMOTE -> {
+                    for (RemoteNode r : sanctum.remoteTree().remotes()) {
+                        settingsEntryModel.addElement(r.name());
+                        settingsEntryIds.add(r.uuid().toString());
+                        settingsEntryKinds.add(SettingsKind.REMOTE);
+                    }
+                }
+                default -> {
+                }
+            }
+            settingsEntryList.setSelectedIndex(settingsEntryModel.size() > 0 ? 0 : -1);
+        }
+    }
+
+    private void addSettingsEntry(String name, String key) {
+        settingsEntryModel.addElement(name);
+        settingsEntryKeys.add(key);
+        settingsEntryKinds.add(SettingsKind.SETTING);
+        settingsEntryIds.add(null);
+    }
+
+    /** 设置页右栏渲染：按中栏选中条目显示编辑内容。 */
+    private void showSettingsSelection() {
+        int idx = settingsEntryList.getSelectedIndex();
+        settingsEditPanel.removeAll();
+        if (idx >= 0 && idx < settingsEntryKinds.size()) {
+            SettingsKind kind = settingsEntryKinds.get(idx);
+            String id = settingsEntryIds.get(idx);
+            switch (kind) {
+                case SETTING -> renderSettingsItem(settingsEntryKeys.get(idx));
+                case ICON -> {
+                    renderSettingsIcon(id, settingsEditPanel);
+                    addSettingsActionBtn("导入图片", this::doImportImageAndRefresh);
+                    addSettingsActionBtn("删除图标", () -> {
+                        if (isBuiltinIcon(id)) {
+                            JOptionPane.showMessageDialog(frame, "预制图标不能删除", "提示",
+                                    JOptionPane.INFORMATION_MESSAGE);
+                            return;
+                        }
+                        try {
+                            IconNode node = sanctum.iconTree().find(UUID.fromString(id));
+                            if (node != null) {
+                                node.delete();
+                                refreshSettingsEntries();
+                                statusLabel.setText("已删除图标");
+                            }
+                        } catch (Exception ex) {
+                            statusLabel.setText("删除失败");
+                        }
+                    });
+                }
+                case SSH_KEY -> {
+                    renderSshKeyPanel(UUID.fromString(id), settingsEditPanel);
+                    addSettingsActionBtn("添加 SSH 密钥", this::addSshKeyAndRefresh);
+                }
+                case REMOTE -> {
+                    renderRemotePanel(UUID.fromString(id), settingsEditPanel);
+                    addSettingsActionBtn("添加远程", this::addRemoteAndRefresh);
+                }
+            }
+        }
+        settingsEditPanel.revalidate();
+        settingsEditPanel.repaint();
+    }
+
+    /** 渲染单个设置项（主题 / 自动锁定 / 剪贴板清空）的编辑控件。 */
+    private void renderSettingsItem(String key) {
+        com.flora.sanctum.model.LibraryConfig lc = sanctum.config();
+        if ("theme".equals(key)) {
+            settingsThemeCombo = new javax.swing.JComboBox<>(new String[]{"system", "light", "dark"});
+            settingsThemeCombo.setSelectedItem(lc.theme());
+            settingsThemeCombo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+            settingsThemeCombo.setAlignmentX(0f);
+            settingsEditPanel.add(new JLabel("界面主题"));
+            settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
+            settingsEditPanel.add(settingsThemeCombo);
+        } else if ("lock".equals(key)) {
+            settingsLockField = new JTextField(String.valueOf(lc.lockTimeoutSeconds()));
+            settingsLockField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+            settingsLockField.setAlignmentX(0f);
+            settingsEditPanel.add(new JLabel("自动锁定（秒）"));
+            settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
+            settingsEditPanel.add(settingsLockField);
+        } else if ("clip".equals(key)) {
+            settingsClipField = new JTextField(String.valueOf(lc.clipboardClearSeconds()));
+            settingsClipField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+            settingsClipField.setAlignmentX(0f);
+            settingsEditPanel.add(new JLabel("剪贴板清空（秒）"));
+            settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
+            settingsEditPanel.add(settingsClipField);
+        }
+    }
+
+    /** 保存已编辑的设置项到仓库。 */
+    private void saveSettingsItems() {
+        com.flora.sanctum.model.LibraryConfig lc = sanctum.config();
+        if (settingsThemeCombo != null) {
+            lc.setTheme((String) settingsThemeCombo.getSelectedItem());
+        }
+        if (settingsLockField != null) {
+            try {
+                lc.setLockTimeoutSeconds(Integer.parseInt(settingsLockField.getText()));
+            } catch (NumberFormatException ignore) {
+            }
+        }
+        if (settingsClipField != null) {
+            try {
+                lc.setClipboardClearSeconds(Integer.parseInt(settingsClipField.getText()));
+            } catch (NumberFormatException ignore) {
+            }
+        }
+        applyTheme(lc.theme());
+        settingsThemeCombo = null;
+        settingsLockField = null;
+        settingsClipField = null;
+    }
+
+    /** 在设置右栏追加一个操作按钮。 */
+    private void addSettingsActionBtn(String label, Runnable action) {
+        JButton b = new JButton(label);
+        b.setAlignmentX(0f);
+        b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        b.addActionListener(e -> action.run());
+        settingsEditPanel.add(javax.swing.Box.createVerticalStrut(10));
+        settingsEditPanel.add(b);
+    }
+
+    private void doImportImageAndRefresh() {
+        doImportImage();
+        refreshSettingsEntries();
+    }
+
+    private void addSshKeyAndRefresh() {
+        addSshKey();
+        refreshSettingsEntries();
+    }
+
+    private void addRemoteAndRefresh() {
+        addRemote();
+        refreshSettingsEntries();
     }
 
     /** 从设置页返回：已解锁回编辑页，否则回历史页（独立形态回解锁页）。 */
@@ -2091,8 +2426,8 @@ public final class SanctumGui {
         public java.awt.Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel,
                                                                boolean expanded, boolean leaf, int row, boolean hasFocus) {
             super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus);
-            setIcon(SvgIcon.get("folder", 24));
-            setDisabledIcon(SvgIcon.get("folder", 24));
+            setIcon(SvgIcon.get("ui/folder", 24));
+            setDisabledIcon(SvgIcon.get("ui/folder", 24));
             if (value instanceof javax.swing.tree.DefaultMutableTreeNode node) {
                 Object uo = node.getUserObject();
                 if (uo instanceof RootTag tag) {
@@ -2101,6 +2436,15 @@ public final class SanctumGui {
                     String[] info = groupsById().get(uuid);
                     String name = info == null ? null : info[1];
                     setText(name == null || name.isBlank() ? "未命名" : name);
+                    // 文件夹设置了图标则优先显示
+                    String iconId = groupIconOf(uuid);
+                    if (iconId != null) {
+                        Icon ic = iconById(iconId, 24);
+                        if (ic != null) {
+                            setIcon(ic);
+                            setDisabledIcon(ic);
+                        }
+                    }
                 }
             }
             return this;
@@ -2108,38 +2452,73 @@ public final class SanctumGui {
     }
 
     /** 条目列表渲染器：文件夹图标 + 锁图标，按列表项类型区分。 */
+    /** 设置页中栏条目种类。 */
+    private enum SettingsKind { SETTING, ICON, SSH_KEY, REMOTE }
+
+    /** 设置页左栏渲染器：root 显示名（设置/图标/SSH 密钥/远程），无字符图标。 */
+    private static final class SettingsTreeRenderer extends javax.swing.tree.DefaultTreeCellRenderer {
+        @Override
+        public java.awt.Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel,
+                                                               boolean expanded, boolean leaf, int row, boolean hasFocus) {
+            super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus);
+            setIcon(null);
+            setText(rootName(value));
+            return this;
+        }
+
+        private static String rootName(Object value) {
+            if (value instanceof javax.swing.tree.DefaultMutableTreeNode node) {
+                Object uo = node.getUserObject();
+                if (uo instanceof RootTag tag) {
+                    return tag.displayName();
+                }
+                if (uo == NodeType.CONFIG) {
+                    return "设置";
+                }
+            }
+            return "?";
+        }
+    }
+
+    /** 设置页中栏条目渲染器：纯文本 + 内边距（无字符图标）。 */
+    private static final class SettingsEntryRenderer extends javax.swing.DefaultListCellRenderer {
+        @Override
+        public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                                                               boolean isSelected, boolean cellHasFocus) {
+            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            setIcon(null);
+            setBorder(new EmptyBorder(6, 8, 6, 8));
+            return this;
+        }
+    }
+
     private final class EntryListRenderer extends javax.swing.DefaultListCellRenderer {
         @Override
         public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index,
                                                                boolean isSelected, boolean cellHasFocus) {
             super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
             NodeType type = index >= 0 && index < listItemTypes.size() ? listItemTypes.get(index) : null;
-            setIcon(type == NodeType.GROUP ? SvgIcon.get("folder", 24) : SvgIcon.get("entry", 24));
+            // 条目/文件夹设置了图标则优先显示，否则默认 folder/entry
+            String iconId = index >= 0 && index < listItemIcons.size() ? listItemIcons.get(index) : null;
+            Icon custom = iconById(iconId, 24);
+            if (custom != null) {
+                setIcon(custom);
+            } else {
+                setIcon(type == NodeType.GROUP ? SvgIcon.get("ui/folder", 24) : SvgIcon.get("ui/entry", 24));
+            }
             return this;
         }
     }
 
-    /** 设置页 tab 列表渲染器：圆角色 + 名称，风格与主界面文件夹列表一致。 */
-    private static final class SettingsTabRenderer extends javax.swing.DefaultListCellRenderer {
-        @Override
-        public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index,
-                                                               boolean isSelected, boolean cellHasFocus) {
-            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-            setIcon(new LetterIcon(String.valueOf(value)));
-            setBorder(new EmptyBorder(6, 8, 6, 8));
-            return this;
-        }
-    }
-
-    /** 圆角卡片：纸纹噪声背景（延续主界面图案，基色更深） + 内边距，模拟悬浮卡片（组树 / 编辑面板）。 */
-    private static final class CardPanel extends UiTheme.PaperPanel {
+    /** 圆角悬浮卡片：纯色背景（比中间底色更白）四周缩进露出底色 + 内容内边距。 */
+    private static final class CardPanel extends JPanel {
         private final int arc = 16;
+        private final int inset = 8; // 卡片背景四周缩进，露出底层形成悬浮感
 
         CardPanel(java.awt.LayoutManager layout, int pad) {
-            // 主界面中间底色 #E9E1CD；卡片用浅色 #F8F4E9 形成悬浮层次
-            super(layout, 0xF8, 0xF4, 0xE9, 25);
+            super(layout);
             setOpaque(false);
-            setBorder(new EmptyBorder(pad, pad, pad, pad));
+            setBorder(new EmptyBorder(pad + inset, pad + inset, pad + inset, pad + inset));
         }
 
         @Override
@@ -2147,9 +2526,35 @@ public final class SanctumGui {
             java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
             g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
                     java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.clip(new java.awt.geom.RoundRectangle2D.Float(0, 0, getWidth() - 1, getHeight() - 1, arc, arc));
-            super.paintComponent(g2); // 纸纹背景（圆角裁剪）
+            g2.setColor(UiTheme.CARD);
+            g2.fill(new java.awt.geom.RoundRectangle2D.Float(inset, inset,
+                    getWidth() - 1 - 2 * inset, getHeight() - 1 - 2 * inset, arc, arc));
             g2.dispose();
+            // 不调用 super：opaque=false 且自身已画圆角背景
+        }
+    }
+
+    /** 解锁按钮 JLayer UI：在按钮右内侧绘制转圈（覆盖，不占排版，按钮保持全宽居中）。 */
+    private static final class UnlockSpinnerUI extends javax.swing.plaf.LayerUI<JButton> {
+        private final SpinnerIcon spinner;
+
+        UnlockSpinnerUI(SpinnerIcon spinner) {
+            this.spinner = spinner;
+        }
+
+        @Override
+        public void paint(Graphics g, javax.swing.JComponent c) {
+            super.paint(g, c);
+            if (Boolean.TRUE.equals(c.getClientProperty("spinner.visible"))) {
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                        java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                int size = spinner.getIconWidth();
+                int x = c.getWidth() - size - 14;
+                int y = (c.getHeight() - size) / 2;
+                spinner.paintIcon(c, g2, x, y);
+                g2.dispose();
+            }
         }
     }
 
@@ -2178,7 +2583,7 @@ public final class SanctumGui {
             g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
                     java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
             int inset = 2;
-            g2.setColor(new java.awt.Color(0x8A, 0x84, 0x78));
+            g2.setColor(UiTheme.INK_MUTED);
             g2.setStroke(new java.awt.BasicStroke(2.5f, java.awt.BasicStroke.CAP_ROUND,
                     java.awt.BasicStroke.JOIN_ROUND));
             g2.drawArc(x + inset, y + inset, size - 2 * inset, size - 2 * inset,
@@ -2187,14 +2592,13 @@ public final class SanctumGui {
         }
     }
 
-    /** 圆形字母图标：彩色圆底 + 名称首字母（最多 2 个），颜色按名称 hash 稳定选取。 */
+    /**
+     * 圆形字母图标：彩色圆底 + 名称首字母（最多 2 个）。
+     * 底色按 HSL 生成：名称 hash → 色相（0..360°），固定饱和度/亮度 → 颜色连续多样、明暗统一且确定。
+     */
     private static final class LetterIcon implements javax.swing.Icon {
-        private static final java.awt.Color[] COLORS = {
-                new java.awt.Color(0x5B, 0x8D, 0xEF), new java.awt.Color(0xE8, 0x6B, 0x6B),
-                new java.awt.Color(0x57, 0xB8, 0x94), new java.awt.Color(0xE0, 0xA8, 0x4D),
-                new java.awt.Color(0x9B, 0x72, 0xD6), new java.awt.Color(0x4C, 0xB3, 0xC8),
-                new java.awt.Color(0xD6, 0x77, 0xB8), new java.awt.Color(0x8A, 0xB4, 0x5F),
-        };
+        private static final float SATURATION = 0.45f;
+        private static final float BRIGHTNESS = 0.60f;
         private final String text;
         private final java.awt.Color bg;
         private final int size;
@@ -2207,8 +2611,8 @@ public final class SanctumGui {
             this.size = size;
             String base = name == null || name.isBlank() ? "?" : name.trim();
             this.text = iconText(base);
-            int h = Math.abs(base.hashCode());
-            this.bg = COLORS[h % COLORS.length];
+            float hue = (Math.abs(base.hashCode()) % 360) / 360f;
+            this.bg = java.awt.Color.getHSBColor(hue, SATURATION, BRIGHTNESS);
         }
 
         /**

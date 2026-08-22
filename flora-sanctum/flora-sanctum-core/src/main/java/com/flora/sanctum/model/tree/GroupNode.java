@@ -45,6 +45,21 @@ public final class GroupNode extends ObjectNode {
         ctx().write(uuid(), group, parentId);
     }
 
+    /** 设置/清除文件夹图标引用（iconId 可为内置 "builtin:name" 或用户图标 uuid 字符串；null 清除）。 */
+    public void setIcon(String iconId) {
+        JsonObject group = data();
+        if (group == null) {
+            throw new IllegalArgumentException("group not found");
+        }
+        UUID parentId = ctx().parentGroupUuid(group);
+        if (iconId == null) {
+            group.remove("icon");
+        } else {
+            group.put("icon", iconId);
+        }
+        ctx().write(uuid(), group, parentId);
+    }
+
     /** 在此组下新建子组。 */
     public GroupNode createChildGroup(String name) {
         return tree().createGroup(uuid(), name);

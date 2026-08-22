@@ -3,33 +3,37 @@ package com.flora.sanctum.app.ui;
 import javax.swing.BorderFactory;
 import javax.swing.JPanel;
 import java.awt.Color;
-import java.awt.Graphics;
 import java.awt.LayoutManager;
-import java.awt.image.BufferedImage;
 
 /**
- * flora-sanctum 统一 UI 主题（白灰偏暖黄纸感风格）。
+ * flora-sanctum 统一 UI 主题（暖纸纯色风格，参考 openhanako Warm Paper）。
  * <p>
- * 供所有界面（解锁页、编辑页、历史列表页、设置页等）共用，保证配色与透明方案一致：
- * 纸感底纹背景（PaperPanel）+ 暖浅控件底色 + 纯白输入框 + 淡灰棕文字/分隔线。
+ * 供所有界面（解锁页、编辑页、历史列表页、设置页等）共用，保证配色一致：
+ * 纯色背景（PaperPanel）+ 暖浅控件底色 + 纯白输入框 + 深灰文字/浅蓝分隔线。
  */
 public final class UiTheme {
 
     private UiTheme() {
     }
 
-    /** 面板底色（暖白纸）。 */
-    public static final Color PAPER = new Color(0xF8, 0xF4, 0xE9);
-    /** 按钮/下拉等控件底色（暖浅）。 */
-    public static final Color PAPER_LIGHT = new Color(0xF1, 0xED, 0xE1);
+    /** 面板底色（暖纸，参考 openhanako Warm Paper --bg）。 */
+    public static final Color PAPER = new Color(0xF8, 0xF5, 0xED);
+    /** 控件/工具栏底色（略深，--sidebar-bg / --bg-glass 取向）。 */
+    public static final Color PAPER_LIGHT = new Color(0xF4, 0xF2, 0xEA);
     /** 编辑框纯白。 */
     public static final Color FIELD_WHITE = new Color(0xFF, 0xFF, 0xFF);
-    /** 文字图标淡灰棕。 */
-    public static final Color INK = new Color(0x5A, 0x55, 0x4D);
-    /** 分隔线。 */
-    public static final Color DIVIDER = new Color(0xD8, 0xD2, 0xC0);
-    /** 选中背景（暖灰棕，焦点/失焦一致）。 */
-    public static final Color SELECTION_BG = new Color(0xE4, 0xDD, 0xC9);
+    /** 卡片底色（比背景更白，--bg-card）。 */
+    public static final Color CARD = new Color(0xFC, 0xFA, 0xF5);
+    /** 主色（蓝灰，--accent）。 */
+    public static final Color ACCENT = new Color(0x53, 0x7D, 0x96);
+    /** 文字（深灰，--text）。 */
+    public static final Color INK = new Color(0x3B, 0x3D, 0x3F);
+    /** 弱文字（--text-muted）。 */
+    public static final Color INK_MUTED = new Color(0x8E, 0x91, 0x96);
+    /** 分隔线（--border 蓝调浅色，在 PAPER 上合成）。 */
+    public static final Color DIVIDER = new Color(0xD4, 0xDA, 0xDA);
+    /** 选中背景（--accent-light 淡蓝，焦点/失焦一致）。 */
+    public static final Color SELECTION_BG = new Color(0xE8, 0xEE, 0xF2);
 
     /** 应用全局 UIManager 纸感主题（对 Swing 控件生效）。 */
     public static void apply() {
@@ -80,63 +84,19 @@ public final class UiTheme {
     }
 
     /**
-     * 纸感底纹背景面板：确定性平滑值噪声按面板尺寸整体渲染（函数全局连续，平铺无接缝）。
-     * 各界面根面板统一用此组件，保证背景一致。
+     * 纯色背景面板：各界面根面板统一用此组件保证背景一致。
+     * 默认暖纸底色（{@link #PAPER}）；可自定义底色（如卡片 {@link #CARD}）。
      */
     public static class PaperPanel extends JPanel {
-        private final int baseR;
-        private final int baseG;
-        private final int baseB;
-        private final int amp;
-        private BufferedImage cached;
-        private int cachedW = -1;
-        private int cachedH = -1;
 
         public PaperPanel(LayoutManager layout) {
-            this(layout, 0xF8, 0xF4, 0xE9, 25);
+            this(layout, PAPER);
         }
 
-        /** 自定义基色与幅度的纸纹面板（如卡片用更深基色）。 */
-        public PaperPanel(LayoutManager layout, int baseR, int baseG, int baseB, int amp) {
+        public PaperPanel(LayoutManager layout, Color bg) {
             super(layout);
-            this.baseR = baseR;
-            this.baseG = baseG;
-            this.baseB = baseB;
-            this.amp = amp;
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            int w = getWidth();
-            int h = getHeight();
-            if (w <= 0 || h <= 0) {
-                return;
-            }
-            if (cached == null || cachedW != w || cachedH != h) {
-                cached = renderPaper(w, h);
-                cachedW = w;
-                cachedH = h;
-            }
-            g.drawImage(cached, 0, 0, null);
-        }
-
-        /** 按面板尺寸渲染纸纤维噪声图（复用 flora-root PaperNoise，基色可自定义，默认暖白 #F8F4E9 幅度 ±25）。 */
-        private BufferedImage renderPaper(int w, int h) {
-            BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
-            int[] px = new int[w * h];
-            for (int y = 0; y < h; y++) {
-                for (int x = 0; x < w; x++) {
-                    float n = com.flora.root.graphics.noise.PaperNoise.paper(x, y);
-                    int d = (int) Math.round(n * amp);
-                    int r = com.flora.root.graphics.noise.PaperNoise.clamp(baseR + d);
-                    int g = com.flora.root.graphics.noise.PaperNoise.clamp(baseG + d);
-                    int b = com.flora.root.graphics.noise.PaperNoise.clamp(baseB + d);
-                    px[y * w + x] = (r << 16) | (g << 8) | b;
-                }
-            }
-            img.setRGB(0, 0, w, h, px, 0, w);
-            return img;
+            setOpaque(true);
+            setBackground(bg);
         }
     }
 }

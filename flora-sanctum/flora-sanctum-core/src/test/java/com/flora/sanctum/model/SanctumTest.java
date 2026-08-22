@@ -80,7 +80,7 @@ class SanctumTest {
         entry.setIcon(icon.uuid());
         assertEquals(icon.uuid().toString(), s.objectTree().entry(entry.uuid()).icon());
 
-        entry.setIcon(null);
+        entry.setIcon((UUID) null);
         assertNull(s.objectTree().entry(entry.uuid()).icon());
     }
 

@@ -133,6 +133,19 @@ public final class UserConfig {
         save();
     }
 
+    /** 窗口尺寸（宽高像素；key 如 "ui.window.guide"）。无存储返回 null。 */
+    public int[] windowSize(String key) {
+        Integer w = data.getInt(key + ".w");
+        Integer h = data.getInt(key + ".h");
+        return (w == null || h == null) ? null : new int[]{w, h};
+    }
+
+    public void setWindowSize(String key, int w, int h) {
+        data.put(key + ".w", w);
+        data.put(key + ".h", h);
+        save();
+    }
+
     private JsonObject load() {
         try {
             if (Files.isRegularFile(file)) {

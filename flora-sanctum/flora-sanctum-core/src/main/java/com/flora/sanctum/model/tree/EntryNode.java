@@ -125,16 +125,21 @@ public final class EntryNode extends ObjectNode {
 
     /** 设置/清除自定义图标引用（iconUuid=null 清除）。 */
     public void setIcon(UUID iconUuid) {
+        setIcon(iconUuid == null ? null : iconUuid.toString());
+    }
+
+    /** 设置图标引用（iconId 可为内置 "builtin:name" 或用户图标 uuid 字符串；null 清除）。 */
+    public void setIcon(String iconId) {
         JsonObject entry = data();
         if (entry == null) {
             throw new IllegalArgumentException("entry not found");
         }
         UUID groupId = ctx().parentGroupUuid(entry);
-        if (iconUuid == null) {
+        if (iconId == null) {
             entry.remove("icon");
             entry.remove("iconId");
         } else {
-            entry.put("icon", iconUuid.toString());
+            entry.put("icon", iconId);
             entry.remove("iconId");
         }
         ctx().write(uuid(), entry, groupId);

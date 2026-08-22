@@ -123,6 +123,16 @@ public final class UserConfig {
     /** 最近库列表上限。 */
     public static final int recentLimit = 50;
 
+    /** 主界面分隔线比例（key → 0..1，非机密信息存全局配置）。 */
+    public Double dividerRatio(String key) {
+        return data.getDouble(key);
+    }
+
+    public void setDividerRatio(String key, double ratio) {
+        data.put(key, ratio);
+        save();
+    }
+
     private JsonObject load() {
         try {
             if (Files.isRegularFile(file)) {

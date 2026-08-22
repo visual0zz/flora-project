@@ -563,11 +563,19 @@ public final class SanctumGui {
         c.weighty = 1.0;
         panel.add(javax.swing.Box.createVerticalGlue(), c);
 
+        // 仓库字母图标（与历史列表同一规则生成）
+        JLabel icon = new JLabel(new LetterIcon(name, 64));
+        icon.setHorizontalAlignment(JLabel.CENTER);
+        c.gridy = 1;
+        c.weighty = 0;
+        c.insets = new Insets(0, 0, 10, 0);
+        panel.add(icon, c);
+
         JLabel title = new JLabel("<html><div style='text-align:center'>" + name + "</div>"
                 + "<div style='text-align:center;color:#8A8478;font-size:10pt'>" + path + "</div></html>");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
         title.setHorizontalAlignment(JLabel.CENTER);
-        c.gridy = 1;
+        c.gridy = 2;
         c.weighty = 0;
         c.insets = new Insets(0, 0, 18, 0);
         panel.add(title, c);
@@ -578,41 +586,48 @@ public final class SanctumGui {
         pwRow.add(new JLabel("主密码："), BorderLayout.WEST);
         JPasswordField pwField = new JPasswordField();
         pwRow.add(pwField, BorderLayout.CENTER);
-        c.gridy = 2;
+        c.gridy = 3;
         c.insets = new Insets(3, 0, 3, 0);
         panel.add(pwRow, c);
 
         // 解锁 / 创建按钮
         JButton unlockBtn = new JButton(pendingIsNew ? "创建并解锁" : "解锁");
-        c.gridy = 3;
+        c.gridy = 4;
         panel.add(unlockBtn, c);
 
         JLabel error = new JLabel("", JLabel.CENTER);
         error.setForeground(java.awt.Color.RED.darker());
-        c.gridy = 4;
+        c.gridy = 5;
         panel.add(error, c);
 
-        JLabel hint = new JLabel(pendingIsNew ? "输入主密码创建新仓库" : "输入主密码解锁", JLabel.CENTER);
-        hint.setFont(hint.getFont().deriveFont(Font.ITALIC, 11f));
-        c.gridy = 5;
-        panel.add(hint, c);
+        // 解锁中转圈（异步解锁时显示）
+        SpinnerIcon spinner = new SpinnerIcon(26);
+        JLabel loading = new JLabel(spinner);
+        loading.setHorizontalAlignment(JLabel.CENTER);
+        loading.setVisible(false);
+        javax.swing.Timer spinnerTimer = new javax.swing.Timer(50, e -> {
+            spinner.angle += 24;
+            loading.repaint();
+        });
+        c.gridy = 6;
+        panel.add(loading, c);
 
         // 应用形态：提供"回到历史列表"入口；独立形态不提供
         if (!standalone) {
             JButton backBtn = new JButton("回到历史列表");
             backBtn.setToolTipText("返回历史仓库列表页");
             backBtn.addActionListener(e -> showHistoryPage());
-            c.gridy = 6;
+            c.gridy = 7;
             panel.add(backBtn, c);
         }
 
         // 底部弹性（内容垂直居中）
-        c.gridy = 7;
+        c.gridy = 8;
         c.weighty = 1.0;
         panel.add(javax.swing.Box.createVerticalGlue(), c);
 
         java.util.function.Consumer<JPasswordField> unlock = f ->
-                doUnlock(root, f, error);
+                doUnlock(root, f, error, loading, unlockBtn, spinnerTimer);
         unlockBtn.addActionListener(e -> unlock.accept(pwField));
         pwField.addActionListener(e -> unlock.accept(pwField));
 
@@ -620,39 +635,65 @@ public final class SanctumGui {
         return panel;
     }
 
-    private void doUnlock(Path root, JPasswordField pwField, JLabel error) {
+    private void doUnlock(Path root, JPasswordField pwField, JLabel error, JLabel loading,
+                          JButton unlockBtn, javax.swing.Timer spinnerTimer) {
         char[] pw = pwField.getPassword();
         if (pw.length == 0) {
             error.setText("请输入主密码");
             return;
         }
-        try {
-            if (pendingIsNew) {
-                // 新建：显式创建并解锁
-                sanctum = Sanctum.createAndUnlock(root, pw);
-            } else {
-                // 打开：仓库必须已存在，失败不自动新建
-                if (!Files.exists(root)) {
-                    error.setText("仓库不存在或已被删除");
+        char[] pwCopy = pw.clone();
+        java.util.Arrays.fill(pw, (char) 0);
+        // 转圈 + 禁用控件
+        error.setText("");
+        loading.setVisible(true);
+        spinnerTimer.start();
+        unlockBtn.setEnabled(false);
+        pwField.setEnabled(false);
+        // 后台线程解锁（Argon2 派生耗时长，避免阻塞 EDT 导致转圈不转）
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            final Sanctum[] result = new Sanctum[1];
+            final String[] failMsg = new String[1];
+            try {
+                if (pendingIsNew) {
+                    // 新建：显式创建并解锁
+                    result[0] = Sanctum.createAndUnlock(root, pwCopy);
+                } else {
+                    // 打开：仓库必须已存在，失败不自动新建
+                    if (!Files.exists(root)) {
+                        failMsg[0] = "仓库不存在或已被删除";
+                    } else {
+                        result[0] = Sanctum.open(root);
+                        result[0].unlock(pwCopy);
+                    }
+                }
+            } catch (Exception ex) {
+                failMsg[0] = "解锁失败";
+            } finally {
+                java.util.Arrays.fill(pwCopy, (char) 0);
+            }
+            final Sanctum s = result[0];
+            final String msg = failMsg[0];
+            SwingUtilities.invokeLater(() -> {
+                loading.setVisible(false);
+                spinnerTimer.stop();
+                unlockBtn.setEnabled(true);
+                pwField.setEnabled(true);
+                if (msg != null) {
+                    error.setText(msg);
                     return;
                 }
-                sanctum = Sanctum.open(root);
-                sanctum.unlock(pw);
-            }
-            openVaultPath = root.toAbsolutePath().toString();
-            config.addRecentVault(openVaultPath);
-            config.setLastVault(openVaultPath);
-            frame.setTitle("flora-sanctum(" + root.getFileName() + ")");
-            current.set(sanctum);
-            applyTheme(sanctum.config().theme()); // 解锁后应用仓库主题
-            showEditPage();
-            startAutoLockTimer();
-        } catch (Exception ex) {
-            // 统一提示"解锁失败"，不区分密码错/数据损坏（见设计 03）
-            error.setText("解锁失败");
-        } finally {
-            java.util.Arrays.fill(pw, (char) 0);
-        }
+                sanctum = s;
+                openVaultPath = root.toAbsolutePath().toString();
+                config.addRecentVault(openVaultPath);
+                config.setLastVault(openVaultPath);
+                frame.setTitle("flora-sanctum(" + root.getFileName() + ")");
+                current.set(sanctum);
+                applyTheme(sanctum.config().theme()); // 解锁后应用仓库主题
+                showEditPage();
+                startAutoLockTimer();
+            });
+        });
     }
 
     // ================= 自动锁定 =================
@@ -712,7 +753,8 @@ public final class SanctumGui {
     // ================= 主界面 =================
 
     private JPanel buildMainPanel() {
-        JPanel root = new UiTheme.PaperPanel(new BorderLayout());
+        // 中间区域（工具栏+条目列表）用更深纸纹底色；左右卡片用浅色（见 CardPanel）
+        JPanel root = new UiTheme.PaperPanel(new BorderLayout(), 0xE9, 0xE1, 0xCD, 28);
 
         // 顶部工具栏（SVG 图标按钮 + tooltip，去文字标签；尺寸 24→29 ≈ +20%）
         newEntryBtn = iconButton(SvgIcon.get("new-entry", 29), "新建条目");
@@ -755,16 +797,10 @@ public final class SanctumGui {
         top.add(searchField);
         top.add(clearSearch);
         top.add(statusLabel);
-        // 按钮栏下方加 1px 细线（与竖线同色）
+        // 按钮栏与下方内容同一纸感背景（无分界线，视觉一体）
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
         header.add(top, BorderLayout.NORTH);
-        JPanel hLine = new JPanel();
-        hLine.setOpaque(true);
-        hLine.setBackground(new java.awt.Color(0xD8, 0xD2, 0xC0));
-        hLine.setPreferredSize(new Dimension(0, 1));
-        hLine.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-        header.add(hLine, BorderLayout.SOUTH);
         root.add(header, BorderLayout.NORTH);
 
         // 左：组树（"全部"根隐藏，四区段为顶层）
@@ -792,6 +828,9 @@ public final class SanctumGui {
         treeScroll.getViewport().setOpaque(false);
         groupTree.setOpaque(false);
         groupTree.setBorder(new javax.swing.border.EmptyBorder(8, 10, 8, 10));
+        // 组树圆角悬浮卡片
+        CardPanel treeCard = new CardPanel(new BorderLayout(), 10);
+        treeCard.add(treeScroll, BorderLayout.CENTER);
 
         // 中：条目列表（子文件夹 + 条目混合）
         entryModel = new DefaultListModel<>();
@@ -845,14 +884,17 @@ public final class SanctumGui {
         editScroll.setBorder(javax.swing.BorderFactory.createEmptyBorder());
         editScroll.setOpaque(false);
         editScroll.getViewport().setOpaque(false);
+        // 编辑面板圆角悬浮卡片
+        CardPanel editCard = new CardPanel(new BorderLayout(), 10);
+        editCard.add(editScroll, BorderLayout.CENTER);
 
-        JSplitPane rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, entryPanel, editScroll);
+        JSplitPane rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, entryPanel, editCard);
         rightSplit.setDividerLocation(280);
-        keepDividerRatio(rightSplit, 280);
+        keepDividerRatio(rightSplit, "ui.divider.right", 280);
         rightSplit.setOpaque(false);
-        JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treeScroll, rightSplit);
+        JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treeCard, rightSplit);
         mainSplit.setDividerLocation(220);
-        keepDividerRatio(mainSplit, 220);
+        keepDividerRatio(mainSplit, "ui.divider.main", 220);
         mainSplit.setOpaque(false);
         root.add(mainSplit, BorderLayout.CENTER);
 
@@ -1403,22 +1445,39 @@ public final class SanctumGui {
         return b;
     }
 
-    /** JSplitPane 分隔线记忆百分比：resize 时按初始比例重设，避免全屏/窗口切换后位置失衡。 */
-    private static void keepDividerRatio(JSplitPane split, int initialDivider) {
+    /**
+     * JSplitPane 分隔线比例记忆（持久化到全局配置，非机密信息）：
+     * 拖动时按当前比例保存（key）；resize 时按最新比例重设，避免全屏/窗口切换后位置失衡。
+     * 首次布局用配置中的比例；无则用默认像素换算。
+     */
+    private void keepDividerRatio(JSplitPane split, String key, int defaultPx) {
+        split.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY, e -> {
+            int w = split.getWidth();
+            int loc = split.getDividerLocation();
+            if (w > 0 && loc > 0) {
+                config.setDividerRatio(key, loc / (double) w);
+            }
+        });
         split.addComponentListener(new java.awt.event.ComponentAdapter() {
-            private double ratio = -1;
+            private Double ratio;
 
             @Override
             public void componentResized(java.awt.event.ComponentEvent e) {
-                int w = split.getWidth();
-                if (w <= 0) {
-                    return;
-                }
-                if (ratio < 0) {
-                    ratio = initialDivider / (double) w;
-                } else {
+                // resize 事件触发时宽度可能还是旧值，延迟到布局完成后读取最新宽度，
+                // 否则用旧宽算出的位置在新宽度下比例会偏移（最大化/还原不一致的根因）。
+                SwingUtilities.invokeLater(() -> {
+                    int w = split.getWidth();
+                    if (w <= 0) {
+                        return;
+                    }
+                    Double saved = config.dividerRatio(key);
+                    if (ratio == null) {
+                        ratio = saved != null ? saved : defaultPx / (double) w;
+                    } else if (saved != null && !saved.equals(ratio)) {
+                        ratio = saved; // 拖动后采用新比例
+                    }
                     split.setDividerLocation((int) Math.round(ratio * w));
-                }
+                });
             }
         });
     }
@@ -2072,6 +2131,62 @@ public final class SanctumGui {
         }
     }
 
+    /** 圆角卡片：纸纹噪声背景（延续主界面图案，基色更深） + 内边距，模拟悬浮卡片（组树 / 编辑面板）。 */
+    private static final class CardPanel extends UiTheme.PaperPanel {
+        private final int arc = 16;
+
+        CardPanel(java.awt.LayoutManager layout, int pad) {
+            // 主界面中间底色 #E9E1CD；卡片用浅色 #F8F4E9 形成悬浮层次
+            super(layout, 0xF8, 0xF4, 0xE9, 25);
+            setOpaque(false);
+            setBorder(new EmptyBorder(pad, pad, pad, pad));
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                    java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.clip(new java.awt.geom.RoundRectangle2D.Float(0, 0, getWidth() - 1, getHeight() - 1, arc, arc));
+            super.paintComponent(g2); // 纸纹背景（圆角裁剪）
+            g2.dispose();
+        }
+    }
+
+    /** 转圈图标：旋转的圆弧（Timer 更新 angle 驱动动画）。 */
+    private static final class SpinnerIcon implements javax.swing.Icon {
+        private final int size;
+        private double angle;
+
+        SpinnerIcon(int size) {
+            this.size = size;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return size;
+        }
+
+        @Override
+        public void paintIcon(java.awt.Component c, java.awt.Graphics g, int x, int y) {
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                    java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            int inset = 2;
+            g2.setColor(new java.awt.Color(0x8A, 0x84, 0x78));
+            g2.setStroke(new java.awt.BasicStroke(2.5f, java.awt.BasicStroke.CAP_ROUND,
+                    java.awt.BasicStroke.JOIN_ROUND));
+            g2.drawArc(x + inset, y + inset, size - 2 * inset, size - 2 * inset,
+                    (int) Math.round(angle), 300);
+            g2.dispose();
+        }
+    }
+
     /** 圆形字母图标：彩色圆底 + 名称首字母（最多 2 个），颜色按名称 hash 稳定选取。 */
     private static final class LetterIcon implements javax.swing.Icon {
         private static final java.awt.Color[] COLORS = {
@@ -2082,9 +2197,14 @@ public final class SanctumGui {
         };
         private final String text;
         private final java.awt.Color bg;
-        private final int size = 40;
+        private final int size;
 
         LetterIcon(String name) {
+            this(name, 40);
+        }
+
+        LetterIcon(String name, int size) {
+            this.size = size;
             String base = name == null || name.isBlank() ? "?" : name.trim();
             this.text = iconText(base);
             int h = Math.abs(base.hashCode());

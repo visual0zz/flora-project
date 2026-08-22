@@ -84,12 +84,25 @@ public final class UiTheme {
      * 各界面根面板统一用此组件，保证背景一致。
      */
     public static class PaperPanel extends JPanel {
+        private final int baseR;
+        private final int baseG;
+        private final int baseB;
+        private final int amp;
         private BufferedImage cached;
         private int cachedW = -1;
         private int cachedH = -1;
 
         public PaperPanel(LayoutManager layout) {
+            this(layout, 0xF8, 0xF4, 0xE9, 25);
+        }
+
+        /** 自定义基色与幅度的纸纹面板（如卡片用更深基色）。 */
+        public PaperPanel(LayoutManager layout, int baseR, int baseG, int baseB, int amp) {
             super(layout);
+            this.baseR = baseR;
+            this.baseG = baseG;
+            this.baseB = baseB;
+            this.amp = amp;
         }
 
         @Override
@@ -108,17 +121,17 @@ public final class UiTheme {
             g.drawImage(cached, 0, 0, null);
         }
 
-        /** 按面板尺寸渲染暖白纸纤维噪声图（复用 flora-root PaperNoise，基色 #F8F4E9，幅度 ±25）。 */
-        private static BufferedImage renderPaper(int w, int h) {
+        /** 按面板尺寸渲染纸纤维噪声图（复用 flora-root PaperNoise，基色可自定义，默认暖白 #F8F4E9 幅度 ±25）。 */
+        private BufferedImage renderPaper(int w, int h) {
             BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
             int[] px = new int[w * h];
             for (int y = 0; y < h; y++) {
                 for (int x = 0; x < w; x++) {
                     float n = com.flora.root.graphics.noise.PaperNoise.paper(x, y);
-                    int d = (int) Math.round(n * 25);
-                    int r = com.flora.root.graphics.noise.PaperNoise.clamp(0xF8 + d);
-                    int g = com.flora.root.graphics.noise.PaperNoise.clamp(0xF4 + d);
-                    int b = com.flora.root.graphics.noise.PaperNoise.clamp(0xE9 + d);
+                    int d = (int) Math.round(n * amp);
+                    int r = com.flora.root.graphics.noise.PaperNoise.clamp(baseR + d);
+                    int g = com.flora.root.graphics.noise.PaperNoise.clamp(baseG + d);
+                    int b = com.flora.root.graphics.noise.PaperNoise.clamp(baseB + d);
                     px[y * w + x] = (r << 16) | (g << 8) | b;
                 }
             }

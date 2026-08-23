@@ -3,8 +3,7 @@ package com.flora.sanctum.model;
 /**
  * 节点类型（对象 JSON 的 {@code type} 字段；见设计 05"数据结构树化"）。
  * <p>
- * 存储值即枚举 tag；remote 特殊：存储为 {@code type=field, kind=remote}（见 RemoteTree），
- * 枚举中的 REMOTE 是语义类型（{@code RemoteNode.type()} 返回），不直接落盘为 type。
+ * 存储值即枚举 tag；remote 也是独立存储 type（不再复用 field+kind）。
  * 新增根概念需同步调整 VaultCreator / VaultUnlocker / Sanctum。
  */
 public enum NodeType {
@@ -22,7 +21,7 @@ public enum NodeType {
     CONFIG("config"),
     ICON("icon"),
     SSH_KEY("sshKey"),
-    /** 语义类型：存储为 field + kind=remote。 */
+    /** 远程配置（独立落盘类型，直接存 name/url/keyRef）。 */
     REMOTE("remote");
 
     private final String tag;

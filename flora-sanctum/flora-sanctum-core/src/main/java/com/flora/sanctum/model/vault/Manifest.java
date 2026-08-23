@@ -6,44 +6,39 @@ import java.util.Base64;
 /**
  * manifest 明文引导块（见设计 02"manifest"）。
  * <p>
- * 负载 JSON：{version, type:"manifest", parent:"manifest", cryptoVersion, kdf, salt, params{m,i,p},
- * updateTimestamp, mac}。明文 + MAC，MAC 覆盖信封头 + 负载全部内容。时间戳存于块前缀（见 04b），
- * 不依赖仓库锚点持久化。
+ * 负载 JSON：{version, type:"manifest", cryptoVersion, kdf, salt, params{m,i,p},
+ * rootGroupUuid, updateTimestamp}。块格式与密文对齐：{@code 信封头 + 负载 + MAC(尾附)}，
+ * MAC = HMAC-SHA256(macKey, 完整信封头 ‖ 时间戳 ‖ 负载)（见 {@link com.flora.sanctum.model.impl.ManifestStore}）。
+ * 时间戳存于块前缀，MAC 不存于 JSON 内部（与密文 tag 位置对应）。
  */
 public final class Manifest {
 
     private final int version;
-    private final String parent;
     private final String cryptoVersion;
     private final String kdf;
     private final byte[] salt;
     private final int memoryKiB;
     private final int iterations;
     private final int parallelism;
+    private final java.util.UUID rootGroupUuid;
     private final long updateTimestamp;
-    private final byte[] mac;
 
-    public Manifest(int version, String parent, String cryptoVersion, String kdf, byte[] salt,
+    public Manifest(int version, String cryptoVersion, String kdf, byte[] salt,
                     int memoryKiB, int iterations, int parallelism,
-                    long updateTimestamp, byte[] mac) {
+                    java.util.UUID rootGroupUuid, long updateTimestamp) {
         this.version = version;
-        this.parent = parent;
         this.cryptoVersion = cryptoVersion;
         this.kdf = kdf;
         this.salt = salt;
         this.memoryKiB = memoryKiB;
         this.iterations = iterations;
         this.parallelism = parallelism;
+        this.rootGroupUuid = rootGroupUuid;
         this.updateTimestamp = updateTimestamp;
-        this.mac = mac;
     }
 
     public int version() {
         return version;
-    }
-
-    public String parent() {
-        return parent;
     }
 
     public String cryptoVersion() {
@@ -70,12 +65,13 @@ public final class Manifest {
         return parallelism;
     }
 
-    public long updateTimestamp() {
-        return updateTimestamp;
+    /** 根对象 uuid（manifest 记录，解锁 O(1) 定位）。 */
+    public java.util.UUID rootGroupUuid() {
+        return rootGroupUuid;
     }
 
-    public byte[] mac() {
-        return mac.clone();
+    public long updateTimestamp() {
+        return updateTimestamp;
     }
 
     /** manifest MAC 密钥派生：macKey = HKDF-SHA256(KEK, "sanctum-manifest-mac", 32B)（见 02）。 */
@@ -83,36 +79,7 @@ public final class Manifest {
         return com.flora.sanctum.crypto.impl.HkdfSha256.derive(kek, null, "sanctum-manifest-mac", 32);
     }
 
-    /**
-     * 计算 manifest MAC 输入（覆盖信封头 uuid 与负载全部字段，见 02"MAC 全量认证"）。
-     * 负载字段按固定顺序拼接，不含 mac 字段本身。
-     */
-    public byte[] canonical(java.util.UUID blockUuid) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(blockUuid).append('|');
-        sb.append(version).append('|');
-        sb.append("manifest").append('|');
-        sb.append(parent).append('|');
-        sb.append(cryptoVersion).append('|');
-        sb.append(kdf).append('|');
-        sb.append(Base64.getEncoder().encodeToString(salt)).append('|');
-        sb.append(memoryKiB).append(',').append(iterations).append(',').append(parallelism).append('|');
-        sb.append(updateTimestamp).append('|');
-        return sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
-    }
-
-    /** 计算并返回 manifest MAC（用 macKey）。 */
-    public byte[] computeMac(byte[] macKey, java.util.UUID blockUuid) {
-        try {
-            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
-            mac.init(new javax.crypto.spec.SecretKeySpec(macKey, "HmacSHA256"));
-            return mac.doFinal(canonical(blockUuid));
-        } catch (java.security.GeneralSecurityException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    /** 从 JSON 解析 manifest。 */
+    /** 从 JSON 负载解析 manifest（MAC 在块尾部，不在此负载内）。 */
     public static Manifest fromJson(byte[] payload) {
         com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(
                 new String(payload, java.nio.charset.StandardCharsets.UTF_8));
@@ -120,17 +87,17 @@ public final class Manifest {
             throw new IllegalArgumentException("not a manifest");
         }
         com.flora.root.codec.json.model.JsonObject params = n.getObject("params");
+        String rootUuidStr = n.getString("rootGroupUuid");
         return new Manifest(
                 n.getInt("version"),
-                n.getString("parent"),
                 n.getString("cryptoVersion"),
                 n.getString("kdf"),
                 Base64.getDecoder().decode(n.getString("salt")),
                 params.getInt("m"),
                 params.getInt("i"),
                 params.getInt("p"),
-                n.getLong("updateTimestamp") == null ? 1 : n.getLong("updateTimestamp"),
-                Base64.getDecoder().decode(n.getString("mac"))
+                rootUuidStr == null ? null : java.util.UUID.fromString(rootUuidStr),
+                n.getLong("updateTimestamp") == null ? 1 : n.getLong("updateTimestamp")
         );
     }
 }

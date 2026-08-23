@@ -15,8 +15,8 @@ import java.util.UUID;
  * <p>
  * 承载两类：
  * <ul>
- *   <li><b>远端配置</b>（kind=remote 字段）只读视图，写操作经 {@code RemoteTree} 承担。</li>
- *   <li><b>仓库级设置</b>（type=config 节点，key/value 加密存储于 DATA 根）：主题/自动锁定时长/剪贴板清空时长。
+ *   <li><b>远程配置</b>（type=remote 节点）只读视图，写操作经 {@code RemoteTree} 承担。</li>
+ *   <li><b>仓库级设置</b>（type=config 节点，name/value 加密存储于根对象下）：主题/自动锁定时长/剪贴板清空时长。
  *       不再落全局配置文件；未设置时返回默认值。</li>
  * </ul>
  */
@@ -28,22 +28,18 @@ public final class LibraryConfig {
         this.ctx = ctx;
     }
 
-    /** 远端配置列表（只读视图，来自 REMOTE 树的 kind=remote 字段）。 */
+    /** 远程配置列表（只读视图，来自 REMOTE 树节点）。 */
     public List<RemoteConfig> remotes() {
         List<RemoteConfig> out = new ArrayList<>();
         for (JsonObject n : ctx.objects().values()) {
-            if (NodeType.fromTag(n.getString("type")) == NodeType.FIELD
-                    && "remote".equals(n.getString("kind"))) {
-                JsonObject value = n.getObject("value");
-                out.add(new RemoteConfig(n.getString("fieldName"),
-                        value == null ? null : value.getString("url"),
-                        value == null ? null : value.getString("keyRef")));
+            if (NodeType.fromTag(n.getString("type")) == NodeType.REMOTE) {
+                out.add(new RemoteConfig(n.getString("name"), n.getString("url"), n.getString("keyRef")));
             }
         }
         return out;
     }
 
-    /** 按名称查找远端配置；未找到返回 null。 */
+    /** 按名称查找远程配置；未找到返回 null。 */
     public RemoteConfig remote(String name) {
         for (RemoteConfig r : remotes()) {
             if (r.name().equals(name)) {
@@ -75,10 +71,9 @@ public final class LibraryConfig {
             return;
         }
         JsonObject c = new JsonObject();
-        c.put("version", 1);
         c.put("type", NodeType.CONFIG.tag());
-        c.put("parent", RootTag.DATA.tag());
-        c.put("key", key);
+        c.put("parent", ctx.vault().rootGroupUuid(RootTag.DATA).toString());
+        c.put("name", key);
         c.put("value", value);
         ctx.writeWithDek(UUID.randomUUID(), c, dek);
     }
@@ -124,14 +119,14 @@ public final class LibraryConfig {
         for (Map.Entry<UUID, JsonObject> e : ctx.objects().entrySet()) {
             JsonObject n = e.getValue();
             if (NodeType.fromTag(n.getString("type")) == NodeType.CONFIG
-                    && key.equals(n.getString("key"))) {
+                    && key.equals(n.getString("name"))) {
                 return e;
             }
         }
         return null;
     }
 
-    /** 远端配置（value 对象解构）。 */
+    /** 远程配置。 */
     public record RemoteConfig(String name, String url, String keyRef) {
     }
 }

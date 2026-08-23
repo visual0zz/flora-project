@@ -50,7 +50,7 @@ public final class ExternalKeyService {
                 continue;
             }
             String description = n.getString("description");
-            out.add(new KeyInfo(b.uuid(), n.getString("fieldName"), description == null ? "" : description));
+            out.add(new KeyInfo(b.uuid(), n.getString("name"), description == null ? "" : description));
         }
         return out;
     }
@@ -105,10 +105,9 @@ public final class ExternalKeyService {
     public UUID createExternalKey(UUID entryUuid, String fieldName, byte[] keyMaterial, String description) {
         UUID fieldUuid = UUID.randomUUID();
         JsonObject field = new JsonObject();
-        field.put("version", 1);
         field.put("type", NodeType.FIELD.tag());
         field.put("parent", entryUuid.toString());
-        field.put("fieldName", fieldName);
+        field.put("name", fieldName);
         field.put("kind", "externalKey");
         field.put("value", Base64.getEncoder().encodeToString(keyMaterial));
         if (description != null) {

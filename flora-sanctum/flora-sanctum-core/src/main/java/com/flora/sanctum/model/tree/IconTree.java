@@ -17,7 +17,7 @@ import java.util.UUID;
 public final class IconTree extends DataTree {
 
     public IconTree(TreeContext ctx) {
-        super(RootTag.ICON, ctx);
+        super(NodeType.ICON, ctx);
     }
 
     @Override
@@ -42,15 +42,17 @@ public final class IconTree extends DataTree {
         return out;
     }
 
-    public IconNode createIcon(byte[] data, String format) {
+    public IconNode createIcon(String name, byte[] data, String format) {
         UUID iconUuid = UUID.randomUUID();
         JsonObject icon = new JsonObject();
-        icon.put("version", 1);
         icon.put("type", NodeType.ICON.tag());
-        icon.put("parent", context().vault().rootGroupUuid(RootTag.ICON).toString());
+        icon.put("parent", context().vault().rootGroupUuid(RootTag.DATA).toString());
+        if (name != null && !name.isBlank()) {
+            icon.put("name", name);
+        }
         icon.put("data", Base64.getEncoder().encodeToString(data));
         icon.put("format", format);
-        byte[] dek = context().vault().dekForRole(RootTag.ICON);
+        byte[] dek = context().vault().dekForRole(RootTag.DATA);
         context().writeWithDek(iconUuid, icon, dek);
         return new IconNode(iconUuid, this);
     }

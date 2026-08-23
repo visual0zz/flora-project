@@ -17,14 +17,14 @@ import java.util.UUID;
 public final class ObjectTree extends DataTree {
 
     public ObjectTree(TreeContext ctx) {
-        super(RootTag.DATA, ctx);
+        super(NodeType.GROUP, ctx);
     }
 
     @Override
     protected boolean belongsTo(String type, String kind) {
         NodeType t = NodeType.fromTag(type);
-        return t == NodeType.GROUP || t == NodeType.ENTRY || t == NodeType.CUSTOM_FIELD
-                || (t == NodeType.FIELD && !"remote".equals(kind));
+        return t == NodeType.GROUP || t == NodeType.ENTRY || t == NodeType.FIELD
+                || t == NodeType.CUSTOM_FIELD;
     }
 
     @Override
@@ -34,10 +34,8 @@ public final class ObjectTree extends DataTree {
             return null;
         }
         NodeType nt = NodeType.fromTag(d.getString("type"));
-        // objects root group 是基础设施（持 root DEK），不暴露为普通节点
-        // （新库 type=root；兼容旧库 type=group 的 root group）
-        if ((nt == NodeType.ROOT)
-                || (nt == NodeType.GROUP && uuid.equals(context().vault().rootGroupUuid(RootTag.DATA)))) {
+        // 仓库根对象（type=root）是基础设施（持 root DEK），不暴露为普通节点
+        if (nt == NodeType.ROOT) {
             return null;
         }
         return switch (nt) {
@@ -84,7 +82,7 @@ public final class ObjectTree extends DataTree {
         return out;
     }
 
-    /** 新建组（parentId=null 为顶层，parent 记根概念 data）。 */
+    /** 新建组（parentId=null 为顶层，parent 记根对象 uuid）。 */
     public GroupNode createGroup(UUID parentId, String name) {
         UUID groupUuid = UUID.randomUUID();
         byte[] dek = new byte[32];
@@ -94,17 +92,16 @@ public final class ObjectTree extends DataTree {
                 : context().vault().dekForRole(RootTag.DATA);
         byte[] wrapped = context().wrapDek(dek, parentDek);
         JsonObject group = new JsonObject();
-        group.put("version", 1);
         group.put("type", NodeType.GROUP.tag());
         group.put("name", name);
-        group.put("parent", parentId == null ? RootTag.DATA.tag() : parentId.toString());
+        group.put("parent", parentId == null ? rootUuid() : parentId.toString());
         group.put("dek", Base64.getEncoder().encodeToString(wrapped));
         context().write(groupUuid, group, parentId);
         context().vault().addFolderDek(groupUuid, dek);
         return new GroupNode(groupUuid, this);
     }
 
-    /** 新建条目（groupId=null 为顶层，parent 记根概念 data）。 */
+    /** 新建条目（groupId=null 为顶层，parent 记根对象 uuid）。 */
     public EntryNode createEntry(UUID groupId, String name, EntryFields fields) {
         return createEntry(groupId, name, fields, null, null);
     }
@@ -114,10 +111,9 @@ public final class ObjectTree extends DataTree {
         UUID entryUuid = UUID.randomUUID();
         long now = System.currentTimeMillis();
         JsonObject entry = new JsonObject();
-        entry.put("version", 1);
         entry.put("type", NodeType.ENTRY.tag());
         entry.put("name", name);
-        entry.put("parent", groupId == null ? RootTag.DATA.tag() : groupId.toString());
+        entry.put("parent", groupId == null ? rootUuid() : groupId.toString());
         if (iconId != null) {
             entry.put("iconId", iconId);
         }
@@ -135,16 +131,20 @@ public final class ObjectTree extends DataTree {
         return new EntryNode(entryUuid, this);
     }
 
+    /** 根对象 uuid 字符串（顶层 parent 指向它）。 */
+    private String rootUuid() {
+        return context().vault().rootGroupUuid(RootTag.DATA).toString();
+    }
+
     /** 写预设字段块（确定性 uuid，value 空则不写）。 */
     private void writePreset(UUID entryUuid, UUID groupId, String name, String value) {
         if (value == null || value.isEmpty()) {
             return;
         }
         JsonObject f = new JsonObject();
-        f.put("version", 1);
         f.put("type", NodeType.FIELD.tag());
         f.put("parent", entryUuid.toString());
-        f.put("fieldName", name);
+        f.put("name", name);
         f.put("value", value);
         context().write(EntryFields.presetUuid(entryUuid, name), f, groupId);
     }

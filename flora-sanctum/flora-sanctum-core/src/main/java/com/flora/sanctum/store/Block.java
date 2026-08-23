@@ -14,15 +14,13 @@ public final class Block {
     private final Path file;
     private final long line;
     private final long timestamp;
-    private final String base58;
     private final byte[] obfuscated;
     private final byte[] deobfuscated;
 
-    public Block(Path file, long line, long timestamp, String base58, byte[] obfuscated, byte[] deobfuscated) {
+    public Block(Path file, long line, long timestamp, byte[] obfuscated, byte[] deobfuscated) {
         this.file = file;
         this.line = line;
         this.timestamp = timestamp;
-        this.base58 = base58;
         this.obfuscated = obfuscated;
         this.deobfuscated = deobfuscated;
     }
@@ -40,10 +38,6 @@ public final class Block {
         return timestamp;
     }
 
-    public String base58() {
-        return base58;
-    }
-
     public byte[] obfuscated() {
         return obfuscated.clone();
     }
@@ -55,11 +49,6 @@ public final class Block {
     /** 对象 UUID（块内自述）。 */
     public UUID uuid() {
         return BlockHeader.uuid(deobfuscated);
-    }
-
-    /** keyId（仅密文块）。 */
-    public byte[] keyId() {
-        return BlockHeader.keyId(deobfuscated);
     }
 
     /** 是否密文块（flags 偏移 MAGIC_LEN+1 = 9，0x01）。 */

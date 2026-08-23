@@ -52,11 +52,6 @@ public final class Blake2bDigest {
         reset();
     }
 
-    /** BLAKE2b-256。 */
-    public static Blake2bDigest of256() {
-        return new Blake2bDigest(32);
-    }
-
     /** BLAKE2b-512。 */
     public static Blake2bDigest of512() {
         return new Blake2bDigest(64);

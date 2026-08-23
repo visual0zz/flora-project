@@ -3,11 +3,9 @@ import com.flora.sanctum.model.tree.*;
 import com.flora.sanctum.model.vault.*;
 import com.flora.sanctum.model.impl.*;
 
-import com.flora.sanctum.crypto.impl.SecureRandomSource;
 import com.flora.sanctum.store.ObjectStore;
 import com.flora.sanctum.store.impl.MarkdownObjectStore;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
@@ -15,25 +13,22 @@ import java.util.UUID;
 /**
  * 密码库门面（对外主入口）。
  * <p>
- * 结构：{@code Sanctum = Metadata(元数据) + LibraryConfig(配置数据) + List<DataTree>(数据树)}。
+ * 结构：{@code Sanctum = Vault(密钥状态) + LibraryConfig(配置数据) + List<DataTree>(数据树)}。
  * 打开/解锁/关闭由门面负责；新建/编辑/删除等操作由数据树节点承担（见设计 05"数据结构树化"）。
  */
 public final class Sanctum implements AutoCloseable {
 
     private final Path root;
     private final ObjectStore store;
-    private final ManifestStore manifestStore;
 
     private Vault vault;
     private TreeContext context;
-    private Metadata metadata;
     private LibraryConfig config;
     private List<DataTree> trees;
 
     private Sanctum(Path root) {
         this.root = root;
         this.store = new MarkdownObjectStore(root);
-        this.manifestStore = new ManifestStore(store, new SecureRandomSource());
     }
 
     /** 打开（不锁定）。 */
@@ -49,15 +44,10 @@ public final class Sanctum implements AutoCloseable {
         return s;
     }
 
-    /** 解锁：加载 manifest、KEK、root DEK、构建元数据/配置/四棵数据树。 */
+    /** 解锁：加载 manifest、KEK、root DEK、构建配置/四棵数据树。 */
     public void unlock(char[] masterPassword) {
         this.vault = new VaultUnlocker(store).unlock(masterPassword);
         this.context = new TreeContext(store, vault);
-        this.metadata = Metadata.from(vault.manifest());
-        com.flora.sanctum.store.Block manifestBlock = manifestStore.findBlock();
-        if (manifestBlock != null) {
-            this.metadata = this.metadata.withBlock(manifestBlock.file(), manifestBlock.line());
-        }
         this.config = new LibraryConfig(context);
         this.trees = List.of(
                 new ObjectTree(context),
@@ -72,7 +62,6 @@ public final class Sanctum implements AutoCloseable {
         }
         this.vault = null;
         this.context = null;
-        this.metadata = null;
         this.config = null;
         this.trees = null;
     }
@@ -99,9 +88,9 @@ public final class Sanctum implements AutoCloseable {
         return root;
     }
 
-    /** 元数据（版本/KDF 参数/salt/仓库时间戳）。 */
-    public Metadata metadata() {
-        return metadata;
+    /** 仓库唯一根对象 uuid（未解锁返回 null）。 */
+    public UUID rootGroupUuid() {
+        return vault == null ? null : vault.rootGroupUuid(RootTag.DATA);
     }
 
     /** 配置数据（远端配置等）。 */
@@ -109,16 +98,16 @@ public final class Sanctum implements AutoCloseable {
         return config;
     }
 
-    /** 四棵数据树（DATA/ICON/SSH_KEY/REMOTE）。 */
+    /** 四棵数据树（GROUP 对象树 / ICON / SSH_KEY / REMOTE）。 */
     public List<DataTree> trees() {
         return trees;
     }
 
-    /** 按根概念取数据树。 */
+    /** 按树分类取数据树。 */
     @SuppressWarnings("unchecked")
-    public <T extends DataTree> T tree(RootTag tag) {
+    public <T extends DataTree> T tree(NodeType category) {
         for (DataTree t : trees) {
-            if (t.tag() == tag) {
+            if (t.category() == category) {
                 return (T) t;
             }
         }
@@ -126,19 +115,19 @@ public final class Sanctum implements AutoCloseable {
     }
 
     public ObjectTree objectTree() {
-        return tree(RootTag.DATA);
+        return tree(NodeType.GROUP);
     }
 
     public IconTree iconTree() {
-        return tree(RootTag.ICON);
+        return tree(NodeType.ICON);
     }
 
     public SshKeyTree sshKeyTree() {
-        return tree(RootTag.SSH_KEY);
+        return tree(NodeType.SSH_KEY);
     }
 
     public RemoteTree remoteTree() {
-        return tree(RootTag.REMOTE);
+        return tree(NodeType.REMOTE);
     }
 
     /** 跨树按 uuid 查找节点；未找到返回 null。 */
@@ -162,18 +151,6 @@ public final class Sanctum implements AutoCloseable {
     /** 收集垃圾（委托 GarbageCollector），返回被删除的孤立块 uuid。 */
     public List<UUID> collectGarbage() {
         return new GarbageCollector(context).collect();
-    }
-
-    /** 导出加密归档（委托 ArchiveExporter，见设计 03"备份"）。 */
-    public void exportArchive(Path outZip) throws IOException {
-        new ArchiveExporter(store).export(outZip);
-    }
-
-    // ---- 兼容小工具 ----
-
-    /** 库中对象数。 */
-    public int objectCount() {
-        return store.list().size();
     }
 
     /** 取某文件夹的 DEK（null 若未发现）。 */

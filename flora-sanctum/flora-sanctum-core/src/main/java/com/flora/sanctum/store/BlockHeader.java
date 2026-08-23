@@ -56,14 +56,4 @@ public final class BlockHeader {
                 .order(java.nio.ByteOrder.BIG_ENDIAN);
         return new java.util.UUID(bb.getLong(), bb.getLong());
     }
-
-    /** 从解异或后的块读取 keyId（偏移 magic_len+2+16，4 字节，仅密文块）。 */
-    public static byte[] keyId(byte[] deobfuscated) {
-        if (!isBlock(deobfuscated)) {
-            throw new IllegalArgumentException("not a block");
-        }
-        byte[] keyId = new byte[4];
-        System.arraycopy(deobfuscated, Envelope.MAGIC_LEN + 2 + 16, keyId, 0, 4);
-        return keyId;
-    }
 }

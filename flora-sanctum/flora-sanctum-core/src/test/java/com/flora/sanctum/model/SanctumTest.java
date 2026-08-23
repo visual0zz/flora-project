@@ -75,7 +75,7 @@ class SanctumTest {
     void setEntryIconAssignsAndClears() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
         EntryNode entry = s.objectTree().createEntry(null, "条目", EntryFields.EMPTY);
-        IconNode icon = s.iconTree().createIcon(new byte[]{1, 2, 3}, "png");
+        IconNode icon = s.iconTree().createIcon("icon", new byte[]{1, 2, 3}, "png");
 
         entry.setIcon(icon.uuid());
         assertEquals(icon.uuid().toString(), s.objectTree().entry(entry.uuid()).icon());
@@ -87,8 +87,9 @@ class SanctumTest {
     @Test
     void createIconAndSshKeyAndRemote() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
-        IconNode icon = s.iconTree().createIcon(new byte[]{9, 9}, "png");
+        IconNode icon = s.iconTree().createIcon("icon", new byte[]{9, 9}, "png");
         assertNotNull(s.iconTree().find(icon.uuid()));
+        assertEquals("icon", s.iconTree().find(icon.uuid()).name());
 
         SshKeyNode key = s.sshKeyTree().createSshKey("mykey", "-----BEGIN OPENSSH PRIVATE KEY-----");
         assertNotNull(s.sshKeyTree().find(key.uuid()));
@@ -192,32 +193,34 @@ class SanctumTest {
     }
 
     @Test
-    void rootParentsUseConceptTags() {
+    void rootParentsUseRootUuid() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
         GroupNode group = s.objectTree().createGroup(null, "社交");
         EntryNode entry = s.objectTree().createEntry(null, "顶层条目",
                 new EntryFields("x", null, null, List.of()));
-        assertEquals("data", group.parent());
-        assertEquals("data", entry.parent());
+        String root = s.rootGroupUuid().toString();
+        assertEquals(root, group.parent());
+        assertEquals(root, entry.parent());
 
         RemoteNode remote = s.remoteTree().addRemote("origin", "git@example.com:r.git", null);
-        assertEquals("remote", remote.parent());
+        assertEquals(root, remote.parent());
 
-        IconNode icon = s.iconTree().createIcon(new byte[]{1}, "png");
+        IconNode icon = s.iconTree().createIcon("icon", new byte[]{1}, "png");
         SshKeyNode ssh = s.sshKeyTree().createSshKey("k", "-----BEGIN PRIVATE KEY-----");
-        assertEquals(s.vault().rootGroupUuid(RootTag.ICON).toString(), icon.parent());
-        assertEquals(s.vault().rootGroupUuid(RootTag.SSH_KEY).toString(), ssh.parent());
+        assertEquals(root, icon.parent());
+        assertEquals(root, ssh.parent());
 
-        // manifest 明文块 parent=manifest
-        assertEquals("manifest", s.vault().manifest().parent());
+        // manifest 明文块记录根对象 uuid
+        assertEquals(root, s.vault().manifest().rootGroupUuid().toString());
 
         s.close();
         Sanctum s2 = Sanctum.open(dir);
         s2.unlock("pw".toCharArray());
-        assertEquals("data", s2.objectTree().group(group.uuid()).parent());
-        assertEquals("data", s2.objectTree().entry(entry.uuid()).parent());
-        assertEquals("remote", s2.remoteTree().remote("origin").parent());
-        assertEquals("manifest", s2.vault().manifest().parent());
+        String root2 = s2.rootGroupUuid().toString();
+        assertEquals(root2, s2.objectTree().group(group.uuid()).parent());
+        assertEquals(root2, s2.objectTree().entry(entry.uuid()).parent());
+        assertEquals(root2, s2.remoteTree().remote("origin").parent());
+        assertEquals(root2, s2.vault().manifest().rootGroupUuid().toString());
     }
 
     @Test
@@ -324,7 +327,7 @@ class SanctumTest {
     void findNodeAcrossTrees() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
         EntryNode entry = s.objectTree().createEntry(null, "条目", EntryFields.EMPTY);
-        IconNode icon = s.iconTree().createIcon(new byte[]{1}, "png");
+        IconNode icon = s.iconTree().createIcon("icon", new byte[]{1}, "png");
 
         assertTrue(s.findNode(entry.uuid()) instanceof EntryNode);
         assertTrue(s.findNode(icon.uuid()) instanceof IconNode);
@@ -332,7 +335,7 @@ class SanctumTest {
     }
 
     @Test
-    void nodeAndMetadataCarryBlockLocation() {
+    void nodeAndManifestCarryBlockLocation() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
         EntryNode entry = s.objectTree().createEntry(null, "条目", EntryFields.EMPTY);
 
@@ -342,8 +345,11 @@ class SanctumTest {
         assertNotNull(entry.file());
         assertTrue(entry.line() >= 1);
 
-        // manifest 元数据也应带块定位
-        assertNotNull(s.metadata().file());
-        assertTrue(s.metadata().line() >= 1);
+        // manifest 明文块也应带定位（文件 + 行号）
+        com.flora.sanctum.store.Block mb = new com.flora.sanctum.model.impl.ManifestStore(
+                s.store(), new com.flora.sanctum.crypto.impl.SecureRandomSource()).findBlock();
+        assertNotNull(mb);
+        assertNotNull(mb.file());
+        assertTrue(mb.line() >= 1);
     }
 }

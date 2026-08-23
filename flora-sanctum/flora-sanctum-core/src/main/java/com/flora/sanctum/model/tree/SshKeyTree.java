@@ -16,7 +16,7 @@ import java.util.UUID;
 public final class SshKeyTree extends DataTree {
 
     public SshKeyTree(TreeContext ctx) {
-        super(RootTag.SSH_KEY, ctx);
+        super(NodeType.SSH_KEY, ctx);
     }
 
     @Override
@@ -44,12 +44,11 @@ public final class SshKeyTree extends DataTree {
     public SshKeyNode createSshKey(String name, String privateKeyPem) {
         UUID keyUuid = UUID.randomUUID();
         JsonObject key = new JsonObject();
-        key.put("version", 1);
         key.put("type", NodeType.SSH_KEY.tag());
-        key.put("parent", context().vault().rootGroupUuid(RootTag.SSH_KEY).toString());
+        key.put("parent", context().vault().rootGroupUuid(RootTag.DATA).toString());
         key.put("name", name);
         key.put("privateKey", privateKeyPem);
-        byte[] dek = context().vault().dekForRole(RootTag.SSH_KEY);
+        byte[] dek = context().vault().dekForRole(RootTag.DATA);
         context().writeWithDek(keyUuid, key, dek);
         return new SshKeyNode(keyUuid, this);
     }

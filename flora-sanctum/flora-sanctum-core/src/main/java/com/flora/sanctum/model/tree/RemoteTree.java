@@ -10,18 +10,18 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 远端配置树（根概念 REMOTE）：kind=remote 的 field 对象（RemoteNode）。
- * 加密沿用 data 根 DEK，parent 记根概念 remote。
+ * 远程配置树（NodeType.REMOTE）：远程仓库配置对象（RemoteNode）。
+ * 独立落盘类型 type=remote，直接存 name/url/keyRef，parent 指向仓库根对象 uuid。
  */
 public final class RemoteTree extends DataTree {
 
     public RemoteTree(TreeContext ctx) {
-        super(RootTag.REMOTE, ctx);
+        super(NodeType.REMOTE, ctx);
     }
 
     @Override
     protected boolean belongsTo(String type, String kind) {
-        return NodeType.fromTag(type) == NodeType.FIELD && "remote".equals(kind);
+        return NodeType.fromTag(type) == NodeType.REMOTE;
     }
 
     @Override
@@ -41,7 +41,7 @@ public final class RemoteTree extends DataTree {
         return out;
     }
 
-    /** 按名称查找远端配置；未找到返回 null。 */
+    /** 按名称查找远程配置；未找到返回 null。 */
     public RemoteNode remote(String name) {
         for (RemoteNode r : remotes()) {
             if (name.equals(r.name())) {
@@ -54,23 +54,19 @@ public final class RemoteTree extends DataTree {
     public RemoteNode addRemote(String name, String url, String keyRef) {
         UUID remoteUuid = UUID.randomUUID();
         JsonObject remote = new JsonObject();
-        remote.put("version", 1);
-        remote.put("type", NodeType.FIELD.tag());
-        remote.put("parent", RootTag.REMOTE.tag());
-        remote.put("fieldName", name);
-        remote.put("kind", com.flora.sanctum.model.FieldKind.REMOTE.tag());
-        JsonObject value = new JsonObject();
-        value.put("url", url);
+        remote.put("type", NodeType.REMOTE.tag());
+        remote.put("parent", context().vault().rootGroupUuid(RootTag.DATA).toString());
+        remote.put("name", name);
+        remote.put("url", url);
         if (keyRef != null) {
-            value.put("keyRef", keyRef);
+            remote.put("keyRef", keyRef);
         }
-        remote.put("value", value);
         byte[] dek = context().vault().dekForRole(RootTag.DATA);
         context().writeWithDek(remoteUuid, remote, dek);
         return new RemoteNode(remoteUuid, this);
     }
 
-    /** 按名称删除远端配置；未找到忽略。 */
+    /** 按名称删除远程配置；未找到忽略。 */
     public void removeRemote(String name) {
         RemoteNode r = remote(name);
         if (r != null) {

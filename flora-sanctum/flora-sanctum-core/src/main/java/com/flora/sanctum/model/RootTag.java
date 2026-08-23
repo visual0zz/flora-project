@@ -1,19 +1,15 @@
 package com.flora.sanctum.model;
 
 /**
- * 根概念 tag：最顶层对象的 parent 值（普通节点的 parent 是父对象 uuid，
- * 最顶层节点的 parent 是根概念 tag，见设计 05）。
+ * 根概念 tag：仓库顶层引导标识。
  * <p>
- * 集合：manifest（引导根）、data（普通对象树）、icon、sshKey、remote。
- * 根概念不可动态增删；新增根需同步调整 VaultCreator/VaultUnlocker/Sanctum。
+ * 仅 DATA（唯一根对象，type=root，由 manifest 记录 uuid 定位）。manifest 为明文引导块，
+ * 靠 type=manifest 识别，无需 parent tag。普通节点顶层 parent 一律指向根对象 uuid。
  */
 public enum RootTag {
 
-    MANIFEST("manifest", "manifest"),
-    DATA("data", "密码库"),
-    ICON("icon", "图标"),
-    SSH_KEY("sshKey", "SSH 密钥"),
-    REMOTE("remote", "远程");
+    /** 仓库唯一根对象（type=root，持 root DEK 与 repoKeyIdSeed）。 */
+    DATA("data", "密码库");
 
     private final String tag;
     private final String displayName;
@@ -46,7 +42,7 @@ public enum RootTag {
         return null;
     }
 
-    /** parent 是否为根概念（而非父对象 uuid）。 */
+    /** parent 是否为根概念 tag（data）。 */
     public static boolean isRoot(String parent) {
         return fromTag(parent) != null;
     }

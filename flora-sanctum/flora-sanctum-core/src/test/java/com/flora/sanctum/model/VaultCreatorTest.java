@@ -28,8 +28,8 @@ class VaultCreatorTest {
         Vault vault = unlocker.unlock(pw);
         assertNotNull(vault);
         assertEquals("gcm-siv-1", vault.manifest().cryptoVersion());
-        // 新机制：三个顶层 root DEK 各 1 条 dekId 索引（KEK 不再入索引，见设计"keyId 防关联"）
-        assertEquals(3, vault.keyIdIndex().size());
+        // 单根模型：唯一根对象 DEK 1 条 dekId 索引（KEK 不再入索引，见设计"keyId 防关联"）
+        assertEquals(1, vault.keyIdIndex().size());
     }
 
     @Test

@@ -8,14 +8,11 @@ import com.flora.root.codec.json.model.JsonObject;
 import com.flora.sanctum.crypto.Argon2Kdf;
 import com.flora.sanctum.crypto.impl.SecureRandomSource;
 import com.flora.root.codec.Base58;
-import com.flora.sanctum.store.BlockHeader;
 import com.flora.sanctum.store.ObjectStore;
 import com.flora.sanctum.store.impl.MarkdownObjectStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Base64;
@@ -40,7 +37,6 @@ class VaultUnlockerTest {
         JsonObject manifest = new JsonObject();
         manifest.put("version", 1);
         manifest.put("type", "manifest");
-        manifest.put("parent", "manifest");
         manifest.put("cryptoVersion", "gcm-siv-1");
         manifest.put("kdf", "argon2id");
         manifest.put("salt", Base64.getEncoder().encodeToString(salt));
@@ -49,36 +45,19 @@ class VaultUnlockerTest {
         params.put("i", 3);
         params.put("p", 4);
         manifest.put("params", params);
+        UUID rootGroupUuid = UUID.randomUUID();
+        manifest.put("rootGroupUuid", rootGroupUuid.toString());
         manifest.put("updateTimestamp", 1);
 
-        // 先定 uuid，再计算覆盖 uuid + 全部负载字段的 MAC（与 Manifest.canonical 一致）
+        // 块格式与密文对齐：header + payload + mac(尾附)，MAC 覆盖 header+timestamp+payload
         UUID uuid = UUID.randomUUID();
         byte[] payload = JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
-        String canonical = uuid + "|1|manifest|manifest|gcm-siv-1|argon2id|" + Base64.getEncoder().encodeToString(salt)
-                + "|65536,3,4|1|";
-        byte[] mac = hmac(macKey, canonical.getBytes(StandardCharsets.UTF_8));
-        manifest.put("mac", Base64.getEncoder().encodeToString(mac));
-        payload = JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
-
-        // 明文块信封：magic(8)+version(1)+flags(1)+uuid(16)+payload
-        byte[] block = new byte[com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN + payload.length];
-        System.arraycopy(com.flora.sanctum.crypto.impl.Envelope.MAGIC, 0, block, 0,
-                com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN);
-        block[com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN] = 1;
-        block[com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 1] = 2;
-        java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(block,
-                com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 2, 16);
-        bb.putLong(uuid.getMostSignificantBits());
-        bb.putLong(uuid.getLeastSignificantBits());
-        System.arraycopy(payload, 0, block,
-                com.flora.sanctum.crypto.impl.Envelope.PLAINTEXT_HEADER_LEN, payload.length);
-        byte xor = rng.nextByte();
-        byte[] obf = BlockHeader.obfuscate(block, xor);
+        byte[] block = com.flora.sanctum.model.impl.ManifestStore.buildBlock(uuid, payload, 1, macKey);
 
         ObjectStore store = new MarkdownObjectStore(dir);
         java.nio.file.Path f = dir.resolve(uuid + ".md");
         try {
-            java.nio.file.Files.writeString(f, "1:" + Base58.encode(obf) + "\n");
+            java.nio.file.Files.writeString(f, "1:" + Base58.encode(block) + "\n");
         } catch (java.io.IOException e) {
             throw new IllegalStateException(e);
         }
@@ -101,15 +80,5 @@ class VaultUnlockerTest {
         ObjectStore store = createManifest(pw);
         VaultUnlocker unlocker = new VaultUnlocker(store);
         assertThrows(IllegalArgumentException.class, () -> unlocker.unlock("wrong password".toCharArray()));
-    }
-
-    private static byte[] hmac(byte[] key, byte[] data) {
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(key, "HmacSHA256"));
-            return mac.doFinal(data);
-        } catch (java.security.GeneralSecurityException e) {
-            throw new IllegalStateException(e);
-        }
     }
 }

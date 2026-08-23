@@ -9,14 +9,15 @@ import java.util.UUID;
 /**
  * 块信封编解码（见设计"keyId 防关联"）。
  * <p>
- * 密文块格式（VERSION_2，内部存储与外部加密数据同一结构）：
- * {@code magic(8)+version(1)+flags(1)+uuid(16)+nonce(12)+keyId(8)+ciphertext+tag(16)}。
+ * 密文块格式（VERSION_1，内部存储与外部加密数据同一结构）：
+ * {@code magic(8)+version(1)+flags(1)+uuid(16)+nonce(12)+keyId(8)+ciphertext+tag(16)}，
+ * version 与明文块同为 1（块类型由 flags 区分）。
  * <p>
  * nonce 置于 keyId 前：解析时先读 nonce（作 keyId 派生的 seed），再读 keyId。
  * keyId 在 encode 内部生成（防关联随机化），经 {@link KeyIdDeriver} 对合派生，
  * 解密侧用 {@link KeyIdDeriver#resolveDekId} 从 (nonce, keyId) 恢复内部标识定位。
  * <p>
- * AAD = 整个信封头（magic‖version‖flags‖uuid‖nonce‖keyId）‖ 块级时间戳（十进制 UTF-8），
+ * AAD = 块级时间戳（十进制 UTF-8）‖ 整个信封头（magic‖version‖flags‖uuid‖nonce‖keyId），
  * GCM-SIV tag 全量认证。明文负载先 deflate 压缩再加密（降低冗余与长度暴露）。
  * 时间戳不存于负载 JSON，由块前缀 {@code timestamp:base58} 提供，解码时经参数传入以重建 AAD。
  * 落盘/读盘时，整个字节序列与每块随机 xorByte 逐字节异或；xorByte 不落盘，
@@ -61,7 +62,7 @@ public final class CipherCodec {
         // 信封头（真实值，用于 AAD）：magic(8)+version(1)+flags(1)+uuid(16)+nonce(12)+keyId(8)
         byte[] header = new byte[Envelope.HEADER_LEN];
         System.arraycopy(Envelope.MAGIC, 0, header, 0, Envelope.MAGIC_LEN);
-        header[Envelope.MAGIC_LEN] = Envelope.VERSION_2;
+        header[Envelope.MAGIC_LEN] = Envelope.VERSION_1;
         header[Envelope.MAGIC_LEN + 1] = Envelope.FLAG_CIPHER;
         int uuidOff = Envelope.MAGIC_LEN + 2;
         writeUuid(header, uuidOff, uuid);
@@ -70,8 +71,8 @@ public final class CipherCodec {
         int keyIdOff = nonceOff + Envelope.NONCE_LEN;
         System.arraycopy(keyId, 0, header, keyIdOff, keyId.length);
 
-        // AAD = 信封头 ‖ 时间戳
-        byte[] aad = concat(header, Long.toString(timestamp).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        // AAD = 时间戳 ‖ 信封头
+        byte[] aad = concat(Long.toString(timestamp).getBytes(java.nio.charset.StandardCharsets.US_ASCII), header);
         byte[] compressed = deflate(plaintext);
 
         // GCM-SIV 加密，AAD = aad，输出 = 密文 ‖ tag
@@ -102,7 +103,7 @@ public final class CipherCodec {
                 throw new IllegalArgumentException("bad magic");
             }
         }
-        if (block[Envelope.MAGIC_LEN] != Envelope.VERSION_2) {
+        if (block[Envelope.MAGIC_LEN] != Envelope.VERSION_1) {
             throw new IllegalArgumentException("unsupported version");
         }
         if (block[Envelope.MAGIC_LEN + 1] != Envelope.FLAG_CIPHER) {
@@ -120,7 +121,7 @@ public final class CipherCodec {
         byte[] ciphertext = new byte[block.length - Envelope.HEADER_LEN];
         System.arraycopy(block, Envelope.HEADER_LEN, ciphertext, 0, ciphertext.length);
 
-        byte[] aad = concat(header, Long.toString(timestamp).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        byte[] aad = concat(Long.toString(timestamp).getBytes(java.nio.charset.StandardCharsets.US_ASCII), header);
         // GCM-SIV 解密并验证 tag（认证失败抛 IllegalStateException，与调用方契约一致）
         final byte[] compressed;
         try {

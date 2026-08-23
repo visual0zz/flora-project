@@ -66,11 +66,6 @@ public abstract class TreeNode {
         return d == null ? null : d.getString("parent");
     }
 
-    /** 节点是否仍存在。 */
-    public boolean exists() {
-        return data() != null;
-    }
-
     /** 删除节点（物理删除对应存储块）。 */
     public void delete() {
         ctx().delete(uuid);

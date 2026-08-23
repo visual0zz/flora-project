@@ -26,7 +26,7 @@ public final class FieldNode extends ObjectNode {
 
     public String fieldName() {
         JsonObject d = data();
-        return d == null ? null : d.getString("fieldName");
+        return d == null ? null : d.getString("name");
     }
 
     public String value() {

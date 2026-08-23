@@ -9,7 +9,6 @@ import com.flora.sanctum.model.tree.FieldNode;
 import com.flora.sanctum.model.tree.GroupNode;
 import com.flora.sanctum.model.tree.IconNode;
 import com.flora.sanctum.model.tree.RemoteNode;
-import com.flora.sanctum.model.RootTag;
 import com.flora.sanctum.model.Sanctum;
 import com.flora.sanctum.model.tree.SshKeyNode;
 import com.flora.sanctum.model.tree.TreeNode;
@@ -918,10 +917,10 @@ public final class SanctumGui {
 
     /** 根据当前树选择切换工具栏按钮可用性。 */
     private void updateToolbar() {
-        RootTag section = sectionOf(currentSelection());
+        NodeType section = sectionOf(currentSelection());
         // 新建条目/文件夹：仅密码库文件夹上下文可用
         boolean objectsCtx = section == null && currentGroupId() != null; // 选中了普通文件夹
-        boolean objectsRoot = RootTag.DATA == section; // 密码库根（可建文件夹）
+        boolean objectsRoot = NodeType.GROUP == section; // 密码库根（可建文件夹）
         newEntryBtn.setEnabled(objectsCtx);
         newGroupBtn.setEnabled(objectsCtx || objectsRoot);
         delBtn.setEnabled(true);
@@ -934,16 +933,16 @@ public final class SanctumGui {
 
     // ---- 组树 ----
 
-    /** 树节点类型：普通文件夹（UUID userObject）或区段节点（RootTag userObject，对应根概念）。 */
+    /** 树节点类型：普通文件夹（UUID userObject）或区段节点（NodeType userObject，对应树分类）。 */
 
     private void rebuildGroupTree() {
         treeRoot = new DefaultMutableTreeNode("全部");
         groupNodes.clear();
         groupCache = null; // 重置缓存
 
-        // 四个区段节点（对应根概念，见 RootTag）
+        // 四个区段节点（对应树分类，见 NodeType）
         DefaultMutableTreeNode objectsNode = new DefaultMutableTreeNode("密码库");
-        objectsNode.setUserObject(RootTag.DATA);
+        objectsNode.setUserObject(NodeType.GROUP);
         treeRoot.add(objectsNode);
         // objects 层级：顶层文件夹（ObjectTree 根组，已排除 root group）+ 递归子文件夹
         for (GroupNode g : sanctum.objectTree().rootGroups()) {
@@ -1001,7 +1000,7 @@ public final class SanctumGui {
         listItemIcons.clear();
         String q = filter == null ? "" : filter.trim().toLowerCase();
         Object sel = currentSelection();
-        RootTag section = sectionOf(sel);
+        NodeType section = sectionOf(sel);
         UUID groupId = section == null ? groupIdOf(sel) : null;
 
         // 全局搜索：搜索非空时跨区段/文件夹搜索所有条目（不分当前选择）
@@ -1025,7 +1024,7 @@ public final class SanctumGui {
             searchBanner.setVisible(false);
         }
 
-        if (RootTag.ICON == section) {
+        if (NodeType.ICON == section) {
             for (IconNode icon : sanctum.iconTree().icons()) {
                 entryModel.addElement(iconLabel(icon));
                 entryUuids.add(icon.uuid());
@@ -1034,7 +1033,7 @@ public final class SanctumGui {
             }
             return;
         }
-        if (RootTag.SSH_KEY == section) {
+        if (NodeType.SSH_KEY == section) {
             for (SshKeyNode key : sanctum.sshKeyTree().keys()) {
                 entryModel.addElement(key.name());
                 entryUuids.add(key.uuid());
@@ -1043,7 +1042,7 @@ public final class SanctumGui {
             }
             return;
         }
-        if (RootTag.REMOTE == section) {
+        if (NodeType.REMOTE == section) {
             for (RemoteNode r : sanctum.remoteTree().remotes()) {
                 entryModel.addElement(r.name());
                 entryUuids.add(r.uuid());
@@ -1085,8 +1084,12 @@ public final class SanctumGui {
         }
     }
 
-    /** 图标区段条目显示名（含格式/尺寸提示）。 */
+    /** 图标区段条目显示名（有 name 用 name，否则格式提示）。 */
     private String iconLabel(IconNode icon) {
+        String name = icon.name();
+        if (name != null && !name.isBlank()) {
+            return name;
+        }
         String format = icon.format();
         return (format == null ? "图标" : "图标 [" + format + "]");
     }
@@ -1209,12 +1212,12 @@ public final class SanctumGui {
     /** 条目所属文件夹路径（如"社交/工作"），顶层返回空串。 */
     private String folderPathOf(EntryNode e) {
         String parent = e.parent();
-        if (parent == null || RootTag.isRoot(parent)) {
+        if (isTopLevel(parent)) {
             return "";
         }
         List<String> names = new ArrayList<>();
         String cur = parent;
-        while (cur != null && !RootTag.isRoot(cur)) {
+        while (cur != null && !isTopLevel(cur)) {
             UUID id;
             try {
                 id = UUID.fromString(cur);
@@ -1251,9 +1254,20 @@ public final class SanctumGui {
         return sel instanceof UUID u ? u : null;
     }
 
-    /** 若当前选中是区段节点（RootTag userObject）则返回，否则 null。 */
-    private RootTag sectionOf(Object sel) {
-        return sel instanceof RootTag t ? t : null;
+    /** 若当前选中是区段节点（NodeType userObject）则返回，否则 null。 */
+    private NodeType sectionOf(Object sel) {
+        return sel instanceof NodeType t ? t : null;
+    }
+
+    /** 区段展示名（对象树区段与设置区段等）。 */
+    private static String sectionDisplayName(NodeType tag) {
+        return switch (tag) {
+            case ICON -> "图标";
+            case SSH_KEY -> "SSH 密钥";
+            case REMOTE -> "远程";
+            case GROUP -> "密码库";
+            default -> "设置";
+        };
     }
 
     private UUID groupIdOf(Object sel) {
@@ -1682,14 +1696,23 @@ public final class SanctumGui {
         }
     }
 
-    /** 由条目推导其所属组 uuid（顶层条目 parent 为根概念 tag 返回 null）。 */
+    /** 由条目推导其所属组 uuid（顶层条目 parent 为根对象 uuid 返回 null）。 */
     private UUID groupIdOf(UUID entryUuid) {
         EntryNode entry = sanctum.objectTree().entry(entryUuid);
         if (entry == null) {
             return null;
         }
         String p = entry.parent();
-        return p == null || RootTag.isRoot(p) ? null : UUID.fromString(p);
+        return isTopLevel(p) ? null : UUID.fromString(p);
+    }
+
+    /** parent 是否为顶层（根对象 uuid / null）。 */
+    private boolean isTopLevel(String parent) {
+        if (parent == null) {
+            return true;
+        }
+        UUID rootUuid = sanctum.rootGroupUuid();
+        return rootUuid != null && rootUuid.toString().equals(parent);
     }
 
     /** kind 下拉选项：预定义 FieldKind tag + 库内未预定义的 kind（向后兼容，未知 kind 可继续选择）。 */
@@ -1833,7 +1856,7 @@ public final class SanctumGui {
     private void doImportImage() {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                "图片 (png/jpg/gif/webp/svg)", "png", "jpg", "jpeg", "gif", "webp", "svg"));
+                "图片 (png/jpg/gif/svg)", "png", "jpg", "jpeg", "gif", "svg"));
         if (chooser.showOpenDialog(frame) != JFileChooser.APPROVE_OPTION) {
             return;
         }
@@ -1845,10 +1868,10 @@ public final class SanctumGui {
             String format = extOf(name);
             if ("svg".equalsIgnoreCase(format)) {
                 // SVG 文本直接存原始内容
-                sanctum.iconTree().createIcon(data, "svg");
+                sanctum.iconTree().createIcon(name, data, "svg");
             } else {
                 javax.imageio.ImageIO.read(file.toFile()); // 校验确为可读图片
-                sanctum.iconTree().createIcon(data, format);
+                sanctum.iconTree().createIcon(name, data, format);
             }
             refreshEntryList(currentSearchQuery());
             statusLabel.setText("已导入图片 " + name);
@@ -1894,7 +1917,7 @@ public final class SanctumGui {
         }
     }
 
-    /** 添加远程配置（kind:remote，置于 objects root 下）。 */
+    /** 添加远程配置（type=remote 节点）。 */
     private void addRemote() {
         JTextField nameField = new JTextField(16);
         JTextField urlField = new JTextField(28);
@@ -1982,9 +2005,9 @@ public final class SanctumGui {
     /** 新建文件夹：不弹对话框，直接以空白名创建，树选中并打开文件夹编辑。 */
     private void doNewGroup() {
         Object sel = currentSelection();
-        // 仅在密码库根（RootTag.DATA 区段）或普通文件夹下允许新建文件夹
-        RootTag section = sectionOf(sel);
-        if (RootTag.ICON == section || RootTag.SSH_KEY == section || RootTag.REMOTE == section) {
+        // 仅在密码库根（对象树区段）或普通文件夹下允许新建文件夹
+        NodeType section = sectionOf(sel);
+        if (NodeType.ICON == section || NodeType.SSH_KEY == section || NodeType.REMOTE == section) {
             statusLabel.setText("该区段不允许新建文件夹");
             return;
         }
@@ -2003,7 +2026,7 @@ public final class SanctumGui {
 
     private void doDelete() {
         Object sel = currentSelection();
-        RootTag section = sectionOf(sel);
+        NodeType section = sectionOf(sel);
         UUID entryUuid = selectedEntryUuid();
         if (entryUuid != null) {
             NodeType type = typeOf(entryUuid);
@@ -2160,11 +2183,11 @@ public final class SanctumGui {
         DefaultMutableTreeNode setNode = new DefaultMutableTreeNode("设置");
         setNode.setUserObject(NodeType.CONFIG);
         DefaultMutableTreeNode iconNode = new DefaultMutableTreeNode("图标");
-        iconNode.setUserObject(RootTag.ICON);
+        iconNode.setUserObject(NodeType.ICON);
         DefaultMutableTreeNode sshNode = new DefaultMutableTreeNode("SSH 密钥");
-        sshNode.setUserObject(RootTag.SSH_KEY);
+        sshNode.setUserObject(NodeType.SSH_KEY);
         DefaultMutableTreeNode remoteNode = new DefaultMutableTreeNode("远程");
-        remoteNode.setUserObject(RootTag.REMOTE);
+        remoteNode.setUserObject(NodeType.REMOTE);
         top.add(setNode);
         top.add(iconNode);
         top.add(sshNode);
@@ -2244,7 +2267,7 @@ public final class SanctumGui {
             addSettingsEntry("自动锁定", "lock");
             addSettingsEntry("剪贴板清空", "clip");
             settingsEntryList.setSelectedIndex(0);
-        } else if (uo instanceof RootTag tag) {
+        } else if (uo instanceof NodeType tag) {
             switch (tag) {
                 case ICON -> {
                     // 内置图标（不可删除）
@@ -2420,7 +2443,7 @@ public final class SanctumGui {
         }
     }
 
-    /** 组树渲染器：按 userObject 类型渲染文本（RootTag→区段展示名；UUID→group name；其它 fallback）。 */
+    /** 组树渲染器：按 userObject 类型渲染文本（NodeType 区段→区段展示名；UUID→group name；其它 fallback）。 */
     private final class FolderTreeRenderer extends javax.swing.tree.DefaultTreeCellRenderer {
         @Override
         public java.awt.Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel,
@@ -2430,8 +2453,8 @@ public final class SanctumGui {
             setDisabledIcon(SvgIcon.get("ui/folder", 24));
             if (value instanceof javax.swing.tree.DefaultMutableTreeNode node) {
                 Object uo = node.getUserObject();
-                if (uo instanceof RootTag tag) {
-                    setText(tag.displayName());
+                if (uo instanceof NodeType tag) {
+                    setText(sectionDisplayName(tag));
                 } else if (uo instanceof UUID uuid) {
                     String[] info = groupsById().get(uuid);
                     String name = info == null ? null : info[1];
@@ -2469,8 +2492,14 @@ public final class SanctumGui {
         private static String rootName(Object value) {
             if (value instanceof javax.swing.tree.DefaultMutableTreeNode node) {
                 Object uo = node.getUserObject();
-                if (uo instanceof RootTag tag) {
-                    return tag.displayName();
+                if (uo instanceof NodeType tag) {
+                    return switch (tag) {
+                        case ICON -> "图标";
+                        case SSH_KEY -> "SSH 密钥";
+                        case REMOTE -> "远程";
+                        case GROUP -> "密码库";
+                        default -> "设置";
+                    };
                 }
                 if (uo == NodeType.CONFIG) {
                     return "设置";

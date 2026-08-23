@@ -12,8 +12,7 @@ public enum FieldKind {
     PASSWORD("password"),
     TOTP("totp"),
     URL("url"),
-    EXTERNAL_KEY("externalKey"),
-    REMOTE("remote");
+    EXTERNAL_KEY("externalKey");
 
     private final String tag;
 

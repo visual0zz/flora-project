@@ -66,12 +66,6 @@ public final class Vault {
         return rootGroupUuidByTag.get(tag);
     }
 
-    /** 取某根概念的 root DEK。 */
-    public byte[] rootDek(RootTag tag) {
-        byte[] d = rootDeksByTag.get(tag);
-        return d == null ? null : d.clone();
-    }
-
     /** 按根概念路由加密归属（设计 05）：普通对象→data，图标→icon，SSH 密钥→sshKey。 */
     public byte[] dekForRole(RootTag tag) {
         byte[] dek = rootDeksByTag.get(tag);
@@ -91,15 +85,6 @@ public final class Vault {
     public byte[] folderDek(java.util.UUID groupUuid) {
         byte[] d = folderDeks.get(groupUuid);
         return d == null ? null : d.clone();
-    }
-
-    /** 全部 root DEK（兼容旧接口）。 */
-    public java.util.List<byte[]> rootDeks() {
-        java.util.List<byte[]> copy = new java.util.ArrayList<>(rootDeksByTag.size());
-        for (byte[] d : rootDeksByTag.values()) {
-            copy.add(d.clone());
-        }
-        return copy;
     }
 
     /** 驻留内存的 KEK（解锁期间；锁定后为 null）。 */

@@ -137,7 +137,7 @@ public final class MarkdownObjectStore implements ObjectStore {
             if (!BlockHeader.isBlock(deobfuscated)) {
                 return;
             }
-            out.add(new Block(file, 1, Long.parseLong(ts), candidate, bytes, deobfuscated));
+            out.add(new Block(file, 1, Long.parseLong(ts), bytes, deobfuscated));
         } catch (Exception ignore) {
             // 损坏/非本应用文件，跳过
         }

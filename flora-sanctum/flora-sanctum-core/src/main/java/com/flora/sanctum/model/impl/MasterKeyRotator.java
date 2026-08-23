@@ -32,14 +32,12 @@ public final class MasterKeyRotator {
         Argon2Kdf kdf = new Argon2Kdf(m.salt(), memoryKiB, iterations, parallelism);
         byte[] newKek = kdf.derive(newPassword);
         try {
-            // 重包三个 root group（用旧 KEK 解密块 + 解 DEK，用新 KEK 重加密）
-            // 直接按已知 root group uuid 定位，不再遍历全库试解
+            // 重包根对象（用旧 KEK 解密块 + 解 DEK，用新 KEK 重加密）
+            // 直接按已知根对象 uuid 定位，不再遍历全库试解
             java.util.Set<java.util.UUID> rootUuids = new java.util.HashSet<>();
-            for (RootTag tag : new RootTag[]{RootTag.DATA, RootTag.ICON, RootTag.SSH_KEY}) {
-                java.util.UUID root = vault.rootGroupUuid(tag);
-                if (root != null) {
-                    rootUuids.add(root);
-                }
+            java.util.UUID root = vault.rootGroupUuid(RootTag.DATA);
+            if (root != null) {
+                rootUuids.add(root);
             }
             byte[] oldEnc = KeyDerivation.encKey(oldKek);
             CipherCodec oldCodec = new CipherCodec(oldEnc, oldKek, ctx.random());
@@ -62,9 +60,9 @@ public final class MasterKeyRotator {
                 ctx.writeWithDek(b.uuid(), n, newKek);
             }
             // 更新 manifest 的 MAC（用新 KEK）
-            Manifest updated = new Manifest(m.version(), RootTag.MANIFEST.tag(), m.cryptoVersion(), m.kdf(),
+            Manifest updated = new Manifest(m.version(), m.cryptoVersion(), m.kdf(),
                     m.salt(), memoryKiB, iterations, parallelism,
-                    m.updateTimestamp(), new byte[0]);
+                    m.rootGroupUuid(), m.updateTimestamp());
             byte[] macKey = updated.manifestMacKey(newKek);
             new ManifestStore(ctx.store(), ctx.random()).write(updated, macKey);
             vault.replaceManifest(updated);

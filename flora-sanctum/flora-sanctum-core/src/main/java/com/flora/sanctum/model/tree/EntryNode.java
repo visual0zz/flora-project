@@ -153,10 +153,9 @@ public final class EntryNode extends ObjectNode {
         UUID groupId = ctx().parentGroupUuid(data());
         UUID fieldUuid = UUID.randomUUID();
         JsonObject field = new JsonObject();
-        field.put("version", 1);
         field.put("type", NodeType.CUSTOM_FIELD.tag());
         field.put("parent", uuid().toString());
-        field.put("fieldName", fieldName);
+        field.put("name", fieldName);
         field.put("value", value);
         if (kind != null) {
             field.put("kind", kind);
@@ -165,7 +164,7 @@ public final class EntryNode extends ObjectNode {
         return tree().field(fieldUuid);
     }
 
-    /** 直接自定义字段（不含预设字段与 remote；remote 归 REMOTE 树）。 */
+    /** 直接自定义字段（不含预设字段；remote 归 REMOTE 树）。 */
     public List<FieldNode> fields() {
         List<FieldNode> out = new ArrayList<>();
         for (UUID u : ctx().childrenOf(uuid())) {
@@ -179,10 +178,7 @@ public final class EntryNode extends ObjectNode {
 
     private static boolean isCustomField(FieldNode f) {
         String fn = f.fieldName();
-        if (EntryFields.isPreset(fn)) {
-            return false;
-        }
-        return !"remote".equals(f.kind());
+        return !EntryFields.isPreset(fn);
     }
 
     /** 按字段名查找直接自定义字段；未找到返回 null。 */
@@ -216,10 +212,9 @@ public final class EntryNode extends ObjectNode {
             return;
         }
         JsonObject f = new JsonObject();
-        f.put("version", 1);
         f.put("type", NodeType.FIELD.tag());
         f.put("parent", uuid().toString());
-        f.put("fieldName", name);
+        f.put("name", name);
         f.put("value", value);
         ctx().write(pu, f, groupId);
     }

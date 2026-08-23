@@ -12,21 +12,23 @@ import java.util.UUID;
 /**
  * 数据树容器（Sanctum = 元数据 + 配置数据 + List&lt;数据树&gt;）。
  * <p>
- * 每棵树对应一个根概念 tag（DATA/ICON/SSH_KEY/REMOTE），承载该概念根下
+ * 每棵树对应一个节点类型分类（GROUP 树/ICON 树/SSH_KEY 树/REMOTE 树），承载该分类下
  * 的对象节点；节点负责新建/编辑/删除等操作（见设计 05"数据结构树化"）。
+ * 所有树的顶层节点 parent 均指向仓库唯一根对象 uuid（单根模型）。
  */
 public abstract class DataTree {
 
-    private final RootTag tag;
+    private final NodeType category;
     private final TreeContext ctx;
 
-    protected DataTree(RootTag tag, TreeContext ctx) {
-        this.tag = tag;
+    protected DataTree(NodeType category, TreeContext ctx) {
+        this.category = category;
         this.ctx = ctx;
     }
 
-    public RootTag tag() {
-        return tag;
+    /** 树分类（代表该树承载的节点类型，用于树查找/遍历）。 */
+    public NodeType category() {
+        return category;
     }
 
     public TreeContext context() {
@@ -51,11 +53,13 @@ public abstract class DataTree {
         return out;
     }
 
-    /** 顶层节点（parent 为本树根概念 tag）。 */
+    /** 顶层节点（parent 为仓库根对象 uuid）。 */
     public List<TreeNode> roots() {
+        UUID rootUuid = ctx.vault().rootGroupUuid(RootTag.DATA);
+        String root = rootUuid == null ? null : rootUuid.toString();
         List<TreeNode> out = new ArrayList<>();
         for (TreeNode n : nodes()) {
-            if (tag.tag().equals(n.parent())) {
+            if (root != null && root.equals(n.parent())) {
                 out.add(n);
             }
         }

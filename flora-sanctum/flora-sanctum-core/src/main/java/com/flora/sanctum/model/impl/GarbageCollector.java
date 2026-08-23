@@ -29,18 +29,16 @@ public final class GarbageCollector {
     public List<UUID> collect() {
         List<Block> blocks = ctx.store().scan();
         Set<UUID> reachable = new HashSet<>();
-        // 根：manifest（明文块）+ parent 为根概念 tag 的块
+        // 根：manifest（明文块）+ 根对象（manifest.rootGroupUuid 定位，KEK 包裹）
+        java.util.UUID rootUuid = ctx.vault().manifest().rootGroupUuid();
         for (Block b : blocks) {
             if (b.isPlaintext()) {
                 reachable.add(b.uuid());
                 continue;
             }
-            JsonObject n = nodeOf(b);
-            if (n == null) {
-                continue;
-            }
-            if (RootTag.isRoot(n.getString("parent"))) {
+            if (rootUuid != null && rootUuid.equals(b.uuid())) {
                 reachable.add(b.uuid());
+                continue;
             }
         }
         // 沿 parent 链 + 引用边扩展

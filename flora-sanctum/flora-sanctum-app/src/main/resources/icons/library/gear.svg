@@ -1,4 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5A554D" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
-  <circle cx="12" cy="12" r="3"/>
-  <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <g fill="#537D96">
+    <rect x="11" y="1.5" width="2" height="4" rx="1"/>
+    <rect x="11" y="1.5" width="2" height="4" rx="1" transform="rotate(45 12 12)"/>
+    <rect x="11" y="1.5" width="2" height="4" rx="1" transform="rotate(90 12 12)"/>
+    <rect x="11" y="1.5" width="2" height="4" rx="1" transform="rotate(135 12 12)"/>
+    <rect x="11" y="1.5" width="2" height="4" rx="1" transform="rotate(180 12 12)"/>
+    <rect x="11" y="1.5" width="2" height="4" rx="1" transform="rotate(225 12 12)"/>
+    <rect x="11" y="1.5" width="2" height="4" rx="1" transform="rotate(270 12 12)"/>
+    <rect x="11" y="1.5" width="2" height="4" rx="1" transform="rotate(315 12 12)"/>
+    <circle cx="12" cy="12" r="6.5"/>
+  </g>
+  <circle cx="12" cy="12" r="2.5" fill="#FFFFFF"/>
 </svg>

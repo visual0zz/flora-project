@@ -1097,7 +1097,9 @@ public final class SanctumGui {
     // ---- 内置图标库（/icons/library/*.svg）与选择 ----
 
     private static final String[] BUILTIN_ICONS =
-            {"folder", "entry", "key", "lock", "note", "star", "flag", "heart", "gear", "shield"};
+            {"folder", "entry", "key", "lock", "note", "star", "flag", "heart", "gear", "shield",
+             "share", "repo", "file", "puzzle", "microsoft", "youtube", "x", "telegram", "bilibili", "wechat",
+             "web", "switch", "database"};
     private static final String BUILTIN_PREFIX = "builtin:";
 
     private static String builtinIconId(String name) {

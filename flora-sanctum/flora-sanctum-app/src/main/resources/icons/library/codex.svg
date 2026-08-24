@@ -6,7 +6,7 @@
           fill="url(#lobe-icons-codex-_R_0_)"></path>
     <defs>
         <linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-codex-_R_0_" x1="12" x2="12" y1="3" y2="21">
-            <stop stop-color="#B1A7FF"></stop>
+            <stop offset="0" stop-color="#B1A7FF"></stop>
             <stop offset=".5" stop-color="#7A9DFF"></stop>
             <stop offset="1" stop-color="#3941FF"></stop>
         </linearGradient>

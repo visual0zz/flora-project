@@ -9,10 +9,23 @@ import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.io.InputStream;
+import java.lang.module.ModuleReference;
+import java.lang.module.ResolvedModule;
 import java.net.URI;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import java.util.stream.Stream;
 
 /**
  * 加载并缓存 SVG 矢量图标，渲染为 Swing {@link ImageIcon}。
@@ -26,6 +39,104 @@ public final class SvgIcon {
     }
 
     private static final Map<String, Icon> CACHE = new HashMap<>();
+
+    /** 图标库资源根目录（classpath 下的 /icons/library/）。 */
+    private static final String LIBRARY_PREFIX = "icons/library/";
+
+    /**
+     * 列出图标库中所有内置图标的名称（不含扩展名），按字母序返回。
+     * <p>
+     * 运行时动态扫描 {@code /icons/library/*.svg}，因此向该目录新增 SVG 后无需修改代码即可出现在选择器中：
+     * 命名模块（JPMS）用 {@link ModuleReference#open()} 的 {@link java.lang.module.ModuleReader} 枚举；
+     * 无名模块（classpath / 测试）按资源 URL 是文件目录还是 jar 分别回退。
+     */
+    public static List<String> libraryIcons() {
+        List<String> cached = LIBRARY;
+        if (cached == null) {
+            synchronized (SvgIcon.class) {
+                cached = LIBRARY;
+                if (cached == null) {
+                    LIBRARY = cached = scanLibrary();
+                }
+            }
+        }
+        return cached;
+    }
+
+    private static volatile List<String> LIBRARY;
+
+    private static List<String> scanLibrary() {
+        Module module = SvgIcon.class.getModule();
+        if (module != null && module.isNamed()) {
+            return scanFromModule(module);
+        }
+        return scanFromClasspath();
+    }
+
+    private static List<String> scanFromModule(Module module) {
+        List<String> names = new ArrayList<>();
+        try {
+            ModuleReference ref = module.getLayer().configuration()
+                    .findModule(module.getName()).map(ResolvedModule::reference).orElseThrow();
+            try (java.lang.module.ModuleReader reader = ref.open()) {
+                reader.list().forEach(path -> {
+                    if (path.startsWith(LIBRARY_PREFIX) && path.endsWith(".svg")) {
+                        names.add(nameOf(path));
+                    }
+                });
+            }
+        } catch (Exception ignored) {
+        }
+        Collections.sort(names);
+        return names;
+    }
+
+    private static List<String> scanFromClasspath() {
+        List<String> names = new ArrayList<>();
+        URL dir = SvgIcon.class.getResource("/" + LIBRARY_PREFIX);
+        if (dir != null) {
+            switch (dir.getProtocol()) {
+                case "file" -> scanDirectory(dir, names);
+                case "jar" -> scanJar(dir, names);
+                default -> { }
+            }
+        }
+        Collections.sort(names);
+        return names;
+    }
+
+    private static void scanDirectory(URL dir, List<String> names) {
+        try {
+            Path root = Paths.get(dir.toURI());
+            try (Stream<Path> stream = Files.list(root)) {
+                stream.filter(p -> p.getFileName().toString().endsWith(".svg"))
+                        .forEach(p -> names.add(nameOf("icons/library/" + p.getFileName())));
+            }
+        } catch (IOException | java.net.URISyntaxException ignored) {
+        }
+    }
+
+    private static void scanJar(URL dir, List<String> names) {
+        String spec = dir.toString();
+        int bang = spec.indexOf("!/");
+        if (bang < 0) {
+            return;
+        }
+        String jarPath = spec.substring("jar:file:".length(), bang);
+        try (JarFile jar = new JarFile(jarPath)) {
+            for (var entry = jar.entries(); entry.hasMoreElements();) {
+                String path = entry.nextElement().getName();
+                if (path.startsWith(LIBRARY_PREFIX) && path.endsWith(".svg")) {
+                    names.add(nameOf(path));
+                }
+            }
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static String nameOf(String path) {
+        return path.substring(LIBRARY_PREFIX.length(), path.length() - ".svg".length());
+    }
 
     /** 取一个已渲染的 SVG 图标（资源位于 /icons/&lt;name&gt;.svg）。 */
     public static Icon get(String name, int size) {

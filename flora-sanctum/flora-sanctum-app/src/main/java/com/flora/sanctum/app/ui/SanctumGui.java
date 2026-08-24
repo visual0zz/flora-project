@@ -1096,10 +1096,6 @@ public final class SanctumGui {
 
     // ---- 内置图标库（/icons/library/*.svg）与选择 ----
 
-    private static final String[] BUILTIN_ICONS =
-            {"folder", "entry", "key", "lock", "note", "star", "flag", "heart", "gear", "shield",
-             "share", "repo", "file", "puzzle", "microsoft", "youtube", "x", "telegram", "bilibili", "wechat",
-             "web", "switch", "database"};
     private static final String BUILTIN_PREFIX = "builtin:";
 
     private static String builtinIconId(String name) {
@@ -1166,7 +1162,7 @@ public final class SanctumGui {
         JPanel grid = new JPanel(new GridLayout(0, 5, 8, 8));
         grid.setOpaque(false);
         grid.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        for (String name : BUILTIN_ICONS) {
+        for (String name : SvgIcon.libraryIcons()) {
             String id = builtinIconId(name);
             grid.add(makeIconCell(iconById(id, 32), () -> {
                 onPick.accept(id);
@@ -2273,7 +2269,7 @@ public final class SanctumGui {
             switch (tag) {
                 case ICON -> {
                     // 内置图标（不可删除）
-                    for (String name : BUILTIN_ICONS) {
+                    for (String name : SvgIcon.libraryIcons()) {
                         settingsEntryModel.addElement("内置 · " + name);
                         settingsEntryIds.add(builtinIconId(name));
                         settingsEntryKinds.add(SettingsKind.ICON);

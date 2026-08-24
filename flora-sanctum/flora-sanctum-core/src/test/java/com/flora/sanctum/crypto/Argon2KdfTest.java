@@ -31,6 +31,39 @@ class Argon2KdfTest {
                 hex(Argon2.digest(PWD, SALT, 64, 3, 4, 16)));
     }
 
+    /**
+     * 官方 KAT 向量（RustCrypto password-hashes argon2/tests/kat.rs，对齐 phc-winner-argon2 参考实现）：
+     * 口令 = 32×0x01、盐 = 16×0x02、secret = 8×0x03、ad = 12×0x04、t=3、m=32(KiB)、p=4、输出 32 字节。
+     * 覆盖 Argon2d/Argon2i/Argon2id 三种类型，重点验证此前未被 Bouncy Castle 对照的
+     * Argon2d 数据相关寻址路径与多 lane 填充。
+     */
+    @Test
+    void officialReferenceVectors() {
+        byte[] pwd = new byte[32];
+        byte[] salt = new byte[16];
+        byte[] secret = new byte[8];
+        byte[] ad = new byte[12];
+        for (int i = 0; i < 32; i++) {
+            pwd[i] = 0x01;
+        }
+        for (int i = 0; i < 16; i++) {
+            salt[i] = 0x02;
+        }
+        for (int i = 0; i < 8; i++) {
+            secret[i] = 0x03;
+        }
+        for (int i = 0; i < 12; i++) {
+            ad[i] = 0x04;
+        }
+        assertAll(
+                () -> assertEquals("512b391b6f1162975371d30919734294f868e3be3984f3c1a13a4db9fabe4acb",
+                        hex(Argon2.digest(Argon2.TYPE_D, pwd, salt, secret, ad, 32, 3, 4, 32)), "Argon2d"),
+                () -> assertEquals("c814d9d1dc7f37aa13f0d77f2494bda1c8de6b016dd388d29952a4c4672b6ce8",
+                        hex(Argon2.digest(Argon2.TYPE_I, pwd, salt, secret, ad, 32, 3, 4, 32)), "Argon2i"),
+                () -> assertEquals("0d640df58d78766c08c037a34a8b53c9d01ef0452d75b65eb52520e96b01e659",
+                        hex(Argon2.digest(Argon2.TYPE_ID, pwd, salt, secret, ad, 32, 3, 4, 32)), "Argon2id"));
+    }
+
     @Test
     void deriveProduces32Bytes() {
         byte[] salt = new byte[16];

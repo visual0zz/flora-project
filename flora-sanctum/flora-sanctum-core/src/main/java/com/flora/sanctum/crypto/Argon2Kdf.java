@@ -61,6 +61,19 @@ public final class Argon2Kdf {
         }
     }
 
+    /**
+     * 原始 Argon2 派生（输入为任意字节，非口令）：供 KDBX 等外部格式密钥派生使用。
+     * <p>KDBX4 以 masterSeed‖复合主密钥 为输入、KdfParameters 的盐/参数调用 Argon2。</p>
+     *
+     * @param type  {@link Argon2#TYPE_D}/{@link Argon2#TYPE_I}/{@link Argon2#TYPE_ID}
+     * @param input 输入字节（KDBX 中为 masterSeed‖复合主密钥）
+     * @param outLen 输出长度（KDBX 为 32）
+     */
+    public static byte[] deriveRaw(int type, byte[] input, byte[] salt,
+            int memoryKiB, int iterations, int parallelism, int outLen) {
+        return Argon2.digest(type, input, salt, memoryKiB, iterations, parallelism, outLen);
+    }
+
     /** manifest MAC 密钥派生（见 02"manifest 防篡改"）。 */
     public byte[] manifestMacKey(byte[] kek) {
         return HkdfSha256.derive(kek, null, "sanctum-manifest-mac", 32);

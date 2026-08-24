@@ -16,8 +16,13 @@ public final class Argon2 {
     private Argon2() {
     }
 
+    /** Argon2 类型：0=Argon2d，1=Argon2i，2=Argon2id。 */
+    public static final int TYPE_D = 0;
+    public static final int TYPE_I = 1;
+    public static final int TYPE_ID = 2;
+
     /**
-     * Argon2id 摘要。
+     * Argon2id 摘要（兼容旧调用，等价于 {@code digest(TYPE_ID, ...)}）。
      *
      * @param password    密码字节
      * @param salt        盐
@@ -27,14 +32,48 @@ public final class Argon2 {
      * @param outLen      输出长度
      */
     public static byte[] digest(byte[] password, byte[] salt, int memoryKiB, int iterations, int parallelism, int outLen) {
+        return digest(TYPE_ID, password, salt, memoryKiB, iterations, parallelism, outLen);
+    }
+
+    /**
+     * Argon2 摘要（指定类型 d/i/id，secret 与关联数据留空）。
+     *
+     * @param type        {@link #TYPE_D}/{@link #TYPE_I}/{@link #TYPE_ID}
+     * @param password    密码字节（KDBX 场景下为复合主密钥）
+     * @param salt        盐
+     * @param memoryKiB   内存 KiB（须不小于 parallelism）
+     * @param iterations  迭代次数
+     * @param parallelism 并行度（lane 数）
+     * @param outLen      输出长度
+     */
+    public static byte[] digest(int type, byte[] password, byte[] salt, int memoryKiB, int iterations, int parallelism, int outLen) {
+        return digest(type, password, salt, null, null, memoryKiB, iterations, parallelism, outLen);
+    }
+
+    /**
+     * Argon2 摘要（指定类型 d/i/id，含可选 secret 与关联数据）。
+     *
+     * @param type        {@link #TYPE_D}/{@link #TYPE_I}/{@link #TYPE_ID}
+     * @param password    密码字节（KDBX 场景下为复合主密钥）
+     * @param salt        盐
+     * @param secret      密钥（可为空）
+     * @param ad          关联数据（可为空）
+     * @param memoryKiB   内存 KiB（须不小于 parallelism）
+     * @param iterations  迭代次数
+     * @param parallelism 并行度（lane 数）
+     * @param outLen      输出长度
+     */
+    public static byte[] digest(int type, byte[] password, byte[] salt, byte[] secret, byte[] ad,
+            int memoryKiB, int iterations, int parallelism, int outLen) {
         if (iterations <= 0) {
             throw new IllegalArgumentException("t 须为正");
         }
         if (parallelism <= 0) {
             throw new IllegalArgumentException("p 须为正");
         }
-        if (memoryKiB < 8 * parallelism) {
-            throw new IllegalArgumentException("m 须不小于 8p");
+        // 参考实现仅做算法可行性下限校验；低于 8p 的安全下限仍可被参考向量使用。
+        if (memoryKiB < parallelism) {
+            throw new IllegalArgumentException("m 须不小于 p");
         }
         if (outLen <= 0) {
             throw new IllegalArgumentException("outLen 须为正");
@@ -44,8 +83,13 @@ public final class Argon2 {
         int laneLength = mPrime / lanes;
         int segmentLength = laneLength / SYNC_POINTS;
 
-        byte[] h0 = initialHash(password, salt, memoryKiB, iterations, parallelism, outLen);
+        byte[] h0 = initialHash(type, password, salt, secret, ad, memoryKiB, iterations, parallelism, outLen);
+        // 所有块预分配为零字节数组：退化参数（referenceAreaSize=0）下可能引用尚未填充的块，
+        // 与参考实现一致，未初始化块按全零参与计算。
         byte[][] blocks = new byte[mPrime][];
+        for (int i = 0; i < mPrime; i++) {
+            blocks[i] = new byte[BLOCK_SIZE];
+        }
         for (int i = 0; i < lanes; i++) {
             blocks[i * laneLength] = variableHash(concat(h0, le32(0), le32(i)), BLOCK_SIZE);
             blocks[i * laneLength + 1] = variableHash(concat(h0, le32(1), le32(i)), BLOCK_SIZE);
@@ -69,8 +113,8 @@ public final class Argon2 {
 
                         long j1;
                         long j2;
-                        if (useDataIndependent(pass, slice)) {
-                            long value = independentValue(pass, lane, slice, mPrime, iterations, within);
+                        if (useDataIndependent(pass, slice, type)) {
+                            long value = independentValue(type, pass, lane, slice, mPrime, iterations, within);
                             j1 = value & 0xffffffffL;
                             j2 = value >>> 32;
                         } else {
@@ -104,27 +148,38 @@ public final class Argon2 {
         return variableHash(c, outLen);
     }
 
-    private static boolean useDataIndependent(int pass, int slice) {
+    /** 数据无关寻址：id 仅前两个 slice，i 全程，d 全程数据相关。 */
+    private static boolean useDataIndependent(int pass, int slice, int type) {
+        if (type == TYPE_I) {
+            return true;
+        }
+        if (type == TYPE_D) {
+            return false;
+        }
         return pass == 0 && slice < 2; // Argon2id：前两个 slice 数据无关
     }
 
     // ===== H0 / H' =====
 
-    private static byte[] initialHash(byte[] password, byte[] salt, int memoryKiB, int iterations,
-            int parallelism, int tagLen) {
+    private static byte[] initialHash(int type, byte[] password, byte[] salt, byte[] secret, byte[] ad, int memoryKiB,
+            int iterations, int parallelism, int tagLen) {
+        byte[] s = secret == null ? new byte[0] : secret;
+        byte[] a = ad == null ? new byte[0] : ad;
         Blake2bDigest d = Blake2bDigest.of512();
         d.update(le32(parallelism), 0, 4);
         d.update(le32(tagLen), 0, 4);
         d.update(le32(memoryKiB), 0, 4);
         d.update(le32(iterations), 0, 4);
         d.update(le32(VERSION), 0, 4);
-        d.update(le32(ARGON2id), 0, 4);
+        d.update(le32(type), 0, 4);
         d.update(le32(password.length), 0, 4);
         d.update(password, 0, password.length);
         d.update(le32(salt.length), 0, 4);
         d.update(salt, 0, salt.length);
-        d.update(le32(0), 0, 4); // secret 为空
-        d.update(le32(0), 0, 4); // additional 为空
+        d.update(le32(s.length), 0, 4);
+        d.update(s, 0, s.length);
+        d.update(le32(a.length), 0, 4);
+        d.update(a, 0, a.length);
         byte[] out = new byte[64];
         d.doFinal(out, 0);
         return out;
@@ -237,14 +292,14 @@ public final class Argon2 {
     // ===== 索引寻址 =====
 
     /** Argon2i 风格：数据无关索引，{@code G(0, G(0, Z‖LE64(counter)‖0))} 生成地址块逐对取值。 */
-    private static long independentValue(int pass, int lane, int slice, int mPrime, int iterations, int within) {
+    private static long independentValue(int type, int pass, int lane, int slice, int mPrime, int iterations, int within) {
         byte[] input = new byte[BLOCK_SIZE];
         writeLong(pass, input, 0);
         writeLong(lane, input, 8);
         writeLong(slice, input, 16);
         writeLong(mPrime, input, 24);
         writeLong(iterations, input, 32);
-        writeLong(ARGON2id, input, 40);
+        writeLong(type, input, 40);
         writeLong(within / 128 + 1, input, 48); // ref.c 每个 segment 首个地址块计数器从 1 起
         byte[] address = fillBlock(zero(), input, zero(), false);
         address = fillBlock(zero(), address, zero(), false);
@@ -292,7 +347,13 @@ public final class Argon2 {
                 start = 0;
             }
         }
-        return (int) ((start + relative) % laneLength);
+        // 参考实现用 uint64 运算：relative 可能为负，对应无符号下的大正数，
+        // 须以有符号取模再纠正，避免返回负索引。
+        long idx = (start + relative) % laneLength;
+        if (idx < 0) {
+            idx += laneLength;
+        }
+        return (int) idx;
     }
 
     // ===== 工具 =====

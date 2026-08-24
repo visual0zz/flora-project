@@ -767,6 +767,9 @@ public final class SanctumGui {
         syncBtn = iconButton(SvgIcon.get("ui/sync", 29), "同步");
         settingsBtn = iconButton(SvgIcon.get("ui/settings", 29), "设置");
         lockBtn = iconButton(SvgIcon.get("ui/lock", 29), "锁定");
+        JButton importBtn = new JButton("导入");
+        importBtn.setToolTipText("从 KeePassXC / KeePass (KDBX4) 数据库导入");
+        importBtn.addActionListener(e -> doImportKdbx());
         statusLabel = new JLabel();
         syncBtn.setVisible(isFullyManaged());
 
@@ -786,6 +789,7 @@ public final class SanctumGui {
         top.add(syncBtn);
         top.add(settingsBtn);
         top.add(lockBtn);
+        top.add(importBtn);
         top.add(new JLabel("搜索:"));
         top.add(searchField);
         top.add(clearSearch);
@@ -2020,6 +2024,117 @@ public final class SanctumGui {
         refreshEntryList(currentSearchQuery());
         renderGroupPanel(groupUuid);
         statusLabel.setText("已新建文件夹，请重命名");
+    }
+
+    /** 从 KeePassXC / KeePass (KDBX4) 导入：选文件 → 主密码 → 后台导入到当前仓库。 */
+    private void doImportKdbx() {
+        if (sanctum == null || sanctum.objectTree() == null) {
+            statusLabel.setText("请先打开一个仓库");
+            return;
+        }
+        javax.swing.JFileChooser fc = new javax.swing.JFileChooser();
+        fc.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                "KeePass 数据库 (*.kdbx)", "kdbx"));
+        if (fc.showOpenDialog(frame) != javax.swing.JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        java.nio.file.Path file = fc.getSelectedFile().toPath();
+        java.util.Optional<com.flora.sanctum.app.io.importer.Importer> importer =
+                com.flora.sanctum.app.io.importer.Importer.forFile(file);
+        if (importer.isEmpty()) {
+            javax.swing.JOptionPane.showMessageDialog(frame,
+                    "不支持的文件类型（仅支持 .kdbx）", "导入", javax.swing.JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        ImportCreds creds = askImportPassword(file);
+        if (creds == null) {
+            return; // 取消
+        }
+        statusLabel.setText("正在导入 " + file.getFileName() + " …");
+        final com.flora.sanctum.app.io.importer.Importer imp = importer.get();
+        new Thread(() -> {
+            try {
+                com.flora.sanctum.app.io.importer.ImportContext ctx =
+                        com.flora.sanctum.app.io.importer.ImportContext.builder(sanctum.objectTree())
+                                .password(creds.password)
+                                .keyFile(creds.keyFile)
+                                .build();
+                com.flora.sanctum.app.io.importer.ImportResult result = imp.importFile(file, ctx);
+                javax.swing.SwingUtilities.invokeLater(() -> {
+                    rebuildGroupTree();
+                    refreshEntryList(currentSearchQuery());
+                    statusLabel.setText("导入完成：" + result);
+                    javax.swing.JOptionPane.showMessageDialog(frame,
+                            "导入完成：\n" + result, "导入", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                });
+            } catch (Exception ex) {
+                Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                String msg = cause instanceof com.flora.sanctum.app.io.importer.ImportException
+                        ? cause.getMessage() : cause.toString();
+                javax.swing.SwingUtilities.invokeLater(() -> {
+                    statusLabel.setText("导入失败");
+                    javax.swing.JOptionPane.showMessageDialog(frame,
+                            "导入失败：" + msg, "导入错误", javax.swing.JOptionPane.ERROR_MESSAGE);
+                });
+            } finally {
+                if (creds.password != null) {
+                    java.util.Arrays.fill(creds.password, '\0');
+                }
+            }
+        }, "kdbx-import").start();
+    }
+
+    /** 导入主密码对话框（含可选密钥文件）。返回 null 表示取消。 */
+    private ImportCreds askImportPassword(java.nio.file.Path file) {
+        javax.swing.JDialog d = new javax.swing.JDialog(frame, "导入 " + file.getFileName(), true);
+        d.setLayout(new java.awt.BorderLayout(10, 10));
+        JPanel form = new JPanel(new java.awt.GridLayout(0, 1, 6, 6));
+        javax.swing.JPasswordField pf = new javax.swing.JPasswordField();
+        form.add(new javax.swing.JLabel("主密码："));
+        form.add(pf);
+        javax.swing.JButton keyBtn = new javax.swing.JButton("选择密钥文件（可选）");
+        javax.swing.JLabel keyLabel = new javax.swing.JLabel("未选择密钥文件");
+        final java.nio.file.Path[] keyFile = {null};
+        keyBtn.addActionListener(e -> {
+            javax.swing.JFileChooser kc = new javax.swing.JFileChooser();
+            if (kc.showOpenDialog(d) == javax.swing.JFileChooser.APPROVE_OPTION) {
+                keyFile[0] = kc.getSelectedFile().toPath();
+                keyLabel.setText(keyFile[0].getFileName().toString());
+            }
+        });
+        form.add(keyBtn);
+        form.add(keyLabel);
+        javax.swing.JButton ok = new javax.swing.JButton("导入");
+        javax.swing.JButton cancel = new javax.swing.JButton("取消");
+        java.util.concurrent.atomic.AtomicReference<char[]> result = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<java.nio.file.Path> kf = new java.util.concurrent.atomic.AtomicReference<>();
+        ok.addActionListener(e -> {
+            result.set(pf.getPassword());
+            kf.set(keyFile[0]);
+            d.dispose();
+        });
+        cancel.addActionListener(e -> d.dispose());
+        javax.swing.JPanel btns = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT));
+        btns.add(cancel);
+        btns.add(ok);
+        d.add(form, java.awt.BorderLayout.CENTER);
+        d.add(btns, java.awt.BorderLayout.SOUTH);
+        d.pack();
+        d.setLocationRelativeTo(frame);
+        d.setVisible(true);
+        if (result.get() == null) {
+            return null;
+        }
+        ImportCreds c = new ImportCreds();
+        c.password = result.get();
+        c.keyFile = kf.get();
+        return c;
+    }
+
+    /** 导入凭据（主密码 + 可选密钥文件）。 */
+    private static final class ImportCreds {
+        char[] password;
+        java.nio.file.Path keyFile;
     }
 
     private void doDelete() {

@@ -76,8 +76,8 @@ public final class VaultCreator {
         manifest.put("rootGroupUuid", rootGroupUuid.toString());
         manifest.put("updateTimestamp", 1);
         byte[] payload = com.flora.root.codec.JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
-        byte[] block = com.flora.sanctum.model.impl.ManifestStore.buildBlock(uuid, payload, 1, macKey);
-        store.put(uuid, block, null, 1);
+        byte[] block = com.flora.sanctum.model.impl.ManifestStore.buildBlock(uuid, payload, "1", macKey);
+        store.put(uuid, block, null, "1");
     }
 
     private void writeRootGroup(RootTag tag, java.util.UUID rootUuid, byte[] kek, byte[] repoKeyIdSeed) {
@@ -98,7 +98,7 @@ public final class VaultCreator {
         byte[] encKey = com.flora.sanctum.crypto.KeyDerivation.encKey(kek);
         com.flora.sanctum.crypto.impl.CipherCodec codec =
                 new com.flora.sanctum.crypto.impl.CipherCodec(encKey, kek, repoKeyIdSeed, random);
-        return codec.encode(UUID.randomUUID(), dek, 0);
+        return codec.encode(UUID.randomUUID(), dek, "0");
     }
 
     private void writeCipherBlock(java.util.UUID uuid, com.flora.root.codec.json.model.JsonObject payload,
@@ -107,7 +107,8 @@ public final class VaultCreator {
         byte[] encKey = com.flora.sanctum.crypto.KeyDerivation.encKey(keyMaterial);
         com.flora.sanctum.crypto.impl.CipherCodec codec =
                 new com.flora.sanctum.crypto.impl.CipherCodec(encKey, keyMaterial, repoKeyIdSeed, random);
-        byte[] block = codec.encode(uuid, json, timestamp);
-        store.put(uuid, block, null, timestamp);
+        String tsText = Long.toString(timestamp);
+        byte[] block = codec.encode(uuid, json, tsText);
+        store.put(uuid, block, null, tsText);
     }
 }

@@ -41,8 +41,8 @@ public final class VaultUnlocker {
         Argon2Kdf kdf = new Argon2Kdf(salt, manifest.memoryKiB(), manifest.iterations(), manifest.parallelism());
         byte[] kek = kdf.derive(masterPassword);
         try {
-            // 3. 验证 manifest MAC（覆盖完整信封头 + 时间戳 + 负载，尾附于块末）
-            verifyMac(full, manifestBlock.timestamp(), manifest, kek);
+            // 3. 验证 manifest MAC（覆盖完整信封头 + 时间戳原文 + 负载，尾附于块末）
+            verifyMac(full, manifestBlock.timestampText(), manifest, kek);
         } catch (IllegalArgumentException e) {
             java.util.Arrays.fill(kek, (byte) 0);
             throw e;
@@ -145,7 +145,7 @@ public final class VaultUnlocker {
         try {
             byte[] encK = com.flora.sanctum.crypto.KeyDerivation.encKey(dk);
             com.flora.sanctum.crypto.impl.CipherCodec gc = new com.flora.sanctum.crypto.impl.CipherCodec(encK, dk, vault.random());
-            return gc.decode(b.obfuscated(), b.timestamp()).plaintext;
+            return gc.decode(b.obfuscated(), b.timestampText()).plaintext;
         } catch (Exception e) {
             return null;
         }
@@ -155,7 +155,7 @@ public final class VaultUnlocker {
         try {
             byte[] encK = com.flora.sanctum.crypto.KeyDerivation.encKey(parentDek);
             com.flora.sanctum.crypto.impl.CipherCodec gc = new com.flora.sanctum.crypto.impl.CipherCodec(encK, parentDek, vault.random());
-            return gc.decode(wrapped, 0).plaintext;
+            return gc.decode(wrapped, "0").plaintext;
         } catch (Exception e) {
             return null;
         }
@@ -194,7 +194,7 @@ public final class VaultUnlocker {
         return null;
     }
 
-    private void verifyMac(byte[] full, long timestamp, Manifest m, byte[] kek) {
+    private void verifyMac(byte[] full, String timestamp, Manifest m, byte[] kek) {
         byte[] macKey = m.manifestMacKey(kek);
         if (!com.flora.sanctum.model.impl.ManifestStore.verifyMac(full, timestamp, macKey)) {
             throw new IllegalArgumentException("manifest MAC mismatch");

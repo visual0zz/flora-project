@@ -29,10 +29,10 @@ public final class BlockResolver {
      * 解析一个密文块（含随机异或混淆的落盘字节）。
      *
      * @param obfuscatedBlock 落盘块字节
-     * @param timestamp       块级时间戳（重建 AAD）
+     * @param timestamp       块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文，重建 AAD）
      * @return 解密负载；候选 DEK 全部试解失败或无法定位返回 {@code null}。
      */
-    public byte[] decode(byte[] obfuscatedBlock, long timestamp) {
+    public byte[] decode(byte[] obfuscatedBlock, String timestamp) {
         byte[] block = deobfuscate(obfuscatedBlock);
         if (block.length < Envelope.HEADER_LEN) {
             throw new IllegalArgumentException("block too short");

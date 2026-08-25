@@ -17,9 +17,9 @@ import java.util.UUID;
  * keyId 在 encode 内部生成（防关联随机化），经 {@link KeyIdDeriver} 对合派生，
  * 解密侧用 {@link KeyIdDeriver#resolveDekId} 从 (nonce, keyId) 恢复内部标识定位。
  * <p>
- * AAD = 块级时间戳（十进制 UTF-8）‖ 整个信封头（magic‖version‖flags‖uuid‖nonce‖keyId），
+ * AAD = 块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文）‖ 整个信封头（magic‖version‖flags‖uuid‖nonce‖keyId），
  * GCM-SIV tag 全量认证。明文负载先 deflate 压缩再加密（降低冗余与长度暴露）。
- * 时间戳不存于负载 JSON，由块前缀 {@code timestamp:base58} 提供，解码时经参数传入以重建 AAD。
+ * 时间戳不存于负载 JSON，由块前缀 {@code timestamp:base58} 提供，解码时经参数传入（原文）以重建 AAD。
  * 落盘/读盘时，整个字节序列与每块随机 xorByte 逐字节异或；xorByte 不落盘，
  * 读取时从落盘首字节反推：{@code xorByte = bytes[0] ^ MAGIC[0]}。
  */
@@ -52,9 +52,9 @@ public final class CipherCodec {
      *
      * @param uuid      对象 UUID
      * @param plaintext 明文负载（将被 deflate 压缩后加密）
-     * @param timestamp 块级时间戳（进入 AAD 认证）
+     * @param timestamp 块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文，进入 AAD 认证）
      */
-    public byte[] encode(UUID uuid, byte[] plaintext, long timestamp) {
+    public byte[] encode(UUID uuid, byte[] plaintext, String timestamp) {
         byte[] nonce = new byte[Envelope.NONCE_LEN];
         random.nextBytes(nonce);
         byte[] keyId = makeKeyId(nonce);
@@ -71,8 +71,8 @@ public final class CipherCodec {
         int keyIdOff = nonceOff + Envelope.NONCE_LEN;
         System.arraycopy(keyId, 0, header, keyIdOff, keyId.length);
 
-        // AAD = 时间戳 ‖ 信封头
-        byte[] aad = concat(Long.toString(timestamp).getBytes(java.nio.charset.StandardCharsets.US_ASCII), header);
+        // AAD = 时间戳字符串（ASCII）‖ 信封头
+        byte[] aad = concat(timestamp.getBytes(java.nio.charset.StandardCharsets.US_ASCII), header);
         byte[] compressed = deflate(plaintext);
 
         // GCM-SIV 加密，AAD = aad，输出 = 密文 ‖ tag
@@ -90,9 +90,9 @@ public final class CipherCodec {
      * 解码并解密落盘块（含随机异或混淆）。返回 [uuid, plaintext]。
      *
      * @param obfuscated 落盘块字节
-     * @param timestamp  块级时间戳（重建 AAD 认证）
+     * @param timestamp  块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文，重建 AAD 认证）
      */
-    public DecodedBlock decode(byte[] obfuscated, long timestamp) {
+    public DecodedBlock decode(byte[] obfuscated, String timestamp) {
         byte[] block = deobfuscate(obfuscated);
         if (block.length < Envelope.HEADER_LEN) {
             throw new IllegalArgumentException("block too short");
@@ -121,7 +121,7 @@ public final class CipherCodec {
         byte[] ciphertext = new byte[block.length - Envelope.HEADER_LEN];
         System.arraycopy(block, Envelope.HEADER_LEN, ciphertext, 0, ciphertext.length);
 
-        byte[] aad = concat(Long.toString(timestamp).getBytes(java.nio.charset.StandardCharsets.US_ASCII), header);
+        byte[] aad = concat(timestamp.getBytes(java.nio.charset.StandardCharsets.US_ASCII), header);
         // GCM-SIV 解密并验证 tag（认证失败抛 IllegalStateException，与调用方契约一致）
         final byte[] compressed;
         try {

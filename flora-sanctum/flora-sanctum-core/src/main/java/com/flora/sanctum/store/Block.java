@@ -14,13 +14,15 @@ public final class Block {
     private final Path file;
     private final long line;
     private final long timestamp;
+    private final String timestampText; // 落盘前缀时间戳原文（AAD 重建依赖原文，见设计 04）
     private final byte[] obfuscated;
     private final byte[] deobfuscated;
 
-    public Block(Path file, long line, long timestamp, byte[] obfuscated, byte[] deobfuscated) {
+    public Block(Path file, long line, String timestampText, byte[] obfuscated, byte[] deobfuscated) {
         this.file = file;
         this.line = line;
-        this.timestamp = timestamp;
+        this.timestamp = Long.parseLong(timestampText);
+        this.timestampText = timestampText;
         this.obfuscated = obfuscated;
         this.deobfuscated = deobfuscated;
     }
@@ -33,9 +35,14 @@ public final class Block {
         return line;
     }
 
-    /** 块级时间戳（落盘 {@code timestamp:base58} 前缀），用于冲突仲裁与时钟锚点。 */
+    /** 块级时间戳数值（落盘 {@code timestamp:base58} 前缀解析），用于冲突仲裁与时钟锚点。 */
     public long timestamp() {
         return timestamp;
+    }
+
+    /** 落盘前缀时间戳原文（AAD/MAC 重建依赖原文字符串，与 {@link #timestamp()} 数值等价）。 */
+    public String timestampText() {
+        return timestampText;
     }
 
     public byte[] obfuscated() {

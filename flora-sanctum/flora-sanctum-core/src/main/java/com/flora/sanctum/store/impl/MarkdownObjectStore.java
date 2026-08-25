@@ -62,7 +62,7 @@ public final class MarkdownObjectStore implements ObjectStore {
             if (colon <= 0 || colon >= content.length() - 1) {
                 return null;
             }
-            long timestamp = Long.parseLong(content.substring(0, colon));
+            String timestamp = content.substring(0, colon);
             byte[] obfuscated = Base58.decode(content.substring(colon + 1));
             if (codec == null) {
                 return BlockHeader.deobfuscate(obfuscated);
@@ -74,7 +74,7 @@ public final class MarkdownObjectStore implements ObjectStore {
     }
 
     @Override
-    public void put(UUID blockUuid, byte[] data, Codec codec, long timestamp) {
+    public void put(UUID blockUuid, byte[] data, Codec codec, String timestamp) {
         byte[] toWrite = codec == null ? data : codec.encode(data, timestamp);
         Path file = fileOf(blockUuid);
         try {
@@ -137,7 +137,7 @@ public final class MarkdownObjectStore implements ObjectStore {
             if (!BlockHeader.isBlock(deobfuscated)) {
                 return;
             }
-            out.add(new Block(file, 1, Long.parseLong(ts), bytes, deobfuscated));
+            out.add(new Block(file, 1, ts, bytes, deobfuscated));
         } catch (Exception ignore) {
             // 损坏/非本应用文件，跳过
         }

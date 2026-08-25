@@ -61,7 +61,7 @@ public final class ExternalKeyService {
         byte[] encKey = KeyDerivation.encKey(keyMaterial);
         CipherCodec codec = new CipherCodec(encKey, keyMaterial, sanctum.vault().repoKeyIdSeed(),
                 sanctum.vault().random());
-        return codec.encode(fieldUuid, data, 0);
+        return codec.encode(fieldUuid, data, "0");
     }
 
     /** 解密：从密文头 (nonce, keyId) 恢复 dekId 定位候选，再 tag 试解确证（与系统块同一机制）。 */
@@ -93,7 +93,7 @@ public final class ExternalKeyService {
             CipherCodec codec = new CipherCodec(encKey, keyMaterial, sanctum.vault().repoKeyIdSeed(),
                     sanctum.vault().random());
             try {
-                return codec.decode(obfuscated, 0).plaintext;
+                return codec.decode(obfuscated, "0").plaintext;
             } catch (IllegalStateException ignore) {
                 // tag 不符 → 试下一个候选（同 dekId 碰撞）
             }
@@ -153,7 +153,7 @@ public final class ExternalKeyService {
     }
 
     private JsonObject readNode(Block b) {
-        byte[] plain = sanctum.vault().resolve(b.obfuscated(), b.timestamp());
+        byte[] plain = sanctum.vault().resolve(b.obfuscated(), b.timestampText());
         if (plain == null) {
             return null;
         }

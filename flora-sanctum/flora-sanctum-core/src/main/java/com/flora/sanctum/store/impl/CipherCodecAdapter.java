@@ -24,13 +24,13 @@ public final class CipherCodecAdapter implements Codec {
     }
 
     @Override
-    public byte[] encode(byte[] data, long timestamp) {
+    public byte[] encode(byte[] data, String timestamp) {
         // keyId 由 CipherCodec 内部生成（nonce 随机 + KeyIdDeriver 派生）
         return codec.encode(objectUuid, data, timestamp);
     }
 
     @Override
-    public byte[] decode(byte[] data, long timestamp) {
+    public byte[] decode(byte[] data, String timestamp) {
         CipherCodec.DecodedBlock d = codec.decode(data, timestamp);
         return d.plaintext;
     }

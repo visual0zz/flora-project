@@ -76,7 +76,7 @@ public final class GarbageCollector {
     }
 
     private JsonObject nodeOf(Block b) {
-        byte[] plain = ctx.vault().resolve(b.obfuscated(), b.timestamp());
+        byte[] plain = ctx.vault().resolve(b.obfuscated(), b.timestampText());
         if (plain == null) {
             return null;
         }

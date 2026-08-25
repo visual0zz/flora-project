@@ -21,9 +21,9 @@ public interface ObjectStore {
     /**
      * 写入/更新某对象：重新加密（若 codec 非 null）并覆盖对应文件。
      *
-     * @param timestamp 块级时间戳（落盘为 {@code timestamp:base58} 前缀，且作为 codec 的 AAD）
+     * @param timestamp 块级时间戳（规范 ASCII 十进制字符串，落盘为 {@code timestamp:base58} 前缀，且作为 codec 的 AAD）
      */
-    void put(java.util.UUID blockUuid, byte[] data, Codec codec, long timestamp);
+    void put(java.util.UUID blockUuid, byte[] data, Codec codec, String timestamp);
 
     /**
      * 删除某对象：物理删除对应文件。

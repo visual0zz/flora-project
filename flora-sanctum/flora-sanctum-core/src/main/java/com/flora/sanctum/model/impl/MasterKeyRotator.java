@@ -47,13 +47,13 @@ public final class MasterKeyRotator {
                 }
                 byte[] plain;
                 try {
-                    plain = oldCodec.decode(b.obfuscated(), b.timestamp()).plaintext;
+                    plain = oldCodec.decode(b.obfuscated(), b.timestampText()).plaintext;
                 } catch (Exception e) {
                     continue; // 非 KEK 包裹（不期望发生），跳过
                 }
                 JsonObject n = JsonUtil.parseObject(new String(plain, StandardCharsets.UTF_8));
                 byte[] oldWrapped = Base64.getDecoder().decode(n.getString("dek"));
-                byte[] dek = oldCodec.decode(oldWrapped, 0).plaintext;
+                byte[] dek = oldCodec.decode(oldWrapped, "0").plaintext;
                 byte[] newWrapped = ctx.wrapDek(dek, newKek);
                 n = JsonUtil.parseObject(new String(plain, StandardCharsets.UTF_8));
                 n.put("dek", Base64.getEncoder().encodeToString(newWrapped));

@@ -38,7 +38,7 @@ class MarkdownObjectStoreTest {
         UUID uuid = UUID.randomUUID();
         byte[] plain = "hello 密码".getBytes(StandardCharsets.UTF_8);
 
-        store.put(uuid, plain, new CipherCodecAdapter(codec, uuid), 1);
+        store.put(uuid, plain, new CipherCodecAdapter(codec, uuid), "1");
         byte[] got = store.get(uuid, new CipherCodecAdapter(codec, uuid));
         assertArrayEquals(plain, got);
     }
@@ -48,7 +48,7 @@ class MarkdownObjectStoreTest {
         MarkdownObjectStore store = newStore();
         CipherCodec codec = newCodec();
         UUID uuid = UUID.randomUUID();
-        store.put(uuid, "data".getBytes(), new CipherCodecAdapter(codec, uuid), 1);
+        store.put(uuid, "data".getBytes(), new CipherCodecAdapter(codec, uuid), "1");
         // 路径：{前2字符}/{后30字符}.md（无连字符）
         String hex = uuid.toString().replace("-", "");
         Path file = dir.resolve(hex.substring(0, 2)).resolve(hex.substring(2) + ".md");
@@ -68,8 +68,8 @@ class MarkdownObjectStoreTest {
         MarkdownObjectStore store = newStore();
         CipherCodec codec = newCodec();
         UUID uuid = UUID.randomUUID();
-        store.put(uuid, "v1".getBytes(), new CipherCodecAdapter(codec, uuid), 1);
-        store.put(uuid, "v2-updated".getBytes(), new CipherCodecAdapter(codec, uuid), 2);
+        store.put(uuid, "v1".getBytes(), new CipherCodecAdapter(codec, uuid), "1");
+        store.put(uuid, "v2-updated".getBytes(), new CipherCodecAdapter(codec, uuid), "2");
         byte[] got = store.get(uuid, new CipherCodecAdapter(codec, uuid));
         assertArrayEquals("v2-updated".getBytes(), got);
         assertEquals(1, store.scan().size());
@@ -80,7 +80,7 @@ class MarkdownObjectStoreTest {
         MarkdownObjectStore store = newStore();
         CipherCodec codec = newCodec();
         UUID uuid = UUID.randomUUID();
-        store.put(uuid, "data".getBytes(), new CipherCodecAdapter(codec, uuid), 1);
+        store.put(uuid, "data".getBytes(), new CipherCodecAdapter(codec, uuid), "1");
         store.delete(uuid);
         String hex = uuid.toString().replace("-", "");
         Path file = dir.resolve(hex.substring(0, 2)).resolve(hex.substring(2) + ".md");
@@ -95,7 +95,7 @@ class MarkdownObjectStoreTest {
         int n = 64;
         for (int i = 0; i < n; i++) {
             UUID uuid = UUID.randomUUID();
-            store.put(uuid, ("data-" + i).getBytes(), new CipherCodecAdapter(codec, uuid), i);
+            store.put(uuid, ("data-" + i).getBytes(), new CipherCodecAdapter(codec, uuid), String.valueOf(i));
         }
         assertEquals(n, store.scan().size());
         assertEquals(n, store.list().size());

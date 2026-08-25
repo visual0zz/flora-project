@@ -22,11 +22,11 @@ class CipherCodecTest {
         UUID uuid = UUID.randomUUID();
         byte[] plaintext = "微博 password 密码".getBytes(StandardCharsets.UTF_8);
 
-        byte[] obfuscated = codec.encode(uuid, plaintext, 42);
+        byte[] obfuscated = codec.encode(uuid, plaintext, "42");
         // 落盘字节不应以固定 magic 开头（异或混淆）
         assertFalse(obfuscated[0] == Envelope.MAGIC[0] && obfuscated[1] == Envelope.MAGIC[1]);
 
-        CipherCodec.DecodedBlock decoded = codec.decode(obfuscated, 42);
+        CipherCodec.DecodedBlock decoded = codec.decode(obfuscated, "42");
         assertEquals(uuid, decoded.uuid);
         assertArrayEquals(plaintext, decoded.plaintext);
     }
@@ -36,8 +36,8 @@ class CipherCodecTest {
         byte[] dek = new byte[32];
         new SecureRandomSource().nextBytes(dek);
         CipherCodec codec = new CipherCodec(dek, dek);
-        byte[] obfuscated = codec.encode(UUID.randomUUID(), "data".getBytes(StandardCharsets.UTF_8), 7);
-        assertThrows(IllegalStateException.class, () -> codec.decode(obfuscated, 8));
+        byte[] obfuscated = codec.encode(UUID.randomUUID(), "data".getBytes(StandardCharsets.UTF_8), "7");
+        assertThrows(IllegalStateException.class, () -> codec.decode(obfuscated, "8"));
     }
 
     @Test
@@ -46,9 +46,9 @@ class CipherCodecTest {
         new SecureRandomSource().nextBytes(dek);
         CipherCodec codec = new CipherCodec(dek, dek);
 
-        byte[] obfuscated = codec.encode(UUID.randomUUID(), "data".getBytes(StandardCharsets.UTF_8), 0);
+        byte[] obfuscated = codec.encode(UUID.randomUUID(), "data".getBytes(StandardCharsets.UTF_8), "0");
         // 篡改一个字节
         obfuscated[10] ^= 0x01;
-        assertThrows(IllegalStateException.class, () -> codec.decode(obfuscated, 0));
+        assertThrows(IllegalStateException.class, () -> codec.decode(obfuscated, "0"));
     }
 }

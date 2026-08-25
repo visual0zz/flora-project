@@ -49,9 +49,9 @@ public final class ManifestStore {
         return header;
     }
 
-    /** MAC 输入：时间戳(ASCII) ‖ 完整信封头 ‖ 负载。 */
-    public static byte[] macInput(byte[] header, long timestamp, byte[] payload) {
-        byte[] ts = Long.toString(timestamp).getBytes(StandardCharsets.US_ASCII);
+    /** MAC 输入：时间戳(ASCII 原文) ‖ 完整信封头 ‖ 负载。 */
+    public static byte[] macInput(byte[] header, String timestamp, byte[] payload) {
+        byte[] ts = timestamp.getBytes(StandardCharsets.US_ASCII);
         byte[] out = new byte[ts.length + header.length + payload.length];
         System.arraycopy(ts, 0, out, 0, ts.length);
         System.arraycopy(header, 0, out, ts.length, header.length);
@@ -59,8 +59,8 @@ public final class ManifestStore {
         return out;
     }
 
-    /** 计算 manifest MAC：HMAC-SHA256(macKey, timestamp ‖ header ‖ payload)。 */
-    public static byte[] computeMac(byte[] macKey, byte[] header, long timestamp, byte[] payload) {
+    /** 计算 manifest MAC：HMAC-SHA256(macKey, timestamp(ASCII 原文) ‖ header ‖ payload)。 */
+    public static byte[] computeMac(byte[] macKey, byte[] header, String timestamp, byte[] payload) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(macKey, "HmacSHA256"));
@@ -71,7 +71,7 @@ public final class ManifestStore {
     }
 
     /** 构造完整明文块（含异或混淆）：header + payload + mac。 */
-    public static byte[] buildBlock(UUID uuid, byte[] payload, long timestamp, byte[] macKey) {
+    public static byte[] buildBlock(UUID uuid, byte[] payload, String timestamp, byte[] macKey) {
         byte[] header = plaintextHeader(uuid);
         byte[] mac = computeMac(macKey, header, timestamp, payload);
         byte[] block = new byte[header.length + payload.length + mac.length];
@@ -103,8 +103,8 @@ public final class ManifestStore {
         return Arrays.copyOfRange(full, 0, Envelope.PLAINTEXT_HEADER_LEN);
     }
 
-    /** 校验完整明文块 MAC（header+timestamp+payload 与尾附 MAC 比对）。 */
-    public static boolean verifyMac(byte[] full, long timestamp, byte[] macKey) {
+    /** 校验完整明文块 MAC（header+timestamp(ASCII 原文)+payload 与尾附 MAC 比对）。 */
+    public static boolean verifyMac(byte[] full, String timestamp, byte[] macKey) {
         byte[] expected = computeMac(macKey, headerOf(full), timestamp, payloadOf(full));
         return MessageDigestIsEqual(expected, macOf(full));
     }
@@ -174,7 +174,7 @@ public final class ManifestStore {
         manifest.put("rootGroupUuid", m.rootGroupUuid() == null ? null : m.rootGroupUuid().toString());
         manifest.put("updateTimestamp", m.updateTimestamp());
         byte[] payload = JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
-        byte[] obf = buildBlock(uuid, payload, m.updateTimestamp(), macKey);
-        store.put(uuid, obf, null, m.updateTimestamp());
+        byte[] obf = buildBlock(uuid, payload, Long.toString(m.updateTimestamp()), macKey);
+        store.put(uuid, obf, null, Long.toString(m.updateTimestamp()));
     }
 }

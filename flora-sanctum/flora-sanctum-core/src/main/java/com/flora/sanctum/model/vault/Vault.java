@@ -161,8 +161,10 @@ public final class Vault {
 
     /**
      * 解密一个密文块为负载字节；非本库可解返回 null。
+     *
+     * @param timestamp 块级时间戳原文（落盘前缀字符串，重建 AAD）
      */
-    public byte[] resolve(byte[] obfuscatedBlock, long timestamp) {
+    public byte[] resolve(byte[] obfuscatedBlock, String timestamp) {
         return resolver.decode(obfuscatedBlock, timestamp);
     }
 }

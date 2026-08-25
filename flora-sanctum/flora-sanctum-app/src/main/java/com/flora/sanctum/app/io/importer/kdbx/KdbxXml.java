@@ -99,19 +99,25 @@ final class KdbxXml {
     private static KdbxDocument.KdbxEntry parseEntry(Element entryEl, KdbxStreamCipher stream) {
         KdbxDocument.KdbxEntry e = new KdbxDocument.KdbxEntry();
         e.uuid = uuidText(entryEl);
-        for (Element s : childElements(entryEl)) {
-            if (!"String".equals(s.getTagName())) {
-                continue;
+        // 内层随机流的密钥流在所有受保护字段上按 XML 文档顺序连续推进。
+        // 因此必须严格按文档顺序遍历条目子元素：直接 <String> 子元素的受保护值既解密又保留；
+        // <History> 内的历史条目同样含受保护字段，需推进密钥流但不保留其内容。
+        // 注意：活动条目的 <Password> 等 <String> 可能位于 <History> 之后，故不能先集中处理活动字段。
+        for (Element child : childElements(entryEl)) {
+            String tag = child.getTagName();
+            if ("String".equals(tag)) {
+                String key = textOfChild(child, "Key");
+                Element valueEl = firstChild(child, "Value");
+                if (key == null || valueEl == null) {
+                    continue;
+                }
+                String raw = valueEl.getTextContent();
+                boolean prot = "True".equalsIgnoreCase(valueEl.getAttribute("Protected"));
+                String value = prot ? stream.decrypt(raw) : raw;
+                e.fields.put(key, new KdbxDocument.KdbxField(value, prot));
+            } else if ("History".equals(tag)) {
+                consumeProtectedStream(child, stream);
             }
-            String key = textOfChild(s, "Key");
-            Element valueEl = firstChild(s, "Value");
-            if (key == null || valueEl == null) {
-                continue;
-            }
-            String raw = valueEl.getTextContent();
-            boolean prot = "True".equalsIgnoreCase(valueEl.getAttribute("Protected"));
-            String value = prot ? stream.decrypt(raw) : raw;
-            e.fields.put(key, new KdbxDocument.KdbxField(value, prot));
         }
         Element times = firstChild(entryEl, "Times");
         if (times != null) {
@@ -121,6 +127,18 @@ final class KdbxXml {
         KdbxDocument.KdbxField title = e.fields.get("Title");
         e.name = title == null ? "" : title.value;
         return e;
+    }
+
+    /** 仅推进内层流密钥流：对子树内所有受保护 <Value> 按文档顺序解密（结果丢弃）。 */
+    private static void consumeProtectedStream(Element root, KdbxStreamCipher stream) {
+        if ("Value".equals(root.getTagName())
+                && "True".equalsIgnoreCase(root.getAttribute("Protected"))) {
+            stream.decrypt(root.getTextContent());
+            return;
+        }
+        for (Element c : childElements(root)) {
+            consumeProtectedStream(c, stream);
+        }
     }
 
     private static Long parseTime(String s) {

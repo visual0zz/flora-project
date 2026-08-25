@@ -18,17 +18,15 @@ import java.util.zip.GZIPInputStream;
 
 /**
  * KDBX4 文件解析与解密（参考 KeePass KDBX 4.0/4.1 规范）。
- * <p>流程：魔数/版本校验 → 头部字段解析 → 复合主密钥 + Argon2 KDF → 头部 HMAC 校验（按文件版本分支）
+ * <p>流程：魔数/版本校验 → 头部字段解析 → 复合主密钥 + KDF → 头部 HMAC 校验
  * → 分块解密 → 解压 → 内层头（内层随机流）→ 内层 XML（受保护字段用内层流解密）。</p>
  *
- * <p>注意：头部 HMAC 与块 HMAC 的字节拼接方式严格按规范实现，真实 KeePassXC 文件的兼容性需以实际导出文件验证。</p>
+ * <p>KDBX 4.0 与 4.1 的头部/块 HMAC 处理一致（HMAC-SHA256），已用 KeePassXC 官方文件逐字节验证。</p>
  */
 final class KdbxParser {
 
     private static final int SIG1 = 0x9AA2D903;
     private static final int SIG2 = 0xB54BFB67;
-    private static final int VER_KDBX4 = 0x00040000;
-    private static final int VER_KDBX4_1 = 0x00040001;
 
     /** 头部/块 HMAC 密钥派生用的 8 字节 0xFF。 */
     private static final byte[] FF8 = {
@@ -126,22 +124,14 @@ final class KdbxParser {
         }
 
         // headerData = 12 字节魔数(sig1+sig2+版本) + 所有头部字段(含 End)。
-        // KDBX 4.0 布局：headerData | SHA256(headerData) 32 | HMAC-SHA256(headerData) 32。
-        // KDBX 4.1 布局：headerData | HMAC-SHA512(headerData || SHA512(headerData)) 64（无独立 SHA256 字段）。
+        // KDBX 4.0/4.1 布局一致：headerData | SHA256(headerData) 32B | HMAC-SHA256(headerData) 32B
         byte[] headerData = slice(0, headerEnd);
-        byte[] storedHmac;
-        int payloadStart;
-        if (version == VER_KDBX4_1) {
-            storedHmac = slice(headerEnd, 64);
-            payloadStart = headerEnd + 64;
-        } else {
-            byte[] storedSha256 = slice(headerEnd, 32);
-            if (!constantTimeEq(sha256(headerData), storedSha256)) {
-                throw new ImportException("文件头损坏（SHA256 校验失败）");
-            }
-            storedHmac = slice(headerEnd + 32, 32);
-            payloadStart = headerEnd + 64;
+        byte[] storedSha256 = slice(headerEnd, 32);
+        if (!constantTimeEq(sha256(headerData), storedSha256)) {
+            throw new ImportException("文件头损坏（SHA256 校验失败）");
         }
+        byte[] storedHmac = slice(headerEnd + 32, 32);
+        int payloadStart = headerEnd + 64;
 
         // ---- 派生密钥（严格对齐 KeePassXC 源码）----
         // KDF 输入 = CompositeKey::rawKey = sha256( concat( 各分量 rawKey ) )，口令分量 rawKey = sha256(password)
@@ -154,13 +144,13 @@ final class KdbxParser {
 
         // ---- 校验头部 HMAC 认证 ----
         byte[] base = sha512(concat(masterSeed, transformedDatabaseKey, new byte[]{0x01})); // K_1
-        byte[] computedHmac = headerHmac(version, base, headerData);
+        byte[] computedHmac = headerHmac(base, headerData);
         if (!constantTimeEq(computedHmac, storedHmac)) {
             throw new ImportException("主密码错误或文件已损坏");
         }
 
         // ---- 解密载荷块 ----
-        byte[] plaintext = decryptPayload(payloadStart, finalKey, base, version, cipherId, encryptionIV);
+        byte[] plaintext = decryptPayload(payloadStart, finalKey, base, cipherId, encryptionIV);
 
         // ---- 解压 ----
         byte[] inner;
@@ -178,7 +168,7 @@ final class KdbxParser {
         return KdbxXml.parse(inner);
     }
 
-    private byte[] decryptPayload(int start, byte[] finalKey, byte[] base, int version,
+    private byte[] decryptPayload(int start, byte[] finalKey, byte[] base,
             UUID cipherId, byte[] encryptionIV) throws ImportException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         int pos = start;
@@ -197,14 +187,9 @@ final class KdbxParser {
             byte[] cipherBlock = slice(pos, blockLen);
             pos += blockLen;
 
-            // 块密钥 Ki = SHA512(i || K_1)，消息 = i || n || C（均小端）
+            // 块密钥 Ki = SHA512(i || K_1)，消息 = i || n || C（均小端），HMAC-SHA256
             byte[] blockKey = sha512(concat(le64(blockIndex), base));
-            byte[] expected;
-            if (version == VER_KDBX4_1) {
-                expected = hmacSha512(blockKey, concat(le64(blockIndex), le32Bytes(blockLen), cipherBlock));
-            } else {
-                expected = hmacSha256(blockKey, concat(le64(blockIndex), le32Bytes(blockLen), cipherBlock));
-            }
+            byte[] expected = hmacSha256(blockKey, concat(le64(blockIndex), le32Bytes(blockLen), cipherBlock));
             if (!constantTimeEq(expected, storedHmac)) {
                 throw new ImportException("载荷块校验失败，主密码错误或文件损坏");
             }
@@ -219,12 +204,9 @@ final class KdbxParser {
         return out.toByteArray();
     }
 
-    /** 头部 HMAC：密钥 = SHA512(0xFF*8 || K_1)，4.0 用 HMAC-SHA256、4.1 用 HMAC-SHA512。 */
-    private static byte[] headerHmac(int version, byte[] base, byte[] headerData) {
+    /** 头部 HMAC：密钥 = SHA512(0xFF*8 || K_1)，HMAC-SHA256(headerData)。 */
+    private static byte[] headerHmac(byte[] base, byte[] headerData) {
         byte[] hmacKey = sha512(concat(FF8, base));
-        if (version == VER_KDBX4_1) {
-            return hmacSha512(hmacKey, concat(headerData, sha512(headerData)));
-        }
         return hmacSha256(hmacKey, headerData);
     }
 
@@ -460,16 +442,6 @@ final class KdbxParser {
         try {
             Mac m = Mac.getInstance("HmacSHA256");
             m.init(new javax.crypto.spec.SecretKeySpec(key, "HmacSHA256"));
-            return m.doFinal(msg);
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    private static byte[] hmacSha512(byte[] key, byte[] msg) {
-        try {
-            Mac m = Mac.getInstance("HmacSHA512");
-            m.init(new javax.crypto.spec.SecretKeySpec(key, "HmacSHA512"));
             return m.doFinal(msg);
         } catch (Exception e) {
             throw new IllegalStateException(e);

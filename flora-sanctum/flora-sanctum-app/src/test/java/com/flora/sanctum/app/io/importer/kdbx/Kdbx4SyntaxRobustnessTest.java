@@ -37,7 +37,7 @@ class Kdbx4SyntaxRobustnessTest {
     @Test
     void parsesFileWithAdvancedSyntaxFeatures() throws Exception {
         byte[] data = loadResource("/com/flora/sanctum/app/io/importer/kdbx/Kdbx4Features.kdbx");
-        KdbxDocument doc = KdbxParser.parse(data, "t".toCharArray(), null);
+        KdbxDocument doc = KdbxParser.parse(data, "test".toCharArray(), null);
 
         assertNotNull(doc.root, "根分组为空");
         assertEquals("Root", doc.root.name, "根分组名应为 Root");

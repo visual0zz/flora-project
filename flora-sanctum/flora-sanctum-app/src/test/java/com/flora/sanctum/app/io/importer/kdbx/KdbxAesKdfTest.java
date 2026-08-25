@@ -11,8 +11,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 针对 AES-KDF（KeePass 默认 KDF）导入路径的回归测试。
- * <p>样本 {@code AesKdf400.kdbx} 由 KeePassXC 按规范生成：KDBX 4.0、
- * AES-KDF + AES-256-CBC + ChaCha20 内层流，密码 "zz"，含一个受保护 Password 字段
+ * <p>样本 {@code Kdbx4AesKdf.kdbx} 由 KeePassXC 按规范生成：KDBX 4.0、
+ * AES-KDF + AES-256-CBC + ChaCha20 内层流，主口令 "test"，含一个受保护 Password 字段
  * 明文为 {@code aes-kdf-secret-123}。该文件由独立实现（KeePassXC）生成，
  * 用于验证本导入器是否真正符合 KeePass 规范（而非「自编码自解码」的循环一致性）。</p>
  */
@@ -33,8 +33,8 @@ class KdbxAesKdfTest {
 
     @Test
     void parsesAesKdfFile() throws Exception {
-        byte[] data = loadResource("/com/flora/sanctum/app/io/importer/kdbx/AesKdf400.kdbx");
-        KdbxDocument doc = KdbxParser.parse(data, "zz".toCharArray(), null);
+        byte[] data = loadResource("/com/flora/sanctum/app/io/importer/kdbx/Kdbx4AesKdf.kdbx");
+        KdbxDocument doc = KdbxParser.parse(data, "test".toCharArray(), null);
 
         assertNotNull(doc.root, "根分组为空");
 
@@ -49,7 +49,7 @@ class KdbxAesKdfTest {
 
     @Test
     void wrongPasswordRejected() throws Exception {
-        byte[] data = loadResource("/com/flora/sanctum/app/io/importer/kdbx/AesKdf400.kdbx");
+        byte[] data = loadResource("/com/flora/sanctum/app/io/importer/kdbx/Kdbx4AesKdf.kdbx");
         assertThrows(ImportException.class,
                 () -> KdbxParser.parse(data, "wrong-password".toCharArray(), null),
                 "错误密码应被拒绝（AES-KDF 下 HMAC 校验失败）");

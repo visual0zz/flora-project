@@ -10,7 +10,7 @@ import java.io.InputStream;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 用 KeePassXC 官方测试向量（tests/data/Format400.kdbx，密码 "t"）做单向验证。
+ * 用 KeePassXC 官方测试向量（tests/data/Kdbx4Basic.kdbx，主口令 "test"）做单向验证。
  * <p>该文件是真实 KeePassXC 导出的 KDBX 4.0（Argon2d + ChaCha20），用于验证解码器
  * 是否真正符合 KeePass/KeePassXC 格式（而非「自编码自解码」的循环一致性）。</p>
  */
@@ -31,8 +31,8 @@ class KdbxOfficialVectorTest {
 
     @Test
     void parsesRealKeePassXcFile() throws Exception {
-        byte[] data = loadResource("/com/flora/sanctum/app/io/importer/kdbx/Format400.kdbx");
-        KdbxDocument doc = KdbxParser.parse(data, "t".toCharArray(), null);
+        byte[] data = loadResource("/com/flora/sanctum/app/io/importer/kdbx/Kdbx4Basic.kdbx");
+        KdbxDocument doc = KdbxParser.parse(data, "test".toCharArray(), null);
 
         assertNotNull(doc.root, "根分组为空");
         System.out.println("=== Format400.kdbx 解析结果 ===");
@@ -52,7 +52,7 @@ class KdbxOfficialVectorTest {
 
     @Test
     void wrongPasswordRejected() throws Exception {
-        byte[] data = loadResource("/com/flora/sanctum/app/io/importer/kdbx/Format400.kdbx");
+        byte[] data = loadResource("/com/flora/sanctum/app/io/importer/kdbx/Kdbx4Basic.kdbx");
         assertThrows(ImportException.class,
                 () -> KdbxParser.parse(data, " definitely-wrong ".toCharArray(), null),
                 "错误密码应被拒绝");

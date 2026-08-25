@@ -42,11 +42,12 @@ class KdbxOfficialVectorTest {
         assertTrue(doc.countEntries() >= 1, "应至少解析出 1 个条目");
         assertTrue(doc.countGroups() >= 1, "应至少解析出 1 个分组");
 
-        // 受保护字段必须解密为可读文本（若内层流算法/IV 错误，会得到乱码）
+        // 受保护字段必须解密为已知明文（KeePassXC 官方 Format400.kdbx 的 Password 为 "Format400"）。
+        // 若内层流算法/密钥派生错误，会得到乱码而断言失败。
         KdbxDocument.KdbxField pwd = findFirstField(doc.root, "Password");
         assertNotNull(pwd, "应存在 Password 字段");
         System.out.println("首个 Password 明文 = " + pwd.value);
-        assertTrue(isReadableText(pwd.value), "Password 未正确解密（内层流错误）: " + pwd.value);
+        assertEquals("Format400", pwd.value, "Password 未正确解密（内层流错误）");
     }
 
     @Test

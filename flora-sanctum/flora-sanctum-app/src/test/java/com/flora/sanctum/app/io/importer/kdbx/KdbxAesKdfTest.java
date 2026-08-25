@@ -11,10 +11,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 针对 AES-KDF（KeePass 默认 KDF）导入路径的回归测试。
- * <p>样本 {@code AesKdf400.kdbx} 用 Python 按 KeePass 规范生成：KDBX 4.0、
+ * <p>样本 {@code AesKdf400.kdbx} 由 KeePassXC 按规范生成：KDBX 4.0、
  * AES-KDF + AES-256-CBC + ChaCha20 内层流，密码 "zz"，含一个受保护 Password 字段
- * 明文为 {@code aes-kdf-secret-123}。该文件无法被旧版代码（直接抛
- * "暂不支持 AES-KDF"）导入，用于验证 AES-KDF 实现。</p>
+ * 明文为 {@code aes-kdf-secret-123}。该文件由独立实现（KeePassXC）生成，
+ * 用于验证本导入器是否真正符合 KeePass 规范（而非「自编码自解码」的循环一致性）。</p>
  */
 class KdbxAesKdfTest {
 

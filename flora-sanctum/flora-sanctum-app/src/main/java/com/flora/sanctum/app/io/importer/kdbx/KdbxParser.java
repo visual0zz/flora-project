@@ -284,19 +284,20 @@ final class KdbxParser {
                 throw new ImportException("AES-KDF 缺少 MasterSeed");
             }
             try {
+                // KeePass AES-KDF（KDBX4，UUID c9d9f39a-...）：以 KDF 盐 S 为 AES-256-ECB 密钥，
+                // 对复合主密钥逐轮加密 rounds 次，结果再 SHA-256 得 32 字节 transformed key。
+                byte[] salt = (byte[]) kdf.get("S");
+                if (salt == null) {
+                    throw new ImportException("AES-KDF 缺少盐 S");
+                }
                 javax.crypto.Cipher c = javax.crypto.Cipher.getInstance("AES/ECB/NoPadding");
                 c.init(javax.crypto.Cipher.ENCRYPT_MODE,
-                        new javax.crypto.spec.SecretKeySpec(input, "AES"));
-                byte[] seed = masterSeed.clone();
-                byte[] key = input.clone();
+                        new javax.crypto.spec.SecretKeySpec(salt, "AES"));
+                byte[] transformed = input.clone();
                 for (long i = 0; i < rounds; i++) {
-                    for (int j = 0; j < 16; j++) {
-                        seed[j] ^= key[j];
-                    }
-                    byte[] enc = c.doFinal(seed);
-                    System.arraycopy(enc, 0, key, 0, 32);
+                    transformed = c.doFinal(transformed);
                 }
-                return key;
+                return sha256(transformed);
             } catch (javax.crypto.IllegalBlockSizeException | javax.crypto.BadPaddingException
                      | java.security.InvalidKeyException e) {
                 throw new ImportException("AES-KDF 计算失败: " + e.getMessage());

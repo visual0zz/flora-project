@@ -109,7 +109,7 @@ final class KdbxXml {
                 continue;
             }
             String raw = valueEl.getTextContent();
-            boolean prot = "True".equalsIgnoreCase(s.getAttribute("Protected"));
+            boolean prot = "True".equalsIgnoreCase(valueEl.getAttribute("Protected"));
             String value = prot ? stream.decrypt(raw) : raw;
             e.fields.put(key, new KdbxDocument.KdbxField(value, prot));
         }

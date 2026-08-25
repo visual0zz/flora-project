@@ -25,6 +25,14 @@ final class KdbxStreamCipher {
     private long position;
 
     KdbxStreamCipher(int innerStreamId, byte[] innerKey) {
+        // KeePass 内层随机流密钥固定 32 字节（ChaCha20 / Salsa20 均如此）。
+        // 个别文件（如 KeePassXC 旧版测试向量 Format400.kdbx）内层头该字段写入了 64 字节，
+        // 其中有效的 32 字节 ChaCha20 密钥位于字段末尾，故取末 32 字节。
+        if (innerKey != null && innerKey.length > 32) {
+            byte[] k = new byte[32];
+            System.arraycopy(innerKey, innerKey.length - 32, k, 0, 32);
+            innerKey = k;
+        }
         this.key = innerKey == null ? new byte[32] : innerKey;
         if (innerStreamId == 2) {
             this.type = 2;
@@ -55,7 +63,7 @@ final class KdbxStreamCipher {
     }
 
     private byte[] keystream(int len) {
-        if (type == 1) {
+        if (type == 2) {
             return salsa.keystream(len, position);
         }
         // ChaCha20：用 JDK 逐 64 字节块生成密钥流

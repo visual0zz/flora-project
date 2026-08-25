@@ -46,6 +46,7 @@ final class KdbxParser {
     private final byte[] data;
     private final char[] password;
     private final byte[] keyFileBytes;
+    private byte[] masterSeed;
 
     private KdbxParser(byte[] data, char[] password, byte[] keyFileBytes) {
         this.data = data;
@@ -77,7 +78,6 @@ final class KdbxParser {
         int pos = 12;
         UUID cipherId = null;
         int compression = 0;
-        byte[] masterSeed = null;
         byte[] encryptionIV = null;
         byte[] kdfParamsBytes = null;
         int headerEnd = pos;
@@ -276,7 +276,33 @@ final class KdbxParser {
             return Argon2Kdf.deriveRaw(type, input, salt, memoryKiB, (int) it, (int) p, 32);
         }
         if (AESKDF_UUID.equals(uuid)) {
-            throw new ImportException("暂不支持 AES-KDF（首版聚焦 Argon2 的 KDBX4）");
+            long rounds = ((Number) kdf.getOrDefault("R", 0L)).longValue();
+            if (rounds <= 0) {
+                throw new ImportException("AES-KDF 轮数无效");
+            }
+            if (masterSeed == null) {
+                throw new ImportException("AES-KDF 缺少 MasterSeed");
+            }
+            try {
+                javax.crypto.Cipher c = javax.crypto.Cipher.getInstance("AES/ECB/NoPadding");
+                c.init(javax.crypto.Cipher.ENCRYPT_MODE,
+                        new javax.crypto.spec.SecretKeySpec(input, "AES"));
+                byte[] seed = masterSeed.clone();
+                byte[] key = input.clone();
+                for (long i = 0; i < rounds; i++) {
+                    for (int j = 0; j < 16; j++) {
+                        seed[j] ^= key[j];
+                    }
+                    byte[] enc = c.doFinal(seed);
+                    System.arraycopy(enc, 0, key, 0, 32);
+                }
+                return key;
+            } catch (javax.crypto.IllegalBlockSizeException | javax.crypto.BadPaddingException
+                     | java.security.InvalidKeyException e) {
+                throw new ImportException("AES-KDF 计算失败: " + e.getMessage());
+            } catch (java.security.NoSuchAlgorithmException | javax.crypto.NoSuchPaddingException e) {
+                throw new ImportException("不支持 AES-KDF: " + e.getMessage());
+            }
         }
         throw new ImportException("不支持的 KDF: " + uuid);
     }

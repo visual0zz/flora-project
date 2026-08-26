@@ -2,6 +2,7 @@ package com.flora.sanctum.crypto;
 
 import com.flora.sanctum.crypto.impl.Argon2;
 import com.flora.sanctum.crypto.impl.SecureRandomSource;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -13,7 +14,10 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Argon2 与 Argon2Kdf 测试。
  * <p>KAT 值由替换前的 Bouncy Castle 参考实现生成，用于回归验证自研实现与其逐字节一致。</p>
+ * <p>用例含多组真实 Argon2 计算（KAT 向量含高内存/多 lane 参数），整体耗时数秒，
+ * 标记为 slow 以免拖慢常规测试；由 test-slow.cmd 覆盖。</p>
  */
+@Tag("slow")
 class Argon2KdfTest {
 
     private static final byte[] PWD = "password123".getBytes(StandardCharsets.UTF_8);

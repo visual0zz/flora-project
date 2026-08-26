@@ -1,6 +1,7 @@
 package com.flora.root.cache;
 
 import com.flora.root.cache.interfaces.MemoryCache;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -10,7 +11,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * 滑动 TTL（空闲超时）语义验证：{@code get(key, ttl)} 命中时顺延过期时刻。
+ * <p>用例依赖真实 {@code Thread.sleep} 跨越 TTL 死线，整体耗时约 6s，标记为 slow
+ * 以免拖慢常规测试；由 test-slow.cmd 覆盖。</p>
  */
+@Tag("slow")
 class SlidingTtlTest {
 
     @Test

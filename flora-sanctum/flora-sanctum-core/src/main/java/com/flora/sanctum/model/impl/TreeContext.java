@@ -41,7 +41,7 @@ public final class TreeContext {
         for (Block b : store.scan()) {
             // 缓存全部块（含当前不可解密的），供 blockOf 定位；解密成功的才进对象图。
             blocks.put(b.uuid(), b);
-            byte[] plain = vault.resolve(b.obfuscated(), b.timestampText());
+            byte[] plain = vault.resolve(b.masked(), b.timestampText());
             if (plain == null) {
                 continue;
             }
@@ -160,7 +160,7 @@ public final class TreeContext {
                 maxExisting = b.timestamp();
             }
         }
-        return vault.clock().nextTimestamp(maxExisting);
+        return vault.clock().timestampCappedAt(maxExisting);
     }
 
     /** 按 parent 列出直接子对象 uuid（内存图遍历）。 */

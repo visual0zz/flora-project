@@ -121,7 +121,7 @@ public final class TrashClassifier {
     }
 
     private JsonObject nodeOf(Block b) {
-        byte[] plain = ctx.vault().resolve(b.obfuscated(), b.timestampText());
+        byte[] plain = ctx.vault().resolve(b.masked(), b.timestampText());
         if (plain == null) {
             return null;
         }

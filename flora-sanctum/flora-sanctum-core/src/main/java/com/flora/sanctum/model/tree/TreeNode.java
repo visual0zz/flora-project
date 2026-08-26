@@ -54,8 +54,8 @@ public abstract class TreeNode {
         return b == null ? null : b.file();
     }
 
-    /** 原始块所在行号（不存在返回 -1）。 */
-    public long line() {
+    /** 原始块所在行号；不存在（节点无对应块）时返回 -1。 */
+    public long lineNumber() {
         com.flora.sanctum.store.Block b = block();
         return b == null ? -1 : b.line();
     }

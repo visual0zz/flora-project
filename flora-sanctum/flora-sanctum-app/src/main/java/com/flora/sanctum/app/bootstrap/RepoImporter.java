@@ -21,12 +21,12 @@ public final class RepoImporter {
     /** 导入结果：分类 + 可用 vault 根（非仓库为 null）。 */
     public static final class Result {
         public final VaultDetector.Type type;
-        public final Path repoRoot;
+        public final Path cloneRoot;
         public final Path vaultRoot;
 
-        Result(VaultDetector.Type type, Path repoRoot, Path vaultRoot) {
+        Result(VaultDetector.Type type, Path cloneRoot, Path vaultRoot) {
             this.type = type;
-            this.repoRoot = repoRoot;
+            this.cloneRoot = cloneRoot;
             this.vaultRoot = vaultRoot;
         }
     }

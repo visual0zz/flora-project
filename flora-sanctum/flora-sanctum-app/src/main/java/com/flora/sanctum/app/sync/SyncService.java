@@ -39,7 +39,7 @@ public final class SyncService {
     /** 初始化 git 仓库（若缺）。 */
     public void initIfNeeded() throws Exception {
         if (!isGitRepo()) {
-            run("init");
+            execToString("init");
         }
     }
 
@@ -75,12 +75,12 @@ public final class SyncService {
 
     /** 提交全部改动。作者信息可配置，默认 sanctum <local>。无改动则 no-op。 */
     public void commit(String message) throws Exception {
-        run("add", "-A");
-        String status = run("status", "--porcelain");
+        execToString("add", "-A");
+        String status = execToString("status", "--porcelain");
         if (status.isBlank()) {
             return;
         }
-        run("commit", "-m", message,
+        execToString("commit", "-m", message,
                 "--author=Sanctum <local@sanctum>",
                 "--no-verify");
     }
@@ -89,23 +89,23 @@ public final class SyncService {
     public void sync() throws Exception {
         initIfNeeded();
         commit("sanctum sync");
-        run("fetch", "origin");
-        String rebase = run("rebase", "origin");
+        execToString("fetch", "origin");
+        String rebase = execToString("rebase", "origin");
         if (rebase.contains("CONFLICT")) {
             resolveConflicts();
-            run("rebase", "--continue");
+            execToString("rebase", "--continue");
         }
-        run("push", "origin", "HEAD");
+        execToString("push", "origin", "HEAD");
     }
 
     /** 克隆远程仓库到本地目录（用于从远端恢复库）。 */
     public void clone(String uri, Path target) throws Exception {
-        runIn(target.getParent(), "clone", uri, target.getFileName().toString());
+        execInDir(target.getParent(), "clone", uri, target.getFileName().toString());
     }
 
     /** 冲突自动解决：对每个冲突文件读 ours/theirs，按时间戳大者 wins；被覆盖方记 .conflict。 */
     private void resolveConflicts() throws Exception {
-        String status = run("status", "--porcelain");
+        String status = execToString("status", "--porcelain");
         for (String line : status.split("\n")) {
             if (line.isBlank()) {
                 continue;
@@ -123,8 +123,8 @@ public final class SyncService {
     }
 
     private void resolveFile(String path) throws Exception {
-        byte[] ours = runBytes("show", ":2:" + path);
-        byte[] theirs = runBytes("show", ":3:" + path);
+        byte[] ours = execToBytes("show", ":2:" + path);
+        byte[] theirs = execToBytes("show", ":3:" + path);
         long oursTs = tsOf(ours);
         long theirsTs = tsOf(theirs);
         boolean oursWins = oursTs >= theirsTs;
@@ -142,7 +142,7 @@ public final class SyncService {
             }
             Files.write(conflictFile, loser);
         }
-        run("add", "--", path);
+        execToString("add", "--", path);
     }
 
     /** 从块内容解析时间戳：落盘格式 {@code timestamp:base58}，时间戳为冒号前数字（见设计 04b）。 */
@@ -162,15 +162,15 @@ public final class SyncService {
         }
     }
 
-    private String run(String... args) throws Exception {
-        return new String(runBytes(args), StandardCharsets.UTF_8);
+    private String execToString(String... args) throws Exception {
+        return new String(execToBytes(args), StandardCharsets.UTF_8);
     }
 
-    private byte[] runBytes(String... args) throws Exception {
-        return runIn(root, args);
+    private byte[] execToBytes(String... args) throws Exception {
+        return execInDir(root, args);
     }
 
-    private byte[] runIn(Path cwd, String... args) throws Exception {
+    private byte[] execInDir(Path cwd, String... args) throws Exception {
         List<String> cmd = new ArrayList<>();
         cmd.add("git");
         for (String a : args) {

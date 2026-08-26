@@ -34,7 +34,7 @@ public final class VaultUnlocker {
         if (manifestBlock == null) {
             throw new IllegalArgumentException("vault has no manifest");
         }
-        byte[] full = manifestBlock.deobfuscated();
+        byte[] full = manifestBlock.unmasked();
         byte[] payload = com.flora.sanctum.model.impl.ManifestStore.payloadOf(full);
         Manifest manifest = Manifest.fromJson(payload);
         // 2. 派生 KEK
@@ -104,7 +104,7 @@ public final class VaultUnlocker {
                     continue;
                 }
                 com.flora.sanctum.crypto.impl.BlockResolver.Decoded d =
-                        vault.resolver().decodeKeyed(b.obfuscated(), b.timestampText());
+                        vault.resolver().decodeKeyed(b.masked(), b.timestampText());
                 if (d == null) {
                     continue;
                 }
@@ -139,7 +139,7 @@ public final class VaultUnlocker {
         try {
             byte[] encK = com.flora.sanctum.crypto.KeyDerivation.encKey(dk);
             com.flora.sanctum.crypto.impl.CipherCodec gc = new com.flora.sanctum.crypto.impl.CipherCodec(encK, dk, vault.random());
-            return gc.decode(b.obfuscated(), b.timestampText()).plaintext;
+            return gc.decode(b.masked(), b.timestampText()).plaintext;
         } catch (Exception e) {
             return null;
         }
@@ -172,7 +172,7 @@ public final class VaultUnlocker {
     private Block findManifest(List<Block> blocks) {        for (Block b : blocks) {
             if (b.isPlaintext()) {
                 try {
-                    byte[] full = b.deobfuscated();
+                    byte[] full = b.unmasked();
                     // 明文块：header + payload + mac(尾附)，负载从中段取
                     byte[] payload = com.flora.sanctum.model.impl.ManifestStore.payloadOf(full);
                     String json = new String(payload, java.nio.charset.StandardCharsets.UTF_8);

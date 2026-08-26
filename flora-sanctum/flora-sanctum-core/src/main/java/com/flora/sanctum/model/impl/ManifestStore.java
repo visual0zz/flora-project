@@ -131,7 +131,7 @@ public final class ManifestStore {
             return null;
         }
         try {
-            return Manifest.fromJson(payloadOf(b.deobfuscated()));
+            return Manifest.fromJson(payloadOf(b.unmasked()));
         } catch (Exception e) {
             return null;
         }
@@ -141,7 +141,7 @@ public final class ManifestStore {
     public Block findBlock() {
         for (Block b : store.scan()) {
             if (b.isPlaintext()) {
-                byte[] full = b.deobfuscated();
+                byte[] full = b.unmasked();
                 if (full.length <= Envelope.PLAINTEXT_HEADER_LEN + Envelope.MANIFEST_MAC_LEN) {
                     continue;
                 }

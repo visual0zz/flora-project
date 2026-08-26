@@ -29,7 +29,7 @@ final class KdbxParser {
     private static final int SIG2 = 0xB54BFB67;
 
     /** 头部/块 HMAC 密钥派生用的 8 字节 0xFF。 */
-    private static final byte[] FF8 = {
+    private static final byte[] HMAC_KEY_FILL_BYTES = {
             (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
             (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF
     };
@@ -206,7 +206,7 @@ final class KdbxParser {
 
     /** 头部 HMAC：密钥 = SHA512(0xFF*8 || K_1)，HMAC-SHA256(headerData)。 */
     private static byte[] headerHmac(byte[] base, byte[] headerData) {
-        byte[] hmacKey = sha512(concat(FF8, base));
+        byte[] hmacKey = sha512(concat(HMAC_KEY_FILL_BYTES, base));
         return hmacSha256(hmacKey, headerData);
     }
 

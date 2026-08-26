@@ -342,7 +342,7 @@ class SanctumTest {
         assertNotNull(entry.block());
         assertEquals(entry.uuid(), entry.block().uuid());
         assertNotNull(entry.file());
-        assertTrue(entry.line() >= 1);
+        assertTrue(entry.lineNumber() >= 1);
 
         // manifest 明文块也应带定位（文件 + 行号）
         com.flora.sanctum.store.Block mb = new com.flora.sanctum.model.impl.ManifestStore(

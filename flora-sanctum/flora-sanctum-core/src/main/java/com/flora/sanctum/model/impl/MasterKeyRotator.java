@@ -47,7 +47,7 @@ public final class MasterKeyRotator {
                 }
                 byte[] plain;
                 try {
-                    plain = oldCodec.decode(b.obfuscated(), b.timestampText()).plaintext;
+                    plain = oldCodec.decode(b.masked(), b.timestampText()).plaintext;
                 } catch (Exception e) {
                     continue; // 非 KEK 包裹（不期望发生），跳过
                 }

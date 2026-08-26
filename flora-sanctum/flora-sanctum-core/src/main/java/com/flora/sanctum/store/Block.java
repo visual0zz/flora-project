@@ -15,16 +15,16 @@ public final class Block {
     private final long line;
     private final long timestamp;
     private final String timestampText; // 落盘前缀时间戳原文（AAD 重建依赖原文，见设计 04）
-    private final byte[] obfuscated;
-    private final byte[] deobfuscated;
+    private final byte[] masked;
+    private final byte[] unmasked;
 
-    public Block(Path file, long line, String timestampText, byte[] obfuscated, byte[] deobfuscated) {
+    public Block(Path file, long line, String timestampText, byte[] masked, byte[] unmasked) {
         this.file = file;
         this.line = line;
         this.timestamp = Long.parseLong(timestampText);
         this.timestampText = timestampText;
-        this.obfuscated = obfuscated;
-        this.deobfuscated = deobfuscated;
+        this.masked = masked;
+        this.unmasked = unmasked;
     }
 
     public Path file() {
@@ -45,29 +45,29 @@ public final class Block {
         return timestampText;
     }
 
-    public byte[] obfuscated() {
-        return obfuscated.clone();
+    public byte[] masked() {
+        return masked.clone();
     }
 
-    public byte[] deobfuscated() {
-        return deobfuscated.clone();
+    public byte[] unmasked() {
+        return unmasked.clone();
     }
 
     /** 对象 UUID（块内自述）。 */
     public UUID uuid() {
-        return BlockHeader.uuid(deobfuscated);
+        return BlockHeader.uuid(unmasked);
     }
 
     /** 是否密文块（flags 偏移 MAGIC_LEN+1 = 9，0x01）。 */
     public boolean isCipher() {
-        return deobfuscated.length >= com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 2
-                && (deobfuscated[com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 1] & 0x01) != 0;
+        return unmasked.length >= com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 2
+                && (unmasked[com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 1] & 0x01) != 0;
     }
 
     /** 是否明文块（flags 偏移 MAGIC_LEN+1 = 9，0x02）。 */
     public boolean isPlaintext() {
-        return deobfuscated.length >= com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 2
-                && (deobfuscated[com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 1] & 0x02) != 0;
+        return unmasked.length >= com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 2
+                && (unmasked[com.flora.sanctum.crypto.impl.Envelope.MAGIC_LEN + 1] & 0x02) != 0;
     }
 
     @Override

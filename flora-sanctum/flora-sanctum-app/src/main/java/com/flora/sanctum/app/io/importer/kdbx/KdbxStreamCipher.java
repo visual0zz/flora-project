@@ -25,7 +25,7 @@ final class KdbxStreamCipher {
             (byte) 0xe8, 0x30, 0x09, 0x4b, (byte) 0x97, 0x20, 0x5d, (byte) 0x2a
     };
 
-    private final int type;
+    private final int innerStreamId;
     private final byte[] key;
     private final byte[] nonce;
     private final Salsa20 salsa;
@@ -36,12 +36,12 @@ final class KdbxStreamCipher {
         // 种子长度可能为 32 或 64 字节，统一按规范做散列派生。
         byte[] seed = innerKey == null ? new byte[32] : innerKey;
         if (innerStreamId == 2) {
-            this.type = 2;
+            this.innerStreamId = 2;
             this.key = sha256(seed);
             this.nonce = SALSA20_IV;
             this.salsa = new Salsa20(this.key, SALSA20_IV);
         } else if (innerStreamId == 3) {
-            this.type = 3;
+            this.innerStreamId = 3;
             byte[] kh = sha512(seed);
             this.key = new byte[32];
             this.nonce = new byte[12];
@@ -71,7 +71,7 @@ final class KdbxStreamCipher {
     }
 
     private byte[] keystream(int len) {
-        if (type == 2) {
+        if (innerStreamId == 2) {
             return salsa.keystream(len, position);
         }
         // ChaCha20：用 JDK 逐 64 字节块生成密钥流（连续推进 position）

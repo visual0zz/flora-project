@@ -153,7 +153,7 @@ public final class ExternalKeyService {
     }
 
     private JsonObject readNode(Block b) {
-        byte[] plain = sanctum.vault().resolve(b.obfuscated(), b.timestampText());
+        byte[] plain = sanctum.vault().resolve(b.masked(), b.timestampText());
         if (plain == null) {
             return null;
         }

@@ -28,14 +28,14 @@ public final class WarehouseClock {
         return (System.nanoTime() - startNanos) / 1_000_000L;
     }
 
-    /** 当前建议写入时间戳（会话锚点 + 会话偏移），未与全库 max 取齐。 */
-    public long suggestedTimestamp() {
+    /** 未与全库最大时间戳取齐的候选写入时间戳（会话锚点 + 会话偏移）。 */
+    public long unclampedTimestamp() {
         return sessionElapsedMillis() + baseTimestamp;
     }
 
     /** 与给定最大值取齐后的最终写入时间戳。 */
-    public long nextTimestamp(long maxExisting) {
-        long suggested = suggestedTimestamp();
+    public long timestampCappedAt(long maxExisting) {
+        long suggested = unclampedTimestamp();
         return Math.max(suggested, maxExisting);
     }
 }

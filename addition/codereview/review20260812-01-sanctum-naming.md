@@ -158,6 +158,30 @@
 - **M10** `KdbxMapper` 字段 `ctx` → `importContext`（静态方法参数 `ctx` 不变）。
 - **M11** 删除死常量 `Argon2.ARGON2id`（与 `TYPE_ID=2` 重复且未使用）。
 
+### 落地记录（第二批，2026-08-26）
+
+按"低风险即落地"原则，补充完成其余中/低优先级中的纯符号重命名（均不涉及持久化格式或导出线协议）：
+
+- **M3** 复核：常量 `CHACHA20` / `SALSA20_IV` 已是全大写常量；字面串 `"ChaCha20"` / `"Salsa20"` 为 JDK 算法名（不得改），故无需改动。
+- **M4** 复核：`SecureRandomSource` 当前已为 256 位 `state` + `prevNano`/`prevFree`/`invokeCount`，命名已具描述性，无需改动（审查引用的 `pool`/`p`/`o` 已不存在）。
+- **M7** `SvgIcon.LIBRARY`（图标名缓存字段）→ `CACHED_ICON_NAMES`（常量 `LIBRARY_PREFIX` 保留）。
+- **M8** `KdbxParser.FF8` → `HMAC_KEY_FILL_BYTES`（并保留 KDBX HMAC key 填充用途注释）。
+- **M9** `KdbxStreamCipher.type` → `innerStreamId`（与构造参数语义对齐）。
+- **L1** `TreeNode.line()` → `lineNumber()`（注明返回 -1 表示无对应块）。
+- **L3** `Block.obfuscated`/`deobfuscated` 字段与 getter → `masked()`/`unmasked()`（实为单字节 XOR 掩码，非真正混淆）；调用点同步更新。
+- **L6** `KeyIdIndex.index` 字段 → `entries`。
+- **L7** `WarehouseClock.suggestedTimestamp()` → `unclampedTimestamp()`、`nextTimestamp(maxExisting)` → `timestampCappedAt(maxExisting)`（体现是否按全库 max 取齐的差异）；`TreeContext` 委派点同步更新。
+- **L9** `SyncService.run`/`runBytes`/`runIn` → `execToString`/`execToBytes`/`execInDir`。
+- **L10** `RepoImporter.Result.repoRoot` → `cloneRoot`（消费方 `vaultRoot` 不变）。
+
+### 仍暂缓（涉及持久化格式 / 导出 API / 加载即绑定语义）
+
+- **M5** `Manifest`/`VaultCreator` 参数 `m/i/p` 及 JSON key `m`/`i`/`p` 是磁盘 vault manifest 持久化格式，改名需迁移旧 vault。
+- **L2** `TreeNode.parent()` 为导出 API 且返回持久化 JSON key `parent`，改名属破坏性 API 变更。
+- **L4** `GcmSiv.decrypt(... byte[] input)` 的 `input` 即 `密文‖tag` 的持久化线格式；仅符号改名风险低但布局不可变，暂维持现状。
+- **L5** `Involution.BLOCK_LEN=8` 是参与 keyId 推导的密码学常量，值不可变（符号改名安全但价值有限），暂缓。
+- **L8** `SanctumHttpServer` 的 `data`/`cipher` 为导出 HTTP 线协议 JSON key，改名破坏外部客户端，暂缓。
+
 ### 本次未落地（说明原因）
 
 - **H1** `rootGroupUuid`：JSON key `rootGroupUuid` 是磁盘 vault 的持久化格式，改名需配套迁移旧 vault，风险高，超出命名清理范围，暂缓。

@@ -51,19 +51,19 @@ public final class SvgIcon {
      * 无名模块（classpath / 测试）按资源 URL 是文件目录还是 jar 分别回退。
      */
     public static List<String> libraryIcons() {
-        List<String> cached = LIBRARY;
+        List<String> cached = CACHED_ICON_NAMES;
         if (cached == null) {
             synchronized (SvgIcon.class) {
-                cached = LIBRARY;
+                cached = CACHED_ICON_NAMES;
                 if (cached == null) {
-                    LIBRARY = cached = scanLibrary();
+                    CACHED_ICON_NAMES = cached = scanLibrary();
                 }
             }
         }
         return cached;
     }
 
-    private static volatile List<String> LIBRARY;
+    private static volatile List<String> CACHED_ICON_NAMES;
 
     private static List<String> scanLibrary() {
         Module module = SvgIcon.class.getModule();

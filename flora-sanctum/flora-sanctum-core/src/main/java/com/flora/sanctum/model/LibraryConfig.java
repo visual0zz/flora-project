@@ -32,7 +32,7 @@ public final class LibraryConfig {
     public List<RemoteConfig> remotes() {
         List<RemoteConfig> out = new ArrayList<>();
         for (JsonObject n : ctx.objects().values()) {
-            if (NodeType.fromTag(n.getString("type")) == NodeType.REMOTE) {
+            if (StoredNodeType.fromTag(n.getString("type")) == StoredNodeType.REMOTE) {
                 out.add(new RemoteConfig(n.getString("name"), n.getString("url"), n.getString("keyRef")));
             }
         }
@@ -71,7 +71,7 @@ public final class LibraryConfig {
             return;
         }
         JsonObject c = new JsonObject();
-        c.put("type", NodeType.CONFIG.tag());
+        c.put("type", StoredNodeType.CONFIG.tag());
         c.put("parent", ctx.vault().rootGroupUuid(RootTag.DATA).toString());
         c.put("name", key);
         c.put("value", value);
@@ -118,7 +118,7 @@ public final class LibraryConfig {
     private Map.Entry<UUID, JsonObject> findConfigEntry(String key) {
         for (Map.Entry<UUID, JsonObject> e : ctx.objects().entrySet()) {
             JsonObject n = e.getValue();
-            if (NodeType.fromTag(n.getString("type")) == NodeType.CONFIG
+            if (StoredNodeType.fromTag(n.getString("type")) == StoredNodeType.CONFIG
                     && key.equals(n.getString("name"))) {
                 return e;
             }

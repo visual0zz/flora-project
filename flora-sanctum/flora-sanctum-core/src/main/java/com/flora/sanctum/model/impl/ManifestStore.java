@@ -147,7 +147,7 @@ public final class ManifestStore {
                 }
                 try {
                     JsonObject n = JsonUtil.parseObject(new String(payloadOf(full), StandardCharsets.UTF_8));
-                    if (NodeType.MANIFEST == NodeType.fromTag(n.getString("type"))) {
+                    if (StoredNodeType.MANIFEST == StoredNodeType.fromTag(n.getString("type"))) {
                         return b;
                     }
                 } catch (Exception ignore) {
@@ -162,7 +162,7 @@ public final class ManifestStore {
         UUID uuid = findUuid();
         JsonObject manifest = new JsonObject();
         manifest.put("version", m.version());
-        manifest.put("type", NodeType.MANIFEST.tag());
+        manifest.put("type", StoredNodeType.MANIFEST.tag());
         manifest.put("cryptoVersion", m.cryptoVersion());
         manifest.put("kdf", m.kdf());
         manifest.put("salt", Base64.getEncoder().encodeToString(m.salt()));

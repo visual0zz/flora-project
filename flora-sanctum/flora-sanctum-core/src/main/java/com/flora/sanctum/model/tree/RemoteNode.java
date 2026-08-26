@@ -17,8 +17,8 @@ public final class RemoteNode extends TreeNode {
     }
 
     @Override
-    public NodeType type() {
-        return NodeType.REMOTE;
+    public StoredNodeType type() {
+        return StoredNodeType.REMOTE;
     }
 
     public String name() {

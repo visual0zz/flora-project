@@ -23,8 +23,8 @@ public final class EntryNode extends ObjectNode {
     }
 
     @Override
-    public NodeType type() {
-        return NodeType.ENTRY;
+    public StoredNodeType type() {
+        return StoredNodeType.ENTRY;
     }
 
     public String name() {
@@ -153,7 +153,7 @@ public final class EntryNode extends ObjectNode {
         UUID groupId = ctx().parentGroupUuid(data());
         UUID fieldUuid = UUID.randomUUID();
         JsonObject field = new JsonObject();
-        field.put("type", NodeType.CUSTOM_FIELD.tag());
+        field.put("type", StoredNodeType.CUSTOM_FIELD.tag());
         field.put("parent", uuid().toString());
         field.put("name", fieldName);
         field.put("value", value);
@@ -212,7 +212,7 @@ public final class EntryNode extends ObjectNode {
             return;
         }
         JsonObject f = new JsonObject();
-        f.put("type", NodeType.FIELD.tag());
+        f.put("type", StoredNodeType.FIELD.tag());
         f.put("parent", uuid().toString());
         f.put("name", name);
         f.put("value", value);

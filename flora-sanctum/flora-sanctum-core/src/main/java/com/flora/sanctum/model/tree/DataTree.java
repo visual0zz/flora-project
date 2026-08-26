@@ -18,16 +18,16 @@ import java.util.UUID;
  */
 public abstract class DataTree {
 
-    private final NodeType category;
+    private final ViewNodeType category;
     private final TreeContext ctx;
 
-    protected DataTree(NodeType category, TreeContext ctx) {
+    protected DataTree(ViewNodeType category, TreeContext ctx) {
         this.category = category;
         this.ctx = ctx;
     }
 
-    /** 树分类（代表该树承载的节点类型，用于树查找/遍历）。 */
-    public NodeType category() {
+    /** 树分类（展示区段，代表该树承载的节点展示归属）。 */
+    public ViewNodeType category() {
         return category;
     }
 
@@ -35,8 +35,8 @@ public abstract class DataTree {
         return ctx;
     }
 
-    /** 该树的类型集合（子类声明归属类型）。 */
-    protected abstract boolean belongsTo(String type, String kind);
+    /** 该树的类型集合（子类声明归属的存储类型）。 */
+    protected abstract boolean belongsTo(StoredNodeType type, String kind);
 
     /** 按 uuid 查找本树节点；不属于本树返回 null。 */
     public abstract TreeNode find(UUID uuid);
@@ -68,6 +68,10 @@ public abstract class DataTree {
 
     /** 判断某对象是否属于本树（供 find/nodes 复用）。 */
     protected boolean isOwned(JsonObject data) {
-        return data != null && belongsTo(data.getString("type"), data.getString("kind"));
+        if (data == null) {
+            return false;
+        }
+        StoredNodeType t = StoredNodeType.fromTag(data.getString("type"));
+        return belongsTo(t, data.getString("kind"));
     }
 }

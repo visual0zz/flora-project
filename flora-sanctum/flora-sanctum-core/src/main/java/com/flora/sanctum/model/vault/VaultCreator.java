@@ -64,7 +64,7 @@ public final class VaultCreator {
         UUID uuid = UUID.randomUUID();
         com.flora.root.codec.json.model.JsonObject manifest = new com.flora.root.codec.json.model.JsonObject();
         manifest.put("version", 1);
-        manifest.put("type", NodeType.MANIFEST.tag());
+        manifest.put("type", StoredNodeType.MANIFEST.tag());
         manifest.put("cryptoVersion", "gcm-siv-1");
         manifest.put("kdf", "argon2id");
         manifest.put("salt", Base64.getEncoder().encodeToString(salt));
@@ -82,7 +82,7 @@ public final class VaultCreator {
 
     private void writeRootGroup(RootTag tag, java.util.UUID rootUuid, byte[] kek, byte[] repoKeyIdSeed) {
         com.flora.root.codec.json.model.JsonObject group = new com.flora.root.codec.json.model.JsonObject();
-        group.put("type", NodeType.ROOT.tag());
+        group.put("type", StoredNodeType.ROOT.tag());
         // 生成独立随机 DEK，用 KEK 包裹（存于根对象密文块内）
         byte[] dek = new byte[32];
         random.nextBytes(dek);

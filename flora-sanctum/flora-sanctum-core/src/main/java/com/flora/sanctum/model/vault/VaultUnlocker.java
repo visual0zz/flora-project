@@ -110,8 +110,8 @@ public final class VaultUnlocker {
                 }
                 try {
                     com.flora.root.codec.json.model.JsonObject n = parsePlain(d.plaintext);
-                    NodeType nt = NodeType.fromTag(n == null ? null : n.getString("type"));
-                    if (nt == NodeType.GROUP && n.getString("dek") != null
+                    StoredNodeType nt = StoredNodeType.fromTag(n == null ? null : n.getString("type"));
+                    if (nt == StoredNodeType.GROUP && n.getString("dek") != null
                             && vault.groupDek(b.uuid()) == null) {
                         byte[] wrapped = java.util.Base64.getDecoder().decode(n.getString("dek"));
                         byte[] dek = unwrap(vault, d.dek, wrapped);
@@ -177,7 +177,7 @@ public final class VaultUnlocker {
                     byte[] payload = com.flora.sanctum.model.impl.ManifestStore.payloadOf(full);
                     String json = new String(payload, java.nio.charset.StandardCharsets.UTF_8);
                     com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(json);
-                    if (NodeType.MANIFEST == NodeType.fromTag(n.getString("type"))) {
+                    if (StoredNodeType.MANIFEST == StoredNodeType.fromTag(n.getString("type"))) {
                         return b;
                     }
                 } catch (Exception ignore) {

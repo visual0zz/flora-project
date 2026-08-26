@@ -17,8 +17,8 @@ public final class SshKeyNode extends TreeNode {
     }
 
     @Override
-    public NodeType type() {
-        return NodeType.SSH_KEY;
+    public StoredNodeType type() {
+        return StoredNodeType.SSH_KEY;
     }
 
     public String name() {

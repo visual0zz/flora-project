@@ -110,14 +110,14 @@ public final class Sanctum implements AutoCloseable {
         return config;
     }
 
-    /** 四棵数据树（GROUP 对象树 / ICON / SSH_KEY / REMOTE）。 */
+    /** 四棵数据树（密码库对象树 / ICON / SSH_KEY / REMOTE）。 */
     public List<DataTree> trees() {
         return trees;
     }
 
-    /** 按树分类取数据树。 */
+    /** 按展示区段取数据树。 */
     @SuppressWarnings("unchecked")
-    public <T extends DataTree> T tree(NodeType category) {
+    public <T extends DataTree> T tree(ViewNodeType category) {
         for (DataTree t : trees) {
             if (t.category() == category) {
                 return (T) t;
@@ -127,19 +127,19 @@ public final class Sanctum implements AutoCloseable {
     }
 
     public ObjectTree objectTree() {
-        return tree(NodeType.GROUP);
+        return tree(ViewNodeType.PASSWORD);
     }
 
     public IconTree iconTree() {
-        return tree(NodeType.ICON);
+        return tree(ViewNodeType.ICON);
     }
 
     public SshKeyTree sshKeyTree() {
-        return tree(NodeType.SSH_KEY);
+        return tree(ViewNodeType.SSH_KEY);
     }
 
     public RemoteTree remoteTree() {
-        return tree(NodeType.REMOTE);
+        return tree(ViewNodeType.REMOTE);
     }
 
     /** 跨树按 uuid 查找节点；未找到返回 null。 */

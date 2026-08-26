@@ -17,12 +17,12 @@ import java.util.UUID;
 public final class IconTree extends DataTree {
 
     public IconTree(TreeContext ctx) {
-        super(NodeType.ICON, ctx);
+        super(ViewNodeType.ICON, ctx);
     }
 
     @Override
-    protected boolean belongsTo(String type, String kind) {
-        return NodeType.fromTag(type) == NodeType.ICON;
+    protected boolean belongsTo(StoredNodeType type, String kind) {
+        return type == StoredNodeType.ICON;
     }
 
     @Override
@@ -45,7 +45,7 @@ public final class IconTree extends DataTree {
     public IconNode createIcon(String name, byte[] data, String format) {
         UUID iconUuid = UUID.randomUUID();
         JsonObject icon = new JsonObject();
-        icon.put("type", NodeType.ICON.tag());
+        icon.put("type", StoredNodeType.ICON.tag());
         icon.put("parent", context().vault().rootGroupUuid(RootTag.DATA).toString());
         if (name != null && !name.isBlank()) {
             icon.put("name", name);

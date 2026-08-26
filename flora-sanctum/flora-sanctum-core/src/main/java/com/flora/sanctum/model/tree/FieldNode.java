@@ -20,8 +20,8 @@ public final class FieldNode extends ObjectNode {
     }
 
     @Override
-    public NodeType type() {
-        return NodeType.FIELD;
+    public StoredNodeType type() {
+        return StoredNodeType.FIELD;
     }
 
     public String fieldName() {

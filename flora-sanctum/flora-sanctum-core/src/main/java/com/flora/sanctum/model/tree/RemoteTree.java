@@ -10,18 +10,18 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 远程配置树（NodeType.REMOTE）：远程仓库配置对象（RemoteNode）。
+ * 远程配置树（StoredNodeType.REMOTE）：远程仓库配置对象（RemoteNode）。
  * 独立落盘类型 type=remote，直接存 name/url/keyRef，parent 指向仓库根对象 uuid。
  */
 public final class RemoteTree extends DataTree {
 
     public RemoteTree(TreeContext ctx) {
-        super(NodeType.REMOTE, ctx);
+        super(ViewNodeType.REMOTE, ctx);
     }
 
     @Override
-    protected boolean belongsTo(String type, String kind) {
-        return NodeType.fromTag(type) == NodeType.REMOTE;
+    protected boolean belongsTo(StoredNodeType type, String kind) {
+        return type == StoredNodeType.REMOTE;
     }
 
     @Override
@@ -54,7 +54,7 @@ public final class RemoteTree extends DataTree {
     public RemoteNode addRemote(String name, String url, String keyRef) {
         UUID remoteUuid = UUID.randomUUID();
         JsonObject remote = new JsonObject();
-        remote.put("type", NodeType.REMOTE.tag());
+        remote.put("type", StoredNodeType.REMOTE.tag());
         remote.put("parent", context().vault().rootGroupUuid(RootTag.DATA).toString());
         remote.put("name", name);
         remote.put("url", url);

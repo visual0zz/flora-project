@@ -17,8 +17,8 @@ public final class IconNode extends TreeNode {
     }
 
     @Override
-    public NodeType type() {
-        return NodeType.ICON;
+    public StoredNodeType type() {
+        return StoredNodeType.ICON;
     }
 
     /** 图标名称（导入文件名；无则 null）。 */

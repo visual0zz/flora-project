@@ -24,7 +24,7 @@ class SanctumTest {
         EntryNode entry = s.objectTree().createEntry(null, "微博",
                 new EntryFields("s3cret", null, "alice", List.of()));
 
-        assertEquals(NodeType.ENTRY, entry.type());
+        assertEquals(StoredNodeType.ENTRY, entry.type());
         assertEquals("微博", entry.name());
         assertEquals("alice", entry.username());
         assertEquals("s3cret", entry.password());
@@ -92,11 +92,11 @@ class SanctumTest {
 
         SshKeyNode key = s.sshKeyTree().createSshKey("mykey", "-----BEGIN OPENSSH PRIVATE KEY-----");
         assertNotNull(s.sshKeyTree().find(key.uuid()));
-        assertEquals(NodeType.SSH_KEY, key.type());
+        assertEquals(StoredNodeType.SSH_KEY, key.type());
 
         RemoteNode remote = s.remoteTree().addRemote("origin", "git@example.com:repo.git", "mykey");
         assertNotNull(s.remoteTree().find(remote.uuid()));
-        assertEquals(NodeType.REMOTE, remote.type());
+        assertEquals(StoredNodeType.REMOTE, remote.type());
     }
 
     @Test

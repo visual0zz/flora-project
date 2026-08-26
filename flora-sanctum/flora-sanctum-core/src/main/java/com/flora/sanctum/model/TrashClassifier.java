@@ -76,8 +76,8 @@ public final class TrashClassifier {
         for (Map.Entry<UUID, JsonObject> e : ctx.objects().entrySet()) {
             UUID uuid = e.getKey();
             JsonObject d = e.getValue();
-            NodeType nt = NodeType.fromTag(d.getString("type"));
-            if (nt == NodeType.ROOT || nt == NodeType.MANIFEST || nt == NodeType.CONFIG) {
+            StoredNodeType nt = StoredNodeType.fromTag(d.getString("type"));
+            if (nt == StoredNodeType.ROOT || nt == StoredNodeType.MANIFEST || nt == StoredNodeType.CONFIG) {
                 continue;
             }
             if (Boolean.TRUE.equals(d.getBool("deleted"))) {
@@ -111,8 +111,8 @@ public final class TrashClassifier {
             if (parent == null) {
                 return null;
             }
-            NodeType pt = NodeType.fromTag(parent.getString("type"));
-            if (pt == NodeType.GROUP) {
+            StoredNodeType pt = StoredNodeType.fromTag(parent.getString("type"));
+            if (pt == StoredNodeType.GROUP) {
                 return pid;
             }
             p = parent.getString("parent");

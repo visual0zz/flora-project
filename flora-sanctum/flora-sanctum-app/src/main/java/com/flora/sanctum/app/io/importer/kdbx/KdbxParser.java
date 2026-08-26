@@ -1,7 +1,7 @@
 package com.flora.sanctum.app.io.importer.kdbx;
 
 import com.flora.sanctum.app.io.importer.ImportException;
-import com.flora.sanctum.crypto.Argon2Kdf;
+import com.flora.sanctum.crypto.Argon2KDF;
 
 import javax.crypto.Mac;
 import java.io.ByteArrayInputStream;
@@ -255,7 +255,7 @@ final class KdbxParser {
             if (memoryKiB < 8 * p) {
                 memoryKiB = (int) (8 * p);
             }
-            return Argon2Kdf.deriveRaw(type, input, salt, memoryKiB, (int) it, (int) p, 32);
+            return Argon2KDF.deriveRaw(type, input, salt, memoryKiB, (int) it, (int) p, 32);
         }
         if (AESKDF_UUID.equals(uuid)) {
             long rounds = ((Number) kdf.getOrDefault("R", 0L)).longValue();

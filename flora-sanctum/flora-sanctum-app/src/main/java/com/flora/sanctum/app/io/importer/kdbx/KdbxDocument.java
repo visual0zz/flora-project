@@ -57,7 +57,7 @@ public final class KdbxDocument {
         /** 字段名 → 字段（保持 XML 出现顺序，便于内层流顺序解密）。 */
         public final Map<String, KdbxField> fields = new LinkedHashMap<>();
         public Long creationTime;
-        public Long lastModTime;
+        public Long lastModificationTime;
     }
 
     /** 条目字段。 */

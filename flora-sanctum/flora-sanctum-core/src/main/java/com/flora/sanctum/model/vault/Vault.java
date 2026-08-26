@@ -1,7 +1,7 @@
 package com.flora.sanctum.model.vault;
 import com.flora.sanctum.model.*;
 
-import com.flora.sanctum.crypto.Argon2Kdf;
+import com.flora.sanctum.crypto.Argon2KDF;
 import com.flora.sanctum.crypto.impl.BlockResolver;
 import com.flora.sanctum.crypto.impl.KeyIdIndex;
 import com.flora.sanctum.crypto.impl.SecureRandomSource;

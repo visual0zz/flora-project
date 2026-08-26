@@ -13,10 +13,4 @@ public class ImportException extends Exception {
     public ImportException(String message, Throwable cause) {
         super(message, cause);
     }
-
-    /** 主密码/密钥文件错误（可提示用户重试）。 */
-    public boolean isAuthFailure() {
-        return getMessage() != null
-                && (getMessage().contains("主密码") || getMessage().contains("密钥"));
-    }
 }

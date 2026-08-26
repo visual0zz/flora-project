@@ -4,7 +4,7 @@ import com.flora.sanctum.model.vault.*;
 
 import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
-import com.flora.sanctum.crypto.Argon2Kdf;
+import com.flora.sanctum.crypto.Argon2KDF;
 import com.flora.sanctum.crypto.KeyDerivation;
 import com.flora.sanctum.crypto.impl.CipherCodec;
 import com.flora.sanctum.store.Block;
@@ -29,7 +29,7 @@ public final class MasterKeyRotator {
         byte[] oldKek = vault.kek();
         // salt 终身不变；用传入的新 KDF 参数派生新 KEK（参数可升级）
         Manifest m = vault.manifest();
-        Argon2Kdf kdf = new Argon2Kdf(m.salt(), memoryKiB, iterations, parallelism);
+        Argon2KDF kdf = new Argon2KDF(m.salt(), memoryKiB, iterations, parallelism);
         byte[] newKek = kdf.derive(newPassword);
         try {
             // 重包根对象（用旧 KEK 解密块 + 解 DEK，用新 KEK 重加密）

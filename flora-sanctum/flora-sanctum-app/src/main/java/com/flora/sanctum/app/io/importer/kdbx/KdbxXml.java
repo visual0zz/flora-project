@@ -122,7 +122,7 @@ final class KdbxXml {
         Element times = firstChild(entryEl, "Times");
         if (times != null) {
             e.creationTime = parseTime(textOfChild(times, "CreationTime"));
-            e.lastModTime = parseTime(textOfChild(times, "LastModificationTime"));
+            e.lastModificationTime = parseTime(textOfChild(times, "LastModificationTime"));
         }
         KdbxDocument.KdbxField title = e.fields.get("Title");
         e.name = title == null ? "" : title.value;

@@ -41,16 +41,16 @@ public final class ExternalKeyService {
     }
 
     /** 列出 externalKey 字段（uuid + 名称 + 描述）。 */
-    public List<KeyInfo> list() {
+    public List<ExternalKeyInfo> list() {
         ensureIndex();
-        List<KeyInfo> out = new ArrayList<>();
+        List<ExternalKeyInfo> out = new ArrayList<>();
         for (Block b : sanctum.store().scan()) {
             JsonObject n = readNode(b);
             if (n == null || !"externalKey".equals(n.getString("kind"))) {
                 continue;
             }
             String description = n.getString("description");
-            out.add(new KeyInfo(b.uuid(), n.getString("name"), description == null ? "" : description));
+            out.add(new ExternalKeyInfo(b.uuid(), n.getString("name"), description == null ? "" : description));
         }
         return out;
     }
@@ -165,15 +165,6 @@ public final class ExternalKeyService {
     }
 
     /** 外部密钥信息。 */
-    public static final class KeyInfo {
-        public final UUID uuid;
-        public final String name;
-        public final String description;
-
-        KeyInfo(UUID uuid, String name, String description) {
-            this.uuid = uuid;
-            this.name = name;
-            this.description = description;
-        }
+    public record ExternalKeyInfo(UUID uuid, String name, String description) {
     }
 }

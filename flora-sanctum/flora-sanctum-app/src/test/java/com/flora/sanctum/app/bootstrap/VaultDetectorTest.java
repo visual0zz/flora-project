@@ -9,7 +9,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class VaultFormTest {
+class VaultDetectorTest {
 
     @TempDir
     Path dir;
@@ -19,8 +19,8 @@ class VaultFormTest {
         Path repo = dir.resolve("normal");
         Files.createDirectories(repo);
         Files.writeString(repo.resolve("a.md"), "1:abc\n");
-        assertEquals(VaultForm.Type.NORMAL, VaultForm.detect(repo));
-        assertEquals(repo, VaultForm.dataDir(repo));
+        assertEquals(VaultDetector.Type.NORMAL, VaultDetector.detect(repo));
+        assertEquals(repo, VaultDetector.dataDir(repo));
     }
 
     @Test
@@ -29,9 +29,9 @@ class VaultFormTest {
         Files.createDirectories(repo.resolve("lib"));
         Files.writeString(repo.resolve("a.md"), "1:abc\n");
         Files.writeString(repo.resolve("standalone.json"), "{}");
-        assertEquals(VaultForm.Type.STANDALONE, VaultForm.detect(repo));
-        assertEquals(repo, VaultForm.dataDir(repo));
-        assertEquals(repo.resolve("standalone.json"), VaultForm.configFile(repo));
+        assertEquals(VaultDetector.Type.STANDALONE, VaultDetector.detect(repo));
+        assertEquals(repo, VaultDetector.dataDir(repo));
+        assertEquals(repo.resolve("standalone.json"), VaultDetector.configFile(repo));
     }
 
     @Test
@@ -39,8 +39,8 @@ class VaultFormTest {
         Path repo = dir.resolve("other");
         Files.createDirectories(repo.resolve("src"));
         Files.writeString(repo.resolve("src").resolve("Main.java"), "code");
-        assertEquals(VaultForm.Type.NOT_A_VAULT, VaultForm.detect(repo));
-        assertNull(VaultForm.dataDir(repo));
+        assertEquals(VaultDetector.Type.NOT_A_VAULT, VaultDetector.detect(repo));
+        assertNull(VaultDetector.dataDir(repo));
     }
 
     @Test
@@ -50,8 +50,8 @@ class VaultFormTest {
         Files.writeString(repo.resolve("standalone.json"), "{}");
         JsonObject app = new JsonObject();
         app.put("theme", "dark");
-        VaultForm.writeRepoConfig(repo, app);
-        JsonObject loaded = VaultForm.loadRepoConfig(repo);
+        VaultDetector.writeRepoConfig(repo, app);
+        JsonObject loaded = VaultDetector.loadRepoConfig(repo);
         assertEquals("dark", loaded.getString("theme"));
     }
 
@@ -75,6 +75,6 @@ class VaultFormTest {
         Path empty = dir.resolve("empty");
         Files.createDirectories(empty);
         // 模拟：无结构但视为空仓库 → 由导入流程建基本结构
-        assertEquals(VaultForm.Type.NOT_A_VAULT, VaultForm.detect(empty));
+        assertEquals(VaultDetector.Type.NOT_A_VAULT, VaultDetector.detect(empty));
     }
 }

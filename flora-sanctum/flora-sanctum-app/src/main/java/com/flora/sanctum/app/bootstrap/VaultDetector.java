@@ -20,7 +20,7 @@ import java.util.stream.Stream;
  * 独立仓库形态只读自身 {@code standalone.json}，不读系统配置；其结构与应用级配置相同
  * （存储"使用习惯"内容，非机密）。
  */
-public final class VaultForm {
+public final class VaultDetector {
 
     public enum Type {
         /** 普通仓库：目录即数据根（两层目录 + md 块）。 */
@@ -34,7 +34,7 @@ public final class VaultForm {
     /** 独立仓库判定文件（与脚本同目录，jar 启动时检测自身同目录/工作目录是否存在）。 */
     private static final String STANDALONE_JSON = "standalone.json";
 
-    private VaultForm() {
+    private VaultDetector() {
     }
 
     /**
@@ -93,7 +93,7 @@ public final class VaultForm {
     /** 尝试定位主类所在 jar 的父目录（不可行时返回 null）。 */
     private static Path jarDirectory() {
         try {
-            var loc = VaultForm.class.getProtectionDomain().getCodeSource().getLocation();
+            var loc = VaultDetector.class.getProtectionDomain().getCodeSource().getLocation();
             if (loc == null) {
                 return null;
             }

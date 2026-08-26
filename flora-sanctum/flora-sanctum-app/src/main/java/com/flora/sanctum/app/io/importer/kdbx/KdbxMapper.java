@@ -18,7 +18,7 @@ import java.util.Map;
  */
 final class KdbxMapper {
 
-    private final ImportContext ctx;
+    private final ImportContext importContext;
     private final ImportListener listener;
     private final List<String> warnings = new ArrayList<>();
     private int groups;
@@ -26,7 +26,7 @@ final class KdbxMapper {
     private int fields;
 
     private KdbxMapper(ImportContext ctx) {
-        this.ctx = ctx;
+        this.importContext = ctx;
         this.listener = ctx.listener();
     }
 
@@ -36,10 +36,10 @@ final class KdbxMapper {
 
     private ImportResult doMap(KdbxDocument doc) {
         GroupNode top;
-        if (ctx.targetGroup() != null) {
-            top = ctx.targetGroup();
+        if (importContext.targetGroup() != null) {
+            top = importContext.targetGroup();
         } else {
-            top = ctx.tree().createGroup(null, firstNonEmpty(doc.root.name, "KeePassXC 导入"));
+            top = importContext.tree().createGroup(null, firstNonEmpty(doc.root.name, "KeePassXC 导入"));
             groups++;
         }
         int totalEntries = doc.countEntries();

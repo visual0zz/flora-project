@@ -1,6 +1,6 @@
 package com.flora.sanctum.app.ui;
 
-import com.flora.sanctum.crypto.Argon2Kdf;
+import com.flora.sanctum.crypto.Argon2KDF;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -37,9 +37,9 @@ final class KdfParamsPanel extends JPanel {
         c.insets = new Insets(2, 4, 2, 4);
         c.anchor = GridBagConstraints.WEST;
 
-        memoryField = numberField(Argon2Kdf.DEFAULT_MEMORY_KIB);
-        iterationsField = numberField(Argon2Kdf.DEFAULT_ITERATIONS);
-        parallelismField = numberField(Argon2Kdf.DEFAULT_PARALLELISM);
+        memoryField = numberField(Argon2KDF.DEFAULT_MEMORY_KIB);
+        iterationsField = numberField(Argon2KDF.DEFAULT_ITERATIONS);
+        parallelismField = numberField(Argon2KDF.DEFAULT_PARALLELISM);
 
         c.gridx = 0; c.gridy = 0; grid.add(new JLabel("内存 (KiB)："), c);
         c.gridx = 1; grid.add(memoryField, c);
@@ -50,8 +50,8 @@ final class KdfParamsPanel extends JPanel {
 
         add(grid, BorderLayout.CENTER);
 
-        hint = new JLabel("默认 " + Argon2Kdf.DEFAULT_MEMORY_KIB + " KiB / "
-                + Argon2Kdf.DEFAULT_ITERATIONS + " 轮 / " + Argon2Kdf.DEFAULT_PARALLELISM
+        hint = new JLabel("默认 " + Argon2KDF.DEFAULT_MEMORY_KIB + " KiB / "
+                + Argon2KDF.DEFAULT_ITERATIONS + " 轮 / " + Argon2KDF.DEFAULT_PARALLELISM
                 + " 线程；数值越大越安全也越慢");
         hint.setForeground(Color.GRAY);
         add(hint, BorderLayout.SOUTH);

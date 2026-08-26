@@ -1,7 +1,7 @@
 package com.flora.sanctum.model.vault;
 import com.flora.sanctum.model.*;
 
-import com.flora.sanctum.crypto.Argon2Kdf;
+import com.flora.sanctum.crypto.Argon2KDF;
 import com.flora.sanctum.crypto.impl.SecureRandomSource;
 import com.flora.sanctum.store.ObjectStore;
 
@@ -29,13 +29,13 @@ public final class VaultCreator {
      * 创建新库。默认高安全档 Argon2id 参数。
      */
     public void create(char[] masterPassword) {
-        create(masterPassword, Argon2Kdf.DEFAULT_MEMORY_KIB, Argon2Kdf.DEFAULT_ITERATIONS, Argon2Kdf.DEFAULT_PARALLELISM);
+        create(masterPassword, Argon2KDF.DEFAULT_MEMORY_KIB, Argon2KDF.DEFAULT_ITERATIONS, Argon2KDF.DEFAULT_PARALLELISM);
     }
 
     public void create(char[] masterPassword, int memoryKiB, int iterations, int parallelism) {
         byte[] salt = new byte[16];
         random.nextBytes(salt);
-        Argon2Kdf kdf = new Argon2Kdf(salt, memoryKiB, iterations, parallelism);
+        Argon2KDF kdf = new Argon2KDF(salt, memoryKiB, iterations, parallelism);
         byte[] kek = kdf.derive(masterPassword);
         // 仓库级 keyId 派生种子（存 DATA 根 json，解锁时读取；见设计"keyId 防关联"）
         byte[] seed = new byte[32];

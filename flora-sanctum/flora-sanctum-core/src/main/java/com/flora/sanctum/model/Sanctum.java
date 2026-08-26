@@ -39,9 +39,9 @@ public final class Sanctum implements AutoCloseable {
     /** 新建并解锁（默认高安全档 Argon2id 参数）。 */
     public static Sanctum createAndUnlock(Path root, char[] masterPassword) {
         return createAndUnlock(root, masterPassword,
-                com.flora.sanctum.crypto.Argon2Kdf.DEFAULT_MEMORY_KIB,
-                com.flora.sanctum.crypto.Argon2Kdf.DEFAULT_ITERATIONS,
-                com.flora.sanctum.crypto.Argon2Kdf.DEFAULT_PARALLELISM);
+                com.flora.sanctum.crypto.Argon2KDF.DEFAULT_MEMORY_KIB,
+                com.flora.sanctum.crypto.Argon2KDF.DEFAULT_ITERATIONS,
+                com.flora.sanctum.crypto.Argon2KDF.DEFAULT_PARALLELISM);
     }
 
     /**

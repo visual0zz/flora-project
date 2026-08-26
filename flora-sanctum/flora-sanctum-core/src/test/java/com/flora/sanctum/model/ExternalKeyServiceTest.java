@@ -42,7 +42,7 @@ class ExternalKeyServiceTest {
 
         var keys = svc.list();
         assertFalse(keys.isEmpty());
-        assertEquals("desc 1", keys.get(0).description);
+        assertEquals("desc 1", keys.get(0).description());
     }
 
     @Test

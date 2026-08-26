@@ -9,7 +9,7 @@ import com.flora.sanctum.crypto.impl.HkdfSha256;
  * 参数可配置（memory/iterations/parallelism），存于 manifest；默认高安全档
  * 256 MiB / 3 迭代 / 4 并行。结果 256 位 KEK，不落盘、仅在解锁期间驻留内存。
  */
-public final class Argon2Kdf {
+public final class Argon2KDF {
 
     /** 默认高安全档参数（memory 256 MiB = 262144 KiB）。 */
     public static final int DEFAULT_MEMORY_KIB = 262144;
@@ -21,11 +21,11 @@ public final class Argon2Kdf {
     private final int parallelism;
     private final byte[] salt;
 
-    public Argon2Kdf(byte[] salt) {
+    public Argon2KDF(byte[] salt) {
         this(salt, DEFAULT_MEMORY_KIB, DEFAULT_ITERATIONS, DEFAULT_PARALLELISM);
     }
 
-    public Argon2Kdf(byte[] salt, int memoryKiB, int iterations, int parallelism) {
+    public Argon2KDF(byte[] salt, int memoryKiB, int iterations, int parallelism) {
         if (memoryKiB < 8 * parallelism) {
             throw new IllegalArgumentException("memory too small for parallelism");
         }

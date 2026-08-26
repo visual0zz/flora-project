@@ -1,6 +1,6 @@
 package com.flora.sanctum.app;
 
-import com.flora.sanctum.app.bootstrap.VaultForm;
+import com.flora.sanctum.app.bootstrap.VaultDetector;
 import com.flora.sanctum.app.ui.SanctumGui;
 
 import java.nio.file.Path;
@@ -18,9 +18,9 @@ public final class Main {
     }
 
     public static void main(String[] args) {
-        Path standaloneRoot = VaultForm.detectStandaloneRoot();
+        Path standaloneRoot = VaultDetector.detectStandaloneRoot();
         if (standaloneRoot != null) {
-            Path vaultRoot = VaultForm.vaultRoot(standaloneRoot);
+            Path vaultRoot = VaultDetector.vaultRoot(standaloneRoot);
             SanctumGui.launchDirect(standaloneRoot, vaultRoot);
         } else {
             SanctumGui.launch();

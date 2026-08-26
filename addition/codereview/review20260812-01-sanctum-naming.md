@@ -141,3 +141,25 @@
 
 > 注：以上为命名层面的审查结论，未改动任何源码。如需落地，建议按高优先级优先处理导出 API（H1–H5），
 > 并配套更新调用点与测试。
+
+---
+
+## 落地记录（2026-08-26）
+
+按风险与价值评估，已落地以下项（源码 + 调用点 + 测试均已更新，编译与测试通过）：
+
+- **H2** `Argon2Kdf` → `Argon2KDF`（类文件、导出引用、测试类 `Argon2KDFTest` 一并改名）。
+- **H3** `ExternalKeyService.KeyInfo` → `record ExternalKeyInfo(...)`（公开返回类型，调用点改用访问器）。
+- **H4** `VaultForm` → `VaultDetector`（类文件与测试 `VaultDetectorTest` 一并改名；嵌套 `Type` 枚举保留）。
+- **H5** 删除死方法 `ImportException.isAuthFailure()`（无任何调用方）。
+- **M1** `KdbxDocument.Entry.lastModTime` → `lastModificationTime`（与 `creationTime` 对齐）。
+- **M6** `SanctumGui` 私有字段 `openVaultPath`→`unlockedVaultPath`、`pendingRoot`→`targetVaultRoot`、`pendingIsNew`→`unlockIsCreate`。
+  注：`current`(AtomicReference) 与 `sanctum`(普通字段) 角色不同、非冗余，且 `sanctum` 引用近 40 处，改名收益低、改动面大，故保留。
+- **M10** `KdbxMapper` 字段 `ctx` → `importContext`（静态方法参数 `ctx` 不变）。
+- **M11** 删除死常量 `Argon2.ARGON2id`（与 `TYPE_ID=2` 重复且未使用）。
+
+### 本次未落地（说明原因）
+
+- **H1** `rootGroupUuid`：JSON key `rootGroupUuid` 是磁盘 vault 的持久化格式，改名需配套迁移旧 vault，风险高，超出命名清理范围，暂缓。
+- **M2** `EntryNode/GroupNode.icon()` 与 `IconNode.iconData()`：方法改名机械可行，但二者语义差异（引用 vs 字节）是当前设计意图，且改名容易误触持久化 JSON key `icon`/`data`，价值有限，暂缓。
+- 其余中/低优先级（M3–M9、L1–L10）为局部可读性或常量风格问题，本次未批量处理，留待后续按需清理。

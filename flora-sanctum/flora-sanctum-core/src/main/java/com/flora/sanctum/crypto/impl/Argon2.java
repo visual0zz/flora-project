@@ -10,7 +10,6 @@ public final class Argon2 {
 
     private static final int BLOCK_SIZE = 1024;
     private static final int SYNC_POINTS = 4;
-    private static final int ARGON2id = 2;
     private static final int VERSION = 0x13;
 
     private Argon2() {

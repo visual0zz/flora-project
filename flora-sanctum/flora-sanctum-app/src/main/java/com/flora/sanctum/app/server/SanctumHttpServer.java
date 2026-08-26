@@ -71,11 +71,11 @@ public final class SanctumHttpServer {
         }
         ExternalKeyService svc = new ExternalKeyService(s);
         JsonArray keys = new JsonArray();
-        for (ExternalKeyService.KeyInfo k : svc.list()) {
+        for (ExternalKeyService.ExternalKeyInfo k : svc.list()) {
             JsonObject item = new JsonObject();
-            item.put("uuid", k.uuid.toString());
-            item.put("name", k.name);
-            item.put("description", k.description);
+            item.put("uuid", k.uuid().toString());
+            item.put("name", k.name());
+            item.put("description", k.description());
             keys.add(item);
         }
         resp.put("ok", true);

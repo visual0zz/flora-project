@@ -20,11 +20,11 @@ public final class RepoImporter {
 
     /** 导入结果：分类 + 可用 vault 根（非仓库为 null）。 */
     public static final class Result {
-        public final VaultForm.Type type;
+        public final VaultDetector.Type type;
         public final Path repoRoot;
         public final Path vaultRoot;
 
-        Result(VaultForm.Type type, Path repoRoot, Path vaultRoot) {
+        Result(VaultDetector.Type type, Path repoRoot, Path vaultRoot) {
             this.type = type;
             this.repoRoot = repoRoot;
             this.vaultRoot = vaultRoot;
@@ -43,16 +43,16 @@ public final class RepoImporter {
      */
     public static Result importRemote(String remote, Path local) throws Exception {
         clone(remote, local);
-        if (VaultForm.detect(local) == VaultForm.Type.NOT_A_VAULT) {
+        if (VaultDetector.detect(local) == VaultDetector.Type.NOT_A_VAULT) {
             // 空目录 → 建基本结构（普通仓库）
             if (isEmpty(local)) {
-                VaultForm.Type t = VaultForm.Type.NORMAL;
+                VaultDetector.Type t = VaultDetector.Type.NORMAL;
                 return new Result(t, local, local);
             }
             throw new IllegalArgumentException("not a flora-sanctum repository: " + local);
         }
-        Path vaultRoot = VaultForm.vaultRoot(local);
-        return new Result(VaultForm.detect(local), local, vaultRoot);
+        Path vaultRoot = VaultDetector.vaultRoot(local);
+        return new Result(VaultDetector.detect(local), local, vaultRoot);
     }
 
     private static void clone(String remote, Path local) throws Exception {

@@ -1,7 +1,7 @@
 package com.flora.sanctum.model.vault;
 import com.flora.sanctum.model.*;
 
-import com.flora.sanctum.crypto.Argon2Kdf;
+import com.flora.sanctum.crypto.Argon2KDF;
 import com.flora.sanctum.crypto.impl.KeyIdIndex;
 import com.flora.sanctum.crypto.impl.SecureRandomSource;
 import com.flora.sanctum.store.Block;
@@ -39,7 +39,7 @@ public final class VaultUnlocker {
         Manifest manifest = Manifest.fromJson(payload);
         // 2. 派生 KEK
         byte[] salt = manifest.salt();
-        Argon2Kdf kdf = new Argon2Kdf(salt, manifest.memoryKiB(), manifest.iterations(), manifest.parallelism());
+        Argon2KDF kdf = new Argon2KDF(salt, manifest.memoryKiB(), manifest.iterations(), manifest.parallelism());
         byte[] kek = kdf.derive(masterPassword);
         try {
             // 3. 验证 manifest MAC（覆盖完整信封头 + 时间戳原文 + 负载，尾附于块末）

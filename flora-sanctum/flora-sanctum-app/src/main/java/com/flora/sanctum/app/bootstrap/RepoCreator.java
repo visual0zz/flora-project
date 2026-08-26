@@ -47,7 +47,7 @@ public final class RepoCreator {
             }
         }
         writeScript(dir);
-        VaultForm.writeRepoConfig(dir, appConfig);
+        VaultDetector.writeRepoConfig(dir, appConfig);
         return dir;
     }
 

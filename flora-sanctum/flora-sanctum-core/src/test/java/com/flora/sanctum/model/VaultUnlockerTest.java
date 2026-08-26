@@ -5,7 +5,7 @@ import com.flora.sanctum.model.impl.*;
 
 import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
-import com.flora.sanctum.crypto.Argon2Kdf;
+import com.flora.sanctum.crypto.Argon2KDF;
 import com.flora.sanctum.crypto.impl.SecureRandomSource;
 import com.flora.root.codec.Base58;
 import com.flora.sanctum.store.ObjectStore;
@@ -30,7 +30,7 @@ class VaultUnlockerTest {
         SecureRandomSource rng = new SecureRandomSource();
         byte[] salt = new byte[16];
         rng.nextBytes(salt);
-        Argon2Kdf kdf = new Argon2Kdf(salt, 65536, 3, 4); // 用较低内存加速测试
+        Argon2KDF kdf = new Argon2KDF(salt, 65536, 3, 4); // 用较低内存加速测试
         byte[] kek = kdf.derive(password);
         byte[] macKey = kdf.manifestMacKey(kek);
 

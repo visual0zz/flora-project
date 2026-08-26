@@ -98,13 +98,13 @@ public final class SanctumGui {
     private String copiedPlaintext;
     private java.util.Timer autoLockTimer;
     private java.util.Timer clipboardTimer;
-    private String openVaultPath;
+    private String unlockedVaultPath;
     /** 独立仓库形态（standalone.json 判定）：无历史仓库列表页。 */
     private boolean standalone;
     /** 当前仓库数据根（解锁目标 / 锁定后直接回到该仓库解锁页）。 */
-    private Path pendingRoot;
+    private Path targetVaultRoot;
     /** 当前解锁页是否对应"新建"（true）还是"打开"（false）：新建走 createAndUnlock，打开只 open+unlock 不自动新建。 */
-    private boolean pendingIsNew;
+    private boolean unlockIsCreate;
     /** 垃圾桶视图（每次重建树时刷新；含三类异常节点 uuid 与「原位置」计算）。 */
     private com.flora.sanctum.model.TrashView trashView;
 
@@ -143,7 +143,7 @@ public final class SanctumGui {
     /** 独立仓库形态：直接进入指定数据根的解锁页。 */
     public static void launchDirect(Path repoRoot, Path vaultRoot) {
         SanctumGui gui = new SanctumGui(repoRoot);
-        gui.pendingRoot = vaultRoot;
+        gui.targetVaultRoot = vaultRoot;
         gui.run();
     }
 
@@ -171,7 +171,7 @@ public final class SanctumGui {
                 }
             });
             if (standalone) {
-                showUnlockPage(pendingRoot);
+                showUnlockPage(targetVaultRoot);
             } else {
                 showHistoryPage();
             }
@@ -285,7 +285,7 @@ public final class SanctumGui {
     }
 
     private void showUnlockPage(Path root) {
-        pendingRoot = root;
+        targetVaultRoot = root;
         frame.setContentPane(buildUnlockPanel(root));
         applyWindowSize("ui.window.guide", 600, 480);
         frame.revalidate();
@@ -478,12 +478,12 @@ public final class SanctumGui {
 
     /** 应用形态：把某仓库带入解锁页（记录最近打开）。打开语义：仓库必须已存在。 */
     private void openForUnlock(Path root) {
-        Path dataRoot = com.flora.sanctum.app.bootstrap.VaultForm.dataDir(root);
+        Path dataRoot = com.flora.sanctum.app.bootstrap.VaultDetector.dataDir(root);
         if (dataRoot == null) {
             dataRoot = root;
         }
         config.addRecentVault(root.toAbsolutePath().toString());
-        pendingIsNew = false;
+        unlockIsCreate = false;
         showUnlockPage(dataRoot);
     }
 
@@ -506,7 +506,7 @@ public final class SanctumGui {
         try {
             if (choice == 0) {
                 Path root = com.flora.sanctum.app.bootstrap.RepoCreator.createNormal(dir);
-                pendingIsNew = true;
+                unlockIsCreate = true;
                 showUnlockPage(root);
             } else {
                 com.flora.sanctum.app.bootstrap.RepoCreator.createStandalone(dir, loadAppConfig());
@@ -556,8 +556,8 @@ public final class SanctumGui {
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         if (chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
             Path dir = chooser.getSelectedFile().toPath();
-            if (com.flora.sanctum.app.bootstrap.VaultForm.detect(dir)
-                    == com.flora.sanctum.app.bootstrap.VaultForm.Type.NOT_A_VAULT) {
+            if (com.flora.sanctum.app.bootstrap.VaultDetector.detect(dir)
+                    == com.flora.sanctum.app.bootstrap.VaultDetector.Type.NOT_A_VAULT) {
                 JOptionPane.showMessageDialog(frame, "该目录不是 flora-sanctum 仓库", "打开失败",
                         JOptionPane.ERROR_MESSAGE);
                 return;
@@ -623,7 +623,7 @@ public final class SanctumGui {
         panel.add(pwRow, c);
 
         // 新建库时允许自定义 Argon2id 强度（默认高安全档），折叠于「高级」下
-        final KdfParamsPanel kdfPanel = pendingIsNew ? new KdfParamsPanel() : null;
+        final KdfParamsPanel kdfPanel = unlockIsCreate ? new KdfParamsPanel() : null;
         if (kdfPanel != null) {
             c.gridy = 4;
             c.insets = new Insets(6, 0, 3, 0);
@@ -631,7 +631,7 @@ public final class SanctumGui {
         }
 
         // 解锁 / 创建按钮（与"回到历史列表"等宽居中；转圈以 JLayer 画在按钮右内侧，不占排版）
-        JButton unlockBtn = new JButton(pendingIsNew ? "创建并解锁" : "解锁");
+        JButton unlockBtn = new JButton(unlockIsCreate ? "创建并解锁" : "解锁");
         unlockBtn.setPreferredSize(new Dimension(170, 32));
         SpinnerIcon spinner = new SpinnerIcon(26);
         javax.swing.JLayer<JButton> unlockLayer = new javax.swing.JLayer<>(unlockBtn,
@@ -703,7 +703,7 @@ public final class SanctumGui {
             final Sanctum[] result = new Sanctum[1];
             final String[] failMsg = new String[1];
             try {
-                if (pendingIsNew) {
+                if (unlockIsCreate) {
                     // 新建：显式创建并解锁（KDF 参数自定义或默认档）
                     if (kdf == null) {
                         result[0] = Sanctum.createAndUnlock(root, pwCopy);
@@ -738,9 +738,9 @@ public final class SanctumGui {
                     return;
                 }
                 sanctum = s;
-                openVaultPath = root.toAbsolutePath().toString();
-                config.addRecentVault(openVaultPath);
-                config.setLastVault(openVaultPath);
+                unlockedVaultPath = root.toAbsolutePath().toString();
+                config.addRecentVault(unlockedVaultPath);
+                config.setLastVault(unlockedVaultPath);
                 frame.setTitle("flora-sanctum(" + root.getFileName() + ")");
                 current.set(sanctum);
                 applyTheme(sanctum.config().theme()); // 解锁后应用仓库主题
@@ -776,13 +776,13 @@ public final class SanctumGui {
             sanctum.close();
         }
         current.set(null);
-        openVaultPath = null;
+        unlockedVaultPath = null;
         stopTimers();
         frame.setTitle("flora-sanctum");
         // 锁定后直接回到该仓库的解锁页（不退回历史列表）；独立形态同样。此时是"打开"语义（库已存在）
-        if (pendingRoot != null) {
-            pendingIsNew = false;
-            showUnlockPage(pendingRoot);
+        if (targetVaultRoot != null) {
+            unlockIsCreate = false;
+            showUnlockPage(targetVaultRoot);
         } else {
             showHistoryPage();
         }
@@ -2703,7 +2703,7 @@ public final class SanctumGui {
         if (sanctum != null && sanctum.isUnlocked()) {
             showEditPage();
         } else if (standalone) {
-            showUnlockPage(pendingRoot);
+            showUnlockPage(targetVaultRoot);
         } else {
             showHistoryPage();
         }

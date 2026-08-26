@@ -72,7 +72,7 @@ public final class LibraryConfig {
         }
         JsonObject c = new JsonObject();
         c.put("type", StoredNodeType.CONFIG.tag());
-        c.put("parent", ctx.vault().rootGroupUuid(RootTag.DATA).toString());
+        c.put("parent", ctx.vault().rootObjectUuid(RootTag.DATA).toString());
         c.put("name", key);
         c.put("value", value);
         ctx.writeWithDek(UUID.randomUUID(), c, dek);

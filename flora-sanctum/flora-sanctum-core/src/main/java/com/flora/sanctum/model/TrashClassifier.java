@@ -35,7 +35,7 @@ public final class TrashClassifier {
     /** 扫描并分类，返回垃圾桶视图（含三类 uuid 集合与「原位置」路径计算）。 */
     public TrashView classify() {
         Vault vault = ctx.vault();
-        java.util.UUID rootUuid = vault.manifest() == null ? null : vault.manifest().rootGroupUuid();
+        java.util.UUID rootUuid = vault.manifest() == null ? null : vault.manifest().rootObjectUuid();
         String root = rootUuid == null ? null : rootUuid.toString();
 
         // 可达集（复用 GarbageCollector 思想，仅判不删）

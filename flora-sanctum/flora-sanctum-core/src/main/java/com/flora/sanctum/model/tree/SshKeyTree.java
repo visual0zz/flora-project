@@ -45,7 +45,7 @@ public final class SshKeyTree extends DataTree {
         UUID keyUuid = UUID.randomUUID();
         JsonObject key = new JsonObject();
         key.put("type", StoredNodeType.SSH_KEY.tag());
-        key.put("parent", context().vault().rootGroupUuid(RootTag.DATA).toString());
+        key.put("parent", context().vault().rootObjectUuid(RootTag.DATA).toString());
         key.put("name", name);
         key.put("privateKey", privateKeyPem);
         byte[] dek = context().vault().dekForRole(RootTag.DATA);

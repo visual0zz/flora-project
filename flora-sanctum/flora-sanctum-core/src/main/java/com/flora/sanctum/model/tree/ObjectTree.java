@@ -132,7 +132,7 @@ public final class ObjectTree extends DataTree {
 
     /** 根对象 uuid 字符串（顶层 parent 指向它）。 */
     private String rootUuid() {
-        return context().vault().rootGroupUuid(RootTag.DATA).toString();
+        return context().vault().rootObjectUuid(RootTag.DATA).toString();
     }
 
     /** 写预设字段块（确定性 uuid，value 空则不写）。 */

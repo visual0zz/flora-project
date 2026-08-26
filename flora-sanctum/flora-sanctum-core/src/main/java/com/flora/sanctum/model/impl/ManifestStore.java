@@ -171,7 +171,7 @@ public final class ManifestStore {
         params.put("i", m.iterations());
         params.put("p", m.parallelism());
         manifest.put("params", params);
-        manifest.put("rootGroupUuid", m.rootGroupUuid() == null ? null : m.rootGroupUuid().toString());
+        manifest.put("rootObjectUuid", m.rootObjectUuid() == null ? null : m.rootObjectUuid().toString());
         manifest.put("updateTimestamp", m.updateTimestamp());
         byte[] payload = JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
         byte[] obf = buildBlock(uuid, payload, Long.toString(m.updateTimestamp()), macKey);

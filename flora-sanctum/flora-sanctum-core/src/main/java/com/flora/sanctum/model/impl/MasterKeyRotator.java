@@ -35,7 +35,7 @@ public final class MasterKeyRotator {
             // 重包根对象（用旧 KEK 解密块 + 解 DEK，用新 KEK 重加密）
             // 直接按已知根对象 uuid 定位，不再遍历全库试解
             java.util.Set<java.util.UUID> rootUuids = new java.util.HashSet<>();
-            java.util.UUID root = vault.rootGroupUuid(RootTag.DATA);
+            java.util.UUID root = vault.rootObjectUuid(RootTag.DATA);
             if (root != null) {
                 rootUuids.add(root);
             }
@@ -62,7 +62,7 @@ public final class MasterKeyRotator {
             // 更新 manifest 的 MAC（用新 KEK）
             Manifest updated = new Manifest(m.version(), m.cryptoVersion(), m.kdf(),
                     m.salt(), memoryKiB, iterations, parallelism,
-                    m.rootGroupUuid(), m.updateTimestamp());
+                    m.rootObjectUuid(), m.updateTimestamp());
             byte[] macKey = updated.manifestMacKey(newKek);
             new ManifestStore(ctx.store(), ctx.random()).write(updated, macKey);
             vault.replaceManifest(updated);

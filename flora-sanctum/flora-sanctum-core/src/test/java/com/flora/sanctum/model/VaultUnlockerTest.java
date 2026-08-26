@@ -27,6 +27,11 @@ class VaultUnlockerTest {
 
     /** 构造一个 manifest 明文块并写入独立文件，返回 [store, manifest payload]。 */
     private ObjectStore createManifest(char[] password) {
+        return createManifest(password, "rootObjectUuid");
+    }
+
+    /** 构造 manifest 明文块；rootKey 指定写入的根对象 uuid 持久化键名（含旧 key 兼容性）。 */
+    private ObjectStore createManifest(char[] password, String rootKey) {
         SecureRandomSource rng = new SecureRandomSource();
         byte[] salt = new byte[16];
         rng.nextBytes(salt);
@@ -45,8 +50,8 @@ class VaultUnlockerTest {
         params.put("i", 3);
         params.put("p", 4);
         manifest.put("params", params);
-        UUID rootGroupUuid = UUID.randomUUID();
-        manifest.put("rootGroupUuid", rootGroupUuid.toString());
+        UUID rootObjectUuid = UUID.randomUUID();
+        manifest.put(rootKey, rootObjectUuid.toString());
         manifest.put("updateTimestamp", 1);
 
         // 块格式与密文对齐：header + payload + mac(尾附)，MAC 覆盖 header+timestamp+payload
@@ -80,5 +85,15 @@ class VaultUnlockerTest {
         ObjectStore store = createManifest(pw);
         VaultUnlocker unlocker = new VaultUnlocker(store);
         assertThrows(IllegalArgumentException.class, () -> unlocker.unlock("wrong password".toCharArray()));
+    }
+
+    @Test
+    void unlockReadsLegacyRootGroupUuidKey() {
+        char[] pw = "correct horse battery".toCharArray();
+        ObjectStore store = createManifest(pw, "rootGroupUuid");
+        VaultUnlocker unlocker = new VaultUnlocker(store);
+        Vault vault = unlocker.unlock(pw);
+        assertNotNull(vault);
+        assertEquals("gcm-siv-1", vault.manifest().cryptoVersion());
     }
 }

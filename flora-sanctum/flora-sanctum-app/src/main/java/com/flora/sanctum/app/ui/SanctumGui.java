@@ -1099,7 +1099,7 @@ public final class SanctumGui {
     /** 文件夹设置的图标 id（无则 null）。 */
     private String groupIconOf(UUID groupUuid) {
         GroupNode g = sanctum.objectTree().group(groupUuid);
-        return g == null ? null : g.icon();
+        return g == null ? null : g.iconRef();
     }
 
     // ---- 条目列表 ----
@@ -1122,7 +1122,7 @@ public final class SanctumGui {
                     entryModel.addElement(path.isEmpty() ? e.name() : e.name() + "  ·  " + path);
                     entryUuids.add(e.uuid());
                     listItemTypes.add(StoredNodeType.ENTRY);
-                    listItemIcons.add(e.icon());
+                    listItemIcons.add(e.iconRef());
                 }
             }
             if (searchBanner != null) {
@@ -1182,7 +1182,7 @@ public final class SanctumGui {
                 entryModel.addElement(gname);
                 entryUuids.add(g.uuid());
                 listItemTypes.add(StoredNodeType.GROUP);
-                listItemIcons.add(g.icon());
+                listItemIcons.add(g.iconRef());
             } else if (n instanceof EntryNode e) {
                 if (!q.isEmpty() && !matchesFilter(e, q)) {
                     continue;
@@ -1190,7 +1190,7 @@ public final class SanctumGui {
                 entryModel.addElement(e.name());
                 entryUuids.add(e.uuid());
                 listItemTypes.add(StoredNodeType.ENTRY);
-                listItemIcons.add(e.icon());
+                listItemIcons.add(e.iconRef());
             }
         }
     }
@@ -1870,7 +1870,7 @@ public final class SanctumGui {
         if (parent == null) {
             return true;
         }
-        UUID rootUuid = sanctum.rootGroupUuid();
+        UUID rootUuid = sanctum.rootObjectUuid();
         return rootUuid != null && rootUuid.toString().equals(parent);
     }
 

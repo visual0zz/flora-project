@@ -14,7 +14,7 @@ import java.util.List;
  * <p>
  * 流程：扫描块 → 找 manifest（明文块，type=manifest）→ Argon2id 派生 KEK →
  * 验证 manifest MAC → 构建 Vault。root DEK 与 group DEK 由本类内部发现并登记：
- * 根对象经 manifest.rootGroupUuid 直接定位（KEK 试解），其余 cipher 块经 keyId 路由定位父 DEK 解开。
+ * 根对象经 manifest.rootObjectUuid 直接定位（KEK 试解），其余 cipher 块经 keyId 路由定位父 DEK 解开。
  */
 public final class VaultUnlocker {
 
@@ -51,7 +51,7 @@ public final class VaultUnlocker {
         KeyIdIndex index = new KeyIdIndex();
         long baseTimestamp = maxBlockTimestamp(blocks);
         Vault vault = new Vault(store, manifest, index, new SecureRandomSource(), kek, baseTimestamp);
-        // 4. 解根对象：manifest 记录 rootGroupUuid，O(1) 定位；KEK 试解出 root DEK 与 repoKeyIdSeed
+        // 4. 解根对象：manifest 记录 rootObjectUuid，O(1) 定位；KEK 试解出 root DEK 与 repoKeyIdSeed
         discoverRootDeks(vault, kek, blocks);
         // KEK 由 Vault 驻留（锁定/关闭时 clearSecrets）
         return vault;
@@ -59,14 +59,14 @@ public final class VaultUnlocker {
 
     /**
      * 发现并登记全部 group DEK（见设计 02"解锁流程"）。
-     * 根对象由 manifest.rootGroupUuid 定位（O(1)），KEK 试解出 root DEK 与 repoKeyIdSeed 后，
+     * 根对象由 manifest.rootObjectUuid 定位（O(1)），KEK 试解出 root DEK 与 repoKeyIdSeed 后，
      * 后续 cipher 块统一经 keyId 路由（BlockResolver）定位父 DEK 解开，对 type==group 且含 dek 的
      * 用父 DEK 解出子 DEK 并登记，逐层递归直至无新增。
      */
     private void discoverRootDeks(Vault vault, byte[] kek, List<Block> blocks) {
         // 根对象块用 KEK 加密，但 keyId 由 repoKeyIdSeed 派生（解锁时尚未读出），
         // 无法用 keyId 预筛 → 直接按 manifest 记录的 uuid 定位，KEK 试解（GCM tag 确证）。
-        java.util.UUID rootUuid = vault.manifest().rootGroupUuid();
+        java.util.UUID rootUuid = vault.manifest().rootObjectUuid();
         if (rootUuid != null) {
             for (Block b : blocks) {
                 if (!rootUuid.equals(b.uuid())) {
@@ -78,7 +78,7 @@ public final class VaultUnlocker {
                     if (n != null && n.getString("dek") != null) {
                         // 根对象：manifest 已记录 uuid 并定位，唯一根即 DATA
                         RootTag tag = RootTag.DATA;
-                        vault.addRootGroupUuid(tag, b.uuid());
+                        vault.addRootObjectUuid(tag, b.uuid());
                         // 根对象承载仓库级 keyId 派生种子
                         String seedB64 = n.getString("repoKeyIdSeed");
                         if (seedB64 != null) {

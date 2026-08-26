@@ -30,7 +30,7 @@ public final class Vault {
     private final SecureRandomSource random;
     private WarehouseClock clock;
     private final java.util.Map<RootTag, byte[]> rootDeksByTag = new java.util.LinkedHashMap<>();
-    private final java.util.Map<RootTag, java.util.UUID> rootGroupUuidByTag = new java.util.LinkedHashMap<>();
+    private final java.util.Map<RootTag, java.util.UUID> rootObjectUuidByTag = new java.util.LinkedHashMap<>();
     private final java.util.Map<java.util.UUID, byte[]> groupDeks = new java.util.LinkedHashMap<>();
     private byte[] kek; // 解锁期间驻留内存，锁定/关闭时清除
     private byte[] repoKeyIdSeed; // 仓库级 keyId 派生种子（DATA 根 json 存储），锁定/关闭时清除
@@ -57,13 +57,13 @@ public final class Vault {
     }
 
     /** 登记某根概念的顶层 group uuid（供新对象定位所属 root）。 */
-    public void addRootGroupUuid(RootTag tag, java.util.UUID groupUuid) {
-        rootGroupUuidByTag.put(tag, groupUuid);
+    public void addRootObjectUuid(RootTag tag, java.util.UUID groupUuid) {
+        rootObjectUuidByTag.put(tag, groupUuid);
     }
 
     /** 取某根概念的顶层 group uuid。 */
-    public java.util.UUID rootGroupUuid(RootTag tag) {
-        return rootGroupUuidByTag.get(tag);
+    public java.util.UUID rootObjectUuid(RootTag tag) {
+        return rootObjectUuidByTag.get(tag);
     }
 
     /** 按根概念路由加密归属（设计 05）：普通对象→data，图标→icon，SSH 密钥→sshKey。 */

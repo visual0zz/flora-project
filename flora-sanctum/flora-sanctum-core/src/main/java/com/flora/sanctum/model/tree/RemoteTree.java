@@ -55,7 +55,7 @@ public final class RemoteTree extends DataTree {
         UUID remoteUuid = UUID.randomUUID();
         JsonObject remote = new JsonObject();
         remote.put("type", StoredNodeType.REMOTE.tag());
-        remote.put("parent", context().vault().rootGroupUuid(RootTag.DATA).toString());
+        remote.put("parent", context().vault().rootObjectUuid(RootTag.DATA).toString());
         remote.put("name", name);
         remote.put("url", url);
         if (keyRef != null) {

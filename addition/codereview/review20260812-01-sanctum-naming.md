@@ -184,6 +184,19 @@
 
 ### 本次未落地（说明原因）
 
-- **H1** `rootGroupUuid`：JSON key `rootGroupUuid` 是磁盘 vault 的持久化格式，改名需配套迁移旧 vault，风险高，超出命名清理范围，暂缓。
-- **M2** `EntryNode/GroupNode.icon()` 与 `IconNode.iconData()`：方法改名机械可行，但二者语义差异（引用 vs 字节）是当前设计意图，且改名容易误触持久化 JSON key `icon`/`data`，价值有限，暂缓。
 - 其余中/低优先级（M3–M9、L1–L10）为局部可读性或常量风格问题，本次未批量处理，留待后续按需清理。
+
+### 落地记录（第三批，2026-08-26）
+
+按用户要求落地此前暂缓的两项，均已做兼容性处理：
+
+- **H1** `rootGroupUuid` → `rootObjectUuid`：方法 `Manifest.rootGroupUuid()`/`Vault.rootGroupUuid(RootTag)`/`Sanctum.rootGroupUuid()` 及全部调用点改名；持久化 JSON key 由写入端（`VaultCreator`、`ManifestStore`）改为 `rootObjectUuid`，读取端 `Manifest.fromJson` 保留对旧 key `rootGroupUuid` 的回退以兼容既有 vault；设计文档同步更新。
+- **M2** `EntryNode.icon()` / `GroupNode.icon()`（返回图标引用字符串）→ `iconRef()`，与 `IconNode.iconData()`（返回字节）明确区分；持久化 JSON key `icon` 不变。调用点（SanctumGui、SanctumTest）同步更新。
+
+### 仍暂缓（涉及持久化格式 / 导出 API / 加载即绑定语义）
+
+- **M5** `Manifest`/`VaultCreator` 参数 `m/i/p` 及 JSON key `m`/`i`/`p` 是磁盘 vault manifest 持久化格式，改名需迁移旧 vault。
+- **L2** `TreeNode.parent()` 为导出 API 且返回持久化 JSON key `parent`，改名属破坏性 API 变更。
+- **L4** `GcmSiv.decrypt(... byte[] input)` 的 `input` 即 `密文‖tag` 的持久化线格式；仅符号改名风险低但布局不可变，暂维持现状。
+- **L5** `Involution.BLOCK_LEN=8` 是参与 keyId 推导的密码学常量，值不可变（符号改名安全但价值有限），暂缓。
+- **L8** `SanctumHttpServer` 的 `data`/`cipher` 为导出 HTTP 线协议 JSON key，改名破坏外部客户端，暂缓。

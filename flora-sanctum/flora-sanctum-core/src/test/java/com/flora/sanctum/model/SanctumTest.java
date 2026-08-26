@@ -77,10 +77,10 @@ class SanctumTest {
         IconNode icon = s.iconTree().createIcon("icon", new byte[]{1, 2, 3}, "png");
 
         entry.setIcon(icon.uuid());
-        assertEquals(icon.uuid().toString(), s.objectTree().entry(entry.uuid()).icon());
+        assertEquals(icon.uuid().toString(), s.objectTree().entry(entry.uuid()).iconRef());
 
         entry.setIcon((UUID) null);
-        assertNull(s.objectTree().entry(entry.uuid()).icon());
+        assertNull(s.objectTree().entry(entry.uuid()).iconRef());
     }
 
     @Test
@@ -197,7 +197,7 @@ class SanctumTest {
         GroupNode group = s.objectTree().createGroup(null, "社交");
         EntryNode entry = s.objectTree().createEntry(null, "顶层条目",
                 new EntryFields("x", null, null, List.of()));
-        String root = s.rootGroupUuid().toString();
+        String root = s.rootObjectUuid().toString();
         assertEquals(root, group.parent());
         assertEquals(root, entry.parent());
 
@@ -210,16 +210,16 @@ class SanctumTest {
         assertEquals(root, ssh.parent());
 
         // manifest 明文块记录根对象 uuid
-        assertEquals(root, s.vault().manifest().rootGroupUuid().toString());
+        assertEquals(root, s.vault().manifest().rootObjectUuid().toString());
 
         s.close();
         Sanctum s2 = Sanctum.open(dir);
         s2.unlock("pw".toCharArray());
-        String root2 = s2.rootGroupUuid().toString();
+        String root2 = s2.rootObjectUuid().toString();
         assertEquals(root2, s2.objectTree().group(group.uuid()).parent());
         assertEquals(root2, s2.objectTree().entry(entry.uuid()).parent());
         assertEquals(root2, s2.remoteTree().remote("origin").parent());
-        assertEquals(root2, s2.vault().manifest().rootGroupUuid().toString());
+        assertEquals(root2, s2.vault().manifest().rootObjectUuid().toString());
     }
 
     @Test

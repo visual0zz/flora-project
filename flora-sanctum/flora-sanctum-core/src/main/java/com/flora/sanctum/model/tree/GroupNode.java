@@ -30,7 +30,7 @@ public final class GroupNode extends ObjectNode {
     }
 
     /** 自定义图标引用 uuid 字符串（可 null）。 */
-    public String icon() {
+    public String iconRef() {
         JsonObject d = data();
         return d == null ? null : d.getString("icon");
     }

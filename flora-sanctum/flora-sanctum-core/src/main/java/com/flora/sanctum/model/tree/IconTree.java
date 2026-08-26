@@ -46,7 +46,7 @@ public final class IconTree extends DataTree {
         UUID iconUuid = UUID.randomUUID();
         JsonObject icon = new JsonObject();
         icon.put("type", StoredNodeType.ICON.tag());
-        icon.put("parent", context().vault().rootGroupUuid(RootTag.DATA).toString());
+        icon.put("parent", context().vault().rootObjectUuid(RootTag.DATA).toString());
         if (name != null && !name.isBlank()) {
             icon.put("name", name);
         }

@@ -7,7 +7,7 @@ import java.util.Base64;
  * manifest 明文引导块（见设计 02"manifest"）。
  * <p>
  * 负载 JSON：{version, type:"manifest", cryptoVersion, kdf, salt, params{m,i,p},
- * rootGroupUuid, updateTimestamp}。块格式与密文对齐：{@code 信封头 + 负载 + MAC(尾附)}，
+ * rootObjectUuid, updateTimestamp}。块格式与密文对齐：{@code 信封头 + 负载 + MAC(尾附)}，
  * MAC = HMAC-SHA256(macKey, 完整信封头 ‖ 时间戳 ‖ 负载)（见 {@link com.flora.sanctum.model.impl.ManifestStore}）。
  * 时间戳存于块前缀，MAC 不存于 JSON 内部（与密文 tag 位置对应）。
  */
@@ -20,12 +20,12 @@ public final class Manifest {
     private final int memoryKiB;
     private final int iterations;
     private final int parallelism;
-    private final java.util.UUID rootGroupUuid;
+    private final java.util.UUID rootObjectUuid;
     private final long updateTimestamp;
 
     public Manifest(int version, String cryptoVersion, String kdf, byte[] salt,
                     int memoryKiB, int iterations, int parallelism,
-                    java.util.UUID rootGroupUuid, long updateTimestamp) {
+                    java.util.UUID rootObjectUuid, long updateTimestamp) {
         this.version = version;
         this.cryptoVersion = cryptoVersion;
         this.kdf = kdf;
@@ -33,7 +33,7 @@ public final class Manifest {
         this.memoryKiB = memoryKiB;
         this.iterations = iterations;
         this.parallelism = parallelism;
-        this.rootGroupUuid = rootGroupUuid;
+        this.rootObjectUuid = rootObjectUuid;
         this.updateTimestamp = updateTimestamp;
     }
 
@@ -66,8 +66,8 @@ public final class Manifest {
     }
 
     /** 根对象 uuid（manifest 记录，解锁 O(1) 定位）。 */
-    public java.util.UUID rootGroupUuid() {
-        return rootGroupUuid;
+    public java.util.UUID rootObjectUuid() {
+        return rootObjectUuid;
     }
 
     public long updateTimestamp() {
@@ -87,7 +87,11 @@ public final class Manifest {
             throw new IllegalArgumentException("not a manifest");
         }
         com.flora.root.codec.json.model.JsonObject params = n.getObject("params");
-        String rootUuidStr = n.getString("rootGroupUuid");
+        // 兼容旧 vault：优先新 key "rootObjectUuid"，回退旧 key "rootGroupUuid"。
+        String rootUuidStr = n.getString("rootObjectUuid");
+        if (rootUuidStr == null) {
+            rootUuidStr = n.getString("rootGroupUuid");
+        }
         return new Manifest(
                 n.getInt("version"),
                 n.getString("cryptoVersion"),

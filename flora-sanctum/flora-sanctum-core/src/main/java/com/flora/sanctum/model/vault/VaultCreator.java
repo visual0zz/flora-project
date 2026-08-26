@@ -60,7 +60,7 @@ public final class VaultCreator {
 
     /** 写 manifest 明文块。MAC 覆盖完整信封头 + 时间戳 + 负载，尾附（与密文块结构对齐）。 */
     private void writeManifestBlock(byte[] salt, int m, int i, int p, byte[] macKey, byte[] kek,
-                                    java.util.UUID rootGroupUuid) {
+                                    java.util.UUID rootObjectUuid) {
         UUID uuid = UUID.randomUUID();
         com.flora.root.codec.json.model.JsonObject manifest = new com.flora.root.codec.json.model.JsonObject();
         manifest.put("version", 1);
@@ -73,7 +73,7 @@ public final class VaultCreator {
         params.put("i", i);
         params.put("p", p);
         manifest.put("params", params);
-        manifest.put("rootGroupUuid", rootGroupUuid.toString());
+        manifest.put("rootObjectUuid", rootObjectUuid.toString());
         manifest.put("updateTimestamp", 1);
         byte[] payload = com.flora.root.codec.JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
         byte[] block = com.flora.sanctum.model.impl.ManifestStore.buildBlock(uuid, payload, "1", macKey);

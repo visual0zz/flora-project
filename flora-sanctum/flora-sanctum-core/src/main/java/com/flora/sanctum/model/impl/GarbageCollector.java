@@ -29,8 +29,8 @@ public final class GarbageCollector {
     public List<UUID> collect() {
         List<Block> blocks = ctx.store().scan();
         Set<UUID> reachable = new HashSet<>();
-        // 根：manifest（明文块）+ 根对象（manifest.rootGroupUuid 定位，KEK 包裹）
-        java.util.UUID rootUuid = ctx.vault().manifest().rootGroupUuid();
+        // 根：manifest（明文块）+ 根对象（manifest.rootObjectUuid 定位，KEK 包裹）
+        java.util.UUID rootUuid = ctx.vault().manifest().rootObjectUuid();
         for (Block b : blocks) {
             if (b.isPlaintext()) {
                 reachable.add(b.uuid());

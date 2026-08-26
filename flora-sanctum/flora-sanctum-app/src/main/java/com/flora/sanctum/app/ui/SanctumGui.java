@@ -786,7 +786,7 @@ public final class SanctumGui {
         // 顶部工具栏（SVG 图标按钮 + tooltip，去文字标签；尺寸 24→29 ≈ +20%）
         newEntryBtn = iconButton(SvgIcon.get("ui/new-entry", 29), "新建条目");
         newGroupBtn = iconButton(SvgIcon.get("ui/new-group", 29), "新建文件夹");
-        delBtn = iconButton(SvgIcon.get("ui/trash", 29), "删除");
+        delBtn = iconButton(SvgIcon.get("ui/delete", 29), "删除");
         syncBtn = iconButton(SvgIcon.get("ui/sync", 29), "同步");
         settingsBtn = iconButton(SvgIcon.get("ui/settings", 29), "设置");
         lockBtn = iconButton(SvgIcon.get("ui/lock", 29), "锁定");
@@ -2798,15 +2798,15 @@ public final class SanctumGui {
                 if (uo instanceof ViewNodeType tag) {
                     if (tag == ViewNodeType.TRASH) {
                         setText("垃圾桶");
-                        setIcon(SvgIcon.get("ui/trash", 24));
-                        setDisabledIcon(SvgIcon.get("ui/trash", 24));
+                        setIcon(SvgIcon.get("ui/delete", 24));
+                        setDisabledIcon(SvgIcon.get("ui/delete", 24));
                     } else {
                         setText(sectionDisplayName(tag));
                     }
                 } else if (uo instanceof TrashCategory cat) {
                     setText(cat.label);
-                    setIcon(SvgIcon.get("ui/trash", 24));
-                    setDisabledIcon(SvgIcon.get("ui/trash", 24));
+                    setIcon(SvgIcon.get("ui/delete", 24));
+                    setDisabledIcon(SvgIcon.get("ui/delete", 24));
                 } else if (uo instanceof UUID uuid) {
                     String[] info = groupsById().get(uuid);
                     String name = info == null ? null : info[1];

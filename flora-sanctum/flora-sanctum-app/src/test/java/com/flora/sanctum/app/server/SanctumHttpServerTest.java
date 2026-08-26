@@ -53,17 +53,17 @@ class SanctumHttpServerTest {
             assertFalse(list.getArray("keys").isEmpty());
 
             String dataB64 = Base64.getEncoder().encodeToString("hello http".getBytes(StandardCharsets.UTF_8));
-            String encReq = "{\"uuid\":\"" + keyField + "\",\"data\":\"" + dataB64 + "\"}";
+            String encReq = "{\"uuid\":\"" + keyField + "\",\"plaintextB64\":\"" + dataB64 + "\"}";
             String encResp = post("http://127.0.0.1:" + port + "/crypt/encrypt", encReq);
             JsonObject enc = JsonUtil.parseObject(encResp);
             assertTrue(enc.getBool("ok"));
-            String cipher = enc.getString("cipher");
+            String cipher = enc.getString("ciphertextB58");
 
-            String decReq = "{\"cipher\":\"" + cipher + "\"}";
+            String decReq = "{\"ciphertextB58\":\"" + cipher + "\"}";
             String decResp = post("http://127.0.0.1:" + port + "/crypt/decrypt", decReq);
             JsonObject dec = JsonUtil.parseObject(decResp);
             assertTrue(dec.getBool("ok"));
-            assertEquals("hello http", new String(Base64.getDecoder().decode(dec.getString("data")), StandardCharsets.UTF_8));
+            assertEquals("hello http", new String(Base64.getDecoder().decode(dec.getString("plaintextB64")), StandardCharsets.UTF_8));
         } finally {
             http.stop();
         }
@@ -77,7 +77,7 @@ class SanctumHttpServerTest {
         http.start();
         try {
             int port = http.port();
-            String resp = post("http://127.0.0.1:" + port + "/crypt/encrypt", "{\"uuid\":\"x\",\"data\":\"eA==\"}");
+            String resp = post("http://127.0.0.1:" + port + "/crypt/encrypt", "{\"uuid\":\"x\",\"plaintextB64\":\"eA==\"}");
             JsonObject n = JsonUtil.parseObject(resp);
             assertFalse(n.getBool("ok"));
             assertEquals("locked", n.getString("error"));

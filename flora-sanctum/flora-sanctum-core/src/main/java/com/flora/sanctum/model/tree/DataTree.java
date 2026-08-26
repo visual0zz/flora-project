@@ -59,7 +59,7 @@ public abstract class DataTree {
         String root = rootUuid == null ? null : rootUuid.toString();
         List<TreeNode> out = new ArrayList<>();
         for (TreeNode n : nodes()) {
-            if (root != null && root.equals(n.parent())) {
+            if (root != null && root.equals(n.parentRef())) {
                 out.add(n);
             }
         }

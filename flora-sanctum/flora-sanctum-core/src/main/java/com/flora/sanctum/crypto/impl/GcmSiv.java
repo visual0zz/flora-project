@@ -53,19 +53,19 @@ public final class GcmSiv {
     /**
      * 解密并验证 tag，认证失败抛 {@link IllegalArgumentException}。
      *
-     * @param key   AES 密钥（与加密一致）
-     * @param nonce 12 字节 nonce
-     * @param aad   认证附加数据（与加密一致）
-     * @param input {@code 密文 ‖ tag}
+     * @param key              AES 密钥（与加密一致）
+     * @param nonce            12 字节 nonce
+     * @param aad              认证附加数据（与加密一致）
+     * @param ciphertextWithTag {@code 密文 ‖ tag}
      */
-    public static byte[] decrypt(byte[] key, byte[] nonce, byte[] aad, byte[] input) {
+    public static byte[] decrypt(byte[] key, byte[] nonce, byte[] aad, byte[] ciphertextWithTag) {
         checkParams(key, nonce);
-        if (input.length < TAG_LEN) {
+        if (ciphertextWithTag.length < TAG_LEN) {
             throw new IllegalArgumentException("ciphertext too short");
         }
-        int ctLen = input.length - TAG_LEN;
-        byte[] tag = Arrays.copyOfRange(input, ctLen, input.length);
-        byte[] ct = Arrays.copyOf(input, ctLen);
+        int ctLen = ciphertextWithTag.length - TAG_LEN;
+        byte[] tag = Arrays.copyOfRange(ciphertextWithTag, ctLen, ciphertextWithTag.length);
+        byte[] ct = Arrays.copyOf(ciphertextWithTag, ctLen);
 
         long[] h = deriveAuthKey(key, nonce);
         byte[] k2 = deriveEncKey(key, nonce);

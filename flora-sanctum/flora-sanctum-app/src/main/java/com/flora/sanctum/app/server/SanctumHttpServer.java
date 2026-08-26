@@ -92,9 +92,9 @@ public final class SanctumHttpServer {
         }
         JsonObject req = readJson(ex);
         String uuidStr = req.getString("uuid");
-        String dataB64 = req.getString("data");
+        String dataB64 = req.getString("plaintextB64");
         if (uuidStr == null || dataB64 == null) {
-            error(ex, "bad_request", "uuid and data required");
+            error(ex, "bad_request", "uuid and plaintextB64 required");
             return;
         }
         try {
@@ -103,7 +103,7 @@ public final class SanctumHttpServer {
             byte[] cipher = new ExternalKeyService(s).encrypt(data, uuid);
             JsonObject resp = new JsonObject();
             resp.put("ok", true);
-            resp.put("cipher", com.flora.root.codec.Base58.encode(cipher));
+            resp.put("ciphertextB58", com.flora.root.codec.Base58.encode(cipher));
             respond(ex, 200, JsonUtil.toJsonString(resp));
         } catch (Exception e) {
             error(ex, "encrypt_failed", e.getMessage());
@@ -118,16 +118,16 @@ public final class SanctumHttpServer {
             return;
         }
         JsonObject req = readJson(ex);
-        String cipher = req.getString("cipher");
+        String cipher = req.getString("ciphertextB58");
         if (cipher == null) {
-            error(ex, "bad_request", "cipher required");
+            error(ex, "bad_request", "ciphertextB58 required");
             return;
         }
         try {
             byte[] data = new ExternalKeyService(s).decrypt(cipher);
             JsonObject resp = new JsonObject();
             resp.put("ok", true);
-            resp.put("data", Base64.getEncoder().encodeToString(data));
+            resp.put("plaintextB64", Base64.getEncoder().encodeToString(data));
             respond(ex, 200, JsonUtil.toJsonString(resp));
         } catch (Exception e) {
             error(ex, "decrypt_failed", "decryption failed");

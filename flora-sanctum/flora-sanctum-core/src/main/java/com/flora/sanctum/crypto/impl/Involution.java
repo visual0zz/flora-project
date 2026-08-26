@@ -11,8 +11,8 @@ package com.flora.sanctum.crypto.impl;
 public final class Involution {
 
     /** 块宽度（= keyId/dekId 宽度，64 位）。 */
-    public static final int BLOCK_LEN = 8;
-    private static final int HALF = BLOCK_LEN / 2;
+    public static final int FEISTEL_BLOCK_BYTES = 8;
+    private static final int HALF = FEISTEL_BLOCK_BYTES / 2;
     private static final int ROUNDS = 7;
 
     private Involution() {
@@ -20,8 +20,8 @@ public final class Involution {
 
     /** 对合 f：8 字节块 → 8 字节块，f(f(x)) = x。 */
     public static byte[] apply(byte[] key, byte[] block) {
-        if (block.length != BLOCK_LEN) {
-            throw new IllegalArgumentException("block must be " + BLOCK_LEN + " bytes");
+        if (block.length != FEISTEL_BLOCK_BYTES) {
+            throw new IllegalArgumentException("block must be " + FEISTEL_BLOCK_BYTES + " bytes");
         }
         byte[] l = new byte[HALF];
         byte[] r = new byte[HALF];
@@ -36,7 +36,7 @@ public final class Involution {
                 target[j] ^= d[j];
             }
         }
-        byte[] out = new byte[BLOCK_LEN];
+        byte[] out = new byte[FEISTEL_BLOCK_BYTES];
         System.arraycopy(l, 0, out, 0, HALF);
         System.arraycopy(r, 0, out, HALF, HALF);
         return out;

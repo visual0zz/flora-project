@@ -60,8 +60,8 @@ public abstract class TreeNode {
         return b == null ? -1 : b.line();
     }
 
-    /** 父对象标识：父 uuid 或根概念 tag。 */
-    public String parent() {
+    /** 父对象引用：父对象 uuid 字符串，或根概念 tag（顶层）——持久化 JSON key {@code parent}。 */
+    public String parentRef() {
         JsonObject d = data();
         return d == null ? null : d.getString("parent");
     }

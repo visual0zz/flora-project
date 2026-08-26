@@ -30,7 +30,7 @@ public final class KeyIdIndex {
 
     /** 按 dekId 查候选 DEK 列表（可能多个，需试解确证）。 */
     public List<byte[]> lookup(byte[] dekId) {
-        if (dekId.length != Involution.BLOCK_LEN) {
+        if (dekId.length != Involution.FEISTEL_BLOCK_BYTES) {
             throw new IllegalArgumentException("dekId must be 8 bytes");
         }
         List<byte[]> deks = entries.get(new ByteKey(dekId));

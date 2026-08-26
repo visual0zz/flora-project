@@ -59,7 +59,7 @@ public final class VaultCreator {
     }
 
     /** 写 manifest 明文块。MAC 覆盖完整信封头 + 时间戳 + 负载，尾附（与密文块结构对齐）。 */
-    private void writeManifestBlock(byte[] salt, int m, int i, int p, byte[] macKey, byte[] kek,
+    private void writeManifestBlock(byte[] salt, int memKiB, int iterations, int parallelism, byte[] macKey, byte[] kek,
                                     java.util.UUID rootObjectUuid) {
         UUID uuid = UUID.randomUUID();
         com.flora.root.codec.json.model.JsonObject manifest = new com.flora.root.codec.json.model.JsonObject();
@@ -69,9 +69,9 @@ public final class VaultCreator {
         manifest.put("kdf", "argon2id");
         manifest.put("salt", Base64.getEncoder().encodeToString(salt));
         com.flora.root.codec.json.model.JsonObject params = new com.flora.root.codec.json.model.JsonObject();
-        params.put("m", m);
-        params.put("i", i);
-        params.put("p", p);
+        params.put("memoryKiB", memKiB);
+        params.put("iterations", iterations);
+        params.put("parallelism", parallelism);
         manifest.put("params", params);
         manifest.put("rootObjectUuid", rootObjectUuid.toString());
         manifest.put("updateTimestamp", 1);

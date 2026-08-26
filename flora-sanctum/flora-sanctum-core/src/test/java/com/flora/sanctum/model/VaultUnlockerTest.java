@@ -46,9 +46,9 @@ class VaultUnlockerTest {
         manifest.put("kdf", "argon2id");
         manifest.put("salt", Base64.getEncoder().encodeToString(salt));
         JsonObject params = new JsonObject();
-        params.put("m", 65536);
-        params.put("i", 3);
-        params.put("p", 4);
+        params.put("memoryKiB", 65536);
+        params.put("iterations", 3);
+        params.put("parallelism", 4);
         manifest.put("params", params);
         UUID rootObjectUuid = UUID.randomUUID();
         manifest.put(rootKey, rootObjectUuid.toString());

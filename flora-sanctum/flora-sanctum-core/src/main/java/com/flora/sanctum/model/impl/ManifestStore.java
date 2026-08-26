@@ -167,9 +167,9 @@ public final class ManifestStore {
         manifest.put("kdf", m.kdf());
         manifest.put("salt", Base64.getEncoder().encodeToString(m.salt()));
         JsonObject params = new JsonObject();
-        params.put("m", m.memoryKiB());
-        params.put("i", m.iterations());
-        params.put("p", m.parallelism());
+        params.put("memoryKiB", m.memoryKiB());
+        params.put("iterations", m.iterations());
+        params.put("parallelism", m.parallelism());
         manifest.put("params", params);
         manifest.put("rootObjectUuid", m.rootObjectUuid() == null ? null : m.rootObjectUuid().toString());
         manifest.put("updateTimestamp", m.updateTimestamp());

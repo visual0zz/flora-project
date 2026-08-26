@@ -21,7 +21,7 @@ public final class KeyIdDeriver {
     /** 内部标识（索引键，64 位）。 */
     public static byte[] dekId(byte[] keyMaterial) {
         byte[] h = sha256(keyMaterial);
-        byte[] out = new byte[Involution.BLOCK_LEN];
+        byte[] out = new byte[Involution.FEISTEL_BLOCK_BYTES];
         System.arraycopy(h, 0, out, 0, out.length);
         return out;
     }

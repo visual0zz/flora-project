@@ -6,7 +6,7 @@ import java.util.Base64;
 /**
  * manifest 明文引导块（见设计 02"manifest"）。
  * <p>
- * 负载 JSON：{version, type:"manifest", cryptoVersion, kdf, salt, params{m,i,p},
+ * 负载 JSON：{version, type:"manifest", cryptoVersion, kdf, salt, params{memoryKiB,iterations,parallelism},
  * rootObjectUuid, updateTimestamp}。块格式与密文对齐：{@code 信封头 + 负载 + MAC(尾附)}，
  * MAC = HMAC-SHA256(macKey, 完整信封头 ‖ 时间戳 ‖ 负载)（见 {@link com.flora.sanctum.model.impl.ManifestStore}）。
  * 时间戳存于块前缀，MAC 不存于 JSON 内部（与密文 tag 位置对应）。
@@ -97,9 +97,9 @@ public final class Manifest {
                 n.getString("cryptoVersion"),
                 n.getString("kdf"),
                 Base64.getDecoder().decode(n.getString("salt")),
-                params.getInt("m"),
-                params.getInt("i"),
-                params.getInt("p"),
+                params.getInt("memoryKiB"),
+                params.getInt("iterations"),
+                params.getInt("parallelism"),
                 rootUuidStr == null ? null : java.util.UUID.fromString(rootUuidStr),
                 n.getLong("updateTimestamp") == null ? 1 : n.getLong("updateTimestamp")
         );

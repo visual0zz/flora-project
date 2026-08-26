@@ -198,16 +198,16 @@ class SanctumTest {
         EntryNode entry = s.objectTree().createEntry(null, "顶层条目",
                 new EntryFields("x", null, null, List.of()));
         String root = s.rootObjectUuid().toString();
-        assertEquals(root, group.parent());
-        assertEquals(root, entry.parent());
+        assertEquals(root, group.parentRef());
+        assertEquals(root, entry.parentRef());
 
         RemoteNode remote = s.remoteTree().addRemote("origin", "git@example.com:r.git", null);
-        assertEquals(root, remote.parent());
+        assertEquals(root, remote.parentRef());
 
         IconNode icon = s.iconTree().createIcon("icon", new byte[]{1}, "png");
         SshKeyNode ssh = s.sshKeyTree().createSshKey("k", "-----BEGIN PRIVATE KEY-----");
-        assertEquals(root, icon.parent());
-        assertEquals(root, ssh.parent());
+        assertEquals(root, icon.parentRef());
+        assertEquals(root, ssh.parentRef());
 
         // manifest 明文块记录根对象 uuid
         assertEquals(root, s.vault().manifest().rootObjectUuid().toString());
@@ -216,9 +216,9 @@ class SanctumTest {
         Sanctum s2 = Sanctum.open(dir);
         s2.unlock("pw".toCharArray());
         String root2 = s2.rootObjectUuid().toString();
-        assertEquals(root2, s2.objectTree().group(group.uuid()).parent());
-        assertEquals(root2, s2.objectTree().entry(entry.uuid()).parent());
-        assertEquals(root2, s2.remoteTree().remote("origin").parent());
+        assertEquals(root2, s2.objectTree().group(group.uuid()).parentRef());
+        assertEquals(root2, s2.objectTree().entry(entry.uuid()).parentRef());
+        assertEquals(root2, s2.remoteTree().remote("origin").parentRef());
         assertEquals(root2, s2.vault().manifest().rootObjectUuid().toString());
     }
 

@@ -36,10 +36,22 @@ public final class Sanctum implements AutoCloseable {
         return new Sanctum(root);
     }
 
-    /** 新建并解锁。 */
+    /** 新建并解锁（默认高安全档 Argon2id 参数）。 */
     public static Sanctum createAndUnlock(Path root, char[] masterPassword) {
+        return createAndUnlock(root, masterPassword,
+                com.flora.sanctum.crypto.Argon2Kdf.DEFAULT_MEMORY_KIB,
+                com.flora.sanctum.crypto.Argon2Kdf.DEFAULT_ITERATIONS,
+                com.flora.sanctum.crypto.Argon2Kdf.DEFAULT_PARALLELISM);
+    }
+
+    /**
+     * 新建并解锁，显式指定 Argon2id 参数（内存 KiB / 迭代次数 / 并行度）。
+     * 供新建库时由用户自定义 KDF 强度；参数会被持久化到 manifest，解锁时自动读取。
+     */
+    public static Sanctum createAndUnlock(Path root, char[] masterPassword,
+                                          int memoryKiB, int iterations, int parallelism) {
         Sanctum s = new Sanctum(root);
-        new VaultCreator(s.store).create(masterPassword);
+        new VaultCreator(s.store).create(masterPassword, memoryKiB, iterations, parallelism);
         s.unlock(masterPassword);
         return s;
     }

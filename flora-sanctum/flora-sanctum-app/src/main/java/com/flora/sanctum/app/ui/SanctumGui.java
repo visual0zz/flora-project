@@ -604,6 +604,14 @@ public final class SanctumGui {
         c.insets = new Insets(3, 0, 3, 0);
         panel.add(pwRow, c);
 
+        // 新建库时允许自定义 Argon2id 强度（默认高安全档），折叠于「高级」下
+        final KdfParamsPanel kdfPanel = pendingIsNew ? new KdfParamsPanel() : null;
+        if (kdfPanel != null) {
+            c.gridy = 4;
+            c.insets = new Insets(6, 0, 3, 0);
+            panel.add(kdfPanel, c);
+        }
+
         // 解锁 / 创建按钮（与"回到历史列表"等宽居中；转圈以 JLayer 画在按钮右内侧，不占排版）
         JButton unlockBtn = new JButton(pendingIsNew ? "创建并解锁" : "解锁");
         unlockBtn.setPreferredSize(new Dimension(170, 32));
@@ -644,7 +652,7 @@ public final class SanctumGui {
         panel.add(javax.swing.Box.createVerticalGlue(), c);
 
         java.util.function.Consumer<JPasswordField> unlock = f ->
-                doUnlock(root, f, error, unlockLayer, unlockBtn, spinnerTimer);
+                doUnlock(root, f, error, unlockLayer, unlockBtn, spinnerTimer, kdfPanel);
         unlockBtn.addActionListener(e -> unlock.accept(pwField));
         pwField.addActionListener(e -> unlock.accept(pwField));
 
@@ -654,7 +662,8 @@ public final class SanctumGui {
 
     private void doUnlock(Path root, JPasswordField pwField, JLabel error,
                           javax.swing.JLayer<JButton> unlockLayer,
-                          JButton unlockBtn, javax.swing.Timer spinnerTimer) {
+                          JButton unlockBtn, javax.swing.Timer spinnerTimer,
+                          KdfParamsPanel kdfPanel) {
         char[] pw = pwField.getPassword();
         if (pw.length == 0) {
             error.setText("请输入主密码");
@@ -662,6 +671,8 @@ public final class SanctumGui {
         }
         char[] pwCopy = pw.clone();
         java.util.Arrays.fill(pw, (char) 0);
+        // 新库时从「高级」面板读取 KDF 参数（非法/为空则回退默认档）
+        int[] kdf = kdfPanel == null ? null : kdfPanel.resolve();
         // 转圈（JLayer 画在按钮右内侧）+ 禁用控件
         error.setText("");
         unlockLayer.putClientProperty("spinner.visible", Boolean.TRUE);
@@ -675,8 +686,13 @@ public final class SanctumGui {
             final String[] failMsg = new String[1];
             try {
                 if (pendingIsNew) {
-                    // 新建：显式创建并解锁
-                    result[0] = Sanctum.createAndUnlock(root, pwCopy);
+                    // 新建：显式创建并解锁（KDF 参数自定义或默认档）
+                    if (kdf == null) {
+                        result[0] = Sanctum.createAndUnlock(root, pwCopy);
+                    } else {
+                        result[0] = Sanctum.createAndUnlock(root, pwCopy,
+                                kdf[0], kdf[1], kdf[2]);
+                    }
                 } else {
                     // 打开：仓库必须已存在，失败不自动新建
                     if (!Files.exists(root)) {

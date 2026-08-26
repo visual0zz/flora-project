@@ -21,9 +21,13 @@ public interface ObjectStore {
     /**
      * 写入/更新某对象：重新加密（若 codec 非 null）并覆盖对应文件。
      *
+     * @param blockUuid 对象 UUID（块内自述）
+     * @param data      待写入字节（明文或 codec 加密后的密文，取决于 codec）
+     * @param codec     编解码器（null 视为裸明文写入）
      * @param timestamp 块级时间戳（规范 ASCII 十进制字符串，落盘为 {@code timestamp:base58} 前缀，且作为 codec 的 AAD）
+     * @return 写入后的块（物理位置、时间戳、字节），供上层回写内存缓存
      */
-    void put(java.util.UUID blockUuid, byte[] data, Codec codec, String timestamp);
+    Block put(java.util.UUID blockUuid, byte[] data, Codec codec, String timestamp);
 
     /**
      * 删除某对象：物理删除对应文件。

@@ -123,4 +123,50 @@ class MarkdownObjectStoreTest {
             assertTrue(c > mean / 4 && c < mean * 4, "prefix count out of range: " + c);
         }
     }
+
+    @Test
+    void putReturnsBlockWithMetadata() {
+        MarkdownObjectStore store = newStore();
+        CipherCodec codec = newCodec();
+        UUID uuid = UUID.randomUUID();
+        Block written = store.put(uuid, "data".getBytes(), new CipherCodecAdapter(codec, uuid), "7");
+        assertNotNull(written);
+        assertEquals(uuid, written.uuid());
+        assertEquals("7", written.timestampText());
+        String hex = uuid.toString().replace("-", "");
+        Path file = dir.resolve(hex.substring(0, 2)).resolve(hex.substring(2) + ".md");
+        assertEquals(file, written.file());
+    }
+
+    @Test
+    void putLeavesNoTmpFile() throws Exception {
+        MarkdownObjectStore store = newStore();
+        CipherCodec codec = newCodec();
+        UUID uuid = UUID.randomUUID();
+        store.put(uuid, "data".getBytes(), new CipherCodecAdapter(codec, uuid), "1");
+        try (var stream = java.nio.file.Files.walk(dir)) {
+            assertTrue(stream.noneMatch(p -> p.getFileName().toString().endsWith(".tmp")),
+                    "临时文件残留");
+        }
+    }
+
+    @Test
+    void putReplacesAtomicallyWithCompleteFile() throws Exception {
+        MarkdownObjectStore store = newStore();
+        CipherCodec codec = newCodec();
+        UUID uuid = UUID.randomUUID();
+        store.put(uuid, "v1".getBytes(), new CipherCodecAdapter(codec, uuid), "1");
+        store.put(uuid, "v2-updated".getBytes(), new CipherCodecAdapter(codec, uuid), "2");
+        // 覆盖写后目标文件存在且为完整单行（原子替换，不留半写/损坏块）。
+        String hex = uuid.toString().replace("-", "");
+        Path file = dir.resolve(hex.substring(0, 2)).resolve(hex.substring(2) + ".md");
+        String content = java.nio.file.Files.readString(file).trim();
+        assertEquals(1, content.lines().count());
+        assertTrue(content.matches("\\d+:[1-9A-HJ-NP-Za-km-z]+"));
+        assertArrayEquals("v2-updated".getBytes(), store.get(uuid, new CipherCodecAdapter(codec, uuid)));
+        try (var stream = java.nio.file.Files.walk(dir)) {
+            assertTrue(stream.noneMatch(p -> p.getFileName().toString().endsWith(".tmp")),
+                    "覆盖写后临时文件残留");
+        }
+    }
 }

@@ -39,13 +39,14 @@ public final class TreeContext {
 
     private void scanAll() {
         for (Block b : store.scan()) {
+            // 缓存全部块（含当前不可解密的），供 blockOf 定位；解密成功的才进对象图。
+            blocks.put(b.uuid(), b);
             byte[] plain = vault.resolve(b.obfuscated(), b.timestampText());
             if (plain == null) {
                 continue;
             }
             try {
                 objects.put(b.uuid(), JsonUtil.parseObject(new String(plain, StandardCharsets.UTF_8)));
-                blocks.put(b.uuid(), b);
             } catch (Exception ignore) {
                 // 无法解析的块跳过
             }
@@ -123,8 +124,10 @@ public final class TreeContext {
         CipherCodec codec = new CipherCodec(encKey, dek, vault.repoKeyIdSeed(), vault.random());
         long ts = nextTimestamp();
         String tsText = Long.toString(ts);
-        store.put(uuid, json, new CipherCodecAdapter(codec, uuid), tsText);
+        Block written = store.put(uuid, json, new CipherCodecAdapter(codec, uuid), tsText);
         objects.put(uuid, payload);
+        // 回写块缓存，使 blockOf 对新写入块直接命中，不再触发二次全扫。
+        blocks.put(uuid, written);
     }
 
     /** 删除对象并同步内存图与块定位。 */

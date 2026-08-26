@@ -8,8 +8,10 @@ import com.flora.sanctum.store.ObjectStore;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -74,14 +76,28 @@ public final class MarkdownObjectStore implements ObjectStore {
     }
 
     @Override
-    public void put(UUID blockUuid, byte[] data, Codec codec, String timestamp) {
+    public Block put(UUID blockUuid, byte[] data, Codec codec, String timestamp) {
         byte[] toWrite = codec == null ? data : codec.encode(data, timestamp);
         Path file = fileOf(blockUuid);
+        // 同目录临时文件 → 原子替换目标，避免崩溃/掉电留下半写块（半写块不可解密即损坏）。
+        Path tmp = file.resolveSibling(file.getFileName().toString() + ".tmp");
         try {
             Files.createDirectories(file.getParent());
-            Files.writeString(file, timestamp + ":" + Base58.encode(toWrite) + "\n", StandardCharsets.UTF_8);
+            Files.writeString(tmp, timestamp + ":" + Base58.encode(toWrite) + "\n", StandardCharsets.UTF_8);
+            try {
+                Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
+            }
+            return new Block(file, 1, timestamp, toWrite, BlockHeader.deobfuscate(toWrite));
         } catch (IOException e) {
             throw new IllegalStateException("write failed: " + file, e);
+        } finally {
+            // 任何异常路径下都清理可能残留的临时文件（scan 仅匹配 .md，残留 .tmp 不会被误读）。
+            try {
+                Files.deleteIfExists(tmp);
+            } catch (IOException ignore) {
+            }
         }
     }
 

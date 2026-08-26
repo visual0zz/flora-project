@@ -37,6 +37,11 @@ public final class VaultDetector {
     private VaultDetector() {
     }
 
+    /** standalone.json 文件名（供升级/降级独立形态使用）。 */
+    public static String standaloneFileName() {
+        return STANDALONE_JSON;
+    }
+
     /**
      * 判定目录的仓库形态。
      *

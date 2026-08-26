@@ -490,29 +490,18 @@ public final class SanctumGui {
     // ---- 新建 / 导入 / 打开（原 SelectScreen 入口，合并进历史页） ----
 
     private void doNewVault() {
-        Object[] choices = {"普通仓库", "独立仓库"};
-        int choice = JOptionPane.showOptionDialog(frame, "选择要建立的仓库类型：", "新建仓库",
-                JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, choices, choices[0]);
-        if (choice < 0) {
-            return;
-        }
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        chooser.setDialogTitle("选择目标目录");
+        chooser.setDialogTitle("选择新建仓库的目录");
         if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) {
             return;
         }
         Path dir = chooser.getSelectedFile().toPath();
         try {
-            if (choice == 0) {
-                Path root = com.flora.sanctum.app.bootstrap.RepoCreator.createNormal(dir);
-                unlockIsCreate = true;
-                showUnlockPage(root);
-            } else {
-                com.flora.sanctum.app.bootstrap.RepoCreator.createStandalone(dir, loadAppConfig());
-                JOptionPane.showMessageDialog(frame,
-                        "独立仓库已创建。请用仓库内的启动脚本（start.cmd）启动。");
-            }
+            // 默认构建普通仓库；需要独立运行可在设置页"独立运行"中配置
+            Path root = com.flora.sanctum.app.bootstrap.RepoCreator.createNormal(dir);
+            unlockIsCreate = true;
+            showUnlockPage(root);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(frame, "创建失败：" + ex.getMessage(), "错误",
                     JOptionPane.ERROR_MESSAGE);
@@ -1089,7 +1078,7 @@ public final class SanctumGui {
             groupCache = new LinkedHashMap<>();
             for (TreeNode n : sanctum.objectTree().nodes()) {
                 if (n instanceof GroupNode g) {
-                    groupCache.put(g.uuid(), new String[]{g.parent(), g.name()});
+                    groupCache.put(g.uuid(), new String[]{g.parentRef(), g.name()});
                 }
             }
         }
@@ -1320,7 +1309,7 @@ public final class SanctumGui {
 
     /** 条目所属文件夹路径（如"社交/工作"），顶层返回空串。 */
     private String folderPathOf(EntryNode e) {
-        String parent = e.parent();
+        String parent = e.parentRef();
         if (isTopLevel(parent)) {
             return "";
         }
@@ -1861,7 +1850,7 @@ public final class SanctumGui {
         if (entry == null) {
             return null;
         }
-        String p = entry.parent();
+        String p = entry.parentRef();
         return isTopLevel(p) ? null : UUID.fromString(p);
     }
 
@@ -2532,6 +2521,7 @@ public final class SanctumGui {
             addSettingsEntry("主题", "theme");
             addSettingsEntry("自动锁定", "lock");
             addSettingsEntry("剪贴板清空", "clip");
+            addSettingsEntry("独立运行", "standalone");
             settingsEntryList.setSelectedIndex(0);
         } else if (uo instanceof ViewNodeType tag) {
             switch (tag) {
@@ -2646,7 +2636,93 @@ public final class SanctumGui {
             settingsEditPanel.add(new JLabel("剪贴板清空（秒）"));
             settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
             settingsEditPanel.add(settingsClipField);
+        } else if ("standalone".equals(key)) {
+            renderStandaloneItem();
         }
+    }
+
+    /** 设置页"独立运行"项：展示当前形态并提供 配置/删除 独立运行操作。 */
+    private void renderStandaloneItem() {
+        Path root = currentRepoRoot();
+        boolean isStandalone = root != null
+                && java.nio.file.Files.isRegularFile(
+                        root.resolve(com.flora.sanctum.app.bootstrap.VaultDetector.standaloneFileName()));
+        settingsEditPanel.add(new JLabel("运行形态"));
+        settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
+        JLabel state = new JLabel(isStandalone ? "当前：独立运行（自带 lib/ 与启动脚本）"
+                : "当前：普通仓库（依赖本应用打开）");
+        state.setAlignmentX(0f);
+        settingsEditPanel.add(state);
+        if (isStandalone) {
+            addSettingsActionBtn("删除独立运行", this::downgradeStandalone);
+        } else {
+            addSettingsActionBtn("配置独立运行", this::upgradeStandalone);
+        }
+    }
+
+    /** 把当前普通仓库升级为独立仓库（新增 standalone.json / lib/ / 启动脚本，数据不动）。 */
+    private void upgradeStandalone() {
+        Path root = currentRepoRoot();
+        if (root == null) {
+            showToast("请先打开仓库");
+            return;
+        }
+        if (JOptionPane.showConfirmDialog(frame,
+                "将当前普通仓库配置为独立运行？\n仓库根将新增 standalone.json、lib/ 与启动脚本（数据不动）。\n之后可用仓库内脚本独立启动。",
+                "配置独立运行", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) {
+            return;
+        }
+        try {
+            com.flora.sanctum.app.bootstrap.RepoCreator.upgradeToStandalone(root, configForStandalone());
+            refreshSettingsEntries();
+            showToast("已配置独立运行");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(frame, "配置失败：" + ex.getMessage(), "错误",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /** 把当前独立仓库降级为普通仓库（移除 standalone.json / lib/ / 启动脚本，数据不动）。 */
+    private void downgradeStandalone() {
+        Path root = currentRepoRoot();
+        if (root == null) {
+            showToast("请先打开仓库");
+            return;
+        }
+        if (JOptionPane.showConfirmDialog(frame,
+                "删除独立运行？\n将移除 standalone.json、lib/ 与启动脚本，仓库恢复为普通仓库（数据不动）。",
+                "删除独立运行", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) {
+            return;
+        }
+        try {
+            com.flora.sanctum.app.bootstrap.RepoCreator.downgradeToNormal(root);
+            refreshSettingsEntries();
+            showToast("已删除独立运行");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(frame, "删除失败：" + ex.getMessage(), "错误",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /** 当前仓库根（数据根 = 仓库根，普通/独立布局一致）。 */
+    private Path currentRepoRoot() {
+        if (unlockedVaultPath != null) {
+            return Path.of(unlockedVaultPath);
+        }
+        return targetVaultRoot;
+    }
+
+    /** 复制给 standalone.json 的配置：优先当前仓库 LibraryConfig，否则应用级配置。 */
+    private JsonObject configForStandalone() {
+        if (sanctum != null && sanctum.isUnlocked()) {
+            com.flora.sanctum.model.LibraryConfig lc = sanctum.config();
+            JsonObject cfg = new JsonObject();
+            cfg.put("theme", lc.theme());
+            cfg.put("lockTimeoutSeconds", lc.lockTimeoutSeconds());
+            cfg.put("clipboardClearSeconds", lc.clipboardClearSeconds());
+            return cfg;
+        }
+        return loadAppConfig();
     }
 
     /** 保存已编辑的设置项到仓库。 */

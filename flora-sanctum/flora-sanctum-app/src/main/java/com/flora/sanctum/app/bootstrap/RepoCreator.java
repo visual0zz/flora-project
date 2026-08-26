@@ -27,7 +27,7 @@ public final class RepoCreator {
 
     /**
      * 新建独立仓库：把应用自身（lib/ + 启动脚本 + standalone.json）复制到目标目录，
-     * 数据块（两层目录 + md）直接建在仓库根（无 data 层）。返回仓库根（即 vault 根）。
+     * 数据块（两层目录 + md）直接建在仓库根（与普通仓库布局一致）。
      * 应用自身不打开它。
      *
      * @param dir       独立仓库目标目录
@@ -35,9 +35,44 @@ public final class RepoCreator {
      */
     public static Path createStandalone(Path dir, JsonObject appConfig) throws IOException {
         Files.createDirectories(dir);
+        copyLib(dir);
+        writeScript(dir);
+        VaultDetector.writeRepoConfig(dir, appConfig);
+        return dir;
+    }
+
+    /**
+     * 把普通仓库原地升级为独立仓库：仓库根新增 {@code standalone.json}、{@code lib/} 与启动脚本，
+     * 数据块不动（普通/独立仓库数据布局一致，无 data 层）。返回仓库根。
+     */
+    public static Path upgradeToStandalone(Path repoRoot, JsonObject appConfig) throws IOException {
+        if (Files.isRegularFile(repoRoot.resolve(VaultDetector.standaloneFileName()))) {
+            throw new IOException("已是独立仓库");
+        }
+        if (Files.exists(repoRoot.resolve("lib"))) {
+            throw new IOException("lib 目录已存在");
+        }
+        copyLib(repoRoot);
+        writeScript(repoRoot);
+        VaultDetector.writeRepoConfig(repoRoot, appConfig);
+        return repoRoot;
+    }
+
+    /**
+     * 把独立仓库降级为普通仓库：移除 {@code standalone.json}、{@code lib/} 与启动脚本，
+     * 数据块不动。返回仓库根。
+     */
+    public static Path downgradeToNormal(Path repoRoot) throws IOException {
+        deleteIfExists(repoRoot.resolve("lib"));
+        deleteIfExists(repoRoot.resolve("start.cmd"));
+        deleteIfExists(repoRoot.resolve(VaultDetector.standaloneFileName()));
+        return repoRoot;
+    }
+
+    /** 复制应用自身 jar 到目标仓库的 lib/（module-path 分发目录 / fat jar 所在目录）。 */
+    private static void copyLib(Path dir) throws IOException {
         Path lib = dir.resolve("lib");
         Files.createDirectories(lib);
-        // 复制应用自身 jar：以主类 jar 所在目录为源（module-path 分发目录 / fat jar 所在目录）
         Path libSource = mainJarDirectory();
         if (libSource != null && Files.isDirectory(libSource)) {
             try (var stream = Files.list(libSource)) {
@@ -46,9 +81,18 @@ public final class RepoCreator {
                 }
             }
         }
-        writeScript(dir);
-        VaultDetector.writeRepoConfig(dir, appConfig);
-        return dir;
+    }
+
+    private static void deleteIfExists(Path p) throws IOException {
+        if (Files.exists(p)) {
+            Files.walk(p).sorted(java.util.Comparator.reverseOrder()).forEach(f -> {
+                try {
+                    Files.deleteIfExists(f);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
     }
 
     /**

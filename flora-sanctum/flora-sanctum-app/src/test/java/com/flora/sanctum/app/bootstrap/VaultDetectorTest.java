@@ -4,6 +4,7 @@ import com.flora.root.codec.json.model.JsonObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -76,5 +77,47 @@ class VaultDetectorTest {
         Files.createDirectories(empty);
         // 模拟：无结构但视为空仓库 → 由导入流程建基本结构
         assertEquals(VaultDetector.Type.NOT_A_VAULT, VaultDetector.detect(empty));
+    }
+
+    @Test
+    void upgradeToStandaloneAddsLayout() throws Exception {
+        Path repo = dir.resolve("upgrade");
+        Files.createDirectories(repo);
+        Files.createDirectories(repo.resolve("aa"));
+        Files.writeString(repo.resolve("aa").resolve("b.md"), "1:abc\n");
+        assertEquals(VaultDetector.Type.NORMAL, VaultDetector.detect(repo));
+
+        JsonObject cfg = new JsonObject();
+        cfg.put("theme", "dark");
+        RepoCreator.upgradeToStandalone(repo, cfg);
+
+        assertTrue(Files.exists(repo.resolve("standalone.json")));
+        assertTrue(Files.isDirectory(repo.resolve("lib")));
+        assertTrue(Files.exists(repo.resolve("start.cmd")));
+        assertEquals(VaultDetector.Type.STANDALONE, VaultDetector.detect(repo));
+        // 数据仍在仓库根（未移动）
+        assertTrue(Files.exists(repo.resolve("aa").resolve("b.md")));
+        // 升级已是独立仓库时拒绝重复升级
+        assertThrows(IOException.class, () -> RepoCreator.upgradeToStandalone(repo, cfg));
+    }
+
+    @Test
+    void downgradeToNormalRemovesLayout() throws Exception {
+        Path repo = dir.resolve("downgrade");
+        Files.createDirectories(repo.resolve("lib"));
+        Files.createDirectories(repo.resolve("aa"));
+        Files.writeString(repo.resolve("aa").resolve("b.md"), "1:abc\n");
+        Files.writeString(repo.resolve("standalone.json"), "{}");
+        Files.writeString(repo.resolve("start.cmd"), "#!/bin/bash\n");
+        assertEquals(VaultDetector.Type.STANDALONE, VaultDetector.detect(repo));
+
+        RepoCreator.downgradeToNormal(repo);
+
+        assertFalse(Files.exists(repo.resolve("standalone.json")));
+        assertFalse(Files.exists(repo.resolve("lib")));
+        assertFalse(Files.exists(repo.resolve("start.cmd")));
+        assertEquals(VaultDetector.Type.NORMAL, VaultDetector.detect(repo));
+        // 数据仍在仓库根
+        assertTrue(Files.exists(repo.resolve("aa").resolve("b.md")));
     }
 }

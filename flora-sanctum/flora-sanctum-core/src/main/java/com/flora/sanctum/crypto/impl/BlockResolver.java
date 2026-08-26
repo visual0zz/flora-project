@@ -25,14 +25,25 @@ public final class BlockResolver {
         this.repoKeyIdSeed = repoKeyIdSeed;
     }
 
+    /** keyId 路由解码结果：负载与用于解开该块的父 DEK（供调用方继续展开子密钥）。 */
+    public static final class Decoded {
+        public final byte[] plaintext;
+        public final byte[] dek;
+
+        Decoded(byte[] plaintext, byte[] dek) {
+            this.plaintext = plaintext;
+            this.dek = dek;
+        }
+    }
+
     /**
-     * 解析一个密文块（含随机异或混淆的落盘字节）。
+     * 解析一个密文块，经 keyId 路由定位父 DEK 并解密（见设计"keyId 防关联"）。
      *
      * @param obfuscatedBlock 落盘块字节
      * @param timestamp       块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文，重建 AAD）
-     * @return 解密负载；候选 DEK 全部试解失败或无法定位返回 {@code null}。
+     * @return 解码结果（含负载与所用父 DEK）；无法定位或候选 DEK 全部试解失败返回 {@code null}。
      */
-    public byte[] decode(byte[] obfuscatedBlock, String timestamp) {
+    public Decoded decodeKeyed(byte[] obfuscatedBlock, String timestamp) {
         byte[] block = deobfuscate(obfuscatedBlock);
         if (block.length < Envelope.HEADER_LEN) {
             throw new IllegalArgumentException("block too short");
@@ -61,12 +72,25 @@ public final class BlockResolver {
             byte[] encKey = deriveEncKey(dek);
             CipherCodec codec = new CipherCodec(encKey, dek);
             try {
-                return codec.decode(obfuscatedBlock, timestamp).plaintext;
+                byte[] plaintext = codec.decode(obfuscatedBlock, timestamp).plaintext;
+                return new Decoded(plaintext, dek.clone());
             } catch (IllegalStateException e) {
                 // tag 验证失败 → 试下一个候选
             }
         }
         return null;
+    }
+
+    /**
+     * 解析一个密文块（含随机异或混淆的落盘字节）。
+     *
+     * @param obfuscatedBlock 落盘块字节
+     * @param timestamp       块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文，重建 AAD）
+     * @return 解密负载；候选 DEK 全部试解失败或无法定位返回 {@code null}。
+     */
+    public byte[] decode(byte[] obfuscatedBlock, String timestamp) {
+        Decoded d = decodeKeyed(obfuscatedBlock, timestamp);
+        return d == null ? null : d.plaintext;
     }
 
     private static byte[] deriveEncKey(byte[] dek) {

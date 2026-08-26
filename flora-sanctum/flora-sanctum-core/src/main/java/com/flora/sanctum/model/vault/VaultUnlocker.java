@@ -13,7 +13,8 @@ import java.util.List;
  * 库解锁器（见设计 02"解锁流程"）。
  * <p>
  * 流程：扫描块 → 找 manifest（明文块，type=manifest）→ Argon2id 派生 KEK →
- * 验证 manifest MAC → 构建 Vault。root DEK 与文件夹 DEK 由本类内部发现并登记。
+ * 验证 manifest MAC → 构建 Vault。root DEK 与 group DEK 由本类内部发现并登记：
+ * 根对象经 manifest.rootGroupUuid 直接定位（KEK 试解），其余 cipher 块经 keyId 路由定位父 DEK 解开。
  */
 public final class VaultUnlocker {
 
@@ -57,17 +58,15 @@ public final class VaultUnlocker {
     }
 
     /**
-     * 发现并登记全部文件夹 DEK（见设计 02"解锁流程"）。
-     * 根对象由 manifest.rootGroupUuid 定位（O(1)），KEK 试解出 root DEK 后，
-     * 用每个已知 DEK 试解各 cipher 块，对 type==group 且含 dek 的登记其 DEK，逐层递归直至无新增。
+     * 发现并登记全部 group DEK（见设计 02"解锁流程"）。
+     * 根对象由 manifest.rootGroupUuid 定位（O(1)），KEK 试解出 root DEK 与 repoKeyIdSeed 后，
+     * 后续 cipher 块统一经 keyId 路由（BlockResolver）定位父 DEK 解开，对 type==group 且含 dek 的
+     * 用父 DEK 解出子 DEK 并登记，逐层递归直至无新增。
      */
     private void discoverRootDeks(Vault vault, byte[] kek, List<Block> blocks) {
         // 根对象块用 KEK 加密，但 keyId 由 repoKeyIdSeed 派生（解锁时尚未读出），
         // 无法用 keyId 预筛 → 直接按 manifest 记录的 uuid 定位，KEK 试解（GCM tag 确证）。
-        java.util.List<byte[]> known = new java.util.ArrayList<>();
-        known.add(kek); // 不 clone：后续以引用是否即 KEK 判断根对象
         java.util.UUID rootUuid = vault.manifest().rootGroupUuid();
-        boolean progress = false;
         if (rootUuid != null) {
             for (Block b : blocks) {
                 if (!rootUuid.equals(b.uuid())) {
@@ -89,15 +88,14 @@ public final class VaultUnlocker {
                         byte[] dek = unwrap(vault, kek, wrapped);
                         if (dek != null) {
                             vault.addRootDek(tag, dek);
-                            known.add(dek.clone());
-                            progress = true;
                         }
                     }
                 }
                 break;
             }
         }
-        // 逐层发现文件夹 DEK（group 块用父 DEK 包裹）
+        // 逐层发现 group DEK：repoKeyIdSeed 已读出，cipher 块经 keyId 路由定位父 DEK 解开；
+        // 父 DEK 必先于子块登记于 KeyIdIndex（树自顶向下展开），故 keyId 路由始终可命中。
         boolean any = true;
         while (any) {
             any = false;
@@ -105,28 +103,24 @@ public final class VaultUnlocker {
                 if (!b.isCipher()) {
                     continue;
                 }
-                for (byte[] dk : known) {
-                    byte[] plain = tryDecode(vault, dk, b);
-                    if (plain == null) {
-                        continue;
-                    }
-                    try {
-                        com.flora.root.codec.json.model.JsonObject n = parsePlain(plain);
-                        NodeType nt = NodeType.fromTag(n == null ? null : n.getString("type"));
-                        if (nt == NodeType.GROUP && n.getString("dek") != null
-                                && vault.groupDek(b.uuid()) == null) {
-                            byte[] wrapped = java.util.Base64.getDecoder().decode(n.getString("dek"));
-                            byte[] dek = unwrap(vault, dk, wrapped);
-                            if (dek != null) {
-                                vault.addGroupDek(b.uuid(), dek);
-                                known.add(dek.clone());
-                                any = true;
-                                progress = true;
-                            }
+                com.flora.sanctum.crypto.impl.BlockResolver.Decoded d =
+                        vault.resolver().decodeKeyed(b.obfuscated(), b.timestampText());
+                if (d == null) {
+                    continue;
+                }
+                try {
+                    com.flora.root.codec.json.model.JsonObject n = parsePlain(d.plaintext);
+                    NodeType nt = NodeType.fromTag(n == null ? null : n.getString("type"));
+                    if (nt == NodeType.GROUP && n.getString("dek") != null
+                            && vault.groupDek(b.uuid()) == null) {
+                        byte[] wrapped = java.util.Base64.getDecoder().decode(n.getString("dek"));
+                        byte[] dek = unwrap(vault, d.dek, wrapped);
+                        if (dek != null) {
+                            vault.addGroupDek(b.uuid(), dek);
+                            any = true;
                         }
-                    } catch (Exception ignore) {
                     }
-                    break; // 该块已用某 DEK 解开，不再试其它
+                } catch (Exception ignore) {
                 }
             }
         }

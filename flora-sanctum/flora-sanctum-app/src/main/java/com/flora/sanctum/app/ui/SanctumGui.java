@@ -2798,15 +2798,15 @@ public final class SanctumGui {
                 if (uo instanceof ViewNodeType tag) {
                     if (tag == ViewNodeType.TRASH) {
                         setText("垃圾桶");
-                        setIcon(SvgIcon.get("ui/delete", 24));
-                        setDisabledIcon(SvgIcon.get("ui/delete", 24));
+                        setIcon(SvgIcon.get("ui/trash", 24));
+                        setDisabledIcon(SvgIcon.get("ui/trash", 24));
                     } else {
                         setText(sectionDisplayName(tag));
                     }
                 } else if (uo instanceof TrashCategory cat) {
                     setText(cat.label);
-                    setIcon(SvgIcon.get("ui/delete", 24));
-                    setDisabledIcon(SvgIcon.get("ui/delete", 24));
+                    setIcon(SvgIcon.get("ui/trash", 24));
+                    setDisabledIcon(SvgIcon.get("ui/trash", 24));
                 } else if (uo instanceof UUID uuid) {
                     String[] info = groupsById().get(uuid);
                     String name = info == null ? null : info[1];

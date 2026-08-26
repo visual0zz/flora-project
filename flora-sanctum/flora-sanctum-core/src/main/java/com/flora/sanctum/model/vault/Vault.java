@@ -31,7 +31,7 @@ public final class Vault {
     private WarehouseClock clock;
     private final java.util.Map<RootTag, byte[]> rootDeksByTag = new java.util.LinkedHashMap<>();
     private final java.util.Map<RootTag, java.util.UUID> rootGroupUuidByTag = new java.util.LinkedHashMap<>();
-    private final java.util.Map<java.util.UUID, byte[]> folderDeks = new java.util.LinkedHashMap<>();
+    private final java.util.Map<java.util.UUID, byte[]> groupDeks = new java.util.LinkedHashMap<>();
     private byte[] kek; // 解锁期间驻留内存，锁定/关闭时清除
     private byte[] repoKeyIdSeed; // 仓库级 keyId 派生种子（DATA 根 json 存储），锁定/关闭时清除
 
@@ -75,15 +75,15 @@ public final class Vault {
         return dek.clone();
     }
 
-    /** 登记文件夹 DEK（group uuid → DEK，供目录/递归解锁/创建路由）。 */
-    public void addFolderDek(java.util.UUID groupUuid, byte[] dek) {
-        folderDeks.put(groupUuid, dek.clone());
+    /** 登记 group DEK（group uuid → DEK，供目录/递归解锁/创建路由）。 */
+    public void addGroupDek(java.util.UUID groupUuid, byte[] dek) {
+        groupDeks.put(groupUuid, dek.clone());
         keyIdIndex.register(dek);
     }
 
-    /** 取某文件夹的 DEK。 */
-    public byte[] folderDek(java.util.UUID groupUuid) {
-        byte[] d = folderDeks.get(groupUuid);
+    /** 取某 group 的 DEK。 */
+    public byte[] groupDek(java.util.UUID groupUuid) {
+        byte[] d = groupDeks.get(groupUuid);
         return d == null ? null : d.clone();
     }
 
@@ -123,10 +123,10 @@ public final class Vault {
             java.util.Arrays.fill(d, (byte) 0);
         }
         rootDeksByTag.clear();
-        for (byte[] d : folderDeks.values()) {
+        for (byte[] d : groupDeks.values()) {
             java.util.Arrays.fill(d, (byte) 0);
         }
-        folderDeks.clear();
+        groupDeks.clear();
         if (repoKeyIdSeed != null) {
             java.util.Arrays.fill(repoKeyIdSeed, (byte) 0);
             repoKeyIdSeed = null;

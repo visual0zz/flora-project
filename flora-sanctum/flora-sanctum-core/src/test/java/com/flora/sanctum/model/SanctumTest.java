@@ -154,7 +154,7 @@ class SanctumTest {
         Sanctum s2 = Sanctum.open(dir);
         s2.unlock(pw);
         assertTrue(s2.isUnlocked());
-        assertNotNull(s2.folderDek(group.uuid()));
+        assertNotNull(s2.groupDek(group.uuid()));
         EntryNode e = s2.objectTree().entry(entry.uuid());
         assertNotNull(e);
         assertEquals("微博", e.name());

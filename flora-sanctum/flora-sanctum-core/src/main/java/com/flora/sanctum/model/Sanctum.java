@@ -165,9 +165,9 @@ public final class Sanctum implements AutoCloseable {
         return new GarbageCollector(context).collect();
     }
 
-    /** 取某文件夹的 DEK（null 若未发现）。 */
-    byte[] folderDek(UUID groupUuid) {
-        return vault == null ? null : vault.folderDek(groupUuid);
+    /** 取某 group 的 DEK（null 若未发现）。 */
+    byte[] groupDek(UUID groupUuid) {
+        return vault == null ? null : vault.groupDek(groupUuid);
     }
 
     ObjectStore store() {

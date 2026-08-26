@@ -137,10 +137,10 @@ public final class TreeContext {
         blocks.remove(uuid);
     }
 
-    /** 找加密归属 DEK：条目/字段若在子文件夹下用该文件夹 DEK，否则用 data 根。 */
+    /** 找加密归属 DEK：条目/字段若在子 group 下用该 group DEK，否则用 data 根。 */
     public byte[] dekFor(UUID groupId) {
-        if (groupId != null && vault.folderDek(groupId) != null) {
-            return vault.folderDek(groupId);
+        if (groupId != null && vault.groupDek(groupId) != null) {
+            return vault.groupDek(groupId);
         }
         return vault.dekForRole(RootTag.DATA);
     }

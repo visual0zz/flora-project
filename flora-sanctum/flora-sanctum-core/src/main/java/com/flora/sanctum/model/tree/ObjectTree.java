@@ -87,8 +87,8 @@ public final class ObjectTree extends DataTree {
         UUID groupUuid = UUID.randomUUID();
         byte[] dek = new byte[32];
         context().random().nextBytes(dek);
-        byte[] parentDek = (parentId != null && context().vault().folderDek(parentId) != null)
-                ? context().vault().folderDek(parentId)
+        byte[] parentDek = (parentId != null && context().vault().groupDek(parentId) != null)
+                ? context().vault().groupDek(parentId)
                 : context().vault().dekForRole(RootTag.DATA);
         byte[] wrapped = context().wrapDek(dek, parentDek);
         JsonObject group = new JsonObject();
@@ -97,7 +97,7 @@ public final class ObjectTree extends DataTree {
         group.put("parent", parentId == null ? rootUuid() : parentId.toString());
         group.put("dek", Base64.getEncoder().encodeToString(wrapped));
         context().write(groupUuid, group, parentId);
-        context().vault().addFolderDek(groupUuid, dek);
+        context().vault().addGroupDek(groupUuid, dek);
         return new GroupNode(groupUuid, this);
     }
 

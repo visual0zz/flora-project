@@ -114,11 +114,11 @@ public final class VaultUnlocker {
                         com.flora.root.codec.json.model.JsonObject n = parsePlain(plain);
                         NodeType nt = NodeType.fromTag(n == null ? null : n.getString("type"));
                         if (nt == NodeType.GROUP && n.getString("dek") != null
-                                && vault.folderDek(b.uuid()) == null) {
+                                && vault.groupDek(b.uuid()) == null) {
                             byte[] wrapped = java.util.Base64.getDecoder().decode(n.getString("dek"));
                             byte[] dek = unwrap(vault, dk, wrapped);
                             if (dek != null) {
-                                vault.addFolderDek(b.uuid(), dek);
+                                vault.addGroupDek(b.uuid(), dek);
                                 known.add(dek.clone());
                                 any = true;
                                 progress = true;

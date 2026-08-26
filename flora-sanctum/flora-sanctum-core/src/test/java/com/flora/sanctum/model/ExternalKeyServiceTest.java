@@ -20,7 +20,7 @@ class ExternalKeyServiceTest {
 
     @Test
     void encryptDecryptRoundTrip() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         ExternalKeyService svc = new ExternalKeyService(s);
         // 建一个条目，再加外部密钥字段
         UUID entry = s.objectTree().createEntry(null, "holder", EntryFields.EMPTY).uuid();
@@ -35,7 +35,7 @@ class ExternalKeyServiceTest {
 
     @Test
     void listShowsExternalKeys() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         ExternalKeyService svc = new ExternalKeyService(s);
         UUID entry = s.objectTree().createEntry(null, "holder", EntryFields.EMPTY).uuid();
         svc.createExternalKey(entry, "k1", "material1".getBytes(), "desc 1");
@@ -47,7 +47,7 @@ class ExternalKeyServiceTest {
 
     @Test
     void decryptFailsForWrongKey() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         ExternalKeyService svc = new ExternalKeyService(s);
         UUID entry = s.objectTree().createEntry(null, "holder", EntryFields.EMPTY).uuid();
         UUID keyA = svc.createExternalKey(entry, "a", "material-A".getBytes(), "A");

@@ -21,7 +21,7 @@ class SanctumTest {
 
     @Test
     void createEntryAndReadBack() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "微博",
                 new EntryFields("s3cret", null, "alice", List.of()));
 
@@ -35,7 +35,7 @@ class SanctumTest {
 
     @Test
     void deleteEntryRemovesBuiltin() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "条目",
                 new EntryFields("x", null, null, List.of()));
         assertNotNull(entry.password());
@@ -46,7 +46,7 @@ class SanctumTest {
 
     @Test
     void deleteCustomFieldPreservesBuiltinPassword() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "条目",
                 new EntryFields("s3cret", null, "alice", List.of()));
         FieldNode note = entry.createField("notes", "memo", null);
@@ -59,7 +59,7 @@ class SanctumTest {
 
     @Test
     void renameEntryPersistsName() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "旧名", EntryFields.EMPTY);
 
         entry.rename("新名");
@@ -73,7 +73,7 @@ class SanctumTest {
 
     @Test
     void setEntryIconAssignsAndClears() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "条目", EntryFields.EMPTY);
         IconNode icon = s.iconTree().createIcon("icon", new byte[]{1, 2, 3}, "png");
 
@@ -86,7 +86,7 @@ class SanctumTest {
 
     @Test
     void createIconAndSshKeyAndRemote() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         IconNode icon = s.iconTree().createIcon("icon", new byte[]{9, 9}, "png");
         assertNotNull(s.iconTree().find(icon.uuid()));
         assertEquals("icon", s.iconTree().find(icon.uuid()).name());
@@ -102,7 +102,7 @@ class SanctumTest {
 
     @Test
     void lockAndReunlock() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "条目", EntryFields.EMPTY);
         s.lock();
         assertFalse(s.isUnlocked());
@@ -114,7 +114,7 @@ class SanctumTest {
     @Test
     void repoKeyIdSeedPersistsAcrossReunlock() {
         char[] pw = "pw".toCharArray();
-        Sanctum s = Sanctum.createAndUnlock(dir, pw);
+        Sanctum s = Sanctum.createAndUnlock(dir, pw, 8192, 2, 1);
         byte[] seed1 = s.vault().repoKeyIdSeed();
         assertNotNull(seed1);
         assertEquals(32, seed1.length);
@@ -131,7 +131,7 @@ class SanctumTest {
     @Test
     void closeLocksAndReunlockWorks() {
         char[] pw = "pw".toCharArray();
-        Sanctum s = Sanctum.createAndUnlock(dir, pw);
+        Sanctum s = Sanctum.createAndUnlock(dir, pw, 8192, 2, 1);
         long anchor = s.vault().clock().baseTimestamp();
         s.close();
         assertFalse(s.isUnlocked());
@@ -146,7 +146,7 @@ class SanctumTest {
     @Test
     void entryInSubGroupUsesFolderDekAndSurvivesRelock() {
         char[] pw = "pw".toCharArray();
-        Sanctum s = Sanctum.createAndUnlock(dir, pw);
+        Sanctum s = Sanctum.createAndUnlock(dir, pw, 8192, 2, 1);
         GroupNode group = s.objectTree().createGroup(null, "社交");
         EntryNode entry = group.createEntry("微博", new EntryFields("s3cret", null, null, List.of()));
 
@@ -165,7 +165,7 @@ class SanctumTest {
     void changeMasterPassword() {
         char[] oldPw = "old".toCharArray();
         char[] newPw = "new-pass".toCharArray();
-        Sanctum s = Sanctum.createAndUnlock(dir, oldPw);
+        Sanctum s = Sanctum.createAndUnlock(dir, oldPw, 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "条目", EntryFields.EMPTY);
 
         s.changeMasterPassword(newPw, 65536, 3, 4);
@@ -183,7 +183,7 @@ class SanctumTest {
 
     @Test
     void gcKeepsReachableObjects() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         GroupNode group = s.objectTree().createGroup(null, "社交");
         EntryNode entry = group.createEntry("微博", new EntryFields("s3cret", null, null, List.of()));
 
@@ -194,7 +194,7 @@ class SanctumTest {
 
     @Test
     void rootParentsUseRootUuid() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         GroupNode group = s.objectTree().createGroup(null, "社交");
         EntryNode entry = s.objectTree().createEntry(null, "顶层条目",
                 new EntryFields("x", null, null, List.of()));
@@ -225,7 +225,7 @@ class SanctumTest {
 
     @Test
     void renameGroupRenamesFolder() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         GroupNode group = s.objectTree().createGroup(null, "旧名");
         group.rename("新名");
         assertEquals("新名", s.objectTree().group(group.uuid()).name());
@@ -238,7 +238,7 @@ class SanctumTest {
 
     @Test
     void updateFieldKindChangesKind() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "条目", EntryFields.EMPTY);
         FieldNode field = entry.createField("notes", "memo", null);
         assertNull(field.kind());
@@ -253,7 +253,7 @@ class SanctumTest {
 
     @Test
     void guiFlow_groupEntryFieldUpdate() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         GroupNode group = s.objectTree().createGroup(null, "社交");
         EntryNode entry = group.createEntry("微博",
                 new EntryFields("s3cret", null, "alice", List.of()));
@@ -273,7 +273,7 @@ class SanctumTest {
 
     @Test
     void entryHasBuiltinPasswordUrlUsernameLabels() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         long before = System.currentTimeMillis();
         EntryNode entry = s.objectTree().createEntry(null, "账号",
                 new EntryFields("p@ss", "https://example.com", "alice", List.of("work", "important")));
@@ -296,7 +296,7 @@ class SanctumTest {
 
     @Test
     void groupTreeStructureAndDelete() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         GroupNode root = s.objectTree().createGroup(null, "根组");
         GroupNode child = root.createChildGroup("子组");
         EntryNode entry = child.createEntry("条目", EntryFields.EMPTY);
@@ -313,7 +313,7 @@ class SanctumTest {
 
     @Test
     void remoteTreeLookupAndRemove() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         s.remoteTree().addRemote("origin", "git@example.com:r.git", "k");
         RemoteNode r = s.remoteTree().remote("origin");
         assertNotNull(r);
@@ -325,7 +325,7 @@ class SanctumTest {
 
     @Test
     void findNodeAcrossTrees() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "条目", EntryFields.EMPTY);
         IconNode icon = s.iconTree().createIcon("icon", new byte[]{1}, "png");
 
@@ -336,7 +336,7 @@ class SanctumTest {
 
     @Test
     void nodeAndManifestCarryBlockLocation() {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "条目", EntryFields.EMPTY);
 
         // 节点应带原始块定位（文件 + 行号）

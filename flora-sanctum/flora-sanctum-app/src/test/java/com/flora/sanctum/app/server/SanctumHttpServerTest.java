@@ -38,7 +38,7 @@ class SanctumHttpServerTest {
 
     @Test
     void httpEncryptDecryptRoundTrip() throws Exception {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         ExternalKeyService svc = new ExternalKeyService(s);
         UUID entry = s.objectTree().createEntry(null, "holder", com.flora.sanctum.model.EntryFields.EMPTY).uuid();
         UUID keyField = svc.createExternalKey(entry, "k", "material".getBytes(), "for app");
@@ -71,7 +71,7 @@ class SanctumHttpServerTest {
 
     @Test
     void lockedReturnsLockedError() throws Exception {
-        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray());
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         s.lock();
         SanctumHttpServer http = new SanctumHttpServer(() -> s, 0);
         http.start();

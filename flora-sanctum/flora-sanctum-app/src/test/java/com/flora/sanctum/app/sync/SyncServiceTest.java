@@ -18,7 +18,7 @@ class SyncServiceTest {
     void initAndCommit() throws Exception {
         // 先创建库（会写文件）
         Path vault = dir.resolve("vault");
-        Sanctum.createAndUnlock(vault, "pw".toCharArray());
+        Sanctum.createAndUnlock(vault, "pw".toCharArray(), 8192, 2, 1);
 
         SyncService sync = new SyncService(vault);
         sync.initIfNeeded();
@@ -33,7 +33,7 @@ class SyncServiceTest {
     void cloneAndCommitRoundTrip() throws Exception {
         // 创建源库 + git init + commit
         Path src = dir.resolve("src");
-        Sanctum.createAndUnlock(src, "pw".toCharArray());
+        Sanctum.createAndUnlock(src, "pw".toCharArray(), 8192, 2, 1);
         SyncService srcSync = new SyncService(src);
         srcSync.initIfNeeded();
         srcSync.commit("v1");

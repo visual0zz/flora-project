@@ -66,6 +66,34 @@ public abstract class TreeNode {
         return d == null ? null : d.getString("parent");
     }
 
+    /** 是否已标记删除（手动删除：JSON 内 "deleted":true；未标记返回 false）。 */
+    public boolean deleted() {
+        JsonObject d = data();
+        return d != null && Boolean.TRUE.equals(d.getBool("deleted"));
+    }
+
+    /** 标记本节点为手动删除（写入 JSON "deleted":true 并回写；不递归改子节点）。 */
+    public void markDeleted() {
+        JsonObject d = data();
+        if (d == null) {
+            throw new IllegalArgumentException("node not found");
+        }
+        UUID groupId = ctx().parentGroupUuid(d);
+        d.put("deleted", true);
+        ctx().write(uuid, d, groupId);
+    }
+
+    /** 撤销手动删除标记（移出垃圾桶；不递归改子节点）。 */
+    public void restore() {
+        JsonObject d = data();
+        if (d == null) {
+            throw new IllegalArgumentException("node not found");
+        }
+        UUID groupId = ctx().parentGroupUuid(d);
+        d.remove("deleted");
+        ctx().write(uuid, d, groupId);
+    }
+
     /** 删除节点（物理删除对应存储块）。 */
     public void delete() {
         ctx().delete(uuid);

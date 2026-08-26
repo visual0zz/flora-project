@@ -22,7 +22,9 @@ public enum NodeType {
     ICON("icon"),
     SSH_KEY("sshKey"),
     /** 远程配置（独立落盘类型，直接存 name/url/keyRef）。 */
-    REMOTE("remote");
+    REMOTE("remote"),
+    /** 垃圾桶虚拟区段标记（纯 UI 展示，不对应任何真实存储对象/根概念）。 */
+    TRASH("trash");
 
     private final String tag;
 

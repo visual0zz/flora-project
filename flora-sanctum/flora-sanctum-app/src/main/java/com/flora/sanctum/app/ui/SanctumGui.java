@@ -104,6 +104,23 @@ public final class SanctumGui {
     private Path pendingRoot;
     /** 当前解锁页是否对应"新建"（true）还是"打开"（false）：新建走 createAndUnlock，打开只 open+unlock 不自动新建。 */
     private boolean pendingIsNew;
+    /** 垃圾桶视图（每次重建树时刷新；含三类异常节点 uuid 与「原位置」计算）。 */
+    private com.flora.sanctum.model.TrashView trashView;
+
+    /** 垃圾桶区段下的三类子分组标记（作为树节点 userObject）。 */
+    private enum TrashCategory {
+        MANUAL("手动删除", com.flora.sanctum.model.TrashView.TrashKind.MANUAL),
+        UNREACHABLE("不可达", com.flora.sanctum.model.TrashView.TrashKind.UNREACHABLE),
+        UNLOCKABLE("不可解锁", com.flora.sanctum.model.TrashView.TrashKind.UNLOCKABLE);
+
+        final String label;
+        final com.flora.sanctum.model.TrashView.TrashKind kind;
+
+        TrashCategory(String label, com.flora.sanctum.model.TrashView.TrashKind kind) {
+            this.label = label;
+            this.kind = kind;
+        }
+    }
 
     /** 应用形态：读系统级配置（~/.flora-sanctum/config.json），页面从历史仓库列表开始。 */
     private SanctumGui() {
@@ -832,9 +849,14 @@ public final class SanctumGui {
         groupTree.addTreeSelectionListener(e -> {
             resetAutoLock();
             updateToolbar();
+            Object sel = currentSelection();
+            // 选中垃圾桶节点 → 右侧只读详情，不刷新条目列表
+            if (sel instanceof UUID u && isTrashSelection()) {
+                renderTrashNode(u);
+                return;
+            }
             refreshEntryList(searchField.getText());
             // 选中文件夹 → 右侧编辑面板显示文件夹编辑
-            Object sel = currentSelection();
             if (sel instanceof UUID u && typeOf(u) == NodeType.GROUP) {
                 renderGroupPanel(u);
             } else {
@@ -938,6 +960,13 @@ public final class SanctumGui {
     /** 根据当前树选择切换工具栏按钮可用性。 */
     private void updateToolbar() {
         NodeType section = sectionOf(currentSelection());
+        // 选中垃圾桶节点 → 只读，禁用新建/删除
+        if (isTrashSelection()) {
+            newEntryBtn.setEnabled(false);
+            newGroupBtn.setEnabled(false);
+            delBtn.setEnabled(false);
+            return;
+        }
         // 新建条目/文件夹：仅密码库文件夹上下文可用
         boolean objectsCtx = section == null && currentGroupId() != null; // 选中了普通文件夹
         boolean objectsRoot = NodeType.GROUP == section; // 密码库根（可建文件夹）
@@ -959,6 +988,7 @@ public final class SanctumGui {
         treeRoot = new DefaultMutableTreeNode("全部");
         groupNodes.clear();
         groupCache = null; // 重置缓存
+        trashView = sanctum.trash();
 
         // 四个区段节点（对应树分类，见 NodeType）
         DefaultMutableTreeNode objectsNode = new DefaultMutableTreeNode("密码库");
@@ -969,11 +999,71 @@ public final class SanctumGui {
             addGroupNode(objectsNode, g.uuid(), g.name());
         }
 
+        // 垃圾桶虚拟根（与数据根平级，无对应存储；见设计 idea20260826-sanctum-trash）
+        DefaultMutableTreeNode trashNode = new DefaultMutableTreeNode("垃圾桶");
+        trashNode.setUserObject(NodeType.TRASH);
+        treeRoot.add(trashNode);
+        for (TrashCategory cat : TrashCategory.values()) {
+            DefaultMutableTreeNode catNode = new DefaultMutableTreeNode(cat.label);
+            catNode.setUserObject(cat);
+            trashNode.add(catNode);
+            for (UUID id : trashUuids(cat.kind)) {
+                DefaultMutableTreeNode leaf = new DefaultMutableTreeNode(nodeName(id));
+                leaf.setUserObject(id);
+                catNode.add(leaf);
+            }
+        }
+
         groupTree.setModel(new DefaultTreeModel(treeRoot));
         // 根隐藏，密码库区段展开
         for (int r = 0; r < groupTree.getRowCount(); r++) {
             groupTree.expandRow(r);
         }
+    }
+
+    /** 某类垃圾桶节点的 uuid 列表。 */
+    private List<UUID> trashUuids(com.flora.sanctum.model.TrashView.TrashKind kind) {
+        if (trashView == null) {
+            return List.of();
+        }
+        return switch (kind) {
+            case MANUAL -> trashView.manual();
+            case UNREACHABLE -> trashView.unreachable();
+            case UNLOCKABLE -> trashView.unlockable();
+        };
+    }
+
+    /** 跨树按 uuid 取展示名（组/条目/图标/SSH/远程）；未知显示 uuid 前 8 位。 */
+    private String nodeName(UUID uuid) {
+        TreeNode n = sanctum.findNode(uuid);
+        String name = null;
+        if (n instanceof GroupNode g) {
+            name = g.name();
+        } else if (n instanceof EntryNode en) {
+            name = en.name();
+        } else if (n instanceof IconNode ic) {
+            name = ic.name();
+        } else if (n instanceof SshKeyNode k) {
+            name = k.name();
+        } else if (n instanceof RemoteNode r) {
+            name = r.name();
+        } else if (n != null) {
+            JsonObject d = n.data();
+            name = d == null ? null : d.getString("name");
+        }
+        if (name == null || name.isBlank()) {
+            return "未知(" + uuid.toString().substring(0, 8) + ")";
+        }
+        return name;
+    }
+
+    /** 当前选中节点是否落在垃圾桶某类中。 */
+    private boolean isTrashSelection() {
+        Object sel = currentSelection();
+        if (sel instanceof UUID u && trashView != null) {
+            return trashView.contains(u);
+        }
+        return false;
     }
 
     private void addGroupNode(DefaultMutableTreeNode parentNode, UUID id, String name) {
@@ -1410,10 +1500,13 @@ public final class SanctumGui {
         });
         JButton delGroupBtn = new JButton("删除文件夹");
         delGroupBtn.addActionListener(e -> {
-            int ok = JOptionPane.showConfirmDialog(frame, "删除该文件夹及其内容?", "确认", JOptionPane.YES_NO_OPTION);
+            int ok = JOptionPane.showConfirmDialog(frame, "删除该文件夹及其内容（移入垃圾桶，可恢复）?", "确认", JOptionPane.YES_NO_OPTION);
             if (ok == JOptionPane.YES_OPTION) {
                 resetAutoLock();
-                deleteGroupRecursive(groupUuid);
+                GroupNode g = sanctum.objectTree().group(groupUuid);
+                if (g != null) {
+                    g.markDeleted();
+                }
                 rebuildGroupTree();
                 refreshEntryList(currentSearchQuery());
                 clearEditPanel();
@@ -1438,6 +1531,53 @@ public final class SanctumGui {
         actionRow.add(delGroupBtn);
         actionRow.add(iconBtn);
         editPanel.add(actionRow);
+        editPanel.revalidate();
+        editPanel.repaint();
+    }
+
+    /** 垃圾桶节点只读详情面板：标注删除类型 + 原位置，内容只读（名称/字段不可改，无操作按钮）。 */
+    private void renderTrashNode(UUID uuid) {
+        editPanel.removeAll();
+        if (trashView == null) {
+            return;
+        }
+        com.flora.sanctum.model.TrashView.TrashKind kind = trashView.kindOf(uuid);
+        // 类型标签
+        JLabel typeTag = new JLabel("垃圾桶 · " + (kind == null ? "未知" : kind.label()));
+        typeTag.setFont(typeTag.getFont().deriveFont(Font.BOLD, 14f));
+        typeTag.setForeground(new java.awt.Color(150, 90, 40));
+        editPanel.add(typeTag);
+        // 原位置（临时计算）
+        editPanel.add(makeInfoRow("原位置", trashView.originalPath(uuid)));
+
+        NodeType type = typeOf(uuid);
+        TreeNode node = sanctum.findNode(uuid);
+        if (type == NodeType.GROUP) {
+            GroupNode g = (GroupNode) node;
+            editPanel.add(makeInfoRow("名称", g == null ? null : g.name()));
+        } else if (type == NodeType.ENTRY) {
+            EntryNode en = (EntryNode) node;
+            if (en == null) {
+                editPanel.add(makeInfoRow("状态", "无法解密（不可解锁）"));
+            } else {
+                editPanel.add(makeInfoRow("名称", en.name()));
+                editPanel.add(makeInfoRow("URL", en.url()));
+                editPanel.add(makeInfoRow("用户名", en.username()));
+                String pw = en.password();
+                editPanel.add(makeInfoRow("密码", pw == null ? "" : "••••••（见复制按钮）"));
+                JButton copyBtn = new JButton("复制密码");
+                copyBtn.addActionListener(e -> copyPassword(uuid));
+                JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+                actionRow.setOpaque(false);
+                actionRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+                actionRow.add(copyBtn);
+                editPanel.add(actionRow);
+            }
+        } else if (node != null && node.data() != null) {
+            editPanel.add(makeInfoRow("名称", node.data().getString("name")));
+        } else {
+            editPanel.add(makeInfoRow("状态", "无法解密（不可解锁）"));
+        }
         editPanel.revalidate();
         editPanel.repaint();
     }
@@ -2166,28 +2306,31 @@ public final class SanctumGui {
                 case REMOTE -> "该远程配置";
                 default -> "该条目";
             };
-            int ok = JOptionPane.showConfirmDialog(frame, "删除" + what + "?", "确认", JOptionPane.YES_NO_OPTION);
+            int ok = JOptionPane.showConfirmDialog(frame, "删除" + what + "（移入垃圾桶，可恢复）?", "确认", JOptionPane.YES_NO_OPTION);
             if (ok == JOptionPane.YES_OPTION) {
                 resetAutoLock();
                 TreeNode node = sanctum.findNode(entryUuid);
                 if (node != null) {
-                    node.delete();
+                    node.markDeleted();
                 }
                 refreshEntryList(currentSearchQuery());
                 rebuildGroupTree();
             }
             return;
         }
-        // 区段根节点（图标/SSH/远程/密码库根）不可删除
+        // 区段根节点（图标/SSH/远程/密码库根/垃圾桶）不可删除
         if (section != null) {
             statusLabel.setText("根组不允许删除");
             return;
         }
         DefaultMutableTreeNode node = currentTreeNode();
         if (node != null && node != treeRoot && node.getUserObject() instanceof UUID groupId) {
-            int ok = JOptionPane.showConfirmDialog(frame, "删除该文件夹及其内容?", "确认", JOptionPane.YES_NO_OPTION);
+            int ok = JOptionPane.showConfirmDialog(frame, "删除该文件夹及其内容（移入垃圾桶，可恢复）?", "确认", JOptionPane.YES_NO_OPTION);
             if (ok == JOptionPane.YES_OPTION) {
-                deleteGroupRecursive(groupId);
+                GroupNode g = sanctum.objectTree().group(groupId);
+                if (g != null) {
+                    g.markDeleted();
+                }
                 rebuildGroupTree();
                 refreshEntryList(currentSearchQuery());
                 resetAutoLock();
@@ -2199,13 +2342,6 @@ public final class SanctumGui {
     private NodeType typeOf(UUID uuid) {
         TreeNode n = sanctum.findNode(uuid);
         return n == null ? null : n.type();
-    }
-
-    private void deleteGroupRecursive(UUID groupId) {
-        GroupNode g = sanctum.objectTree().group(groupId);
-        if (g != null) {
-            g.delete(); // GroupNode.delete 已递归
-        }
     }
 
     // ================= 同步 =================
@@ -2583,10 +2719,24 @@ public final class SanctumGui {
             if (value instanceof javax.swing.tree.DefaultMutableTreeNode node) {
                 Object uo = node.getUserObject();
                 if (uo instanceof NodeType tag) {
-                    setText(sectionDisplayName(tag));
+                    if (tag == NodeType.TRASH) {
+                        setText("垃圾桶");
+                        setIcon(SvgIcon.get("ui/trash", 24));
+                        setDisabledIcon(SvgIcon.get("ui/trash", 24));
+                    } else {
+                        setText(sectionDisplayName(tag));
+                    }
+                } else if (uo instanceof TrashCategory cat) {
+                    setText(cat.label);
+                    setIcon(SvgIcon.get("ui/trash", 24));
+                    setDisabledIcon(SvgIcon.get("ui/trash", 24));
                 } else if (uo instanceof UUID uuid) {
                     String[] info = groupsById().get(uuid);
                     String name = info == null ? null : info[1];
+                    if (name == null || name.isBlank()) {
+                        // 垃圾桶中的非组节点（条目等）直接取节点已存文本
+                        name = nodeName(uuid);
+                    }
                     setText(name == null || name.isBlank() ? "未命名" : name);
                     // 文件夹设置了图标则优先显示
                     String iconId = groupIconOf(uuid);

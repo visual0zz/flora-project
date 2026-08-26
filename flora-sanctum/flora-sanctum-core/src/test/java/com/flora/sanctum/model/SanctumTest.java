@@ -1,7 +1,6 @@
 package com.flora.sanctum.model;
 import com.flora.sanctum.model.tree.*;
 import com.flora.sanctum.model.vault.*;
-import com.flora.sanctum.model.impl.*;
 
 import com.flora.root.codec.json.model.JsonObject;
 import org.junit.jupiter.api.Test;
@@ -351,5 +350,43 @@ class SanctumTest {
         assertNotNull(mb);
         assertNotNull(mb.file());
         assertTrue(mb.line() >= 1);
+    }
+
+    @Test
+    void manualDeleteMarksAndClassifies() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
+        GroupNode group = s.objectTree().createGroup(null, "社交");
+        EntryNode entry = group.createEntry("微博", EntryFields.EMPTY);
+
+        // 手动删除组：标记写入，子节点不动
+        group.markDeleted();
+        assertTrue(group.deleted());
+        assertFalse(entry.deleted(), "子节点不应被标记删除");
+        // 子节点仍能按原 parent 找到
+        assertEquals(1, group.entries().size());
+
+        TrashView trash = s.trash();
+        assertTrue(trash.manual().contains(group.uuid()));
+        assertEquals(TrashView.TrashKind.MANUAL, trash.kindOf(group.uuid()));
+        assertFalse(trash.contains(entry.uuid()));
+
+        // 原位置沿 parent 链计算
+        assertTrue(trash.originalPath(group.uuid()).endsWith("社交"));
+
+        // 撤销删除
+        group.restore();
+        assertFalse(group.deleted());
+        assertFalse(s.trash().manual().contains(group.uuid()));
+    }
+
+    @Test
+    void unreachableEntryClassified() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
+        EntryNode entry = s.objectTree().createEntry(null, "孤立", EntryFields.EMPTY);
+        // 篡改 parent 指向不存在的 uuid（内存图直接改，classify 读内存图判定不可达）
+        entry.data().put("parent", UUID.randomUUID().toString());
+
+        TrashView trash = s.trash();
+        assertTrue(trash.unreachable().contains(entry.uuid()), "篡改 parent 后应判定为不可达");
     }
 }

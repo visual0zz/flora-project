@@ -165,6 +165,11 @@ public final class Sanctum implements AutoCloseable {
         return new GarbageCollector(context).collect();
     }
 
+    /** 垃圾桶视图：识别手动删除/不可达/不可解锁三类异常节点（见设计 idea20260826-sanctum-trash）。 */
+    public TrashView trash() {
+        return new TrashClassifier(context).classify();
+    }
+
     /** 取某 group 的 DEK（null 若未发现）。 */
     byte[] groupDek(UUID groupUuid) {
         return vault == null ? null : vault.groupDek(groupUuid);

@@ -3,6 +3,7 @@ package com.flora.sanctum.crypto.impl;
 import com.flora.sanctum.crypto.impl.HkdfSha256;
 
 import java.security.SecureRandom;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 安全随机源：混合熵（见设计 02"熵混合"）。
@@ -30,11 +31,10 @@ public final class SecureRandomSource {
      * <p>访问受 {@code stateLock} 保护，保证多线程下状态更新的原子性与可见性。</p>
      */
     private final byte[] state = new byte[32];
-    private final Object stateLock = new Object();
     private final Runtime runtime = Runtime.getRuntime();
-    private long prevNano = System.nanoTime();
-    private long prevFree = Runtime.getRuntime().freeMemory();
-    private long invokeCount = 0;
+    private final AtomicLong prevNano = new AtomicLong(System.nanoTime());
+    private final AtomicLong prevFree = new AtomicLong(Runtime.getRuntime().freeMemory());
+    private final AtomicLong invokeCount = new AtomicLong(0);
 
     public SecureRandomSource() {
         this.primary = new SecureRandom();
@@ -88,31 +88,34 @@ public final class SecureRandomSource {
      * 将多个零成本抖动源混入内部状态，返回当前状态快照作为 HKDF info。
      * <p>每次调用都会折叠以下彼此正交的抖动：高精度时钟 {@code nanoTime()} 与上次调用的
      * 间隔差分、调用线程 id、临时对象地址哈希、空闲堆内存差分、JVM 线程数、调用计数；
-     * 使跨调用状态难以被预测。状态更新在 {@code stateLock} 保护下进行，线程安全。</p>
+     * 使跨调用状态难以被预测。持续状态（时钟/堆内存的前值、调用计数）以原子方式读写，
+     * 256 位状态数组在内部锁保护下更新，整体线程安全。</p>
      */
     private byte[] overlay() {
         long now = System.nanoTime();
-        long tid = Thread.currentThread().getId();
+        long tid = Thread.currentThread().threadId();
         int objHash = System.identityHashCode(new Object());
         long free = runtime.freeMemory();
         int threads = Thread.activeCount();
-        synchronized (stateLock) {
-            long timeDelta = now - prevNano;
-            long freeDelta = free - prevFree;
-            prevNano = now;
-            prevFree = free;
-            long count = invokeCount++;
+        // 原子取前值并写入当前值，保证间隔差分与调用计数在并发下不丢失、不撕裂。
+        long prevNanoVal = prevNano.getAndSet(now);
+        long prevFreeVal = prevFree.getAndSet(free);
+        long count = invokeCount.getAndIncrement();
+        long timeDelta = now - prevNanoVal;
+        long freeDelta = free - prevFreeVal;
+        synchronized (this) {
             for (int i = 0; i < state.length; i++) {
                 // 多源交织：时钟、间隔、线程、对象哈希、堆差分、线程数、调用计数、
                 // 字节位置，避免任一源低位重复时状态停滞。轮次项以 64 位常数步进，
                 // 保证相邻字节的混合值自然扩散。
-                long mix = timeDelta
-                        ^ tid * 0x7E3779B17F4A7C15L
-                        ^((long) objHash << 13)
-                        ^(freeDelta << 3)
-                        ^((long) threads << 19)
-                        ^count * 0x2545F4914F6CDD13L
-                        ^((long) i * 0x9E3779B97F4A7C15L);
+                long mix = timeDelta * 0x7E3779B17F4A7C15L
+                        + tid * 0x7E3779B17F4A7C15L
+                        +objHash * 0x7E3779B17F4A7C15L
+                        +freeDelta * 0x7E3779B17F4A7C15L
+                        +threads * 0x7E3779B17F4A7C15L
+                        +count * 0x2545F4914F6CDD13L
+                        +i * 0x9E3779B97F4A7C15L
+                        ;
                 int v = (state[i] & 0xFF) + (int) (mix & 0xFF)
                         + (int) ((mix >>> 8) & 0xFF);
                 state[i] = (byte) (v & 0xFF);

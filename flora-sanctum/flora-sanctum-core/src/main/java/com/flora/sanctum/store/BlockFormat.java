@@ -19,7 +19,7 @@ public final class BlockFormat {
     }
 
     /** 固定魔数（6 字节，直接存储字节编码）。 */
-    public static final byte[] MAGIC = {(byte) 0xE8, (byte) 0xB5, (byte) 0xB5, (byte) 0xE6, (byte) 0xB2, (byte) 0xBB};
+    public static final byte[] MAGIC = {(byte) 0xBD, (byte) 0xE0, (byte) 0xE0, (byte) 0xB3, (byte) 0xE7, (byte) 0xEE};
     public static final int MAGIC_LEN = 6;
 
     /** 明文块头长度：magic(6)+version(1)+flags(1)+uuid(16) = 24。 */

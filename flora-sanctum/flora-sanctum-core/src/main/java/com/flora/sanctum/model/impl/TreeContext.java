@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * 树操作上下文：数据树节点执行新建/编辑/删除所需的底层能力（存储、加密、DEK 路由、时间戳）。
@@ -30,6 +31,14 @@ public final class TreeContext {
     private final Vault vault;
     private final Map<UUID, JsonObject> objects = new LinkedHashMap<>();
     private final Map<UUID, Block> blocks = new LinkedHashMap<>();
+    /**
+     * 双索引（与 objects/blocks 同步维护）：uuid → 父 uuid（顶层/根概念为 null），
+     * 以及父 uuid → 直接子 uuid 列表。取代 childrenOf 的全图线性扫描（O(n)→O(1)）。
+     */
+    private final Map<UUID, UUID> parentOf = new LinkedHashMap<>();
+    private final Map<UUID, List<UUID>> childrenByParent = new LinkedHashMap<>();
+    /** 守护内存图、两张索引与底层 store 的一致性：write/delete 整段（含时间戳 scan+落盘）原子。 */
+    private final ReentrantLock lock = new ReentrantLock();
 
     public TreeContext(ObjectStore store, Vault vault) {
         this.store = store;
@@ -46,26 +55,59 @@ public final class TreeContext {
                 continue;
             }
             try {
-                objects.put(b.uuid(), JsonUtil.parseObject(new String(plain, StandardCharsets.UTF_8)));
+                JsonObject obj = JsonUtil.parseObject(new String(plain, StandardCharsets.UTF_8));
+                objects.put(b.uuid(), obj);
+                indexObject(b.uuid(), obj);
             } catch (Exception ignore) {
                 // 无法解析的块跳过
             }
         }
     }
 
+    /** 维护 parentOf / childrenByParent 索引（从对象 parent 字段解析）。 */
+    private void indexObject(UUID uuid, JsonObject obj) {
+        UUID parent = resolveParent(obj.getString("parent"));
+        parentOf.put(uuid, parent);
+        if (parent != null) {
+            childrenByParent.computeIfAbsent(parent, k -> new ArrayList<>()).add(uuid);
+        }
+    }
+
+    /** parent 字段 → 父 uuid（可解析 UUID 则返回，否则 null）。 */
+    private UUID resolveParent(String parent) {
+        if (parent == null || !isUuid(parent)) {
+            return null;
+        }
+        return UUID.fromString(parent);
+    }
+
+    private static boolean isUuid(String s) {
+        try {
+            UUID.fromString(s);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
     /** 某对象的原始块定位（文件+行号，供审计/去重/恢复）。已缓存直接返回；新写入对象惰性定位一次。 */
     public Block blockOf(UUID uuid) {
-        Block cached = blocks.get(uuid);
-        if (cached != null) {
-            return cached;
-        }
-        for (Block b : store.scan()) {
-            if (b.uuid().equals(uuid)) {
-                blocks.put(uuid, b);
-                return b;
+        lock.lock();
+        try {
+            Block cached = blocks.get(uuid);
+            if (cached != null) {
+                return cached;
             }
+            for (Block b : store.scan()) {
+                if (b.uuid().equals(uuid)) {
+                    blocks.put(uuid, b);
+                    return b;
+                }
+            }
+            return null;
+        } finally {
+            lock.unlock();
         }
-        return null;
     }
 
     public Vault vault() {
@@ -80,61 +122,86 @@ public final class TreeContext {
         return vault.random();
     }
 
-    /** 全部对象（内存图，供树构建/遍历/搜索）。 */
+    /** 全部对象（内存图快照，供树构建/遍历/搜索）。 */
     public Map<UUID, JsonObject> objects() {
-        return objects;
+        lock.lock();
+        try {
+            return new LinkedHashMap<>(objects);
+        } finally {
+            lock.unlock();
+        }
     }
 
     /** 读取对象负载；未找到返回 null。 */
     public JsonObject read(UUID uuid) {
-        return objects.get(uuid);
+        lock.lock();
+        try {
+            return objects.get(uuid);
+        } finally {
+            lock.unlock();
+        }
     }
 
     /** 所属组 uuid（解析 parent；根概念 tag / 非 uuid 返回 null）。 */
     public UUID parentGroupUuid(JsonObject obj) {
-        String p = obj == null ? null : obj.getString("parent");
-        if (p == null || !isUuid(p)) {
-            return null;
-        }
-        return UUID.fromString(p);
+        return resolveParent(obj == null ? null : obj.getString("parent"));
     }
 
-    private static boolean isUuid(String s) {
+    /** 对象的父 uuid（来自索引；顶层/根概念返回 null）。 */
+    public UUID parentUuidOf(UUID uuid) {
+        lock.lock();
         try {
-            UUID.fromString(s);
-            return true;
-        } catch (IllegalArgumentException e) {
-            return false;
+            return parentOf.get(uuid);
+        } finally {
+            lock.unlock();
         }
     }
 
-    /** 按归属加密写入（子文件夹用文件夹 DEK，顶层用 data 根 DEK），并同步内存图。 */
+    /** 按归属加密写入（子文件夹用文件夹 DEK，顶层用 data 根 DEK），并同步内存图与索引。 */
     public void write(UUID uuid, JsonObject payload, UUID groupId) {
         writeCipherBlock(uuid, payload, dekFor(groupId));
     }
 
-    /** 用指定 DEK 加密写入（icon/sshKey/remote 按根概念路由），并同步内存图。 */
+    /** 用指定 DEK 加密写入（icon/sshKey/remote 按根概念路由），并同步内存图与索引。 */
     public void writeWithDek(UUID uuid, JsonObject payload, byte[] dek) {
         writeCipherBlock(uuid, payload, dek);
     }
 
     private void writeCipherBlock(UUID uuid, JsonObject payload, byte[] dek) {
-        byte[] json = JsonUtil.toJsonString(payload).getBytes(StandardCharsets.UTF_8);
-        byte[] encKey = KeyDerivation.encKey(dek);
-        CipherCodec codec = new CipherCodec(encKey, dek, vault.repoKeyIdSeed(), vault.random());
-        long ts = nextTimestamp();
-        String tsText = Long.toString(ts);
-        Block written = store.put(uuid, json, new CipherCodecAdapter(codec, uuid), tsText);
-        objects.put(uuid, payload);
-        // 回写块缓存，使 blockOf 对新写入块直接命中，不再触发二次全扫。
-        blocks.put(uuid, written);
+        lock.lock();
+        try {
+            byte[] json = JsonUtil.toJsonString(payload).getBytes(StandardCharsets.UTF_8);
+            byte[] encKey = KeyDerivation.encKey(dek);
+            CipherCodec codec = new CipherCodec(encKey, dek, vault.repoKeyIdSeed(), vault.random());
+            // 时间戳 scan + 落盘在锁内原子完成：避免并发写读到相同 max 时间戳产生碰撞或交错落盘。
+            long ts = nextTimestamp();
+            String tsText = Long.toString(ts);
+            Block written = store.put(uuid, json, new CipherCodecAdapter(codec, uuid), tsText);
+            objects.put(uuid, payload);
+            blocks.put(uuid, written);
+            indexObject(uuid, payload);
+        } finally {
+            lock.unlock();
+        }
     }
 
-    /** 删除对象并同步内存图与块定位。 */
+    /** 删除对象并同步内存图、索引与块定位。 */
     public void delete(UUID uuid) {
-        store.delete(uuid);
-        objects.remove(uuid);
-        blocks.remove(uuid);
+        lock.lock();
+        try {
+            store.delete(uuid);
+            objects.remove(uuid);
+            blocks.remove(uuid);
+            UUID parent = parentOf.remove(uuid);
+            if (parent != null) {
+                List<UUID> siblings = childrenByParent.get(parent);
+                if (siblings != null) {
+                    siblings.remove(uuid);
+                }
+            }
+        } finally {
+            lock.unlock();
+        }
     }
 
     /** 找加密归属 DEK：条目/字段若在子 group 下用该 group DEK，否则用 data 根。 */
@@ -163,15 +230,14 @@ public final class TreeContext {
         return vault.clock().timestampCappedAt(maxExisting);
     }
 
-    /** 按 parent 列出直接子对象 uuid（内存图遍历）。 */
+    /** 按 parent 列出直接子对象 uuid（O(1) 索引查表，返回快照副本）。 */
     public List<UUID> childrenOf(UUID parent) {
-        List<UUID> out = new ArrayList<>();
-        for (Map.Entry<UUID, JsonObject> e : objects.entrySet()) {
-            String p = e.getValue().getString("parent");
-            if (p != null && p.equals(parent.toString())) {
-                out.add(e.getKey());
-            }
+        lock.lock();
+        try {
+            List<UUID> siblings = childrenByParent.get(parent);
+            return siblings == null ? List.of() : List.copyOf(siblings);
+        } finally {
+            lock.unlock();
         }
-        return out;
     }
 }

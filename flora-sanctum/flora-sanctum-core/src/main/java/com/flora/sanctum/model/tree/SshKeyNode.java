@@ -26,8 +26,9 @@ public final class SshKeyNode extends TreeNode {
         return d == null ? null : d.getString("name");
     }
 
-    public String privateKey() {
+    /** 私钥 PEM 文本（与 FieldNode 的 value 字段命名统一）。 */
+    public String value() {
         JsonObject d = data();
-        return d == null ? null : d.getString("privateKey");
+        return d == null ? null : d.getString("value");
     }
 }

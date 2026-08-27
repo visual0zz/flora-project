@@ -73,7 +73,7 @@ public final class Ref {
 
     /**
      * 解析存储值：新格式为含 {@code type}/{@code id} 的 JSON 对象；遗留格式为 {@code "builtin:name"}
-     * 或 uuid 字符串（{@code defaultKind} 决定 node 种类，icon 字段用 "icon"、keyRef 字段用 "key"）。
+     * 或 uuid 字符串（{@code defaultKind} 决定 node 种类，iconRef 字段用 "icon"、keyRef 字段用 "key"）。
      */
     public static Ref parse(JsonValue raw, String defaultKind) {
         if (raw == null || raw.isNull()) {

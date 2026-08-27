@@ -55,7 +55,7 @@ public final class EntryNode extends ObjectNode {
     /** 自定义图标引用（可 null）。 */
     public Ref iconRef() {
         JsonObject d = data();
-        return d == null ? null : Ref.parse(d.get("icon"), "icon");
+        return d == null ? null : Ref.parse(d.get("iconRef"), "icon");
     }
 
     /** 创建时间（本地毫秒，只读）。 */
@@ -133,9 +133,9 @@ public final class EntryNode extends ObjectNode {
         }
         UUID groupId = ctx().parentGroupUuid(entry);
         if (ref == null) {
-            entry.remove("icon");
+            entry.remove("iconRef");
         } else {
-            entry.put("icon", ref.toJson());
+            entry.put("iconRef", ref.toJson());
         }
         ctx().write(uuid(), entry, groupId);
     }

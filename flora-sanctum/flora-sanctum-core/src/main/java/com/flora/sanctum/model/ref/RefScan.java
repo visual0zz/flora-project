@@ -24,13 +24,13 @@ public final class RefScan {
 
     /** 节点类型 → 其引用的字段名列表。 */
     private static final Map<StoredNodeType, List<String>> FIELDS = Map.of(
-            StoredNodeType.ENTRY, List.of("icon"),
-            StoredNodeType.GROUP, List.of("icon"),
+            StoredNodeType.ENTRY, List.of("iconRef"),
+            StoredNodeType.GROUP, List.of("iconRef"),
             StoredNodeType.REMOTE, List.of("keyRef"));
 
     /** 引用字段名 → 默认 kind（遗留字符串解析时决定 node 种类）。 */
     private static final Map<String, String> FIELD_KIND = Map.of(
-            "icon", "icon",
+            "iconRef", "icon",
             "keyRef", "key");
 
     private RefScan() {

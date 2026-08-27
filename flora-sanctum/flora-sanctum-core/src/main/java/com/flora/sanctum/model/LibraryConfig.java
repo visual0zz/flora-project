@@ -16,7 +16,7 @@ import java.util.UUID;
  * 承载两类：
  * <ul>
  *   <li><b>远程配置</b>（type=remote 节点）只读视图，写操作经 {@code RemoteTree} 承担。</li>
- *   <li><b>仓库级设置</b>（type=config 节点，name/value 加密存储于根对象下）：主题/自动锁定时长/剪贴板清空时长。
+ *   <li><b>仓库级设置</b>（type=config 节点，key/value 加密存储于根对象下）：主题/自动锁定时长/剪贴板清空时长。
  *       不再落全局配置文件；未设置时返回默认值。</li>
  * </ul>
  */
@@ -74,7 +74,7 @@ public final class LibraryConfig {
         JsonObject c = new JsonObject();
         c.put("type", StoredNodeType.CONFIG.tag());
         c.put("parent", ctx.vault().rootObjectUuid().toString());
-        c.put("name", key);
+        c.put("key", key);
         c.put("value", value);
         ctx.writeWithDek(UUID.randomUUID(), c, dek);
     }
@@ -120,7 +120,7 @@ public final class LibraryConfig {
         for (Map.Entry<UUID, JsonObject> e : ctx.objects().entrySet()) {
             JsonObject n = e.getValue();
             if (StoredNodeType.fromTag(n.getString("type")) == StoredNodeType.CONFIG
-                    && key.equals(n.getString("name"))) {
+                    && key.equals(n.getString("key"))) {
                 return e;
             }
         }

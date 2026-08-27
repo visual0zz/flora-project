@@ -32,7 +32,7 @@ public final class GroupNode extends ObjectNode {
     /** 自定义图标引用（可 null）。 */
     public Ref iconRef() {
         JsonObject d = data();
-        return d == null ? null : Ref.parse(d.get("icon"), "icon");
+        return d == null ? null : Ref.parse(d.get("iconRef"), "icon");
     }
 
     public void rename(String newName) {
@@ -63,9 +63,9 @@ public final class GroupNode extends ObjectNode {
         }
         UUID parentId = ctx().parentGroupUuid(group);
         if (ref == null) {
-            group.remove("icon");
+            group.remove("iconRef");
         } else {
-            group.put("icon", ref.toJson());
+            group.put("iconRef", ref.toJson());
         }
         ctx().write(uuid(), group, parentId);
     }

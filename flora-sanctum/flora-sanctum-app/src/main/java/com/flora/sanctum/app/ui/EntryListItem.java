@@ -1,5 +1,6 @@
 package com.flora.sanctum.app.ui;
 
+import com.flora.sanctum.model.Ref;
 import com.flora.sanctum.model.StoredNodeType;
 
 import java.util.UUID;
@@ -11,7 +12,7 @@ import java.util.UUID;
  * @param uuid     节点 uuid（列表项为组/条目/图标/SSH/远程时均有）
  * @param type     存储类型，供图标与双击导航判断
  * @param display  列表展示文本（条目名、组名或"名 · 路径"）
- * @param iconRef  图标 id（"builtin:name" 或 uuid；无则 null），列表渲染优先使用
+ * @param iconRef  图标引用（无则 null），列表渲染优先使用
  */
-record EntryListItem(UUID uuid, StoredNodeType type, String display, String iconRef) {
+record EntryListItem(UUID uuid, StoredNodeType type, String display, Ref iconRef) {
 }

@@ -31,20 +31,21 @@ public final class RemoteNode extends TreeNode {
         return d == null ? null : d.getString("url");
     }
 
-    public String keyRef() {
+    /** 远程配置引用的密钥（可 null）。 */
+    public Ref keyRef() {
         JsonObject d = data();
-        return d == null ? null : d.getString("keyRef");
+        return d == null ? null : Ref.parse(d.get("keyRef"), "key");
     }
 
     /** 更新远程配置（url/keyRef 可 null）。 */
-    public void update(String url, String keyRef) {
+    public void update(String url, Ref keyRef) {
         JsonObject remote = data();
         if (remote == null) {
             throw new IllegalArgumentException("remote not found");
         }
         remote.put("url", url);
         if (keyRef != null) {
-            remote.put("keyRef", keyRef);
+            remote.put("keyRef", keyRef.toJson());
         } else {
             remote.remove("keyRef");
         }

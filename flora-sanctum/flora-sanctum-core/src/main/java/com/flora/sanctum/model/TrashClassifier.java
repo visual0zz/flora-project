@@ -2,6 +2,7 @@ package com.flora.sanctum.model;
 
 import com.flora.sanctum.model.impl.GarbageCollector;
 import com.flora.sanctum.model.impl.TreeContext;
+import com.flora.sanctum.model.ref.RefScan;
 import com.flora.sanctum.model.vault.Vault;
 import com.flora.sanctum.store.Block;
 import com.flora.root.codec.JsonUtil;
@@ -58,11 +59,11 @@ public final class TrashClassifier {
                     continue;
                 }
                 String parent = n.getString("parent");
-                String icon = n.getString("icon");
-                String keyRef = n.getString("keyRef");
-                if ((parent != null && isUuid(parent) && reachable.contains(UUID.fromString(parent)))
-                        || (icon != null && isUuid(icon) && reachable.contains(UUID.fromString(icon)))
-                        || (keyRef != null && isUuid(keyRef) && reachable.contains(UUID.fromString(keyRef)))) {
+                boolean byParent = parent != null && isUuid(parent)
+                        && reachable.contains(UUID.fromString(parent));
+                Set<UUID> refs = RefScan.referencedBlocks(n);
+                boolean byRef = !refs.isEmpty() && reachable.containsAll(refs);
+                if (byParent || byRef) {
                     reachable.add(b.uuid());
                     progress = true;
                 }

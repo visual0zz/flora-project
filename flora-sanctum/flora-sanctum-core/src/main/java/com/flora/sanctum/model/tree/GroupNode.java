@@ -29,10 +29,10 @@ public final class GroupNode extends ObjectNode {
         return d == null ? null : d.getString("name");
     }
 
-    /** 自定义图标引用 uuid 字符串（可 null）。 */
-    public String iconRef() {
+    /** 自定义图标引用（可 null）。 */
+    public Ref iconRef() {
         JsonObject d = data();
-        return d == null ? null : d.getString("icon");
+        return d == null ? null : Ref.parse(d.get("icon"), "icon");
     }
 
     public void rename(String newName) {
@@ -45,17 +45,27 @@ public final class GroupNode extends ObjectNode {
         ctx().write(uuid(), group, parentId);
     }
 
-    /** 设置/清除文件夹图标引用（iconId 可为内置 "builtin:name" 或用户图标 uuid 字符串；null 清除）。 */
-    public void setIcon(String iconId) {
+    /** 设置/清除文件夹图标引用（iconUuid=null 清除）。 */
+    public void setIcon(UUID iconUuid) {
+        setIcon(iconUuid == null ? null : Ref.nodeIcon(iconUuid));
+    }
+
+    /** 设置内置图标引用（name 为内置资源名；null 清除）。 */
+    public void setBuiltinIcon(String name) {
+        setIcon(name == null ? null : Ref.builtinIcon(name));
+    }
+
+    /** 设置/清除图标引用（Ref；null 清除）。 */
+    public void setIcon(Ref ref) {
         JsonObject group = data();
         if (group == null) {
             throw new IllegalArgumentException("group not found");
         }
         UUID parentId = ctx().parentGroupUuid(group);
-        if (iconId == null) {
+        if (ref == null) {
             group.remove("icon");
         } else {
-            group.put("icon", iconId);
+            group.put("icon", ref.toJson());
         }
         ctx().write(uuid(), group, parentId);
     }
@@ -68,11 +78,6 @@ public final class GroupNode extends ObjectNode {
     /** 在此组下新建条目。 */
     public EntryNode createEntry(String name, EntryFields fields) {
         return tree().createEntry(uuid(), name, fields);
-    }
-
-    /** 在此组下新建条目（含图标引用）。 */
-    public EntryNode createEntry(String name, EntryFields fields, Integer iconId, UUID iconUuid) {
-        return tree().createEntry(uuid(), name, fields, iconId, iconUuid);
     }
 
     /** 直接子节点（组 + 条目）。 */

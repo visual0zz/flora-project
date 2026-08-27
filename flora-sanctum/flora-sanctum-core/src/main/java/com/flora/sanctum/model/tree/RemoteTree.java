@@ -51,7 +51,7 @@ public final class RemoteTree extends DataTree {
         return null;
     }
 
-    public RemoteNode addRemote(String name, String url, String keyRef) {
+    public RemoteNode addRemote(String name, String url, Ref keyRef) {
         UUID remoteUuid = UUID.randomUUID();
         JsonObject remote = new JsonObject();
         remote.put("type", StoredNodeType.REMOTE.tag());
@@ -59,7 +59,7 @@ public final class RemoteTree extends DataTree {
         remote.put("name", name);
         remote.put("url", url);
         if (keyRef != null) {
-            remote.put("keyRef", keyRef);
+            remote.put("keyRef", keyRef.toJson());
         }
         byte[] dek = context().vault().dekForRole(RootTag.DATA);
         context().writeWithDek(remoteUuid, remote, dek);

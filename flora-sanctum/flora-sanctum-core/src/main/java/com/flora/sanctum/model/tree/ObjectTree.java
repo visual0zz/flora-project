@@ -102,23 +102,12 @@ public final class ObjectTree extends DataTree {
 
     /** 新建条目（groupId=null 为顶层，parent 记根对象 uuid）。 */
     public EntryNode createEntry(UUID groupId, String name, EntryFields fields) {
-        return createEntry(groupId, name, fields, null, null);
-    }
-
-    /** 新建条目（含图标引用）。 */
-    public EntryNode createEntry(UUID groupId, String name, EntryFields fields, Integer iconId, UUID iconUuid) {
         UUID entryUuid = UUID.randomUUID();
         long now = System.currentTimeMillis();
         JsonObject entry = new JsonObject();
         entry.put("type", StoredNodeType.ENTRY.tag());
         entry.put("name", name);
         entry.put("parent", groupId == null ? rootUuid() : groupId.toString());
-        if (iconId != null) {
-            entry.put("iconId", iconId);
-        }
-        if (iconUuid != null) {
-            entry.put("icon", iconUuid.toString());
-        }
         context().write(entryUuid, entry, groupId);
         // 预设字段独立块（createTime/updateTime 必写；其余有值才写）
         writePreset(entryUuid, groupId, "createTime", String.valueOf(now));

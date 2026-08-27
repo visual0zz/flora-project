@@ -77,7 +77,7 @@ class SanctumTest {
         IconNode icon = s.iconTree().createIcon("icon", new byte[]{1, 2, 3}, "png");
 
         entry.setIcon(icon.uuid());
-        assertEquals(icon.uuid().toString(), s.objectTree().entry(entry.uuid()).iconRef());
+        assertEquals(Ref.nodeIcon(icon.uuid()), s.objectTree().entry(entry.uuid()).iconRef());
 
         entry.setIcon((UUID) null);
         assertNull(s.objectTree().entry(entry.uuid()).iconRef());
@@ -94,9 +94,10 @@ class SanctumTest {
         assertNotNull(s.sshKeyTree().find(key.uuid()));
         assertEquals(StoredNodeType.SSH_KEY, key.type());
 
-        RemoteNode remote = s.remoteTree().addRemote("origin", "git@example.com:repo.git", "mykey");
+        RemoteNode remote = s.remoteTree().addRemote("origin", "git@example.com:repo.git", Ref.nodeKey(key.uuid()));
         assertNotNull(s.remoteTree().find(remote.uuid()));
         assertEquals(StoredNodeType.REMOTE, remote.type());
+        assertEquals(Ref.nodeKey(key.uuid()), remote.keyRef());
     }
 
     @Test
@@ -313,7 +314,8 @@ class SanctumTest {
     @Test
     void remoteTreeLookupAndRemove() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
-        s.remoteTree().addRemote("origin", "git@example.com:r.git", "k");
+        SshKeyNode k = s.sshKeyTree().createSshKey("k", "-----BEGIN PRIVATE KEY-----");
+        s.remoteTree().addRemote("origin", "git@example.com:r.git", Ref.nodeKey(k.uuid()));
         RemoteNode r = s.remoteTree().remote("origin");
         assertNotNull(r);
         assertEquals("git@example.com:r.git", r.url());

@@ -11,6 +11,7 @@ import com.flora.sanctum.model.tree.GroupNode;
 import com.flora.sanctum.model.tree.IconNode;
 import com.flora.sanctum.model.tree.RemoteNode;
 import com.flora.sanctum.model.Sanctum;
+import com.flora.sanctum.model.Ref;
 import com.flora.sanctum.model.tree.SshKeyNode;
 import com.flora.sanctum.model.tree.TreeNode;
 import com.flora.root.codec.json.model.JsonObject;
@@ -1100,8 +1101,8 @@ public final class SanctumGui {
         return groupCache;
     }
 
-    /** 文件夹设置的图标 id（无则 null）。 */
-    private String groupIconOf(UUID groupUuid) {
+    /** 文件夹设置的图标引用（无则 null）。 */
+    private Ref groupIconOf(UUID groupUuid) {
         GroupNode g = sanctum.objectTree().group(groupUuid);
         return g == null ? null : g.iconRef();
     }
@@ -1147,7 +1148,7 @@ public final class SanctumGui {
         if (ViewNodeType.ICON == section) {
             for (IconNode icon : sanctum.iconTree().icons()) {
                 entryModel.addElement(new EntryListItem(icon.uuid(), StoredNodeType.ICON,
-                        iconLabel(icon), icon.uuid().toString()));
+                        iconLabel(icon), Ref.nodeIcon(icon.uuid())));
             }
             return;
         }
@@ -1206,42 +1207,37 @@ public final class SanctumGui {
 
     private static final String BUILTIN_PREFIX = "builtin:";
 
-    private static String builtinIconId(String name) {
-        return BUILTIN_PREFIX + name;
-    }
-
     private static boolean isBuiltinIcon(String id) {
         return id != null && id.startsWith(BUILTIN_PREFIX);
     }
 
-    private static String builtinName(String id) {
-        return id == null ? "" : id.substring(BUILTIN_PREFIX.length());
-    }
-
     /** 设置页图标详情：缩略图 + 名称。 */
-    private void renderSettingsIcon(String id, JPanel target) {
+    private void renderSettingsIcon(Ref ref, JPanel target) {
         target.removeAll();
-        Icon ic = iconById(id, 48);
+        Icon ic = iconById(ref, 48);
         if (ic != null) {
             JLabel pic = new JLabel(ic);
             pic.setAlignmentX(0f);
             target.add(pic);
             target.add(javax.swing.Box.createVerticalStrut(6));
         }
-        addInfoLabel(isBuiltinIcon(id) ? "内置图标：" + builtinName(id) : "用户导入图标", target);
+        addInfoLabel(ref != null && "builtin".equals(ref.scheme()) ? "内置图标：" + ref.id() : "用户导入图标", target);
         target.revalidate();
         target.repaint();
     }
 
-    /** 按图标 id 渲染 Icon（内置 SvgIcon / 用户 iconTree 字节），失败返回 null。 */
-    private Icon iconById(String id, int size) {
-        if (isBuiltinIcon(id)) {
-            Icon ic = SvgIcon.get("library/" + id.substring(BUILTIN_PREFIX.length()), size);
+    /** 按图标引用渲染 Icon（内置 SvgIcon / 用户 iconTree 字节），失败返回 null。 */
+    private Icon iconById(Ref ref, int size) {
+        if (ref == null) {
+            return null;
+        }
+        if ("builtin".equals(ref.scheme())) {
+            Icon ic = SvgIcon.get("library/" + ref.id(), size);
             return ic != null ? ic : SvgIcon.get("ui/entry", size);
         }
-        if (id != null) {
+        if ("node".equals(ref.scheme())) {
             try {
-                IconNode node = sanctum.iconTree().find(UUID.fromString(id));
+                IconNode node = sanctum.iconTree().find(UUID.fromString(ref.id()));
                 if (node != null) {
                     byte[] data = node.iconData();
                     if ("svg".equalsIgnoreCase(node.format())) {
@@ -1264,23 +1260,23 @@ public final class SanctumGui {
         return null;
     }
 
-    /** 弹窗网格选择图标（内置 + 用户），选中后回调 id（"builtin:name" 或 uuid 字符串）。 */
-    private void chooseIconDialog(String title, java.util.function.Consumer<String> onPick) {
+    /** 弹窗网格选择图标（内置 + 用户），选中后回调 Ref（builtin:icon 或 node:icon）。 */
+    private void chooseIconDialog(String title, java.util.function.Consumer<Ref> onPick) {
         JDialog dialog = new JDialog(frame, title, true);
         JPanel grid = new JPanel(new GridLayout(0, 5, 8, 8));
         grid.setOpaque(false);
         grid.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
         for (String name : SvgIcon.libraryIcons()) {
-            String id = builtinIconId(name);
-            grid.add(makeIconCell(iconById(id, 32), () -> {
-                onPick.accept(id);
+            Ref ref = Ref.builtinIcon(name);
+            grid.add(makeIconCell(iconById(ref, 32), () -> {
+                onPick.accept(ref);
                 dialog.dispose();
             }));
         }
         for (IconNode node : sanctum.iconTree().icons()) {
-            String id = node.uuid().toString();
-            grid.add(makeIconCell(iconById(id, 32), () -> {
-                onPick.accept(id);
+            Ref ref = Ref.nodeIcon(node.uuid());
+            grid.add(makeIconCell(iconById(ref, 32), () -> {
+                onPick.accept(ref);
                 dialog.dispose();
             }));
         }
@@ -1512,10 +1508,10 @@ public final class SanctumGui {
             }
         });
         JButton iconBtn = new JButton("选择图标");
-        iconBtn.addActionListener(e -> chooseIconDialog("文件夹图标", id -> {
+        iconBtn.addActionListener(e -> chooseIconDialog("文件夹图标", ref -> {
             resetAutoLock();
             try {
-                group.setIcon(id);
+                group.setIcon(ref);
                 modelBus.markDirty();
                 modelBus.refresh();
                 renderGroupPanel(groupUuid);
@@ -2081,14 +2077,28 @@ public final class SanctumGui {
     private void addRemote() {
         JTextField nameField = new JTextField(16);
         JTextField urlField = new JTextField(28);
-        JTextField keyRefField = new JTextField(16);
+        JComboBox<SshKeyNode> keyCombo = new JComboBox<>();
+        for (SshKeyNode k : sanctum.sshKeyTree().keys()) {
+            keyCombo.addItem(k);
+        }
+        keyCombo.setRenderer(new javax.swing.DefaultListCellRenderer() {
+            @Override
+            public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value,
+                                                                   int index, boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof SshKeyNode k) {
+                    setText(k.name());
+                }
+                return this;
+            }
+        });
         JPanel form = new JPanel(new GridLayout(0, 2, 8, 8));
         form.add(new JLabel("名称:"));
         form.add(nameField);
         form.add(new JLabel("URL:"));
         form.add(urlField);
         form.add(new JLabel("SSH 密钥引用:"));
-        form.add(keyRefField);
+        form.add(keyCombo);
         int ok = JOptionPane.showConfirmDialog(frame, form, "添加远程", JOptionPane.OK_CANCEL_OPTION);
         if (ok != JOptionPane.OK_OPTION) {
             return;
@@ -2099,10 +2109,11 @@ public final class SanctumGui {
             statusLabel.setText("名称与 URL 必填");
             return;
         }
-        String keyRef = keyRefField.getText().trim();
+        SshKeyNode sel = (SshKeyNode) keyCombo.getSelectedItem();
+        Ref keyRef = sel != null ? Ref.nodeKey(sel.uuid()) : null;
         resetAutoLock();
         try {
-            sanctum.remoteTree().addRemote(name, url, keyRef.isEmpty() ? null : keyRef);
+            sanctum.remoteTree().addRemote(name, url, keyRef);
             modelBus.markDirty();
             modelBus.refresh();
             statusLabel.setText("已添加远程 " + name);
@@ -2113,12 +2124,12 @@ public final class SanctumGui {
 
     /** 为条目选择图标（内置 + 用户图标库）。 */
     private void chooseEntryIcon(UUID entryUuid) {
-        chooseIconDialog("选择图标", id -> {
+        chooseIconDialog("选择图标", ref -> {
             resetAutoLock();
             try {
                 EntryNode entry = sanctum.objectTree().entry(entryUuid);
                 if (entry != null) {
-                    entry.setIcon(id);
+                    entry.setIcon(ref);
                     renderEntry(entryUuid);
                     statusLabel.setText("已设置图标");
                 }
@@ -2544,7 +2555,7 @@ public final class SanctumGui {
                     // 内置图标（不可删除）
                     for (String name : SvgIcon.libraryIcons()) {
                         settingsEntryModel.addElement("内置 · " + name);
-                        settingsEntryIds.add(builtinIconId(name));
+                        settingsEntryIds.add(BUILTIN_PREFIX + name);
                         settingsEntryKinds.add(SettingsKind.ICON);
                     }
                     // 用户导入图标
@@ -2592,7 +2603,7 @@ public final class SanctumGui {
             switch (kind) {
                 case SETTING -> renderSettingsItem(settingsEntryKeys.get(idx));
                 case ICON -> {
-                    renderSettingsIcon(id, settingsEditPanel);
+                    renderSettingsIcon(Ref.fromLegacyId(id), settingsEditPanel);
                     addSettingsActionBtn("导入图片", this::doImportImageAndRefresh);
                     addSettingsActionBtn("删除图标", () -> {
                         if (isBuiltinIcon(id)) {
@@ -2831,7 +2842,7 @@ public final class SanctumGui {
                     }
                     setText(name == null || name.isBlank() ? "未命名" : name);
                     // 文件夹设置了图标则优先显示
-                    String iconId = groupIconOf(uuid);
+                    Ref iconId = groupIconOf(uuid);
                     if (iconId != null) {
                         Icon ic = iconById(iconId, 24);
                         if (ic != null) {
@@ -2857,7 +2868,7 @@ public final class SanctumGui {
             EntryListItem item = value instanceof EntryListItem li ? li : null;
             StoredNodeType type = item == null ? null : item.type();
             // 条目/文件夹设置了图标则优先显示，否则默认 folder/entry
-            String iconId = item == null ? null : item.iconRef();
+            Ref iconId = item == null ? null : item.iconRef();
             Icon custom = iconById(iconId, 24);
             if (custom != null) {
                 setIcon(custom);

@@ -52,10 +52,10 @@ public final class EntryNode extends ObjectNode {
         return EntryFields.parseLabels(v);
     }
 
-    /** 自定义图标引用 uuid 字符串（可 null）。 */
-    public String iconRef() {
+    /** 自定义图标引用（可 null）。 */
+    public Ref iconRef() {
         JsonObject d = data();
-        return d == null ? null : d.getString("icon");
+        return d == null ? null : Ref.parse(d.get("icon"), "icon");
     }
 
     /** 创建时间（本地毫秒，只读）。 */
@@ -125,21 +125,26 @@ public final class EntryNode extends ObjectNode {
 
     /** 设置/清除自定义图标引用（iconUuid=null 清除）。 */
     public void setIcon(UUID iconUuid) {
-        setIcon(iconUuid == null ? null : iconUuid.toString());
+        setIcon(iconUuid == null ? null : Ref.nodeIcon(iconUuid));
     }
 
-    /** 设置图标引用（iconId 可为内置 "builtin:name" 或用户图标 uuid 字符串；null 清除）。 */
-    public void setIcon(String iconId) {
+    /** 设置内置图标引用（name 为内置资源名；null 清除）。 */
+    public void setBuiltinIcon(String name) {
+        setIcon(name == null ? null : Ref.builtinIcon(name));
+    }
+
+    /** 设置/清除图标引用（Ref；null 清除）。 */
+    public void setIcon(Ref ref) {
         JsonObject entry = data();
         if (entry == null) {
             throw new IllegalArgumentException("entry not found");
         }
         UUID groupId = ctx().parentGroupUuid(entry);
-        if (iconId == null) {
+        if (ref == null) {
             entry.remove("icon");
             entry.remove("iconId");
         } else {
-            entry.put("icon", iconId);
+            entry.put("icon", ref.toJson());
             entry.remove("iconId");
         }
         ctx().write(uuid(), entry, groupId);

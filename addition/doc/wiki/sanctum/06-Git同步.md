@@ -61,7 +61,7 @@
 
 ## 远端配置与凭据存放
 
-- **远端列表（名称、URL、key 引用）**：存为 vault 内 SECRET 对象（随机 UUID，内容自描述，见 05），解锁后扫描定位并应用到 git 远端——多设备一致，无手动重复配置；URL 会泄露托管商，故不落明文。key 引用指向 vault 内密钥 UUID 或系统 key 名。**当前支持单一远端 origin**，同步时仅与其 fetch/pull/push（见"同步流程"）。
+- **远端列表（名称、URL、key 引用）**：存为 vault 内 SECRET 对象（随机 UUID，内容自描述，见 05），解锁后扫描定位并应用到 git 远端——多设备一致，无手动重复配置；URL 会泄露托管商，故不落明文。key 引用是统一引用结构 `Ref`（`node:key`=vault 内 SSH 密钥对象 UUID，见 05「统一引用结构 Ref」）。**当前支持单一远端 origin**，同步时仅与其 fetch/pull/push（见"同步流程"）。
 - **SSH 私钥默认存 vault 内**（SECRET 对象，key = `<密钥UUID>`，见 05）：与条目同级加密保护，解锁后在内存持有，经 `GIT_SSH_COMMAND` 临时拼 `ssh -i <临时key文件> -o IdentitiesOnly=yes` 注入本次 git 调用（临时 key 文件用完即删、锁定即弃），**不落明文盘**。主密码即所有凭据的单点，需保持强口令并做好归档备份。
 - 备选：系统 ssh-agent / OS keychain（远端配置的 key 提示指向系统 key 或 vault 内密钥 UUID，二选一）。
 - known_hosts 由系统 ssh 按标准位置（`~/.ssh/known_hosts`）管理，不随 vault 同步。

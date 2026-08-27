@@ -33,7 +33,8 @@ public final class LibraryConfig {
         List<RemoteConfig> out = new ArrayList<>();
         for (JsonObject n : ctx.objects().values()) {
             if (StoredNodeType.fromTag(n.getString("type")) == StoredNodeType.REMOTE) {
-                out.add(new RemoteConfig(n.getString("name"), n.getString("url"), n.getString("keyRef")));
+                out.add(new RemoteConfig(n.getString("name"), n.getString("url"),
+                        Ref.parse(n.get("keyRef"), "key")));
             }
         }
         return out;
@@ -127,6 +128,6 @@ public final class LibraryConfig {
     }
 
     /** 远程配置。 */
-    public record RemoteConfig(String name, String url, String keyRef) {
+    public record RemoteConfig(String name, String url, Ref keyRef) {
     }
 }

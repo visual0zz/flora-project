@@ -8,7 +8,7 @@ import com.flora.root.codec.json.model.JsonObject;
 import java.util.UUID;
 
 /**
- * 自定义图标节点（icon root DEK 加密）。
+ * 自定义图标节点（唯一根 DEK 加密）。
  */
 public final class IconNode extends TreeNode {
 

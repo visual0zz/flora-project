@@ -102,7 +102,7 @@ public final class Sanctum implements AutoCloseable {
 
     /** 仓库唯一根对象 uuid（未解锁返回 null）。 */
     public UUID rootObjectUuid() {
-        return vault == null ? null : vault.rootObjectUuid(RootTag.DATA);
+        return vault == null ? null : vault.rootObjectUuid();
     }
 
     /** 配置数据（远端配置等）。 */

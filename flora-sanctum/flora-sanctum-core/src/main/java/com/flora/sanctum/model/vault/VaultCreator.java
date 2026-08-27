@@ -12,8 +12,8 @@ import java.util.UUID;
 /**
  * 新建库（见设计 02"manifest"与"文件夹 DEK"）。
  * <p>
- * 生成 salt、manifest（明文块 + MAC）、三个顶层 group（普通对象/icon/sshKey root，
- * 各持独立随机 KEK 包裹的 root DEK），写入库根。
+ * 生成 salt、manifest（明文块 + MAC）、唯一根对象（data 根，type=root，
+ * 持根 DEK 与 repoKeyIdSeed，经 KEK 包裹），写入库根。
  */
 public final class VaultCreator {
 
@@ -46,8 +46,8 @@ public final class VaultCreator {
             // 先定根对象 uuid（manifest 记录，解锁 O(1) 定位）
             java.util.UUID rootUuid = java.util.UUID.randomUUID();
             writeManifestBlock(salt, memoryKiB, iterations, parallelism, macKey, kek, rootUuid);
-            // 唯一根对象：data 根（type=root），持 root DEK 与 repoKeyIdSeed（parent 为根概念 tag）
-            writeRootGroup(RootTag.DATA, rootUuid, kek, seed);
+            // 唯一根对象：data 根（type=root），持 root DEK 与 repoKeyIdSeed
+            writeRootGroup(rootUuid, kek, seed);
         } finally {
             if (repoKeyIdSeed != null) {
                 java.util.Arrays.fill(repoKeyIdSeed, (byte) 0);
@@ -80,7 +80,7 @@ public final class VaultCreator {
         store.put(uuid, block, null, "1");
     }
 
-    private void writeRootGroup(RootTag tag, java.util.UUID rootUuid, byte[] kek, byte[] repoKeyIdSeed) {
+    private void writeRootGroup(java.util.UUID rootUuid, byte[] kek, byte[] repoKeyIdSeed) {
         com.flora.root.codec.json.model.JsonObject group = new com.flora.root.codec.json.model.JsonObject();
         group.put("type", StoredNodeType.ROOT.tag());
         // 生成独立随机 DEK，用 KEK 包裹（存于根对象密文块内）

@@ -10,8 +10,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * SSH 密钥树（根概念 SSH_KEY）：SSH 私钥对象（SshKeyNode）。
- * 用 sshKey root DEK 加密，parent 指向 sshKey root group。
+ * SSH 密钥树：SSH 私钥对象（SshKeyNode）。
+ * 用唯一根（data）DEK 加密，parent 指向根对象 uuid。
  */
 public final class SshKeyTree extends DataTree {
 
@@ -45,10 +45,10 @@ public final class SshKeyTree extends DataTree {
         UUID keyUuid = UUID.randomUUID();
         JsonObject key = new JsonObject();
         key.put("type", StoredNodeType.SSH_KEY.tag());
-        key.put("parent", context().vault().rootObjectUuid(RootTag.DATA).toString());
+        key.put("parent", context().vault().rootObjectUuid().toString());
         key.put("name", name);
         key.put("privateKey", privateKeyPem);
-        byte[] dek = context().vault().dekForRole(RootTag.DATA);
+        byte[] dek = context().vault().dataDek();
         context().writeWithDek(keyUuid, key, dek);
         return new SshKeyNode(keyUuid, this);
     }

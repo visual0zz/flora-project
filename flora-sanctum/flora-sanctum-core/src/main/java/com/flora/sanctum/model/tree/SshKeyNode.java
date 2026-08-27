@@ -8,7 +8,7 @@ import com.flora.root.codec.json.model.JsonObject;
 import java.util.UUID;
 
 /**
- * SSH 私钥节点（sshKey root DEK 加密）。
+ * SSH 私钥节点（唯一根 DEK 加密）。
  */
 public final class SshKeyNode extends TreeNode {
 

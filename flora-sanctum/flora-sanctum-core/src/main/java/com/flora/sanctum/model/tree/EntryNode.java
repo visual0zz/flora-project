@@ -12,9 +12,9 @@ import java.util.UUID;
 /**
  * 条目节点：内置预设字段（名称/密码/URL/用户名/标签/创建时间/更新时间）+ 自定义字段。
  * <p>
- * 预设字段自 2026-08 起以独立块存储（type=field，fieldName 固定为预设名，确定性 uuid），
- * 不再是 entry 负载 JSON 中的字段；读取时若预设块缺失回退到 entry 旧字段（迁移兼容）。
- * 自定义字段块 type 为 customField。新建/编辑/删除等操作由节点承担（见设计 05）。
+ * 预设字段以独立块存储（type=field，fieldName 固定为预设名，随机 uuid，parent=条目），
+ * 不再是 entry 负载 JSON 中的字段。自定义字段块 type 为 customField。
+ * 新建/编辑/删除等操作由节点承担（见设计 05）。
  */
 public final class EntryNode extends ObjectNode {
 
@@ -72,29 +72,18 @@ public final class EntryNode extends ObjectNode {
 
     /**
      * 读预设字段块的值；预设字段以条目子节点形式存储（随机 uuid，parent=条目，name=预设名），
-     * 与自定义字段结构一致，经 childrenOf 按 name 定位。块缺失时回退到 entry 旧字段（迁移兼容）。
+     * 与自定义字段结构一致，经 childrenOf 按 name 定位。不回退到 entry 旧字段（不兼容旧库）。
      */
     private String presetValue(String name) {
         FieldNode f = presetChild(name);
-        if (f != null) {
-            return f.value();
-        }
-        JsonObject d = data();
-        if (d == null) {
-            return null;
-        }
-        if ("labels".equals(name)) {
-            return com.flora.sanctum.model.EntryFields.labelsToString(
-                    com.flora.sanctum.model.EntryFields.labelsOf(d));
-        }
-        return d.getString(name);
+        return f == null ? null : f.value();
     }
 
-    /** 按预设名在条目直接子节点中定位字段块（parent=本条目且 name 命中）。 */
+    /** 按预设名在条目直接子节点中定位预设字段块（type=field、parent=本条目且 name 命中）。 */
     private FieldNode presetChild(String name) {
         for (UUID u : ctx().childrenOf(uuid())) {
             FieldNode f = tree().field(u);
-            if (f != null && name.equals(f.fieldName())) {
+            if (f != null && f.type() == StoredNodeType.FIELD && name.equals(f.fieldName())) {
                 return f;
             }
         }
@@ -111,7 +100,7 @@ public final class EntryNode extends ObjectNode {
         ctx().write(uuid(), entry, groupId);
     }
 
-    /** 更新内置预设字段（password/url/username/labels）+ updateTime（独立块），并清理 entry 旧字段。 */
+    /** 更新内置预设字段（password/url/username/labels）+ updateTime（独立块）。不回退 entry 旧字段（不兼容旧库）。 */
     public void updateBuiltins(EntryFields fields) {
         JsonObject entry = data();
         if (entry == null) {
@@ -124,17 +113,6 @@ public final class EntryNode extends ObjectNode {
         writePreset("username", fields.username(), groupId);
         writePreset("labels", EntryFields.labelsToString(fields.labels()), groupId);
         writePreset("updateTime", String.valueOf(now), groupId);
-        // 迁移：清理 entry JSON 中的旧预设字段，避免双份
-        boolean dirty = false;
-        for (String key : List.of("password", "url", "username", "labels", "createTime", "updateTime")) {
-            if (entry.containsKey(key)) {
-                entry.remove(key);
-                dirty = true;
-            }
-        }
-        if (dirty) {
-            ctx().write(uuid(), entry, groupId);
-        }
     }
 
     /** 设置/清除自定义图标引用（iconUuid=null 清除）。 */
@@ -156,10 +134,8 @@ public final class EntryNode extends ObjectNode {
         UUID groupId = ctx().parentGroupUuid(entry);
         if (ref == null) {
             entry.remove("icon");
-            entry.remove("iconId");
         } else {
             entry.put("icon", ref.toJson());
-            entry.remove("iconId");
         }
         ctx().write(uuid(), entry, groupId);
     }
@@ -183,21 +159,16 @@ public final class EntryNode extends ObjectNode {
         return tree().field(fieldUuid);
     }
 
-    /** 直接自定义字段（不含预设字段；remote 归 REMOTE 树）。 */
+    /** 直接自定义字段（type=customField；不含预设字段 type=field）。 */
     public List<FieldNode> fields() {
         List<FieldNode> out = new ArrayList<>();
         for (UUID u : ctx().childrenOf(uuid())) {
             FieldNode f = tree().field(u);
-            if (f != null && isCustomField(f)) {
+            if (f != null && f.type() == StoredNodeType.CUSTOM_FIELD) {
                 out.add(f);
             }
         }
         return out;
-    }
-
-    private static boolean isCustomField(FieldNode f) {
-        String fn = f.fieldName();
-        return !EntryFields.isPreset(fn);
     }
 
     /** 按字段名查找直接自定义字段；未找到返回 null。 */

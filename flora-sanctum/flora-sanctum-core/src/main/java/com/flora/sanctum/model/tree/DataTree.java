@@ -55,7 +55,7 @@ public abstract class DataTree {
 
     /** 顶层节点（parent 为仓库根对象 uuid）。 */
     public List<TreeNode> roots() {
-        UUID rootUuid = ctx.vault().rootObjectUuid(RootTag.DATA);
+        UUID rootUuid = ctx.vault().rootObjectUuid();
         String root = rootUuid == null ? null : rootUuid.toString();
         List<TreeNode> out = new ArrayList<>();
         for (TreeNode n : nodes()) {

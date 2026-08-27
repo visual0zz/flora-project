@@ -77,8 +77,7 @@ public final class VaultUnlocker {
                     com.flora.root.codec.json.model.JsonObject n = parsePlain(plain);
                     if (n != null && n.getString("dek") != null) {
                         // 根对象：manifest 已记录 uuid 并定位，唯一根即 DATA
-                        RootTag tag = RootTag.DATA;
-                        vault.addRootObjectUuid(tag, b.uuid());
+                        vault.addRootObjectUuid(b.uuid());
                         // 根对象承载仓库级 keyId 派生种子
                         String seedB64 = n.getString("repoKeyIdSeed");
                         if (seedB64 != null) {
@@ -87,7 +86,7 @@ public final class VaultUnlocker {
                         byte[] wrapped = java.util.Base64.getDecoder().decode(n.getString("dek"));
                         byte[] dek = unwrap(vault, kek, wrapped);
                         if (dek != null) {
-                            vault.addRootDek(tag, dek);
+                            vault.addRootDek(dek);
                         }
                     }
                 }

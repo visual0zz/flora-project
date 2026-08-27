@@ -11,8 +11,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 图标树（根概念 ICON）：自定义图标对象（IconNode）。
- * 用 icon root DEK 加密，parent 指向 icon root group。
+ * 图标树：自定义图标对象（IconNode）。
+ * 用唯一根（data）DEK 加密，parent 指向根对象 uuid。
  */
 public final class IconTree extends DataTree {
 
@@ -46,13 +46,13 @@ public final class IconTree extends DataTree {
         UUID iconUuid = UUID.randomUUID();
         JsonObject icon = new JsonObject();
         icon.put("type", StoredNodeType.ICON.tag());
-        icon.put("parent", context().vault().rootObjectUuid(RootTag.DATA).toString());
+        icon.put("parent", context().vault().rootObjectUuid().toString());
         if (name != null && !name.isBlank()) {
             icon.put("name", name);
         }
         icon.put("data", Base64.getEncoder().encodeToString(data));
         icon.put("format", format);
-        byte[] dek = context().vault().dekForRole(RootTag.DATA);
+        byte[] dek = context().vault().dataDek();
         context().writeWithDek(iconUuid, icon, dek);
         return new IconNode(iconUuid, this);
     }

@@ -209,7 +209,7 @@ public final class TreeContext {
         if (groupId != null && vault.groupDek(groupId) != null) {
             return vault.groupDek(groupId);
         }
-        return vault.dekForRole(RootTag.DATA);
+        return vault.dataDek();
     }
 
     /** 用父 DEK 包裹一个 DEK（AES-GCM-SIV，nonce 随机；内部信封无块时间戳，timestamp=0）。 */

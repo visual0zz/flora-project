@@ -5,7 +5,7 @@
 ```
 flora-project/            -- 根 POM（pom 打包类型，Java 26）
 ├── absent/               -- 不应纳入版本控制的文件（已 gitignore）
-│   └── tmp/              -- 临时文件
+│   └── tmp/              -- 临时文件（运行期/工具产生的日志、缓存等，已 gitignore；AI 与脚本的临时输出都应写到这里，勿在 action/ 等项目目录自建 tmp/）
 ├── action/               -- 开发工作流脚本（测试、构建、重新生成）
 ├── addition/             -- 工具脚本、配置、报告
 │   ├── codereview/       -- 代码审查报告
@@ -41,17 +41,18 @@ flora-project/            -- 根 POM（pom 打包类型，Java 26）
 - **Git提交范围注意**：尽量不要将无关工作合并到一次提交中，如果本地修改内容涉及多个不同主题，将它们作为独立的提交。如果两个主题的代码实在纠缠很深，难以分开，合并提交也可以。
 - **Git提交信息格式**：主要使用中文描述改动内容。
 - **代码审查**：将 AI 生成的代码审查报告保存在 `addition/codereview/` 中。命名格式：`review{YYYYMMDD}-{编号}-{主题}.md`。
-- **方案设计**：将 AI 生成的方案或设计文档保存在 `addition/design/` 中。命名格式：`idea{YYYYMMDD}-{主题}.md`。
+- **方案设计**：将 AI 生成的方案或设计文档保存在 `addition/design/` 中。命名格式：`idea{YYYYMMDD}-{编号}-{主题}.md`。
 - **决策记录**：每当 AI 做出决策（如技术选型或实现方案）时，记录到 `addition/decision/` 中。命名格式：`decision{YYYYMMDD}-{编号}-{模块}.md`。
 - **更新日志**：如果子模块包含 `CHANGELOG.md` 文件，每次代码改动后更新它，反映修改、新增或删除的内容。
 - **插件工程发布版本**：插件工程`plugins/idea-plugins/ramet-language-support`如果要发布，则:
   - 更新CHANGELOG.md，将未发布内容移动到一个新建的版本段落里面然后commit并打上版本tag。
   - 版本tag格式为 `ramet-idea-plugin-vX.Y.Z`数值从上一个同类tag作为基准，对Z进行加一。
   - 然后执行脚本`action/deploy/idea-plugin.cmd`来进行发布
-- **技术探索**：将 AI 撰写的算法/协议/技术详细剖析笔记保存在 `addition/exploration/` 中。命名格式：`explore{YYYYMMDD}-{主题}.md`。
+- **技术探索**：将 AI 撰写的算法/协议/技术详细剖析笔记保存在 `addition/exploration/` 中。命名格式：`explore{YYYYMMDD}-{编号}-{主题}.md`。
 - **所有脚本文件（扩展名为 `.sh`、`.cmd`、`.bat`、`.ps1`，以及 Makefile / CI 配置中内嵌的命令行）必须使用纯英文（ASCII）**，包括注释和打印输出（echo / printf / Write-Output 等）。Windows `cmd` 读取含中文注释的 `.cmd` 文件可能因代码页不匹配导致整个文件解析失败。
 - **`addition/config/` 下的所有文件必须使用纯英文**（仅 ASCII），包括 `remoteRepoList.txt`、`pushConfig.txt`、
   `tagPrefixes.txt` 等文件中的注释。同样的代码页陷阱：被 `cmd` 读取的配置文件中的中文注释可能导致整个文件读取失败。键、值和注释全部使用英文。
+- **临时文件统一放 `absent/tmp/`**：AI 或脚本产生的运行期输出（编译/测试日志、临时缓存、转换产物等）必须写入 `absent/tmp/`，该目录已被 gitignore，不会污染 `git status`。**禁止**在项目目录（如 `action/`、`addition/` 或模块源码树下）自建 `tmp/` 或散落日志文件。需要持久化输出时优先用 `target/`（Maven 自带，亦在忽略范围内）或系统临时目录。
 
 ## 代码风格要求
 

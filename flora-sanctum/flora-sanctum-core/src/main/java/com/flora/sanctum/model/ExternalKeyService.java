@@ -113,8 +113,8 @@ public final class ExternalKeyService {
         if (description != null) {
             field.put("description", description);
         }
-        // 外部密钥是条目下的字段，属普通对象树 → 用 data 根 DEK 加密、仓库时间戳（经 TreeContext）
-        byte[] dek = sanctum.vault().dekForRole(RootTag.DATA);
+        // 外部密钥是条目下的字段，属普通对象树 → 用唯一根（data）DEK 加密（经 TreeContext）
+        byte[] dek = sanctum.vault().dataDek();
         TreeContext ctx = sanctum.objectTree().context();
         ctx.writeWithDek(fieldUuid, field, dek);
         keyIndex.register(keyMaterial); // 新密钥立即入索引，无需全量重建

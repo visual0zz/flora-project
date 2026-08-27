@@ -29,8 +29,8 @@ public final class Vault {
     private final BlockResolver resolver;
     private final SecureRandomSource random;
     private WarehouseClock clock;
-    private final java.util.Map<RootTag, byte[]> rootDeksByTag = new java.util.LinkedHashMap<>();
-    private final java.util.Map<RootTag, java.util.UUID> rootObjectUuidByTag = new java.util.LinkedHashMap<>();
+    private byte[] dataDek; // 唯一根对象（DATA）的 DEK，解锁期间驻留，锁定/关闭时清除
+    private java.util.UUID rootObjectUuid; // 唯一根对象 uuid（manifest 记录，解锁后登记）
     private final java.util.Map<java.util.UUID, byte[]> groupDeks = new java.util.LinkedHashMap<>();
     private byte[] kek; // 解锁期间驻留内存，锁定/关闭时清除
     private byte[] repoKeyIdSeed; // 仓库级 keyId 派生种子（DATA 根 json 存储），锁定/关闭时清除
@@ -49,30 +49,29 @@ public final class Vault {
         return clock;
     }
 
-    /** 登记 root DEK（按根概念 tag：data/icon/sshKey）。 */
-    public void addRootDek(RootTag tag, byte[] dek) {
-        rootDeksByTag.put(tag, dek.clone());
+    /** 登记根对象 DEK（唯一根，DATA 概念）。 */
+    public void addRootDek(byte[] dek) {
+        this.dataDek = dek.clone();
         // 同时登记进 keyId 索引
         keyIdIndex.register(dek);
     }
 
-    /** 登记某根概念的顶层 group uuid（供新对象定位所属 root）。 */
-    public void addRootObjectUuid(RootTag tag, java.util.UUID groupUuid) {
-        rootObjectUuidByTag.put(tag, groupUuid);
+    /** 登记根对象的 uuid（manifest 记录，解锁后登记）。 */
+    public void addRootObjectUuid(java.util.UUID groupUuid) {
+        this.rootObjectUuid = groupUuid;
     }
 
-    /** 取某根概念的顶层 group uuid。 */
-    public java.util.UUID rootObjectUuid(RootTag tag) {
-        return rootObjectUuidByTag.get(tag);
+    /** 取根对象的 uuid。 */
+    public java.util.UUID rootObjectUuid() {
+        return rootObjectUuid;
     }
 
-    /** 按根概念路由加密归属（设计 05）：普通对象→data，图标→icon，SSH 密钥→sshKey。 */
-    public byte[] dekForRole(RootTag tag) {
-        byte[] dek = rootDeksByTag.get(tag);
-        if (dek == null) {
-            throw new IllegalStateException("no DEK for root tag: " + tag);
+    /** 唯一根对象（DATA）的 DEK，所有普通对象/图标/SSH 密钥/远程配置均归其加密归属。 */
+    public byte[] dataDek() {
+        if (dataDek == null) {
+            throw new IllegalStateException("no root DEK");
         }
-        return dek.clone();
+        return dataDek.clone();
     }
 
     /** 登记 group DEK（group uuid → DEK，供目录/递归解锁/创建路由）。 */
@@ -119,10 +118,10 @@ public final class Vault {
             java.util.Arrays.fill(kek, (byte) 0);
             kek = null;
         }
-        for (byte[] d : rootDeksByTag.values()) {
-            java.util.Arrays.fill(d, (byte) 0);
+        if (dataDek != null) {
+            java.util.Arrays.fill(dataDek, (byte) 0);
+            dataDek = null;
         }
-        rootDeksByTag.clear();
         for (byte[] d : groupDeks.values()) {
             java.util.Arrays.fill(d, (byte) 0);
         }

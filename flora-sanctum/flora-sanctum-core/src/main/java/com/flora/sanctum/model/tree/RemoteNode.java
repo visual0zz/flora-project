@@ -8,7 +8,7 @@ import com.flora.root.codec.json.model.JsonObject;
 import java.util.UUID;
 
 /**
- * 远程配置节点（type=remote，扁平存 name/url/keyRef）。
+ * 远程配置节点（type=remote，直接存 name/url/keyRef）。
  */
 public final class RemoteNode extends TreeNode {
 
@@ -49,7 +49,7 @@ public final class RemoteNode extends TreeNode {
         } else {
             remote.remove("keyRef");
         }
-        byte[] dek = ctx().vault().dekForRole(RootTag.DATA);
+        byte[] dek = ctx().vault().dataDek();
         ctx().writeWithDek(uuid(), remote, dek);
     }
 }

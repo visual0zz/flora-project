@@ -35,7 +35,7 @@ public final class MasterKeyRotator {
             // 重包根对象（用旧 KEK 解密块 + 解 DEK，用新 KEK 重加密）
             // 直接按已知根对象 uuid 定位，不再遍历全库试解
             java.util.Set<java.util.UUID> rootUuids = new java.util.HashSet<>();
-            java.util.UUID root = vault.rootObjectUuid(RootTag.DATA);
+            java.util.UUID root = vault.rootObjectUuid();
             if (root != null) {
                 rootUuids.add(root);
             }

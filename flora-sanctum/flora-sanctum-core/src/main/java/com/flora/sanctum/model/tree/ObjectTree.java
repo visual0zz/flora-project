@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 普通对象树（根概念 DATA）：组（GroupNode）→ 条目（EntryNode）→ 字段（FieldNode）。
+ * 普通对象树：组（GroupNode）→ 条目（EntryNode）→ 字段（FieldNode）。
  * 树的根节点创建操作由本类提供，子节点创建经 GroupNode。
  */
 public final class ObjectTree extends DataTree {
@@ -88,7 +88,7 @@ public final class ObjectTree extends DataTree {
         context().random().nextBytes(dek);
         byte[] parentDek = (parentId != null && context().vault().groupDek(parentId) != null)
                 ? context().vault().groupDek(parentId)
-                : context().vault().dekForRole(RootTag.DATA);
+                : context().vault().dataDek();
         byte[] wrapped = context().wrapDek(dek, parentDek);
         JsonObject group = new JsonObject();
         group.put("type", StoredNodeType.GROUP.tag());
@@ -121,7 +121,7 @@ public final class ObjectTree extends DataTree {
 
     /** 根对象 uuid 字符串（顶层 parent 指向它）。 */
     private String rootUuid() {
-        return context().vault().rootObjectUuid(RootTag.DATA).toString();
+        return context().vault().rootObjectUuid().toString();
     }
 
     /** 写预设字段块（随机 uuid，parent 指向条目，与自定义字段结构一致；value 空则不写）。 */

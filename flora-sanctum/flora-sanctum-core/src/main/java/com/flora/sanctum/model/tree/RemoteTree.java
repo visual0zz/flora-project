@@ -11,7 +11,7 @@ import java.util.UUID;
 
 /**
  * 远程配置树（StoredNodeType.REMOTE）：远程仓库配置对象（RemoteNode）。
- * 独立落盘类型 type=remote，直接存 name/url/keyRef，parent 指向仓库根对象 uuid。
+ * 类型 type=remote，直接存 name/url/keyRef，parent 指向仓库根对象 uuid。
  */
 public final class RemoteTree extends DataTree {
 
@@ -55,13 +55,13 @@ public final class RemoteTree extends DataTree {
         UUID remoteUuid = UUID.randomUUID();
         JsonObject remote = new JsonObject();
         remote.put("type", StoredNodeType.REMOTE.tag());
-        remote.put("parent", context().vault().rootObjectUuid(RootTag.DATA).toString());
+        remote.put("parent", context().vault().rootObjectUuid().toString());
         remote.put("name", name);
         remote.put("url", url);
         if (keyRef != null) {
             remote.put("keyRef", keyRef.toJson());
         }
-        byte[] dek = context().vault().dekForRole(RootTag.DATA);
+        byte[] dek = context().vault().dataDek();
         context().writeWithDek(remoteUuid, remote, dek);
         return new RemoteNode(remoteUuid, this);
     }

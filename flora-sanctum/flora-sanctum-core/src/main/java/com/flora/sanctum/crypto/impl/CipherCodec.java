@@ -10,7 +10,7 @@ import java.util.UUID;
  * 块信封编解码（见设计"keyId 防关联"）。
  * <p>
  * 密文块格式（VERSION_1，内部存储与外部加密数据同一结构）：
- * {@code magic(8)+version(1)+flags(1)+uuid(16)+nonce(12)+keyId(8)+ciphertext+tag(16)}，
+ * {@code magic(6)+version(1)+flags(1)+uuid(16)+nonce(12)+keyId(8)+ciphertext+tag(16)}，
  * version 与明文块同为 1（块类型由 flags 区分）。
  * <p>
  * nonce 置于 keyId 前：解析时先读 nonce（作 keyId 派生的 seed），再读 keyId。
@@ -59,7 +59,7 @@ public final class CipherCodec {
         random.nextBytes(nonce);
         byte[] keyId = makeKeyId(nonce);
 
-        // 信封头（真实值，用于 AAD）：magic(8)+version(1)+flags(1)+uuid(16)+nonce(12)+keyId(8)
+        // 信封头（真实值，用于 AAD）：magic(6)+version(1)+flags(1)+uuid(16)+nonce(12)+keyId(8)
         byte[] header = new byte[Envelope.HEADER_LEN];
         System.arraycopy(Envelope.MAGIC, 0, header, 0, Envelope.MAGIC_LEN);
         header[Envelope.MAGIC_LEN] = Envelope.VERSION_1;

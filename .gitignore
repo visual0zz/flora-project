@@ -105,6 +105,7 @@ coverage/
 /.cursor
 /.claude
 /.cline
+/.crush
 /.trae
 /.aider*
 /.opencode

@@ -3,7 +3,6 @@ package com.flora.sanctum.model;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 /**
  * 条目内置预设字段（password / url / username / labels / createTime / updateTime）。
@@ -56,11 +55,6 @@ public final class EntryFields {
     /** 判断字段名是否为预设字段（预设字段以独立块存储且不可删除）。 */
     public static boolean isPreset(String name) {
         return name != null && PRESET_NAMES.contains(name);
-    }
-
-    /** 预设字段块的确定性 uuid：{@code nameUUIDFromBytes(entryUuid + "/" + fieldName)}，可稳定定位/更新。 */
-    public static UUID presetUuid(UUID entryUuid, String name) {
-        return UUID.nameUUIDFromBytes((entryUuid + "/" + name).getBytes(StandardCharsets.UTF_8));
     }
 
     /**

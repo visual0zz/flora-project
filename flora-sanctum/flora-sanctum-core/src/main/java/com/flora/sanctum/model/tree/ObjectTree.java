@@ -124,16 +124,17 @@ public final class ObjectTree extends DataTree {
         return context().vault().rootObjectUuid(RootTag.DATA).toString();
     }
 
-    /** 写预设字段块（确定性 uuid，value 空则不写）。 */
+    /** 写预设字段块（随机 uuid，parent 指向条目，与自定义字段结构一致；value 空则不写）。 */
     private void writePreset(UUID entryUuid, UUID groupId, String name, String value) {
         if (value == null || value.isEmpty()) {
             return;
         }
+        UUID fieldUuid = UUID.randomUUID();
         JsonObject f = new JsonObject();
         f.put("type", StoredNodeType.FIELD.tag());
         f.put("parent", entryUuid.toString());
         f.put("name", name);
         f.put("value", value);
-        context().write(EntryFields.presetUuid(entryUuid, name), f, groupId);
+        context().write(fieldUuid, f, groupId);
     }
 }

@@ -70,11 +70,14 @@ public final class EntryNode extends ObjectNode {
         return v == null ? null : Long.parseLong(v);
     }
 
-    /** 读取预设字段块的值；块不存在回退到 entry 旧字段（迁移兼容）。 */
+    /**
+     * 读预设字段块的值；预设字段以条目子节点形式存储（随机 uuid，parent=条目，name=预设名），
+     * 与自定义字段结构一致，经 childrenOf 按 name 定位。块缺失时回退到 entry 旧字段（迁移兼容）。
+     */
     private String presetValue(String name) {
-        JsonObject f = ctx().read(EntryFields.presetUuid(uuid(), name));
+        FieldNode f = presetChild(name);
         if (f != null) {
-            return f.getString("value");
+            return f.value();
         }
         JsonObject d = data();
         if (d == null) {
@@ -85,6 +88,17 @@ public final class EntryNode extends ObjectNode {
                     com.flora.sanctum.model.EntryFields.labelsOf(d));
         }
         return d.getString(name);
+    }
+
+    /** 按预设名在条目直接子节点中定位字段块（parent=本条目且 name 命中）。 */
+    private FieldNode presetChild(String name) {
+        for (UUID u : ctx().childrenOf(uuid())) {
+            FieldNode f = tree().field(u);
+            if (f != null && name.equals(f.fieldName())) {
+                return f;
+            }
+        }
+        return null;
     }
 
     public void rename(String newName) {
@@ -196,12 +210,12 @@ public final class EntryNode extends ObjectNode {
         return null;
     }
 
-    /** 删除条目及其全部字段（预设 + 自定义）。 */
+    /** 删除条目及其全部字段（预设子节点 + 自定义字段）。 */
     @Override
     public void delete() {
         UUID groupId = ctx().parentGroupUuid(data());
-        for (String name : EntryFields.PRESET_NAMES) {
-            ctx().delete(EntryFields.presetUuid(uuid(), name));
+        for (FieldNode f : childrenFields()) {
+            ctx().delete(f.uuid());
         }
         for (FieldNode f : fields()) {
             f.delete();
@@ -209,13 +223,28 @@ public final class EntryNode extends ObjectNode {
         super.delete();
     }
 
-    /** 写预设字段块（value 空则删除块；确定性 uuid 定位）。 */
+    /** 全部直接字段子节点（预设 + 自定义），含未列入 fields() 的预设。 */
+    private List<FieldNode> childrenFields() {
+        List<FieldNode> out = new ArrayList<>();
+        for (UUID u : ctx().childrenOf(uuid())) {
+            FieldNode f = tree().field(u);
+            if (f != null) {
+                out.add(f);
+            }
+        }
+        return out;
+    }
+
+    /** 写预设字段块（value 空则删除块；复用同名已有块 uuid，否则随机 uuid；parent 指向本条目）。 */
     void writePreset(String name, String value, UUID groupId) {
-        UUID pu = EntryFields.presetUuid(uuid(), name);
+        FieldNode existing = presetChild(name);
         if (value == null || value.isEmpty()) {
-            ctx().delete(pu);
+            if (existing != null) {
+                ctx().delete(existing.uuid());
+            }
             return;
         }
+        UUID pu = existing == null ? UUID.randomUUID() : existing.uuid();
         JsonObject f = new JsonObject();
         f.put("type", StoredNodeType.FIELD.tag());
         f.put("parent", uuid().toString());

@@ -36,7 +36,8 @@ class VaultCreatorTest {
     void unlockWrongPasswordFails() {
         ObjectStore store = new MarkdownObjectStore(dir);
         new VaultCreator(store).create("pw".toCharArray(), 65536, 3, 4);
-        assertThrows(IllegalArgumentException.class,
+        VaultUnlockException ex = assertThrows(VaultUnlockException.class,
                 () -> new VaultUnlocker(store).unlock("wrong".toCharArray()));
+        assertEquals(VaultUnlockException.Phase.MANIFEST_CORRUPT, ex.phase());
     }
 }

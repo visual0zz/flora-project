@@ -797,8 +797,11 @@ public final class SanctumGui {
                         result[0].unlock(pwCopy);
                     }
                 }
+            } catch (com.flora.sanctum.model.vault.VaultUnlockException ex) {
+                // 解锁失败分阶段报告（魔数/结构、manifest MAC、根对象缺失/解密等），给针对性提示
+                failMsg[0] = ex.getMessage();
             } catch (Exception ex) {
-                failMsg[0] = "解锁失败";
+                failMsg[0] = "解锁失败：" + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
             } finally {
                 java.util.Arrays.fill(pwCopy, (char) 0);
             }

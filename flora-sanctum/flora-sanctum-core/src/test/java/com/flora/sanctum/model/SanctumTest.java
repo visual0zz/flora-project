@@ -178,7 +178,9 @@ class SanctumTest {
         s2.close();
 
         Sanctum s3 = Sanctum.open(dir);
-        assertThrows(IllegalArgumentException.class, () -> s3.unlock(oldPw));
+        com.flora.sanctum.model.vault.VaultUnlockException ex =
+                assertThrows(com.flora.sanctum.model.vault.VaultUnlockException.class, () -> s3.unlock(oldPw));
+        assertEquals(com.flora.sanctum.model.vault.VaultUnlockException.Phase.MANIFEST_CORRUPT, ex.phase());
     }
 
     @Test

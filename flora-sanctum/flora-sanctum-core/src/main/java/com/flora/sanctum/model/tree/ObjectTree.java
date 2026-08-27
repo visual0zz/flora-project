@@ -23,7 +23,7 @@ public final class ObjectTree extends DataTree {
     @Override
     protected boolean belongsTo(StoredNodeType type, String kind) {
         return type == StoredNodeType.GROUP || type == StoredNodeType.ENTRY
-                || type == StoredNodeType.FIELD || type == StoredNodeType.CUSTOM_FIELD;
+                || type == StoredNodeType.PREDEF_FIELD || type == StoredNodeType.CUSTOM_FIELD;
     }
 
     @Override
@@ -131,7 +131,7 @@ public final class ObjectTree extends DataTree {
         }
         UUID fieldUuid = UUID.randomUUID();
         JsonObject f = new JsonObject();
-        f.put("type", StoredNodeType.FIELD.tag());
+        f.put("type", StoredNodeType.PREDEF_FIELD.tag());
         f.put("parent", entryUuid.toString());
         f.put("name", name);
         f.put("value", value);

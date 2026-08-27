@@ -83,7 +83,7 @@ public final class EntryNode extends ObjectNode {
     private FieldNode presetChild(String name) {
         for (UUID u : ctx().childrenOf(uuid())) {
             FieldNode f = tree().field(u);
-            if (f != null && f.type() == StoredNodeType.FIELD && name.equals(f.fieldName())) {
+            if (f != null && f.type() == StoredNodeType.PREDEF_FIELD && name.equals(f.fieldName())) {
                 return f;
             }
         }
@@ -217,7 +217,7 @@ public final class EntryNode extends ObjectNode {
         }
         UUID pu = existing == null ? UUID.randomUUID() : existing.uuid();
         JsonObject f = new JsonObject();
-        f.put("type", StoredNodeType.FIELD.tag());
+        f.put("type", StoredNodeType.PREDEF_FIELD.tag());
         f.put("parent", uuid().toString());
         f.put("name", name);
         f.put("value", value);

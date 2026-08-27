@@ -21,7 +21,7 @@ public final class FieldNode extends ObjectNode {
 
     @Override
     public StoredNodeType type() {
-        return StoredNodeType.FIELD;
+        return StoredNodeType.PREDEF_FIELD;
     }
 
     public String fieldName() {

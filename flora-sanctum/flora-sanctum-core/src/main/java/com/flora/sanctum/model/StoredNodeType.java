@@ -17,10 +17,14 @@ public enum StoredNodeType {
     /** 普通文件夹。 */
     GROUP("group", ViewNodeType.PASSWORD),
     ENTRY("entry", ViewNodeType.PASSWORD),
-    FIELD("field", ViewNodeType.PASSWORD),
+    /**
+     * 预设字段（由系统创建/管理的条目元数据，如 password/url/username/labels/时间）。
+     * 负载字段：name/value/kind/parent。
+     */
+    PREDEF_FIELD("predefField", ViewNodeType.PASSWORD),
     /**
      * 自定义字段（kind 可为 null）。
-     * 与 {@link #FIELD} 的负载字段完全相同（name/value/kind/parent），但刻意分两种 type：
+     * 与 {@link #PREDEF_FIELD} 的负载字段完全相同（name/value/kind/parent），但刻意分两种 type：
      * 预设字段由系统创建/管理（条目元数据），自定义字段由用户创建；按 type 直接过滤对
      * GC 可达性判定与遍历（仅自定义字段、仅预设字段）更方便，无需依赖 name 是否在预设集合。
      */

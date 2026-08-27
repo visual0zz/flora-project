@@ -1470,7 +1470,7 @@ public final class SanctumGui {
             renderIconPanel(u, editPanel);
         } else if (type == StoredNodeType.SSH_KEY) {
             renderSshKeyPanel(u, editPanel);
-        } else if (type == StoredNodeType.REMOTE || type == StoredNodeType.FIELD) {
+        } else if (type == StoredNodeType.REMOTE || type == StoredNodeType.PREDEF_FIELD) {
             renderRemotePanel(u, editPanel);
         } else {
             renderEntry(selectedEntry);

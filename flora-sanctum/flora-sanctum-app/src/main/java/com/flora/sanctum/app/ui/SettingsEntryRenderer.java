@@ -1,0 +1,22 @@
+package com.flora.sanctum.app.ui;
+
+import com.flora.sanctum.model.ViewNodeType;
+
+import javax.swing.DefaultListCellRenderer;
+import javax.swing.JList;
+import javax.swing.border.EmptyBorder;
+
+/**
+ * 设置页中栏条目渲染器：纯文本 + 内边距（无字符图标）。从 {@code SanctumGui} 抽出为独立类，
+ * 因其自包含、不依赖实例状态。
+ */
+final class SettingsEntryRenderer extends DefaultListCellRenderer {
+    @Override
+    public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                                                           boolean isSelected, boolean cellHasFocus) {
+        super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+        setIcon(null);
+        setBorder(new EmptyBorder(6, 8, 6, 8));
+        return this;
+    }
+}

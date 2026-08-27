@@ -84,14 +84,12 @@ public final class SanctumGui {
     private JTree groupTree;
     private DefaultMutableTreeNode treeRoot;
     private final Map<UUID, DefaultMutableTreeNode> groupNodes = new LinkedHashMap<>();
-    private JList<String> entryList;
-    private DefaultListModel<String> entryModel;
-    /** 与 entryModel 平行的条目 UUID 列表（UI 只显示名称，按索引定位 UUID）。 */
-    private final List<UUID> entryUuids = new ArrayList<>();
-    /** 与 entryUuids 平行的列表项存储类型（group/entry/icon/sshKey/field），供图标与双击导航。 */
-    private final List<StoredNodeType> listItemTypes = new ArrayList<>();
-    /** 与 listItemTypes 平行的条目图标 id（"builtin:name" 或 uuid；无则 null），列表渲染优先用。 */
-    private final List<String> listItemIcons = new ArrayList<>();
+    private JList<EntryListItem> entryList;
+    private DefaultListModel<EntryListItem> entryModel;
+    /** 模型变更总线：任何改动数据结构的操作后 markDirty()，统一触发一次树+列表重建。 */
+    private final ModelChangeBus modelBus = new ModelChangeBus();
+    /** 注入的同步服务（替代每次 doSync 内 new SyncService），复用同一实例。 */
+    private com.flora.sanctum.app.sync.SyncService syncService;
     private JPanel editPanel;
     private JLabel statusLabel;
     private UUID selectedEntry;
@@ -135,19 +133,30 @@ public final class SanctumGui {
         this.standalone = true;
     }
 
+    /**
+     * 统一入口：不传入仓库根 → 应用形态（历史仓库列表页）；传入仓库根 → 独立仓库形态
+     * （直达该仓库解锁页）。两种形态共用同一构造/启动流程，避免重复引导逻辑。
+     */
+    public static void launch(Path... repoRoot) {
+        SanctumGui gui = repoRoot.length > 0 ? new SanctumGui(repoRoot[0]) : new SanctumGui();
+        if (repoRoot.length > 0) {
+            gui.targetVaultRoot = repoRoot.length > 1 ? repoRoot[1] : repoRoot[0];
+        }
+        gui.bootstrap();
+    }
+
     /** 应用形态入口：历史仓库列表页。 */
     public static void launch() {
-        new SanctumGui().run();
+        launch(new Path[0]);
     }
 
     /** 独立仓库形态：直接进入指定数据根的解锁页。 */
     public static void launchDirect(Path repoRoot, Path vaultRoot) {
-        SanctumGui gui = new SanctumGui(repoRoot);
-        gui.targetVaultRoot = vaultRoot;
-        gui.run();
+        launch(repoRoot, vaultRoot);
     }
 
-    private void run() {
+    /** 统一启动编排：HTTP 服务 + 托盘 + 自动锁定编排在此收敛（原 run）。 */
+    private void bootstrap() {
         // 启动时未解锁无法读仓库设置，主题用默认；解锁后按仓库主题应用
         applyTheme(com.flora.sanctum.model.LibraryConfig.DEFAULT_THEME);
         try {
@@ -732,6 +741,9 @@ public final class SanctumGui {
                 config.setLastVault(unlockedVaultPath);
                 frame.setTitle("flora-sanctum(" + root.getFileName() + ")");
                 current.set(sanctum);
+                // 注入同步服务并订阅模型变更总线：此后所有模型改动经 markDirty() 统一刷新界面
+                syncService = new com.flora.sanctum.app.sync.SyncService(sanctum.root());
+                modelBus.subscribe(this::refreshAll);
                 applyTheme(sanctum.config().theme()); // 解锁后应用仓库主题
                 showEditPage();
                 startAutoLockTimer();
@@ -835,7 +847,7 @@ public final class SanctumGui {
         groupTree.setFont(groupTree.getFont().deriveFont(Font.PLAIN, 14f));
         groupTree.setRowHeight(36);
         groupTree.setCellRenderer(new FolderTreeRenderer());
-        rebuildGroupTree();
+        refreshAll();
         groupTree.addTreeSelectionListener(e -> {
             resetAutoLock();
             updateToolbar();
@@ -868,6 +880,7 @@ public final class SanctumGui {
         // 中：条目列表（子文件夹 + 条目混合）
         entryModel = new DefaultListModel<>();
         entryList = new JList<>(entryModel);
+        entryList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         entryList.setFont(entryList.getFont().deriveFont(Font.PLAIN, 14f));
         entryList.setFixedCellHeight(36);
         entryList.setCellRenderer(new EntryListRenderer());
@@ -880,11 +893,14 @@ public final class SanctumGui {
         entryList.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
-                // 双击子文件夹 → 进入该文件夹（树联动选中）
+                // 双击子文件夹 → lsp_replace_symbol进入该文件夹（树联动选中）
                 if (e.getClickCount() == 2) {
                     int idx = entryList.locationToIndex(e.getPoint());
-                    if (idx >= 0 && idx < listItemTypes.size() && listItemTypes.get(idx) == StoredNodeType.GROUP) {
-                        navigateToGroup(entryUuids.get(idx));
+                    if (idx >= 0) {
+                        EntryListItem item = entryList.getModel().getElementAt(idx);
+                        if (item.type() == StoredNodeType.GROUP) {
+                            navigateToGroup(item.uuid());
+                        }
                     }
                 }
             }
@@ -966,8 +982,7 @@ public final class SanctumGui {
     }
 
     private boolean isFullyManaged() {
-        return sanctum != null
-                && new com.flora.sanctum.app.sync.SyncService(sanctum.root()).isFullyManaged();
+        return sanctum != null && syncService != null && syncService.isFullyManaged();
     }
 
     // ---- 组树 ----
@@ -1093,11 +1108,18 @@ public final class SanctumGui {
 
     // ---- 条目列表 ----
 
+    /**
+     * 统一刷新：重建组树 + 重建条目列表 + 刷新工具栏。所有"改了模型后要同步界面"的地方
+     * 都应先 {@code modelBus.markDirty()}，再由本次刷新统一完成，避免散落的配对调用漏掉一边。
+     */
+    private void refreshAll() {
+        rebuildGroupTree();
+        refreshEntryList(currentSearchQuery());
+        updateToolbar();
+    }
+
     private void refreshEntryList(String filter) {
         entryModel.clear();
-        entryUuids.clear();
-        listItemTypes.clear();
-        listItemIcons.clear();
         String q = filter == null ? "" : filter.trim().toLowerCase();
         Object sel = currentSelection();
         ViewNodeType section = sectionOf(sel);
@@ -1108,10 +1130,8 @@ public final class SanctumGui {
             for (TreeNode n : sanctum.objectTree().nodes()) {
                 if (n instanceof EntryNode e && matchesFilter(e, q)) {
                     String path = folderPathOf(e);
-                    entryModel.addElement(path.isEmpty() ? e.name() : e.name() + "  ·  " + path);
-                    entryUuids.add(e.uuid());
-                    listItemTypes.add(StoredNodeType.ENTRY);
-                    listItemIcons.add(e.iconRef());
+                    entryModel.addElement(new EntryListItem(e.uuid(), StoredNodeType.ENTRY,
+                            path.isEmpty() ? e.name() : e.name() + "  ·  " + path, e.iconRef()));
                 }
             }
             if (searchBanner != null) {
@@ -1126,28 +1146,22 @@ public final class SanctumGui {
 
         if (ViewNodeType.ICON == section) {
             for (IconNode icon : sanctum.iconTree().icons()) {
-                entryModel.addElement(iconLabel(icon));
-                entryUuids.add(icon.uuid());
-                listItemTypes.add(StoredNodeType.ICON);
-                listItemIcons.add(icon.uuid().toString());
+                entryModel.addElement(new EntryListItem(icon.uuid(), StoredNodeType.ICON,
+                        iconLabel(icon), icon.uuid().toString()));
             }
             return;
         }
         if (ViewNodeType.SSH_KEY == section) {
             for (SshKeyNode key : sanctum.sshKeyTree().keys()) {
-                entryModel.addElement(key.name());
-                entryUuids.add(key.uuid());
-                listItemTypes.add(StoredNodeType.SSH_KEY);
-                listItemIcons.add(null);
+                entryModel.addElement(new EntryListItem(key.uuid(), StoredNodeType.SSH_KEY,
+                        key.name(), null));
             }
             return;
         }
         if (ViewNodeType.REMOTE == section) {
             for (RemoteNode r : sanctum.remoteTree().remotes()) {
-                entryModel.addElement(r.name());
-                entryUuids.add(r.uuid());
-                listItemTypes.add(StoredNodeType.REMOTE);
-                listItemIcons.add(null);
+                entryModel.addElement(new EntryListItem(r.uuid(), StoredNodeType.REMOTE,
+                        r.name(), null));
             }
             return;
         }
@@ -1168,18 +1182,12 @@ public final class SanctumGui {
                 if (!q.isEmpty() && !gname.toLowerCase().contains(q)) {
                     continue;
                 }
-                entryModel.addElement(gname);
-                entryUuids.add(g.uuid());
-                listItemTypes.add(StoredNodeType.GROUP);
-                listItemIcons.add(g.iconRef());
+                entryModel.addElement(new EntryListItem(g.uuid(), StoredNodeType.GROUP, gname, g.iconRef()));
             } else if (n instanceof EntryNode e) {
                 if (!q.isEmpty() && !matchesFilter(e, q)) {
                     continue;
                 }
-                entryModel.addElement(e.name());
-                entryUuids.add(e.uuid());
-                listItemTypes.add(StoredNodeType.ENTRY);
-                listItemIcons.add(e.iconRef());
+                entryModel.addElement(new EntryListItem(e.uuid(), StoredNodeType.ENTRY, e.name(), e.iconRef()));
             }
         }
     }
@@ -1438,13 +1446,14 @@ public final class SanctumGui {
         target.add(label);
     }
 
-    /** 当前选中条目（按列表索引从平行 UUID 列表解析）。 */
+    /** 当前选中条目（从域对象模型直接解析）。 */
     private UUID selectedEntryUuid() {
         int idx = entryList.getSelectedIndex();
-        if (idx < 0 || idx >= entryUuids.size()) {
+        if (idx < 0 || idx >= entryModel.size()) {
             return null;
         }
-        return entryUuids.get(idx);
+        EntryListItem item = entryModel.getElementAt(idx);
+        return item == null ? null : item.uuid();
     }
 
     private void clearEditPanel() {
@@ -1481,8 +1490,8 @@ public final class SanctumGui {
             resetAutoLock();
             try {
                 group.rename(newName);
-                rebuildGroupTree();
-                refreshEntryList(currentSearchQuery());
+                modelBus.markDirty();
+                modelBus.refresh();
                 statusLabel.setText("已保存");
             } catch (Exception ex) {
                 statusLabel.setText("保存失败");
@@ -1497,8 +1506,8 @@ public final class SanctumGui {
                 if (g != null) {
                     g.markDeleted();
                 }
-                rebuildGroupTree();
-                refreshEntryList(currentSearchQuery());
+                modelBus.markDirty();
+                modelBus.refresh();
                 clearEditPanel();
             }
         });
@@ -1507,7 +1516,8 @@ public final class SanctumGui {
             resetAutoLock();
             try {
                 group.setIcon(id);
-                rebuildGroupTree();
+                modelBus.markDirty();
+                modelBus.refresh();
                 renderGroupPanel(groupUuid);
                 statusLabel.setText("已设置图标");
             } catch (Exception ex) {
@@ -1924,8 +1934,8 @@ public final class SanctumGui {
         }
         if (failed == 0) {
             statusLabel.setText("条目已保存");
-            refreshEntryList(currentSearchQuery());
-            rebuildGroupTree();
+            modelBus.markDirty();
+            modelBus.refresh();
             renderEntry(entryUuid);
         } else {
             statusLabel.setText("保存失败: " + failed + " 个字段");
@@ -2021,7 +2031,8 @@ public final class SanctumGui {
                 javax.imageio.ImageIO.read(file.toFile()); // 校验确为可读图片
                 sanctum.iconTree().createIcon(name, data, format);
             }
-            refreshEntryList(currentSearchQuery());
+            modelBus.markDirty();
+            modelBus.refresh();
             statusLabel.setText("已导入图片 " + name);
         } catch (Exception ex) {
             statusLabel.setText("图片导入失败");
@@ -2058,7 +2069,8 @@ public final class SanctumGui {
         resetAutoLock();
         try {
             sanctum.sshKeyTree().createSshKey(name, pem);
-            refreshEntryList(currentSearchQuery());
+            modelBus.markDirty();
+            modelBus.refresh();
             statusLabel.setText("已添加 SSH 密钥 " + name);
         } catch (Exception ex) {
             statusLabel.setText("SSH 密钥添加失败");
@@ -2091,7 +2103,8 @@ public final class SanctumGui {
         resetAutoLock();
         try {
             sanctum.remoteTree().addRemote(name, url, keyRef.isEmpty() ? null : keyRef);
-            refreshEntryList(currentSearchQuery());
+            modelBus.markDirty();
+            modelBus.refresh();
             statusLabel.setText("已添加远程 " + name);
         } catch (Exception ex) {
             statusLabel.setText("远程添加失败");
@@ -2130,13 +2143,13 @@ public final class SanctumGui {
         UUID entryUuid = sanctum.objectTree().createEntry(groupId, "新建条目",
                 new com.flora.sanctum.model.EntryFields("", null, null, java.util.List.of())).uuid();
         resetAutoLock();
-        rebuildGroupTree();
+        modelBus.markDirty();
+        modelBus.refresh();
         // 恢复树选中当前文件夹
         DefaultMutableTreeNode groupNode = groupNodes.get(groupId);
         if (groupNode != null) {
             groupTree.setSelectionPath(new javax.swing.tree.TreePath(groupNode.getPath()));
         }
-        refreshEntryList(currentSearchQuery());
         selectInList(entryUuid);
         showSelectedEntry();
         statusLabel.setText("已新建条目，请填写名称与密码");
@@ -2144,9 +2157,11 @@ public final class SanctumGui {
 
     /** 在条目列表中选中指定对象（若在列表中）。 */
     private void selectInList(UUID uuid) {
-        int idx = entryUuids.indexOf(uuid);
-        if (idx >= 0) {
-            entryList.setSelectedIndex(idx);
+        for (int i = 0; i < entryModel.size(); i++) {
+            if (uuid.equals(entryModel.getElementAt(i).uuid())) {
+                entryList.setSelectedIndex(i);
+                return;
+            }
         }
     }
 
@@ -2161,13 +2176,13 @@ public final class SanctumGui {
         }
         UUID parentId = groupIdOf(sel);
         UUID groupUuid = sanctum.objectTree().createGroup(parentId, "新建文件夹").uuid();
-        rebuildGroupTree();
+        modelBus.markDirty();
+        modelBus.refresh();
         resetAutoLock();
         DefaultMutableTreeNode node = groupNodes.get(groupUuid);
         if (node != null) {
             groupTree.setSelectionPath(new javax.swing.tree.TreePath(node.getPath()));
         }
-        refreshEntryList(currentSearchQuery());
         renderGroupPanel(groupUuid);
         statusLabel.setText("已新建文件夹，请重命名");
     }
@@ -2207,8 +2222,8 @@ public final class SanctumGui {
                                 .build();
                 com.flora.sanctum.app.io.importer.ImportResult result = imp.importFile(file, ctx);
                 javax.swing.SwingUtilities.invokeLater(() -> {
-                    rebuildGroupTree();
-                    refreshEntryList(currentSearchQuery());
+                    modelBus.markDirty();
+                    modelBus.refresh();
                     statusLabel.setText("导入完成：" + result);
                     javax.swing.JOptionPane.showMessageDialog(frame,
                             "导入完成：\n" + result, "导入", javax.swing.JOptionPane.INFORMATION_MESSAGE);
@@ -2303,8 +2318,8 @@ public final class SanctumGui {
                 if (node != null) {
                     node.markDeleted();
                 }
-                refreshEntryList(currentSearchQuery());
-                rebuildGroupTree();
+                modelBus.markDirty();
+                modelBus.refresh();
             }
             return;
         }
@@ -2321,8 +2336,8 @@ public final class SanctumGui {
                 if (g != null) {
                     g.markDeleted();
                 }
-                rebuildGroupTree();
-                refreshEntryList(currentSearchQuery());
+                modelBus.markDirty();
+                modelBus.refresh();
                 resetAutoLock();
             }
         }
@@ -2338,21 +2353,21 @@ public final class SanctumGui {
 
     private void doSync() {
         resetAutoLock();
-        if (sanctum == null) {
+        if (sanctum == null || syncService == null) {
             return;
         }
         try {
-            com.flora.sanctum.app.sync.SyncService sync = new com.flora.sanctum.app.sync.SyncService(sanctum.root());
-            if (!sync.isFullyManaged()) {
+            if (!syncService.isFullyManaged()) {
                 statusLabel.setText("非完全托管，跳过同步");
                 return;
             }
+            // 关闭→同步→重新打开（同步后块内容已变，必须重建会话）
             sanctum.close();
-            sync.sync();
+            syncService.sync();
             sanctum = Sanctum.open(sanctum.root());
             current.set(sanctum);
-            rebuildGroupTree();
-            refreshEntryList(currentSearchQuery());
+            modelBus.markDirty();
+            modelBus.refresh();
             statusLabel.setText("已同步");
         } catch (Exception e) {
             statusLabel.setText("同步失败");
@@ -2834,57 +2849,15 @@ public final class SanctumGui {
     /** 设置页中栏条目种类。 */
     private enum SettingsKind { SETTING, ICON, SSH_KEY, REMOTE }
 
-    /** 设置页左栏渲染器：root 显示名（设置/图标/SSH 密钥/远程），无字符图标。 */
-    private static final class SettingsTreeRenderer extends javax.swing.tree.DefaultTreeCellRenderer {
-        @Override
-        public java.awt.Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel,
-                                                               boolean expanded, boolean leaf, int row, boolean hasFocus) {
-            super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus);
-            setIcon(null);
-            setText(rootName(value));
-            return this;
-        }
-
-        private static String rootName(Object value) {
-            if (value instanceof javax.swing.tree.DefaultMutableTreeNode node) {
-                Object uo = node.getUserObject();
-                if (uo instanceof ViewNodeType tag) {
-                    return switch (tag) {
-                        case ICON -> "图标";
-                        case SSH_KEY -> "SSH 密钥";
-                        case REMOTE -> "远程";
-                        case PASSWORD -> "密码库";
-                        default -> "设置";
-                    };
-                }
-                if (uo == ViewNodeType.SETTINGS) {
-                    return "设置";
-                }
-            }
-            return "?";
-        }
-    }
-
-    /** 设置页中栏条目渲染器：纯文本 + 内边距（无字符图标）。 */
-    private static final class SettingsEntryRenderer extends javax.swing.DefaultListCellRenderer {
-        @Override
-        public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index,
-                                                               boolean isSelected, boolean cellHasFocus) {
-            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-            setIcon(null);
-            setBorder(new EmptyBorder(6, 8, 6, 8));
-            return this;
-        }
-    }
-
     private final class EntryListRenderer extends javax.swing.DefaultListCellRenderer {
         @Override
         public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index,
                                                                boolean isSelected, boolean cellHasFocus) {
             super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-            StoredNodeType type = index >= 0 && index < listItemTypes.size() ? listItemTypes.get(index) : null;
+            EntryListItem item = value instanceof EntryListItem li ? li : null;
+            StoredNodeType type = item == null ? null : item.type();
             // 条目/文件夹设置了图标则优先显示，否则默认 folder/entry
-            String iconId = index >= 0 && index < listItemIcons.size() ? listItemIcons.get(index) : null;
+            String iconId = item == null ? null : item.iconRef();
             Icon custom = iconById(iconId, 24);
             if (custom != null) {
                 setIcon(custom);

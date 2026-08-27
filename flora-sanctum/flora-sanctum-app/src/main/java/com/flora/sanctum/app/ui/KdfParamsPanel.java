@@ -15,7 +15,7 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 
 /**
- * 新建库时的 Argon2id 强度设置（折叠于「高级」下）。
+ * 新建库时的 Argon2id 强度设置（作为「高级」框内的嵌套「Argon2id」框）。
  * <p>提供内存(KiB)/迭代次数/并行度三项；预填默认高安全档。任一输入非法或为空时
  * {@link #resolve()} 返回 {@code null}，调用方据此回退到默认档。</p>
  */
@@ -29,7 +29,7 @@ final class KdfParamsPanel extends JPanel {
     KdfParamsPanel() {
         super(new BorderLayout(0, 4));
         setOpaque(false);
-        setBorder(BorderFactory.createTitledBorder("高级（Argon2id 强度，留空用默认）"));
+        setBorder(BorderFactory.createTitledBorder("Argon2id"));
 
         JPanel grid = new JPanel(new GridBagLayout());
         grid.setOpaque(false);

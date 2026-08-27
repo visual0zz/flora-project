@@ -169,20 +169,10 @@ public final class VaultUnlocker {
         return Math.max(max, cappedNow);
     }
 
-    private Block findManifest(List<Block> blocks) {        for (Block b : blocks) {
-            if (b.isPlaintext()) {
-                try {
-                    byte[] full = b.unmasked();
-                    // 明文块：header + payload + mac(尾附)，负载从中段取
-                    byte[] payload = com.flora.sanctum.model.impl.ManifestStore.payloadOf(full);
-                    String json = new String(payload, java.nio.charset.StandardCharsets.UTF_8);
-                    com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(json);
-                    if (StoredNodeType.MANIFEST == StoredNodeType.fromTag(n.getString("type"))) {
-                        return b;
-                    }
-                } catch (Exception ignore) {
-                    // 非 manifest 明文块，跳过
-                }
+    private Block findManifest(List<Block> blocks) {
+        for (Block b : blocks) {
+            if (b.isPlaintext() && Manifest.MANIFEST_UUID.equals(b.uuid())) {
+                return b;
             }
         }
         return null;

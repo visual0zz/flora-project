@@ -55,7 +55,7 @@ class VaultUnlockerTest {
         manifest.put("updateTimestamp", 1);
 
         // 块格式与密文对齐：header + payload + mac(尾附)，MAC 覆盖 header+timestamp+payload
-        UUID uuid = UUID.randomUUID();
+        UUID uuid = Manifest.MANIFEST_UUID;
         byte[] payload = JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
         byte[] block = com.flora.sanctum.model.impl.ManifestStore.buildBlock(uuid, payload, "1", macKey);
 

@@ -13,6 +13,13 @@ import java.util.Base64;
  */
 public final class Manifest {
 
+    /**
+     * 固定保留 uuid：manifest 引导块永远使用此 uuid，使其分片路径确定不变
+     * （Markdown 存储下为 {@code <库根>/00/00000000000000000000000000000000.md}），
+     * 无需扫描即可定位。全 0 为系统保留块，普通数据节点用随机 uuid，不会与之冲突。
+     */
+    public static final java.util.UUID MANIFEST_UUID = new java.util.UUID(0L, 0L);
+
     private final int version;
     private final String cryptoVersion;
     private final String kdf;

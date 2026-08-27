@@ -22,8 +22,8 @@ import java.util.UUID;
  * <p>
  * 块格式与密文对齐：{@code 信封头 + JSON 负载 + MAC(尾附)}，
  * MAC = HMAC-SHA256(macKey, 完整信封头 ‖ 时间戳 ‖ 负载)，不存于 JSON 内部。
- * 读：扫描找 type=manifest 明文块 → 拆出负载解析为 {@link Manifest}；
- * 写：构造负载 JSON + 计算 MAC + 拼块落盘。
+ * 读：按固定 uuid（{@link Manifest#MANIFEST_UUID}）定位明文块 → 拆出负载解析为 {@link Manifest}；
+ * 写：构造负载 JSON + 计算 MAC + 拼块落盘（覆盖同一固定 uuid 块）。
  */
 public final class ManifestStore {
 
@@ -115,15 +115,6 @@ public final class ManifestStore {
 
     // ---- 实例读写 ----
 
-    /** 查找 manifest 块 uuid（找不到抛 IllegalStateException）。 */
-    public UUID findUuid() {
-        Block b = findBlock();
-        if (b == null) {
-            throw new IllegalStateException("manifest not found");
-        }
-        return b.uuid();
-    }
-
     /** 读取 manifest；不存在返回 null。 */
     public Manifest read() {
         Block b = findBlock();
@@ -137,21 +128,11 @@ public final class ManifestStore {
         }
     }
 
-    /** 查找 manifest 明文块（含物理定位）；不存在返回 null。 */
+    /** 按固定 uuid 定位 manifest 明文块（含物理定位）；不存在返回 null。 */
     public Block findBlock() {
         for (Block b : store.scan()) {
-            if (b.isPlaintext()) {
-                byte[] full = b.unmasked();
-                if (full.length <= Envelope.PLAINTEXT_HEADER_LEN + Envelope.MANIFEST_MAC_LEN) {
-                    continue;
-                }
-                try {
-                    JsonObject n = JsonUtil.parseObject(new String(payloadOf(full), StandardCharsets.UTF_8));
-                    if (StoredNodeType.MANIFEST == StoredNodeType.fromTag(n.getString("type"))) {
-                        return b;
-                    }
-                } catch (Exception ignore) {
-                }
+            if (b.isPlaintext() && Manifest.MANIFEST_UUID.equals(b.uuid())) {
+                return b;
             }
         }
         return null;
@@ -159,7 +140,7 @@ public final class ManifestStore {
 
     /** 写 manifest 明文块（构造 JSON + 计算 MAC + 落盘）。 */
     public void write(Manifest m, byte[] macKey) {
-        UUID uuid = findUuid();
+        UUID uuid = Manifest.MANIFEST_UUID;
         JsonObject manifest = new JsonObject();
         manifest.put("version", m.version());
         manifest.put("type", StoredNodeType.MANIFEST.tag());

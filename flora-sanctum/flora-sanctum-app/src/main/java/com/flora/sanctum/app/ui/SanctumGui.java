@@ -104,6 +104,8 @@ public final class SanctumGui {
     private Path targetVaultRoot;
     /** 当前解锁页是否对应"新建"（true）还是"打开"（false）：新建走 createAndUnlock，打开只 open+unlock 不自动新建。 */
     private boolean unlockIsCreate;
+    /** 新建仓库对话框收集到的 KDF 参数（null = 默认档），由解锁页创建时消费一次后清空。 */
+    private int[] newVaultKdf;
     /** 垃圾桶视图（每次重建树时刷新；含三类异常节点 uuid 与「原位置」计算）。 */
     private com.flora.sanctum.model.TrashView trashView;
 
@@ -500,22 +502,21 @@ public final class SanctumGui {
     // ---- 新建 / 导入 / 打开（原 SelectScreen 入口，合并进历史页） ----
 
     private void doNewVault() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        chooser.setDialogTitle("选择新建仓库的目录");
-        if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) {
-            return;
-        }
-        Path dir = chooser.getSelectedFile().toPath();
-        try {
-            // 默认构建普通仓库；需要独立运行可在设置页"独立运行"中配置
-            Path root = com.flora.sanctum.app.bootstrap.RepoCreator.createNormal(dir);
-            unlockIsCreate = true;
-            showUnlockPage(root);
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(frame, "创建失败：" + ex.getMessage(), "错误",
-                    JOptionPane.ERROR_MESSAGE);
-        }
+        NewVaultDialog dlg = new NewVaultDialog(frame, req -> {
+            try {
+                Path root = req.standalone()
+                        ? com.flora.sanctum.app.bootstrap.RepoCreator.createStandalone(
+                                req.target(), configForStandalone())
+                        : com.flora.sanctum.app.bootstrap.RepoCreator.createNormal(req.target());
+                newVaultKdf = req.kdf();
+                unlockIsCreate = true;
+                showUnlockPage(root);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(frame, "创建失败：" + ex.getMessage(), "错误",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        dlg.setVisible(true);
     }
 
     private void doImportVault() {
@@ -621,13 +622,8 @@ public final class SanctumGui {
         c.insets = new Insets(3, 0, 3, 0);
         panel.add(pwRow, c);
 
-        // 新建库时允许自定义 Argon2id 强度（默认高安全档），折叠于「高级」下
-        final KdfParamsPanel kdfPanel = unlockIsCreate ? new KdfParamsPanel() : null;
-        if (kdfPanel != null) {
-            c.gridy = 4;
-            c.insets = new Insets(6, 0, 3, 0);
-            panel.add(kdfPanel, c);
-        }
+        // 新建库的 Argon2id 强度已在「新建仓库」对话框的「更多设置」中收集（见 NewVaultDialog），
+        // 此处不再重复显示；KDF 参数由 newVaultKdf 携带到 doUnlock。
 
         // 解锁 / 创建按钮（与"回到历史列表"等宽居中；转圈以 JLayer 画在按钮右内侧，不占排版）
         JButton unlockBtn = new JButton(unlockIsCreate ? "创建并解锁" : "解锁");
@@ -669,7 +665,7 @@ public final class SanctumGui {
         panel.add(javax.swing.Box.createVerticalGlue(), c);
 
         java.util.function.Consumer<JPasswordField> unlock = f ->
-                doUnlock(root, f, error, unlockLayer, unlockBtn, spinnerTimer, kdfPanel);
+                doUnlock(root, f, error, unlockLayer, unlockBtn, spinnerTimer);
         unlockBtn.addActionListener(e -> unlock.accept(pwField));
         pwField.addActionListener(e -> unlock.accept(pwField));
 
@@ -679,8 +675,7 @@ public final class SanctumGui {
 
     private void doUnlock(Path root, JPasswordField pwField, JLabel error,
                           javax.swing.JLayer<JButton> unlockLayer,
-                          JButton unlockBtn, javax.swing.Timer spinnerTimer,
-                          KdfParamsPanel kdfPanel) {
+                          JButton unlockBtn, javax.swing.Timer spinnerTimer) {
         char[] pw = pwField.getPassword();
         if (pw.length == 0) {
             error.setText("请输入主密码");
@@ -688,8 +683,9 @@ public final class SanctumGui {
         }
         char[] pwCopy = pw.clone();
         java.util.Arrays.fill(pw, (char) 0);
-        // 新库时从「高级」面板读取 KDF 参数（非法/为空则回退默认档）
-        int[] kdf = kdfPanel == null ? null : kdfPanel.resolve();
+        // 新库时 KDF 参数来自「新建仓库」对话框（newVaultKdf，null = 默认档）；消费一次后清空
+        int[] kdf = unlockIsCreate ? newVaultKdf : null;
+        newVaultKdf = null;
         // 转圈（JLayer 画在按钮右内侧）+ 禁用控件
         error.setText("");
         unlockLayer.putClientProperty("spinner.visible", Boolean.TRUE);
@@ -848,6 +844,9 @@ public final class SanctumGui {
         groupTree.setFont(groupTree.getFont().deriveFont(Font.PLAIN, 14f));
         groupTree.setRowHeight(36);
         groupTree.setCellRenderer(new FolderTreeRenderer());
+        // 条目列表模型需先于 refreshAll() 就绪：其内部 refreshEntryList 会调用 entryModel.clear()
+        entryModel = new DefaultListModel<>();
+        entryList = new JList<>(entryModel);
         refreshAll();
         groupTree.addTreeSelectionListener(e -> {
             resetAutoLock();
@@ -879,8 +878,6 @@ public final class SanctumGui {
         leftPanel.add(treeScroll, BorderLayout.CENTER);
 
         // 中：条目列表（子文件夹 + 条目混合）
-        entryModel = new DefaultListModel<>();
-        entryList = new JList<>(entryModel);
         entryList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         entryList.setFont(entryList.getFont().deriveFont(Font.PLAIN, 14f));
         entryList.setFixedCellHeight(36);

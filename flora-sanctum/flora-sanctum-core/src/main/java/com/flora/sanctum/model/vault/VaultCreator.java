@@ -61,7 +61,7 @@ public final class VaultCreator {
     /** 写 manifest 明文块。MAC 覆盖完整信封头 + 时间戳 + 负载，尾附（与密文块结构对齐）。 */
     private void writeManifestBlock(byte[] salt, int memKiB, int iterations, int parallelism, byte[] macKey, byte[] kek,
                                     java.util.UUID rootObjectUuid) {
-        UUID uuid = UUID.randomUUID();
+        UUID uuid = Manifest.MANIFEST_UUID;
         com.flora.root.codec.json.model.JsonObject manifest = new com.flora.root.codec.json.model.JsonObject();
         manifest.put("version", 1);
         manifest.put("type", StoredNodeType.MANIFEST.tag());

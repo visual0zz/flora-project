@@ -3,7 +3,7 @@ package com.flora.sanctum.store;
 /**
  * 块信封格式常量（存储层公开；crypto.impl.Envelope 与之保持一致）。
  * <p>
- * magic = "赵治" 的 UTF-8 编码（6 字节）。version 字段统一为 1（VERSION_1，第一代格式），
+ * magic 为固定 6 字节魔数（见 {@link #MAGIC}）。version 字段统一为 1（VERSION_1，第一代格式），
  * 块类型由 flags 区分（FLAG_CIPHER / FLAG_PLAINTEXT）。
  * <ul>
  *   <li><b>明文块</b>（仅 manifest）：头 = magic(6)+version(1)+flags(1)+uuid(16)，
@@ -18,7 +18,7 @@ public final class BlockFormat {
     private BlockFormat() {
     }
 
-    /** magic = "赵治"（UTF-8，6 字节）。 */
+    /** 固定魔数（6 字节，直接存储字节编码）。 */
     public static final byte[] MAGIC = {(byte) 0xE8, (byte) 0xB5, (byte) 0xB5, (byte) 0xE6, (byte) 0xB2, (byte) 0xBB};
     public static final int MAGIC_LEN = 6;
 

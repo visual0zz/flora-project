@@ -46,6 +46,7 @@ class PropsUtilTest {
         Map<String, Object> pgMap = (Map<String, Object>) m.get("pg");
         @SuppressWarnings("unchecked")
         Map<String, Object> dbMap = (Map<String, Object>) pgMap.get("db");
+        @SuppressWarnings("unchecked")
         Map<String, Object> pool = (Map<String, Object>) dbMap.get("pool");
         assertEquals("10", pool.get("max"));
         assertEquals("2", pool.get("min"));

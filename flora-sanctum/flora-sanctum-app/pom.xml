@@ -30,6 +30,12 @@
             <artifactId>jsvg</artifactId>
             <version>2.0.0</version>
         </dependency>
+        <!-- 密码强度评估（zxcvbn 算法的 Java 移植，MIT）：与 KeePassXC 同源算法 -->
+        <dependency>
+            <groupId>com.nulab-inc</groupId>
+            <artifactId>zxcvbn</artifactId>
+            <version>1.9.0</version>
+        </dependency>
     </dependencies>
 
     <build>

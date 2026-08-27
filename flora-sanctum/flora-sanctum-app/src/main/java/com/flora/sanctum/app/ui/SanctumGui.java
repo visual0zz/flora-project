@@ -31,6 +31,7 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
+import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
@@ -622,6 +623,27 @@ public final class SanctumGui {
         c.insets = new Insets(3, 0, 3, 0);
         panel.add(pwRow, c);
 
+        // 主密码强度实时提示（zxcvbn，与 KeePassXC 同源算法）；新建仓库时尤其重要
+        JLabel strengthLabel = new JLabel("", JLabel.LEFT);
+        c.gridy = 4;
+        c.insets = new Insets(0, 0, 2, 0);
+        c.fill = GridBagConstraints.HORIZONTAL;
+        panel.add(strengthLabel, c);
+        JProgressBar strengthBar = new JProgressBar(0, 4);
+        strengthBar.setValue(0);
+        strengthBar.setStringPainted(false);
+        strengthBar.setOpaque(false);
+        c.gridy = 5;
+        c.insets = new Insets(0, 0, 6, 0);
+        panel.add(strengthBar, c);
+        c.fill = GridBagConstraints.HORIZONTAL;
+        refreshStrength(pwField, strengthLabel, strengthBar);
+        pwField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(pwField, strengthLabel, strengthBar); }
+            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(pwField, strengthLabel, strengthBar); }
+            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(pwField, strengthLabel, strengthBar); }
+        });
+
         // 新建库的 Argon2id 强度已在「新建仓库」对话框的「更多设置」中收集（见 NewVaultDialog），
         // 此处不再重复显示；KDF 参数由 newVaultKdf 携带到 doUnlock。
 
@@ -635,7 +657,7 @@ public final class SanctumGui {
             spinner.angle += 24;
             unlockLayer.repaint();
         });
-        c.gridy = 4;
+        c.gridy = 6;
         c.fill = java.awt.GridBagConstraints.NONE;
         c.anchor = java.awt.GridBagConstraints.CENTER;
         panel.add(unlockLayer, c);
@@ -643,7 +665,7 @@ public final class SanctumGui {
 
         JLabel error = new JLabel("", JLabel.CENTER);
         error.setForeground(java.awt.Color.RED.darker());
-        c.gridy = 5;
+        c.gridy = 7;
         panel.add(error, c);
 
         // 应用形态：提供"回到历史列表"入口；独立形态不提供
@@ -652,7 +674,7 @@ public final class SanctumGui {
             backBtn.setToolTipText("返回历史仓库列表页");
             backBtn.setPreferredSize(new Dimension(170, 32));
             backBtn.addActionListener(e -> showHistoryPage());
-            c.gridy = 6;
+            c.gridy = 8;
             c.fill = java.awt.GridBagConstraints.NONE;
             c.anchor = java.awt.GridBagConstraints.CENTER;
             panel.add(backBtn, c);
@@ -660,7 +682,7 @@ public final class SanctumGui {
         }
 
         // 底部弹性（内容垂直居中）
-        c.gridy = 7;
+        c.gridy = 9;
         c.weighty = 1.0;
         panel.add(javax.swing.Box.createVerticalGlue(), c);
 
@@ -671,6 +693,66 @@ public final class SanctumGui {
 
         pwField.requestFocusInWindow();
         return panel;
+    }
+
+    /**
+     * 实时刷新主密码强度提示（标签 + 0–4 档进度条）。
+     * 评估算法为 zxcvbn（与 KeePassXC 同源），质量分级沿用其熵阈值；仅提示不阻止创建。
+     */
+    private void refreshStrength(JPasswordField pwField, JLabel label, JProgressBar bar) {
+        char[] pw = pwField.getPassword();
+        if (pw.length == 0) {
+            label.setText("");
+            bar.setValue(0);
+            bar.setForeground(java.awt.Color.GRAY);
+            return;
+        }
+        PasswordStrength s = PasswordStrength.evaluate(new String(pw), null);
+        int score = switch (s.quality()) {
+            case BAD, POOR -> 0;
+            case WEAK -> 1;
+            case GOOD -> 2;
+            case EXCELLENT -> 3;
+        };
+        // zxcvbn 的原生 score 为 0–4，这里结合熵映射后取 max，使高强度档位更准确
+        int barValue = Math.max(score, estimateBar(s.entropy()));
+        bar.setValue(Math.min(barValue, 4));
+        label.setText(strengthText(s));
+        bar.setForeground(strengthColor(s.quality()));
+    }
+
+    /** 仅按熵把 0–100 bits 线性映射到 0–4 档，作为 zxcvbn score 的补充。 */
+    private static int estimateBar(double entropy) {
+        if (entropy < 40) return 0;
+        if (entropy < 75) return 1;
+        if (entropy < 100) return 2;
+        if (entropy < 120) return 3;
+        return 4;
+    }
+
+    private static String strengthText(PasswordStrength s) {
+        String level = switch (s.quality()) {
+            case BAD -> "极差";
+            case POOR -> "弱";
+            case WEAK -> "中";
+            case GOOD -> "良";
+            case EXCELLENT -> "优";
+        };
+        StringBuilder sb = new StringBuilder("强度：").append(level)
+                .append("（熵 ").append(String.format("%.1f", s.entropy())).append(" bits）");
+        if (!s.warning().isEmpty()) {
+            sb.append(" — ").append(s.warning());
+        }
+        return sb.toString();
+    }
+
+    private static java.awt.Color strengthColor(PasswordStrength.Quality q) {
+        return switch (q) {
+            case BAD, POOR -> java.awt.Color.RED.darker();
+            case WEAK -> java.awt.Color.ORANGE.darker();
+            case GOOD -> java.awt.Color.BLUE.darker();
+            case EXCELLENT -> new java.awt.Color(0x2E, 0x7D, 0x32);
+        };
     }
 
     private void doUnlock(Path root, JPasswordField pwField, JLabel error,

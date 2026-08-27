@@ -20,4 +20,5 @@ module com.flora.sanctum.app {
     requires jdk.httpserver;
     requires com.formdev.flatlaf;
     requires com.github.weisj.jsvg;
+    requires com.nulabinc.zxcvbn;
 }

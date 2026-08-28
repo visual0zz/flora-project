@@ -25,6 +25,7 @@ class PasswordStrengthTest {
     }
 
     @Test
+    @SuppressWarnings("osmetes:secret")
     void longRandomPassphraseIsExcellent() {
         // 高熵随机串，应达到优（熵 >= 100）
         String strong = "9K#vL2$mQpXr8@WnZc7T!bH4&JfY6uE1";

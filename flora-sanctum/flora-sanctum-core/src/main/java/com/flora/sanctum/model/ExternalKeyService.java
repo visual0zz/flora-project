@@ -105,7 +105,7 @@ public final class ExternalKeyService {
     public UUID createExternalKey(UUID entryUuid, String fieldName, byte[] keyMaterial, String description) {
         UUID fieldUuid = UUID.randomUUID();
         JsonObject field = new JsonObject();
-        field.put("type", StoredNodeType.FIELD.tag());
+        field.put("type", StoredNodeType.PREDEF_FIELD.tag());
         field.put("parent", entryUuid.toString());
         field.put("name", fieldName);
         field.put("kind", "externalKey");

@@ -797,8 +797,11 @@ public final class SanctumGui {
                         result[0].unlock(pwCopy);
                     }
                 }
+            } catch (com.flora.sanctum.model.vault.VaultUnlockException ex) {
+                // 解锁失败分阶段报告（魔数/结构、manifest MAC、根对象缺失/解密等），给针对性提示
+                failMsg[0] = ex.getMessage();
             } catch (Exception ex) {
-                failMsg[0] = "解锁失败";
+                failMsg[0] = "解锁失败：" + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
             } finally {
                 java.util.Arrays.fill(pwCopy, (char) 0);
             }
@@ -875,12 +878,12 @@ public final class SanctumGui {
         JPanel root = new UiTheme.PaperPanel(new BorderLayout());
 
         // 顶部工具栏（SVG 图标按钮 + tooltip，去文字标签；尺寸 24→29 ≈ +20%）
-        newEntryBtn = iconButton(SvgIcon.get("ui/new-entry", 29), "新建条目");
-        newGroupBtn = iconButton(SvgIcon.get("ui/new-group", 29), "新建文件夹");
-        delBtn = iconButton(SvgIcon.get("ui/delete", 29), "删除");
-        syncBtn = iconButton(SvgIcon.get("ui/sync", 29), "同步");
-        settingsBtn = iconButton(SvgIcon.get("ui/settings", 29), "设置");
-        lockBtn = iconButton(SvgIcon.get("ui/lock", 29), "锁定");
+        newEntryBtn = iconButton(SvgIcon.get(UiIcon.NEW_ENTRY, 29), "新建条目");
+        newGroupBtn = iconButton(SvgIcon.get(UiIcon.NEW_GROUP, 29), "新建文件夹");
+        delBtn = iconButton(SvgIcon.get(UiIcon.DELETE, 29), "删除");
+        syncBtn = iconButton(SvgIcon.get(UiIcon.SYNC, 29), "同步");
+        settingsBtn = iconButton(SvgIcon.get(UiIcon.SETTINGS, 29), "设置");
+        lockBtn = iconButton(SvgIcon.get(UiIcon.LOCK, 29), "锁定");
         JButton importBtn = new JButton("导入");
         importBtn.setToolTipText("从 KeePassXC / KeePass (KDBX4) 数据库导入");
         importBtn.addActionListener(e -> doImportKdbx());
@@ -1312,7 +1315,7 @@ public final class SanctumGui {
         }
         if ("builtin".equals(ref.scheme())) {
             Icon ic = SvgIcon.get("library/" + ref.id(), size);
-            return ic != null ? ic : SvgIcon.get("ui/entry", size);
+            return ic != null ? ic : SvgIcon.get(UiIcon.ENTRY, size);
         }
         if ("node".equals(ref.scheme())) {
             try {
@@ -1470,7 +1473,7 @@ public final class SanctumGui {
             renderIconPanel(u, editPanel);
         } else if (type == StoredNodeType.SSH_KEY) {
             renderSshKeyPanel(u, editPanel);
-        } else if (type == StoredNodeType.REMOTE || type == StoredNodeType.FIELD) {
+        } else if (type == StoredNodeType.REMOTE || type == StoredNodeType.PREDEF_FIELD) {
             renderRemotePanel(u, editPanel);
         } else {
             renderEntry(selectedEntry);
@@ -2518,8 +2521,8 @@ public final class SanctumGui {
         JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 6));
         topBar.setOpaque(true);
         topBar.setBackground(UiTheme.PAPER_LIGHT);
-        JButton okBtn = iconButton(SvgIcon.get("ui/check", 29), "保存设置并返回");
-        JButton backBtn = iconButton(SvgIcon.get("ui/close", 29), "返回");
+        JButton okBtn = iconButton(SvgIcon.get(UiIcon.CHECK, 29), "保存设置并返回");
+        JButton backBtn = iconButton(SvgIcon.get(UiIcon.CLOSE, 29), "返回");
         backBtn.addActionListener(e -> backFromSettings());
         topBar.add(okBtn);
         topBar.add(backBtn);
@@ -2896,22 +2899,22 @@ public final class SanctumGui {
         public java.awt.Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel,
                                                                boolean expanded, boolean leaf, int row, boolean hasFocus) {
             super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus);
-            setIcon(SvgIcon.get("ui/folder", 24));
-            setDisabledIcon(SvgIcon.get("ui/folder", 24));
+            setIcon(SvgIcon.get(UiIcon.FOLDER, 24));
+            setDisabledIcon(SvgIcon.get(UiIcon.FOLDER, 24));
             if (value instanceof javax.swing.tree.DefaultMutableTreeNode node) {
                 Object uo = node.getUserObject();
                 if (uo instanceof ViewNodeType tag) {
                     if (tag == ViewNodeType.TRASH) {
                         setText("垃圾桶");
-                        setIcon(SvgIcon.get("ui/trash", 24));
-                        setDisabledIcon(SvgIcon.get("ui/trash", 24));
+                        setIcon(SvgIcon.get(UiIcon.TRASH, 24));
+                        setDisabledIcon(SvgIcon.get(UiIcon.TRASH, 24));
                     } else {
                         setText(sectionDisplayName(tag));
                     }
                 } else if (uo instanceof TrashCategory cat) {
                     setText(cat.label);
-                    setIcon(SvgIcon.get("ui/trash", 24));
-                    setDisabledIcon(SvgIcon.get("ui/trash", 24));
+                    setIcon(SvgIcon.get(UiIcon.TRASH, 24));
+                    setDisabledIcon(SvgIcon.get(UiIcon.TRASH, 24));
                 } else if (uo instanceof UUID uuid) {
                     String[] info = groupsById().get(uuid);
                     String name = info == null ? null : info[1];
@@ -2952,7 +2955,7 @@ public final class SanctumGui {
             if (custom != null) {
                 setIcon(custom);
             } else {
-                setIcon(type == StoredNodeType.GROUP ? SvgIcon.get("ui/folder", 24) : SvgIcon.get("ui/entry", 24));
+                setIcon(type == StoredNodeType.GROUP ? SvgIcon.get(UiIcon.FOLDER, 24) : SvgIcon.get(UiIcon.ENTRY, 24));
             }
             return this;
         }

@@ -144,6 +144,11 @@ public final class SvgIcon {
         return CACHE.computeIfAbsent(key, k -> load(name, size));
     }
 
+    /** 取一个已注册的 ui 图标（枚举成员，编译期校验拼写；资源缺失返回 null）。 */
+    public static Icon get(UiIcon icon, int size) {
+        return get(icon.path(), size);
+    }
+
     /** 从 SVG 字节渲染图标（用于仓库内用户自定义 svg 图标），不缓存。 */
     public static Icon fromBytes(byte[] data, int size) {
         try (InputStream in = new java.io.ByteArrayInputStream(data)) {

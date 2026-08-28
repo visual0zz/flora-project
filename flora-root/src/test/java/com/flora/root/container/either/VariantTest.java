@@ -43,7 +43,7 @@ class VariantTest {
         // CheckUtil.notNull 对 null 抛 NullPointerException
         assertThrows(IllegalArgumentException.class, () -> Variant.of());
         assertThrows(NullPointerException.class, () -> Variant.of((Class<?>[]) null));
-        assertThrows(NullPointerException.class, () -> Variant.of(Integer.class, null));
+        assertThrows(NullPointerException.class, () -> Variant.of(Integer.class, (Class<?>) null));
         assertThrows(IllegalArgumentException.class, () -> Variant.of(Integer.class, Integer.class));
     }
 
@@ -142,6 +142,7 @@ class VariantTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked") // varargs 泛型数组创建
     void visitDispatchesByIndex() {
         Variant intV = intStringDouble().set(3);
         Variant strV = intStringDouble().set("abc");
@@ -155,6 +156,7 @@ class VariantTest {
     void visitWrongArityRejected() {
         Variant v = intStringDouble().set(1);
         // 类型表有 3 个替代类型，访问器数组长度不足时应被拒绝（单访问器调用是合法重载）
+        @SuppressWarnings("unchecked")
         java.util.function.Function<Object, Object>[] tooFew =
                 new java.util.function.Function[]{o -> "x"};
         assertThrows(IllegalArgumentException.class, () -> v.visit(tooFew));

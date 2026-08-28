@@ -30,7 +30,8 @@ class VaultUnlockerTest {
         return createManifest(password, "rootObjectUuid");
     }
 
-    /** 构造 manifest 明文块；rootKey 指定写入的根对象 uuid 持久化键名（含旧 key 兼容性）。 */
+    /** 构造 manifest 明文块；rootKey 指定写入的根对象 uuid 持久化键名（含旧 key 兼容性）。
+     *  同时写入按该 uuid 定位的根对象块（KEK 包裹的 DEK + repoKeyIdSeed），构成可完整解锁的最小仓库。 */
     private ObjectStore createManifest(char[] password, String rootKey) {
         SecureRandomSource rng = new SecureRandomSource();
         byte[] salt = new byte[16];
@@ -39,6 +40,7 @@ class VaultUnlockerTest {
         byte[] kek = kdf.derive(password);
         byte[] macKey = kdf.manifestMacKey(kek);
 
+        UUID rootObjectUuid = UUID.randomUUID();
         JsonObject manifest = new JsonObject();
         manifest.put("version", 1);
         manifest.put("type", "manifest");
@@ -50,7 +52,6 @@ class VaultUnlockerTest {
         params.put("iterations", 3);
         params.put("parallelism", 4);
         manifest.put("params", params);
-        UUID rootObjectUuid = UUID.randomUUID();
         manifest.put(rootKey, rootObjectUuid.toString());
         manifest.put("updateTimestamp", 1);
 
@@ -66,6 +67,22 @@ class VaultUnlockerTest {
         } catch (java.io.IOException e) {
             throw new IllegalStateException(e);
         }
+
+        // 根对象块：{type:root, dek(KEK 包裹), repoKeyIdSeed}，KEK 加密、时间戳 1
+        byte[] repoSeed = new byte[32];
+        rng.nextBytes(repoSeed);
+        com.flora.sanctum.crypto.impl.CipherCodec rootCodec = new com.flora.sanctum.crypto.impl.CipherCodec(
+                com.flora.sanctum.crypto.KeyDerivation.encKey(kek), kek, repoSeed, rng);
+        JsonObject root = new JsonObject();
+        root.put("type", "root");
+        byte[] dek = new byte[32];
+        rng.nextBytes(dek);
+        byte[] wrapped = rootCodec.encode(UUID.randomUUID(), dek, "0"); // 内部信封（DEK 包裹）无块时间戳
+        root.put("dek", Base64.getEncoder().encodeToString(wrapped));
+        root.put("repoKeyIdSeed", Base64.getEncoder().encodeToString(repoSeed));
+        byte[] rootJson = JsonUtil.toJsonString(root).getBytes(StandardCharsets.UTF_8);
+        byte[] rootBlock = rootCodec.encode(rootObjectUuid, rootJson, "1");
+        store.put(rootObjectUuid, rootBlock, null, "1");
         return store;
     }
 
@@ -84,7 +101,18 @@ class VaultUnlockerTest {
         char[] pw = "correct horse battery".toCharArray();
         ObjectStore store = createManifest(pw);
         VaultUnlocker unlocker = new VaultUnlocker(store);
-        assertThrows(IllegalArgumentException.class, () -> unlocker.unlock("wrong password".toCharArray()));
+        VaultUnlockException ex = assertThrows(VaultUnlockException.class,
+                () -> unlocker.unlock("wrong password".toCharArray()));
+        assertEquals(VaultUnlockException.Phase.MANIFEST_CORRUPT, ex.phase());
+    }
+
+    @Test
+    void unlockReportsMissingManifest() {
+        ObjectStore store = new MarkdownObjectStore(dir);
+        VaultUnlocker unlocker = new VaultUnlocker(store);
+        VaultUnlockException ex = assertThrows(VaultUnlockException.class,
+                () -> unlocker.unlock("pw".toCharArray()));
+        assertEquals(VaultUnlockException.Phase.NOT_A_VAULT, ex.phase());
     }
 
     @Test

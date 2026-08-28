@@ -8,6 +8,8 @@ import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JPasswordField;
+import javax.swing.JProgressBar;
 import javax.swing.JTextField;
 import javax.swing.Box;
 import javax.swing.event.DocumentListener;
@@ -32,8 +34,8 @@ import java.util.function.Consumer;
  */
 final class NewVaultDialog extends JDialog {
 
-    /** 收集结果：最终仓库目录、是否独立仓库、KDF 参数（null = 默认档）。 */
-    record Request(Path target, boolean standalone, int[] kdf) {
+    /** 收集结果：最终仓库目录、是否独立仓库、KDF 参数（null = 默认档）、主密码（明文 char[]，调用方消费后清零）。 */
+    record Request(Path target, boolean standalone, int[] kdf, char[] password) {
     }
 
     /** 名称为空时的占位名（用于输入框占位符与最终路径渲染）。 */
@@ -45,6 +47,10 @@ final class NewVaultDialog extends JDialog {
     private final JPanel advancedPanel = new JPanel();
     private final JCheckBox standaloneCheck = new JCheckBox("独立仓库", false);
     private final KdfParamsPanel kdfPanel = new KdfParamsPanel();
+    private final JPasswordField pwField = new JPasswordField(20);
+    private final JPasswordField confirmField = new JPasswordField(20);
+    private final JLabel strengthLabel = new JLabel("", JLabel.LEFT);
+    private final JProgressBar strengthBar = new JProgressBar(0, 4);
     private final JLabel errorLabel = new JLabel("", JLabel.LEFT);
 
     private final Consumer<Request> onConfirm;
@@ -93,6 +99,18 @@ final class NewVaultDialog extends JDialog {
         form.add(finalPathLabel);
         form.add(Box.createVerticalStrut(10));
 
+        // 主密码（新建即在创建页设定，避免后续再弹解锁页）
+        form.add(labeledRow("主密码：", pwField));
+        form.add(Box.createVerticalStrut(4));
+        form.add(labeledRow("确认密码：", confirmField));
+        form.add(Box.createVerticalStrut(2));
+        strengthBar.setValue(0);
+        strengthBar.setStringPainted(false);
+        strengthBar.setOpaque(false);
+        form.add(strengthLabel);
+        form.add(strengthBar);
+        form.add(Box.createVerticalStrut(10));
+
         buildAdvanced();
         form.add(advancedPanel);
         form.add(Box.createVerticalStrut(8));
@@ -108,6 +126,14 @@ final class NewVaultDialog extends JDialog {
         };
         nameField.getDocument().addDocumentListener(refresh);
         locationField.getDocument().addDocumentListener(refresh);
+        // 主密码实时强度提示（zxcvbn，与 KeePassXC 同源）
+        DocumentListener strengthRefresh = new DocumentListener() {
+            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(); }
+            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(); }
+            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(); }
+        };
+        pwField.getDocument().addDocumentListener(strengthRefresh);
+        confirmField.getDocument().addDocumentListener(strengthRefresh);
         return form;
     }
 
@@ -182,10 +208,23 @@ final class NewVaultDialog extends JDialog {
             errorLabel.setText("目标目录已存在：" + target);
             return;
         }
+        char[] pw = pwField.getPassword();
+        if (pw.length == 0) {
+            errorLabel.setText("请输入主密码");
+            return;
+        }
+        char[] confirm = confirmField.getPassword();
+        if (!java.util.Arrays.equals(pw, confirm)) {
+            errorLabel.setText("两次输入的密码不一致");
+            return;
+        }
+        char[] pwCopy = pw.clone();
+        java.util.Arrays.fill(pw, (char) 0);
+        java.util.Arrays.fill(confirm, (char) 0);
         errorLabel.setText("");
         int[] kdf = kdfPanel.resolve();
         dispose();
-        onConfirm.accept(new Request(target, standaloneCheck.isSelected(), kdf));
+        onConfirm.accept(new Request(target, standaloneCheck.isSelected(), kdf, pwCopy));
     }
 
     /** 有效仓库名：用户输入为空时回退到占位名「新密码仓库」。 */
@@ -235,6 +274,57 @@ final class NewVaultDialog extends JDialog {
         row.add(new JLabel(label), BorderLayout.WEST);
         row.add(field, BorderLayout.CENTER);
         return row;
+    }
+
+    /** 实时刷新主密码强度提示（标签 + 0–4 档进度条），并就地提示两次输入是否一致。 */
+    private void refreshStrength() {
+        char[] pw = pwField.getPassword();
+        char[] confirm = confirmField.getPassword();
+        if (pw.length == 0) {
+            strengthLabel.setText("");
+            strengthBar.setValue(0);
+            strengthBar.setForeground(Color.GRAY);
+            return;
+        }
+        PasswordStrength s = PasswordStrength.evaluate(new String(pw), null);
+        int value = switch (s.quality()) {
+            case BAD, POOR -> 1;
+            case WEAK -> 2;
+            case GOOD -> 3;
+            case EXCELLENT -> 4;
+        };
+        strengthBar.setValue(value);
+        strengthLabel.setText(strengthText(s));
+        strengthLabel.setForeground(strengthColor(s.quality()));
+        if (confirm.length > 0 && !java.util.Arrays.equals(pw, confirm)) {
+            strengthLabel.setText("两次输入的密码不一致");
+            strengthLabel.setForeground(Color.RED.darker());
+        }
+    }
+
+    private static String strengthText(PasswordStrength s) {
+        String level = switch (s.quality()) {
+            case BAD -> "极差";
+            case POOR -> "弱";
+            case WEAK -> "中";
+            case GOOD -> "良";
+            case EXCELLENT -> "优";
+        };
+        StringBuilder sb = new StringBuilder("强度：").append(level)
+                .append("（熵 ").append(String.format("%.1f", s.entropy())).append(" bits）");
+        if (!s.warning().isEmpty()) {
+            sb.append(" — ").append(s.warning());
+        }
+        return sb.toString();
+    }
+
+    private static Color strengthColor(PasswordStrength.Quality q) {
+        return switch (q) {
+            case BAD, POOR -> Color.RED.darker();
+            case WEAK -> Color.ORANGE.darker();
+            case GOOD -> Color.BLUE.darker();
+            case EXCELLENT -> new Color(0x2E, 0x7D, 0x32);
+        };
     }
 
     /**

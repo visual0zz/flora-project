@@ -50,6 +50,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Dialog.ModalityType;
 import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.LayoutManager;
@@ -103,10 +104,6 @@ public final class SanctumGui {
     private boolean standalone;
     /** 当前仓库数据根（解锁目标 / 锁定后直接回到该仓库解锁页）。 */
     private Path targetVaultRoot;
-    /** 当前解锁页是否对应"新建"（true）还是"打开"（false）：新建走 createAndUnlock，打开只 open+unlock 不自动新建。 */
-    private boolean unlockIsCreate;
-    /** 新建仓库对话框收集到的 KDF 参数（null = 默认档），由解锁页创建时消费一次后清空。 */
-    private int[] newVaultKdf;
     /** 垃圾桶视图（每次重建树时刷新；含三类异常节点 uuid 与「原位置」计算）。 */
     private com.flora.sanctum.model.TrashView trashView;
 
@@ -496,7 +493,6 @@ public final class SanctumGui {
             dataRoot = root;
         }
         config.addRecentVault(root.toAbsolutePath().toString());
-        unlockIsCreate = false;
         showUnlockPage(dataRoot);
     }
 
@@ -509,15 +505,64 @@ public final class SanctumGui {
                         ? com.flora.sanctum.app.bootstrap.RepoCreator.createStandalone(
                                 req.target(), configForStandalone())
                         : com.flora.sanctum.app.bootstrap.RepoCreator.createNormal(req.target());
-                newVaultKdf = req.kdf();
-                unlockIsCreate = true;
-                showUnlockPage(root);
+                char[] pw = req.password();
+                int[] kdf = req.kdf();
+                createAndUnlockVault(root, pw, kdf);
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(frame, "创建失败：" + ex.getMessage(), "错误",
                         JOptionPane.ERROR_MESSAGE);
             }
         });
         dlg.setVisible(true);
+    }
+
+    /**
+     * 新建链路：仓库目录已就绪后，直接用「新建仓库」页设定的主密码创建并解锁（不再弹解锁页）。
+     * Argon2 派生耗时，放后台线程执行；期间模态进度框显示转圈，成功直达编辑页，失败回历史列表。
+     */
+    private void createAndUnlockVault(Path root, char[] pw, int[] kdf) {
+        JDialog progress = new JDialog(frame, "正在创建仓库", ModalityType.APPLICATION_MODAL);
+        JPanel pp = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 14));
+        pp.setOpaque(false);
+        SpinnerIcon spinner = new SpinnerIcon(26);
+        JLabel spinLabel = new JLabel(spinner);
+        javax.swing.Timer timer = new javax.swing.Timer(50, e -> {
+            spinner.angle += 24;
+            spinLabel.repaint();
+        });
+        pp.add(spinLabel);
+        pp.add(new JLabel("正在创建并解锁…"));
+        progress.setContentPane(pp);
+        progress.setSize(220, 70);
+        progress.setLocationRelativeTo(frame);
+        progress.setUndecorated(true);
+
+        java.util.concurrent.CompletableFuture<Sanctum> fut =
+                java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                    char[] copy = pw.clone();
+                    java.util.Arrays.fill(pw, (char) 0);
+                    try {
+                        return kdf == null
+                                ? Sanctum.createAndUnlock(root, copy)
+                                : Sanctum.createAndUnlock(root, copy, kdf[0], kdf[1], kdf[2]);
+                    } finally {
+                        java.util.Arrays.fill(copy, (char) 0);
+                    }
+                });
+        fut.whenComplete((s, ex) -> SwingUtilities.invokeLater(() -> {
+            timer.stop();
+            progress.dispose();
+            if (ex != null) {
+                Throwable cause = (ex instanceof java.util.concurrent.CompletionException) ? ex.getCause() : ex;
+                JOptionPane.showMessageDialog(frame, "创建失败：" + (cause == null ? "未知错误" : cause.getMessage()),
+                        "错误", JOptionPane.ERROR_MESSAGE);
+                showHistoryPage();
+            } else {
+                onUnlocked(root, s);
+            }
+        }));
+        timer.start();
+        progress.setVisible(true);
     }
 
     private void doImportVault() {
@@ -644,11 +689,10 @@ public final class SanctumGui {
             @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(pwField, strengthLabel, strengthBar); }
         });
 
-        // 新建库的 Argon2id 强度已在「新建仓库」对话框的「更多设置」中收集（见 NewVaultDialog），
-        // 此处不再重复显示；KDF 参数由 newVaultKdf 携带到 doUnlock。
+        // 新建库的 Argon2id 强度已在「新建仓库」对话框中收集（见 NewVaultDialog），此处不再重复。
 
-        // 解锁 / 创建按钮（与"回到历史列表"等宽居中；转圈以 JLayer 画在按钮右内侧，不占排版）
-        JButton unlockBtn = new JButton(unlockIsCreate ? "创建并解锁" : "解锁");
+        // 解锁按钮（与"回到历史列表"等宽居中；转圈以 JLayer 画在按钮右内侧，不占排版）
+        JButton unlockBtn = new JButton("解锁");
         unlockBtn.setPreferredSize(new Dimension(170, 32));
         SpinnerIcon spinner = new SpinnerIcon(26);
         javax.swing.JLayer<JButton> unlockLayer = new javax.swing.JLayer<>(unlockBtn,
@@ -765,9 +809,6 @@ public final class SanctumGui {
         }
         char[] pwCopy = pw.clone();
         java.util.Arrays.fill(pw, (char) 0);
-        // 新库时 KDF 参数来自「新建仓库」对话框（newVaultKdf，null = 默认档）；消费一次后清空
-        int[] kdf = unlockIsCreate ? newVaultKdf : null;
-        newVaultKdf = null;
         // 转圈（JLayer 画在按钮右内侧）+ 禁用控件
         error.setText("");
         unlockLayer.putClientProperty("spinner.visible", Boolean.TRUE);
@@ -780,22 +821,12 @@ public final class SanctumGui {
             final Sanctum[] result = new Sanctum[1];
             final String[] failMsg = new String[1];
             try {
-                if (unlockIsCreate) {
-                    // 新建：显式创建并解锁（KDF 参数自定义或默认档）
-                    if (kdf == null) {
-                        result[0] = Sanctum.createAndUnlock(root, pwCopy);
-                    } else {
-                        result[0] = Sanctum.createAndUnlock(root, pwCopy,
-                                kdf[0], kdf[1], kdf[2]);
-                    }
+                // 解锁页仅用于打开已存在的仓库：失败不自动新建
+                if (!Files.exists(root)) {
+                    failMsg[0] = "仓库不存在或已被删除";
                 } else {
-                    // 打开：仓库必须已存在，失败不自动新建
-                    if (!Files.exists(root)) {
-                        failMsg[0] = "仓库不存在或已被删除";
-                    } else {
-                        result[0] = Sanctum.open(root);
-                        result[0].unlock(pwCopy);
-                    }
+                    result[0] = Sanctum.open(root);
+                    result[0].unlock(pwCopy);
                 }
             } catch (com.flora.sanctum.model.vault.VaultUnlockException ex) {
                 // 解锁失败分阶段报告（魔数/结构、manifest MAC、根对象缺失/解密等），给针对性提示
@@ -817,20 +848,28 @@ public final class SanctumGui {
                     error.setText(msg);
                     return;
                 }
-                sanctum = s;
-                unlockedVaultPath = root.toAbsolutePath().toString();
-                config.addRecentVault(unlockedVaultPath);
-                config.setLastVault(unlockedVaultPath);
-                frame.setTitle("flora-sanctum(" + root.getFileName() + ")");
-                current.set(sanctum);
-                // 注入同步服务并订阅模型变更总线：此后所有模型改动经 markDirty() 统一刷新界面
-                syncService = new com.flora.sanctum.app.sync.SyncService(sanctum.root());
-                modelBus.subscribe(this::refreshAll);
-                applyTheme(sanctum.config().theme()); // 解锁后应用仓库主题
-                showEditPage();
-                startAutoLockTimer();
+                onUnlocked(root, s);
             });
         });
+    }
+
+    /**
+     * 解锁/创建成功后统一收尾：注入同步服务、订阅模型变更、应用仓库主题、进入主界面并启动自动锁定。
+     * 打开已存在仓库（解锁页）与新建后直接解锁共用同一逻辑。
+     */
+    private void onUnlocked(Path root, Sanctum s) {
+        sanctum = s;
+        unlockedVaultPath = root.toAbsolutePath().toString();
+        config.addRecentVault(unlockedVaultPath);
+        config.setLastVault(unlockedVaultPath);
+        frame.setTitle("flora-sanctum(" + root.getFileName() + ")");
+        current.set(sanctum);
+        // 注入同步服务并订阅模型变更总线：此后所有模型改动经 markDirty() 统一刷新界面
+        syncService = new com.flora.sanctum.app.sync.SyncService(sanctum.root());
+        modelBus.subscribe(this::refreshAll);
+        applyTheme(sanctum.config().theme()); // 解锁后应用仓库主题
+        showEditPage();
+        startAutoLockTimer();
     }
 
     // ================= 自动锁定 =================
@@ -864,7 +903,6 @@ public final class SanctumGui {
         frame.setTitle("flora-sanctum");
         // 锁定后直接回到该仓库的解锁页（不退回历史列表）；独立形态同样。此时是"打开"语义（库已存在）
         if (targetVaultRoot != null) {
-            unlockIsCreate = false;
             showUnlockPage(targetVaultRoot);
         } else {
             showHistoryPage();

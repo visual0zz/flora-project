@@ -23,6 +23,7 @@ import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -2056,15 +2057,12 @@ public final class SanctumGui {
     private String currentWindowKey;
     // ---- 设置页三栏 ----
     private JTree settingsTree;
-    private JList<String> settingsEntryList;
-    private DefaultListModel<String> settingsEntryModel;
-    private final List<String> settingsEntryIds = new ArrayList<>();
-    private final List<String> settingsEntryKeys = new ArrayList<>();
-    private final List<SettingsKind> settingsEntryKinds = new ArrayList<>();
+    private JList<SettingsModel.SettingsEntry> settingsEntryList;
+    private DefaultListModel<SettingsModel.SettingsEntry> settingsEntryModel;
     private JPanel settingsEditPanel;
-    private javax.swing.JComboBox<String> settingsThemeCombo;
-    private JTextField settingsLockField;
-    private JTextField settingsClipField;
+    private SettingsModel.SettingsContext settingsCtx;
+    private SettingsModel.Setting renderedSetting;
+    private JComponent renderedControl;
     private JButton newEntryBtn;
     private JButton newGroupBtn;
     private JButton delBtn;
@@ -2540,7 +2538,6 @@ public final class SanctumGui {
             box.add(p, BorderLayout.SOUTH);
             return box;
         }
-        com.flora.sanctum.model.LibraryConfig lc = sanctum.config();
 
         // 顶部按钮栏（模仿主界面工具栏：略深底 + 分割线），图标按钮"确定 / 返回"
         JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 6));
@@ -2568,23 +2565,24 @@ public final class SanctumGui {
         settingsTree.setRowHeight(36);
         settingsTree.setCellRenderer(new SettingsTreeRenderer());
         DefaultMutableTreeNode top = new DefaultMutableTreeNode("设置");
-        DefaultMutableTreeNode setNode = new DefaultMutableTreeNode("仓库设置");
-        setNode.setUserObject(ViewNodeType.SETTINGS);
-        DefaultMutableTreeNode globalNode = new DefaultMutableTreeNode("全局设置");
-        globalNode.setUserObject(ViewNodeType.GLOBAL);
-        DefaultMutableTreeNode iconNode = new DefaultMutableTreeNode("图标");
-        iconNode.setUserObject(ViewNodeType.ICON);
-        DefaultMutableTreeNode sshNode = new DefaultMutableTreeNode("SSH 密钥");
-        sshNode.setUserObject(ViewNodeType.SSH_KEY);
-        DefaultMutableTreeNode remoteNode = new DefaultMutableTreeNode("远程");
-        remoteNode.setUserObject(ViewNodeType.REMOTE);
+        DefaultMutableTreeNode globalNode = new DefaultMutableTreeNode(
+                new SettingsModel.SettingsCategory(SettingsModel.SettingsCategory.Kind.GLOBAL, "全局设置"));
+        DefaultMutableTreeNode vaultNode = new DefaultMutableTreeNode(
+                new SettingsModel.SettingsCategory(SettingsModel.SettingsCategory.Kind.VAULT, "仓库设置"));
+        DefaultMutableTreeNode iconNode = new DefaultMutableTreeNode(
+                new SettingsModel.SettingsCategory(SettingsModel.SettingsCategory.Kind.ICON, "图标"));
+        DefaultMutableTreeNode sshNode = new DefaultMutableTreeNode(
+                new SettingsModel.SettingsCategory(SettingsModel.SettingsCategory.Kind.SSH_KEY, "SSH 密钥"));
+        DefaultMutableTreeNode remoteNode = new DefaultMutableTreeNode(
+                new SettingsModel.SettingsCategory(SettingsModel.SettingsCategory.Kind.REMOTE, "远程"));
         top.add(globalNode);
-        top.add(setNode);
+        top.add(vaultNode);
         top.add(iconNode);
         top.add(sshNode);
         top.add(remoteNode);
         settingsTree.setModel(new DefaultTreeModel(top));
         settingsTree.addTreeSelectionListener(e -> refreshSettingsEntries());
+
         JPanel left = new JPanel(new BorderLayout());
         left.setOpaque(true);
         left.setBackground(UiTheme.PAPER_LIGHT);
@@ -2631,8 +2629,7 @@ public final class SanctumGui {
         mainSplit.setOpaque(false);
         box.add(mainSplit, BorderLayout.CENTER);
 
-        // 默认选中"设置" root
-        // 默认选中"全局配置" root（含界面主题）
+        // 默认选中"全局设置" root（含界面主题）
         settingsTree.setSelectionPath(new javax.swing.tree.TreePath(new Object[]{top, globalNode}));
 
         okBtn.addActionListener(e -> {
@@ -2644,109 +2641,110 @@ public final class SanctumGui {
         return box;
     }
 
-    /** 设置页中栏刷新：按左栏选中的 root 列出条目。 */
+    /** 设置页中栏刷新：按左栏选中的区段列出条目（SettingEntry / ObjectEntry）。 */
     private void refreshSettingsEntries() {
         settingsEntryModel.clear();
-        settingsEntryIds.clear();
-        settingsEntryKeys.clear();
-        settingsEntryKinds.clear();
+        renderedSetting = null;
+        renderedControl = null;
+        // 每次刷新重建上下文，使"独立运行"状态实时反映磁盘（配置/删除后立即生效）
+        Path repoRoot = currentRepoRoot();
+        boolean standalone = repoRoot != null
+                && java.nio.file.Files.isRegularFile(
+                        repoRoot.resolve(com.flora.sanctum.app.bootstrap.VaultDetector.standaloneFileName()));
+        settingsCtx = new SettingsModel.SettingsContext(config, sanctum.config(), repoRoot, standalone,
+                this::upgradeStandalone, this::downgradeStandalone);
         Object sel = settingsTree.getLastSelectedPathComponent();
-        if (!(sel instanceof DefaultMutableTreeNode node)) {
+        if (!(sel instanceof DefaultMutableTreeNode node)
+                || !(node.getUserObject() instanceof SettingsModel.SettingsCategory cat)) {
             return;
         }
-        Object uo = node.getUserObject();
-        // 全局配置（存全局配置文件）：界面主题等
-        if (uo == ViewNodeType.GLOBAL) {
-            addSettingsEntry("主题", "theme");
-            settingsEntryList.setSelectedIndex(0);
-            return;
-        }
-        if (uo == ViewNodeType.SETTINGS) {
-            addSettingsEntry("自动锁定", "lock");
-            addSettingsEntry("剪贴板清空", "clip");
-            addSettingsEntry("独立运行", "standalone");
-            settingsEntryList.setSelectedIndex(0);
-        } else if (uo instanceof ViewNodeType tag) {
-            switch (tag) {
-                case ICON -> {
-                    // 内置图标（不可删除）
-                    for (String name : SvgIcon.libraryIcons()) {
-                        settingsEntryModel.addElement("内置 · " + name);
-                        settingsEntryIds.add(BUILTIN_PREFIX + name);
-                        settingsEntryKinds.add(SettingsKind.ICON);
-                    }
-                    // 用户导入图标
-                    for (IconNode icon : sanctum.iconTree().icons()) {
-                        settingsEntryModel.addElement(iconLabel(icon));
-                        settingsEntryIds.add(icon.uuid().toString());
-                        settingsEntryKinds.add(SettingsKind.ICON);
-                    }
+        switch (cat.kind()) {
+            case GLOBAL -> settingsEntryModel.addElement(
+                    new SettingsModel.SettingEntry(SettingsModel.ThemeSetting.INSTANCE));
+            case VAULT -> {
+                settingsEntryModel.addElement(
+                        new SettingsModel.SettingEntry(SettingsModel.LockTimeoutSetting.INSTANCE));
+                settingsEntryModel.addElement(
+                        new SettingsModel.SettingEntry(SettingsModel.ClipboardClearSetting.INSTANCE));
+                settingsEntryModel.addElement(
+                        new SettingsModel.SettingEntry(SettingsModel.StandaloneSetting.INSTANCE));
+            }
+            case ICON -> {
+                // 内置图标（不可删除）
+                for (String name : SvgIcon.libraryIcons()) {
+                    settingsEntryModel.addElement(
+                            new SettingsModel.ObjectEntry(BUILTIN_PREFIX + name, "内置 · " + name,
+                                    SettingsModel.SettingsCategory.Kind.ICON));
                 }
-                case SSH_KEY -> {
-                    for (SshKeyNode key : sanctum.sshKeyTree().keys()) {
-                        settingsEntryModel.addElement(key.name());
-                        settingsEntryIds.add(key.uuid().toString());
-                        settingsEntryKinds.add(SettingsKind.SSH_KEY);
-                    }
-                }
-                case REMOTE -> {
-                    for (RemoteNode r : sanctum.remoteTree().remotes()) {
-                        settingsEntryModel.addElement(r.name());
-                        settingsEntryIds.add(r.uuid().toString());
-                        settingsEntryKinds.add(SettingsKind.REMOTE);
-                    }
-                }
-                default -> {
+                // 用户导入图标
+                for (IconNode icon : sanctum.iconTree().icons()) {
+                    settingsEntryModel.addElement(
+                            new SettingsModel.ObjectEntry(icon.uuid().toString(), iconLabel(icon),
+                                    SettingsModel.SettingsCategory.Kind.ICON));
                 }
             }
-            settingsEntryList.setSelectedIndex(settingsEntryModel.size() > 0 ? 0 : -1);
+            case SSH_KEY -> {
+                for (SshKeyNode key : sanctum.sshKeyTree().keys()) {
+                    settingsEntryModel.addElement(
+                            new SettingsModel.ObjectEntry(key.uuid().toString(), key.name(),
+                                    SettingsModel.SettingsCategory.Kind.SSH_KEY));
+                }
+            }
+            case REMOTE -> {
+                for (RemoteNode r : sanctum.remoteTree().remotes()) {
+                    settingsEntryModel.addElement(
+                            new SettingsModel.ObjectEntry(r.uuid().toString(), r.name(),
+                                    SettingsModel.SettingsCategory.Kind.REMOTE));
+                }
+            }
         }
+        settingsEntryList.setSelectedIndex(settingsEntryModel.size() > 0 ? 0 : -1);
+        showSettingsSelection();
     }
 
-    private void addSettingsEntry(String name, String key) {
-        settingsEntryModel.addElement(name);
-        settingsEntryKeys.add(key);
-        settingsEntryKinds.add(SettingsKind.SETTING);
-        settingsEntryIds.add(null);
-    }
-
-    /** 设置页右栏渲染：按中栏选中条目显示编辑内容。 */
+    /** 设置页右栏渲染：按中栏选中条目显示编辑内容（SettingEntry 渲染控件、ObjectEntry 渲染仓库对象）。 */
     private void showSettingsSelection() {
         int idx = settingsEntryList.getSelectedIndex();
         settingsEditPanel.removeAll();
-        if (idx >= 0 && idx < settingsEntryKinds.size()) {
-            SettingsKind kind = settingsEntryKinds.get(idx);
-            String id = settingsEntryIds.get(idx);
-            switch (kind) {
-                case SETTING -> renderSettingsItem(settingsEntryKeys.get(idx));
-                case ICON -> {
-                    renderSettingsIcon(Ref.fromLegacyId(id), settingsEditPanel);
-                    addSettingsActionBtn("导入图片", this::doImportImageAndRefresh);
-                    addSettingsActionBtn("删除图标", () -> {
-                        if (isBuiltinIcon(id)) {
-                            JOptionPane.showMessageDialog(frame, "预制图标不能删除", "提示",
-                                    JOptionPane.INFORMATION_MESSAGE);
-                            return;
-                        }
-                        try {
-                            IconNode node = sanctum.iconTree().find(UUID.fromString(id));
-                            if (node != null) {
-                                node.delete();
-                                refreshSettingsEntries();
-                                statusLabel.setText("已删除图标");
+        renderedSetting = null;
+        renderedControl = null;
+        if (idx >= 0 && idx < settingsEntryModel.size()) {
+            SettingsModel.SettingsEntry entry = settingsEntryModel.getElementAt(idx);
+            if (entry instanceof SettingsModel.SettingEntry se) {
+                renderSetting(se.setting());
+            } else if (entry instanceof SettingsModel.ObjectEntry oe) {
+                switch (oe.kind()) {
+                    case ICON -> {
+                        renderSettingsIcon(Ref.fromLegacyId(oe.id()), settingsEditPanel);
+                        addSettingsActionBtn("导入图片", this::doImportImageAndRefresh);
+                        addSettingsActionBtn("删除图标", () -> {
+                            if (isBuiltinIcon(oe.id())) {
+                                JOptionPane.showMessageDialog(frame, "预制图标不能删除", "提示",
+                                        JOptionPane.INFORMATION_MESSAGE);
+                                return;
                             }
-                        } catch (Exception ex) {
-                            statusLabel.setText("删除失败");
-                        }
-                    });
-                }
-                case SSH_KEY -> {
-                    renderSshKeyPanel(UUID.fromString(id), settingsEditPanel);
-                    addSettingsActionBtn("添加 SSH 密钥", this::addSshKeyAndRefresh);
-                }
-                case REMOTE -> {
-                    renderRemotePanel(UUID.fromString(id), settingsEditPanel);
-                    addSettingsActionBtn("添加远程", this::addRemoteAndRefresh);
+                            try {
+                                IconNode node = sanctum.iconTree().find(UUID.fromString(oe.id()));
+                                if (node != null) {
+                                    node.delete();
+                                    refreshSettingsEntries();
+                                    statusLabel.setText("已删除图标");
+                                }
+                            } catch (Exception ex) {
+                                statusLabel.setText("删除失败");
+                            }
+                        });
+                    }
+                    case SSH_KEY -> {
+                        renderSshKeyPanel(UUID.fromString(oe.id()), settingsEditPanel);
+                        addSettingsActionBtn("添加 SSH 密钥", this::addSshKeyAndRefresh);
+                    }
+                    case REMOTE -> {
+                        renderRemotePanel(UUID.fromString(oe.id()), settingsEditPanel);
+                        addSettingsActionBtn("添加远程", this::addRemoteAndRefresh);
+                    }
+                    // GLOBAL / VAULT 仅产生 SettingEntry，不会进入此分支
+                    case GLOBAL, VAULT -> { }
                 }
             }
         }
@@ -2754,51 +2752,14 @@ public final class SanctumGui {
         settingsEditPanel.repaint();
     }
 
-    /** 渲染单个设置项（主题 / 自动锁定 / 剪贴板清空）的编辑控件。 */
-    private void renderSettingsItem(String key) {
-        com.flora.sanctum.model.LibraryConfig lc = sanctum.config();
-        if ("theme".equals(key)) {
-            // 主题存全局配置文件（UserConfig：应用级 ~/.flora-sanctum/config.json 或独立仓库级 standalone.json）
-            settingsThemeCombo = new javax.swing.JComboBox<>(new String[]{"light", "dark", "stupid"});
-            settingsThemeCombo.setSelectedItem(config.theme());
-            settingsThemeCombo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-            settingsEditPanel.add(new JLabel("界面主题"));
-            settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
-            settingsEditPanel.add(settingsThemeCombo);
-        } else if ("lock".equals(key)) {
-            settingsLockField = new JTextField(String.valueOf(lc.lockTimeoutSeconds()));
-            settingsLockField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-            settingsEditPanel.add(new JLabel("自动锁定（秒）"));
-            settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
-            settingsEditPanel.add(settingsLockField);
-        } else if ("clip".equals(key)) {
-            settingsClipField = new JTextField(String.valueOf(lc.clipboardClearSeconds()));
-            settingsClipField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-            settingsEditPanel.add(new JLabel("剪贴板清空（秒）"));
-            settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
-            settingsEditPanel.add(settingsClipField);
-        } else if ("standalone".equals(key)) {
-            renderStandaloneItem();
-        }
-    }
-
-    /** 设置页"独立运行"项：展示当前形态并提供 配置/删除 独立运行操作。 */
-    private void renderStandaloneItem() {
-        Path root = currentRepoRoot();
-        boolean isStandalone = root != null
-                && java.nio.file.Files.isRegularFile(
-                        root.resolve(com.flora.sanctum.app.bootstrap.VaultDetector.standaloneFileName()));
-        settingsEditPanel.add(new JLabel("运行形态"));
+    /** 渲染一条键值设置：标题 + 由 {@link SettingsModel.Setting#createControl} 构建的预填控件。 */
+    private void renderSetting(SettingsModel.Setting setting) {
+        renderedSetting = setting;
+        settingsEditPanel.add(new JLabel(setting.label()));
         settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
-        JLabel state = new JLabel(isStandalone ? "当前：独立运行（自带 lib/ 与启动脚本）"
-                : "当前：普通仓库（依赖本应用打开）");
-        state.setHorizontalAlignment(SwingConstants.LEFT);
-        settingsEditPanel.add(state);
-        if (isStandalone) {
-            addSettingsActionBtn("删除独立运行", this::downgradeStandalone);
-        } else {
-            addSettingsActionBtn("配置独立运行", this::upgradeStandalone);
-        }
+        JComponent control = setting.createControl(settingsCtx);
+        renderedControl = control;
+        settingsEditPanel.add(control);
     }
 
     /** 把当前普通仓库升级为独立仓库（新增 standalone.json / lib/ / 启动脚本，数据不动）。 */
@@ -2867,32 +2828,21 @@ public final class SanctumGui {
     }
 
     /** 保存已编辑的设置项到仓库。 */
-    /** 保存已编辑的设置项到仓库；数字字段非法时提示并返回 false（不保存、不关闭）。 */
+    /** 保存已渲染的设置项；{@link SettingsModel.Setting#saveValue} 返回非空错误时提示并返回 false（不关闭）。 */
     private boolean saveSettingsItems() {
-        com.flora.sanctum.model.LibraryConfig lc = sanctum.config();
-        if (settingsThemeCombo != null) {
-            config.setTheme((String) settingsThemeCombo.getSelectedItem());
-        }
-        if (settingsLockField != null) {
-            try {
-                lc.setLockTimeoutSeconds(Integer.parseInt(settingsLockField.getText()));
-            } catch (NumberFormatException e) {
-                showToast("自动锁定须为整数秒");
+        if (renderedSetting != null && renderedControl != null) {
+            String err = renderedSetting.saveValue(settingsCtx, renderedControl);
+            if (err != null) {
+                showToast(err);
                 return false;
             }
-        }
-        if (settingsClipField != null) {
-            try {
-                lc.setClipboardClearSeconds(Integer.parseInt(settingsClipField.getText()));
-            } catch (NumberFormatException e) {
-                showToast("剪贴板清空须为整数秒");
-                return false;
+            // 主题属 USER 存储，生效即时应用
+            if (renderedSetting.store() == SettingsModel.SettingStore.USER) {
+                applyTheme(settingsCtx.user().theme());
             }
         }
-        applyTheme(config.theme());
-        settingsThemeCombo = null;
-        settingsLockField = null;
-        settingsClipField = null;
+        renderedSetting = null;
+        renderedControl = null;
         return true;
     }
 
@@ -2978,9 +2928,6 @@ public final class SanctumGui {
     }
 
     /** 条目列表渲染器：文件夹图标 + 锁图标，按列表项类型区分。 */
-    /** 设置页中栏条目种类。 */
-    private enum SettingsKind { SETTING, ICON, SSH_KEY, REMOTE }
-
     private final class EntryListRenderer extends javax.swing.DefaultListCellRenderer {
         @Override
         public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index,

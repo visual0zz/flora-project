@@ -1,14 +1,12 @@
 package com.flora.sanctum.app.ui;
 
-import com.flora.sanctum.model.ViewNodeType;
-
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
 
 /**
- * 设置页左栏渲染器：root 显示名（全局设置/仓库设置/图标/SSH 密钥/远程），无字符图标。从 {@code SanctumGui}
- * 抽出为独立类，因其仅依赖 {@link ViewNodeType} 与节点 userObject，不依赖实例状态。
+ * 设置页左栏渲染器：区段显示名（全局设置/仓库设置/图标/SSH 密钥/远程），无字符图标。从 {@code SanctumGui}
+ * 抽出为独立类，因其仅依赖区段节点 userObject，不依赖实例状态。
  */
 final class SettingsTreeRenderer extends DefaultTreeCellRenderer {
     @Override
@@ -23,16 +21,13 @@ final class SettingsTreeRenderer extends DefaultTreeCellRenderer {
     private static String rootName(Object value) {
         if (value instanceof DefaultMutableTreeNode node) {
             Object uo = node.getUserObject();
-            if (uo instanceof ViewNodeType tag) {
-                return switch (tag) {
-                    case GLOBAL -> "全局设置";
-                    case SETTINGS -> "仓库设置";
-                    case ICON -> "图标";
-                    case SSH_KEY -> "SSH 密钥";
-                    case REMOTE -> "远程";
-                    case PASSWORD -> "密码库";
-                    default -> "设置";
-                };
+            // 区段节点：显示名已随 SettingsCategory 一并携带
+            if (uo instanceof SettingsModel.SettingsCategory cat) {
+                return cat.label();
+            }
+            // 根节点："设置"
+            if (uo instanceof String s) {
+                return s;
             }
         }
         return "?";

@@ -95,10 +95,10 @@ final class NewVaultDialog extends JDialog {
         form.add(locRow);
         form.add(Box.createVerticalStrut(6));
 
-        // 实时最终路径提示（模仿 IDEA "Project will be created at"），水平居中
+        // 实时最终路径提示（模仿 IDEA "Project will be created at"）：占满宽度、文本靠左（随窗口拉伸）
         finalPathLabel.setForeground(new Color(0x8E, 0x91, 0x96));
-        finalPathLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        finalPathLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        finalPathLabel.setHorizontalAlignment(SwingConstants.LEFT);
+        finalPathLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         form.add(finalPathLabel);
         form.add(Box.createVerticalStrut(10));
 
@@ -159,11 +159,6 @@ final class NewVaultDialog extends JDialog {
         advancedPanel.add(Box.createVerticalStrut(8));
         kdfPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         advancedPanel.add(kdfPanel);
-
-        // BoxLayout 中 JPanel 默认 maximumSize 宽度无限会被拉伸到容器全宽；
-        // 限制高级框宽度 = 内容宽度，使其整体靠左（而非横跨整行）。
-        advancedPanel.setMaximumSize(new Dimension(
-                advancedPanel.getPreferredSize().width, Integer.MAX_VALUE));
     }
 
     /** 独立仓库说明：鼠标悬停于勾选框时展示。 */

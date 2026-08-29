@@ -18,7 +18,6 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -263,14 +262,12 @@ final class NewVaultDialog extends JDialog {
         }
     }
 
-    /** 默认位置：Windows 用「文档」，其它（Linux/macOS）用 home（~）。 */
+    /** 默认位置：Windows/macOS 用「文档」，Linux 用 home（~）。 */
     private static Path defaultLocation() {
         String os = System.getProperty("os.name", "").toLowerCase();
         Path home = Paths.get(System.getProperty("user.home"));
-        if (os.contains("win")) {
-            String docs = System.getProperty("user.home")
-                    + File.separator + "Documents";
-            Path d = Paths.get(docs);
+        if (os.contains("win") || os.contains("mac")) {
+            Path d = home.resolve("Documents");
             if (Files.isDirectory(d)) {
                 return d;
             }

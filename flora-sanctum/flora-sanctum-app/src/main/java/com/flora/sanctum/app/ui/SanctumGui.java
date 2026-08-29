@@ -2987,6 +2987,8 @@ public final class SanctumGui {
             super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
             EntryListItem item = value instanceof EntryListItem li ? li : null;
             StoredNodeType type = item == null ? null : item.type();
+            // 显式用 display 文本（record 默认 toString 是字段列表，不适合直接展示）
+            setText(item == null ? "" : item.display());
             // 条目/文件夹设置了图标则优先显示，否则默认 folder/entry
             Ref iconId = item == null ? null : item.iconRef();
             Icon custom = iconById(iconId, 24);

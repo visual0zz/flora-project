@@ -108,8 +108,11 @@ final class NewVaultDialog extends JDialog {
         form.add(labeledRow("确认密码：", confirmField));
         form.add(Box.createVerticalStrut(2));
         mismatchLabel.setForeground(Color.RED.darker());
-        form.add(strengthLabel);
-        form.add(mismatchLabel);
+        JPanel hintRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        hintRow.setOpaque(false);
+        hintRow.add(strengthLabel);
+        hintRow.add(mismatchLabel);
+        form.add(hintRow);
         form.add(Box.createVerticalStrut(10));
 
         buildAdvanced();

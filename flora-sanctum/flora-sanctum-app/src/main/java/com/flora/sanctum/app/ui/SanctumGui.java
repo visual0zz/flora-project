@@ -2766,6 +2766,7 @@ public final class SanctumGui {
         settingsTree.setRootVisible(false);
         settingsTree.setRowHeight(36);
         settingsTree.setCellRenderer(new SettingsTreeRenderer());
+        settingsTree.setBorder(new EmptyBorder(8, 10, 8, 10));
         DefaultMutableTreeNode top = new DefaultMutableTreeNode("设置");
         DefaultMutableTreeNode globalNode = new DefaultMutableTreeNode(
                 new SettingsModel.SettingsCategory(SettingsModel.SettingsCategory.Kind.GLOBAL, "全局设置"));
@@ -2920,23 +2921,20 @@ public final class SanctumGui {
                 switch (oe.kind()) {
                     case ICON -> {
                         renderSettingsIcon(Ref.fromLegacyId(oe.id()), settingsEditPanel);
-                        addSettingsActionBtn("删除图标", () -> {
-                            if (isBuiltinIcon(oe.id())) {
-                                JOptionPane.showMessageDialog(frame, "预制图标不能删除", "提示",
-                                        JOptionPane.INFORMATION_MESSAGE);
-                                return;
-                            }
-                            try {
-                                IconNode node = sanctum.iconTree().find(UUID.fromString(oe.id()));
-                                if (node != null) {
-                                    node.delete();
-                                    refreshSettingsEntries();
-                                    statusLabel.setText("已删除图标");
+                        if (!isBuiltinIcon(oe.id())) {
+                            addSettingsActionBtn("删除图标", () -> {
+                                try {
+                                    IconNode node = sanctum.iconTree().find(UUID.fromString(oe.id()));
+                                    if (node != null) {
+                                        node.delete();
+                                        refreshSettingsEntries();
+                                        statusLabel.setText("已删除图标");
+                                    }
+                                } catch (Exception ex) {
+                                    statusLabel.setText("删除失败");
                                 }
-                            } catch (Exception ex) {
-                                statusLabel.setText("删除失败");
-                            }
-                        });
+                            });
+                        }
                     }
                     case SSH_KEY -> {
                         renderSshKeyPanel(UUID.fromString(oe.id()), settingsEditPanel);

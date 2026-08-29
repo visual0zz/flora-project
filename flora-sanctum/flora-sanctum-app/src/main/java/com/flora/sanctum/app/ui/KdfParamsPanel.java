@@ -50,13 +50,13 @@ final class KdfParamsPanel extends JPanel {
         c.gridx = 0; c.gridy = 2; grid.add(new JLabel("并行度："), c);
         c.gridx = 1; grid.add(parallelismField, c);
 
-        add(grid, BorderLayout.WEST);
+        add(grid, BorderLayout.NORTH);
 
         hint = new JLabel("默认 " + Argon2KDF.DEFAULT_MEMORY_KIB + " KiB / "
                 + Argon2KDF.DEFAULT_ITERATIONS + " 轮 / " + Argon2KDF.DEFAULT_PARALLELISM
                 + " 线程；数值越大越安全也越慢");
         hint.setForeground(Color.GRAY);
-        add(hint, BorderLayout.WEST);
+        add(hint, BorderLayout.SOUTH);
     }
 
     private static JTextField numberField(int def) {

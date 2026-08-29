@@ -9,7 +9,6 @@ import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
-import javax.swing.JProgressBar;
 import javax.swing.JTextField;
 import javax.swing.Box;
 import javax.swing.SwingConstants;
@@ -36,7 +35,7 @@ import java.util.function.Consumer;
  */
 final class NewVaultDialog extends JDialog {
 
-    /** 收集结果：最终仓库目录、是否独立仓库、KDF 参数（null = 默认档）、主密码（明文 char[]，调用方消费后清零）。 */
+    /** 收集结果：最终仓库目录、是否独立仓库、KDF 参数（null = 默认档）、输入密码（明文 char[]，调用方消费后清零）。 */
     record Request(Path target, boolean standalone, int[] kdf, char[] password) {
     }
 
@@ -52,7 +51,7 @@ final class NewVaultDialog extends JDialog {
     private final JPasswordField pwField = new JPasswordField(20);
     private final JPasswordField confirmField = new JPasswordField(20);
     private final JLabel strengthLabel = new JLabel("", JLabel.LEFT);
-    private final JProgressBar strengthBar = new JProgressBar(0, 4);
+    private final JLabel mismatchLabel = new JLabel("", JLabel.LEFT);
     private final JLabel errorLabel = new JLabel("", JLabel.LEFT);
 
     private final Consumer<Request> onConfirm;
@@ -103,16 +102,14 @@ final class NewVaultDialog extends JDialog {
         form.add(finalPathLabel);
         form.add(Box.createVerticalStrut(10));
 
-        // 主密码（新建即在创建页设定，避免后续再弹解锁页）
-        form.add(labeledRow("主密码：", pwField));
+        // 输入密码（新建即在创建页设定，避免后续再弹解锁页）
+        form.add(labeledRow("输入密码：", pwField));
         form.add(Box.createVerticalStrut(4));
         form.add(labeledRow("确认密码：", confirmField));
         form.add(Box.createVerticalStrut(2));
-        strengthBar.setValue(0);
-        strengthBar.setStringPainted(false);
-        strengthBar.setOpaque(false);
+        mismatchLabel.setForeground(Color.RED.darker());
         form.add(strengthLabel);
-        form.add(strengthBar);
+        form.add(mismatchLabel);
         form.add(Box.createVerticalStrut(10));
 
         buildAdvanced();
@@ -130,7 +127,7 @@ final class NewVaultDialog extends JDialog {
         };
         nameField.getDocument().addDocumentListener(refresh);
         locationField.getDocument().addDocumentListener(refresh);
-        // 主密码实时强度提示（zxcvbn，与 KeePassXC 同源）
+        // 输入密码实时强度提示（zxcvbn，与 KeePassXC 同源）
         DocumentListener strengthRefresh = new DocumentListener() {
             @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(); }
             @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(); }
@@ -214,7 +211,7 @@ final class NewVaultDialog extends JDialog {
         }
         char[] pw = pwField.getPassword();
         if (pw.length == 0) {
-            errorLabel.setText("请输入主密码");
+            errorLabel.setText("请输入密码");
             return;
         }
         char[] confirm = confirmField.getPassword();
@@ -280,29 +277,24 @@ final class NewVaultDialog extends JDialog {
         return row;
     }
 
-    /** 实时刷新主密码强度提示（标签 + 0–4 档进度条），并就地提示两次输入是否一致。 */
+    /** 实时刷新输入密码强度提示（标签），并用独立标签就地提示两次输入是否一致（不遮盖强度）。 */
     private void refreshStrength() {
         char[] pw = pwField.getPassword();
         char[] confirm = confirmField.getPassword();
         if (pw.length == 0) {
             strengthLabel.setText("");
-            strengthBar.setValue(0);
-            strengthBar.setForeground(Color.GRAY);
+            mismatchLabel.setText("");
             return;
         }
         PasswordStrength s = PasswordStrength.evaluate(new String(pw), null);
-        int value = switch (s.quality()) {
-            case BAD, POOR -> 1;
-            case WEAK -> 2;
-            case GOOD -> 3;
-            case EXCELLENT -> 4;
-        };
-        strengthBar.setValue(value);
         strengthLabel.setText(strengthText(s));
         strengthLabel.setForeground(strengthColor(s.quality()));
+        // 密码不一致单独提示，与强度同时展示
         if (confirm.length > 0 && !java.util.Arrays.equals(pw, confirm)) {
-            strengthLabel.setText("两次输入的密码不一致");
-            strengthLabel.setForeground(Color.RED.darker());
+            mismatchLabel.setText("两次输入的密码不一致");
+            mismatchLabel.setForeground(Color.RED.darker());
+        } else {
+            mismatchLabel.setText("");
         }
     }
 

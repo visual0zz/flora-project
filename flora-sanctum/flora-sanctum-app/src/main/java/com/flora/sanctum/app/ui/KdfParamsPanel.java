@@ -66,12 +66,10 @@ final class KdfParamsPanel extends JPanel {
 
     /** 一行：标签 + 输入框（左对齐，不加 glue，避免内容被居中分配到右侧）。 */
     private static JPanel row(String label, JTextField f) {
-        JPanel r = new JPanel();
-        r.setLayout(new BoxLayout(r, BoxLayout.X_AXIS));
+        JPanel r = new JPanel(new BorderLayout(8, 0));
         r.setOpaque(false);
-        r.add(new JLabel(label));
-        r.add(Box.createHorizontalStrut(8));
-        r.add(f);
+        r.add(new JLabel(label), BorderLayout.WEST);
+        r.add(f, BorderLayout.CENTER);
         return r;
     }
 

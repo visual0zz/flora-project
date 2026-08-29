@@ -12,9 +12,11 @@ import javax.swing.JPasswordField;
 import javax.swing.JProgressBar;
 import javax.swing.JTextField;
 import javax.swing.Box;
+import javax.swing.SwingConstants;
 import javax.swing.event.DocumentListener;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
@@ -94,8 +96,10 @@ final class NewVaultDialog extends JDialog {
         form.add(locRow);
         form.add(Box.createVerticalStrut(6));
 
-        // 实时最终路径提示（模仿 IDEA "Project will be created at"）
+        // 实时最终路径提示（模仿 IDEA "Project will be created at"），水平居中
         finalPathLabel.setForeground(new Color(0x8E, 0x91, 0x96));
+        finalPathLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        finalPathLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         form.add(finalPathLabel);
         form.add(Box.createVerticalStrut(10));
 

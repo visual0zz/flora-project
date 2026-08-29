@@ -70,7 +70,7 @@ public final class ManifestStore {
         }
     }
 
-    /** 构造完整明文块（含异或混淆）：header + payload + mac。 */
+    /** 构造完整明文块：header + payload + mac（信封原始字节，无异或混淆）。 */
     public static byte[] buildBlock(UUID uuid, byte[] payload, String timestamp, byte[] macKey) {
         byte[] header = plaintextHeader(uuid);
         byte[] mac = computeMac(macKey, header, timestamp, payload);
@@ -78,13 +78,7 @@ public final class ManifestStore {
         System.arraycopy(header, 0, block, 0, header.length);
         System.arraycopy(payload, 0, block, header.length, payload.length);
         System.arraycopy(mac, 0, block, header.length + payload.length, mac.length);
-        SecureRandomSource rng = new SecureRandomSource();
-        byte xor = rng.nextByte();
-        byte[] out = new byte[block.length];
-        for (int i = 0; i < block.length; i++) {
-            out[i] = (byte) (block[i] ^ xor);
-        }
-        return out;
+        return block;
     }
 
     /** 从完整明文块提取负载（去头去尾 MAC）。 */

@@ -20,8 +20,7 @@ import java.util.UUID;
  * AAD = 块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文）‖ 整个信封头（magic‖version‖flags‖uuid‖nonce‖keyId），
  * GCM-SIV tag 全量认证。明文负载先 deflate 压缩再加密（降低冗余与长度暴露）。
  * 时间戳不存于负载 JSON，由块前缀 {@code timestamp:base58} 提供，解码时经参数传入（原文）以重建 AAD。
- * 落盘/读盘时，整个字节序列与每块随机 xorByte 逐字节异或；xorByte 不落盘，
- * 读取时从落盘首字节反推：{@code xorByte = bytes[0] ^ MAGIC[0]}。
+ * 落盘字节为信封原始字节（无额外异或混淆）。
  */
 public final class CipherCodec {
 
@@ -47,7 +46,7 @@ public final class CipherCodec {
     }
 
     /**
-     * 加密对象负载，返回含随机异或混淆的落盘块字节（含完整信封 + tag）。
+     * 加密对象负载，返回落盘块字节（信封原始字节，含完整信封 + tag）。
      * nonce 与 keyId 均在内部生成（nonce 随机；keyId 经 KeyIdDeriver 从 repoKeyIdSeed‖nonce 派生）。
      *
      * @param uuid      对象 UUID
@@ -83,17 +82,16 @@ public final class CipherCodec {
         System.arraycopy(header, 0, block, 0, header.length);
         System.arraycopy(encrypted, 0, block, header.length, encrypted.length);
 
-        return obfuscate(block);
+        return block;
     }
 
     /**
-     * 解码并解密落盘块（含随机异或混淆）。返回 [uuid, plaintext]。
+     * 解码并解密落盘块。返回 [uuid, plaintext]。
      *
-     * @param obfuscated 落盘块字节
-     * @param timestamp  块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文，重建 AAD 认证）
+     * @param block     落盘块字节（信封原始字节）
+     * @param timestamp 块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文，重建 AAD 认证）
      */
-    public DecodedBlock decode(byte[] obfuscated, String timestamp) {
-        byte[] block = deobfuscate(obfuscated);
+    public DecodedBlock decode(byte[] block, String timestamp) {
         if (block.length < Envelope.HEADER_LEN) {
             throw new IllegalArgumentException("block too short");
         }
@@ -141,27 +139,6 @@ public final class CipherCodec {
         byte[] keyId = new byte[Envelope.KEYID_LEN];
         System.arraycopy(hash, 0, keyId, 0, keyId.length);
         return keyId;
-    }
-
-    private byte[] obfuscate(byte[] block) {
-        byte xor = random.nextByte();
-        byte[] out = new byte[block.length];
-        for (int i = 0; i < block.length; i++) {
-            out[i] = (byte) (block[i] ^ xor);
-        }
-        return out;
-    }
-
-    private byte[] deobfuscate(byte[] in) {
-        if (in.length == 0) {
-            throw new IllegalArgumentException("empty");
-        }
-        byte xor = (byte) (in[0] ^ Envelope.MAGIC[0]);
-        byte[] out = new byte[in.length];
-        for (int i = 0; i < in.length; i++) {
-            out[i] = (byte) (in[i] ^ xor);
-        }
-        return out;
     }
 
     private static byte[] concat(byte[] a, byte[] b) {

@@ -6,8 +6,9 @@ import java.util.UUID;
 /**
  * 一个数据块（见设计 04b"块自描述"）。
  * <p>
- * 块 = base58 串，解码 + 解异或后是标准信封字节。存储层记录块的物理位置
+ * 块 = base58 串，解码后是标准信封字节（无额外异或混淆）。存储层记录块的物理位置
  * （文件 + 行号）与块级时间戳（落盘为 {@code timestamp:base58} 前缀）以支持定位与冲突仲裁。
+ * {@code masked}/{@code unmasked} 为同一信封原始字节（历史字段名，等价）。
  */
 public final class Block {
 

@@ -22,11 +22,11 @@ class CipherCodecTest {
         UUID uuid = UUID.randomUUID();
         byte[] plaintext = "微博 password 密码".getBytes(StandardCharsets.UTF_8);
 
-        byte[] obfuscated = codec.encode(uuid, plaintext, "42");
-        // 落盘字节不应以固定 magic 开头（异或混淆）
-        assertFalse(obfuscated[0] == Envelope.MAGIC[0] && obfuscated[1] == Envelope.MAGIC[1]);
+        byte[] block = codec.encode(uuid, plaintext, "42");
+        // 落盘块为信封原始字节，以固定 magic 开头（无异或混淆）
+        assertTrue(block[0] == Envelope.MAGIC[0] && block[1] == Envelope.MAGIC[1]);
 
-        CipherCodec.DecodedBlock decoded = codec.decode(obfuscated, "42");
+        CipherCodec.DecodedBlock decoded = codec.decode(block, "42");
         assertEquals(uuid, decoded.uuid);
         assertArrayEquals(plaintext, decoded.plaintext);
     }

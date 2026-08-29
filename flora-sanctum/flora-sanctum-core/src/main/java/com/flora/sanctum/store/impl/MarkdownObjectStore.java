@@ -65,11 +65,11 @@ public final class MarkdownObjectStore implements ObjectStore {
                 return null;
             }
             String timestamp = content.substring(0, colon);
-            byte[] obfuscated = Base58.decode(content.substring(colon + 1));
+            byte[] block = Base58.decode(content.substring(colon + 1));
             if (codec == null) {
-                return BlockHeader.deobfuscate(obfuscated);
+                return block;
             }
-            return codec.decode(obfuscated, timestamp);
+            return codec.decode(block, timestamp);
         } catch (Exception e) {
             throw new IllegalStateException("read failed: " + file, e);
         }
@@ -89,7 +89,7 @@ public final class MarkdownObjectStore implements ObjectStore {
             } catch (AtomicMoveNotSupportedException e) {
                 Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
             }
-            return new Block(file, 1, timestamp, toWrite, BlockHeader.deobfuscate(toWrite));
+            return new Block(file, 1, timestamp, toWrite, toWrite);
         } catch (IOException e) {
             throw new IllegalStateException("write failed: " + file, e);
         } finally {
@@ -149,11 +149,10 @@ public final class MarkdownObjectStore implements ObjectStore {
                 return;
             }
             byte[] bytes = Base58.decode(candidate);
-            byte[] deobfuscated = BlockHeader.deobfuscate(bytes);
-            if (!BlockHeader.isBlock(deobfuscated)) {
+            if (!BlockHeader.isBlock(bytes)) {
                 return;
             }
-            out.add(new Block(file, 1, ts, bytes, deobfuscated));
+            out.add(new Block(file, 1, ts, bytes, bytes));
         } catch (Exception ignore) {
             // 损坏/非本应用文件，跳过
         }

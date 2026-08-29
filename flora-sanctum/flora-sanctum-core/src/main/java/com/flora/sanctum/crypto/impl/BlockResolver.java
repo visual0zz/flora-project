@@ -39,12 +39,11 @@ public final class BlockResolver {
     /**
      * 解析一个密文块，经 keyId 路由定位父 DEK 并解密（见设计"keyId 防关联"）。
      *
-     * @param obfuscatedBlock 落盘块字节
-     * @param timestamp       块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文，重建 AAD）
+     * @param block     落盘块字节（信封原始字节）
+     * @param timestamp 块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文，重建 AAD）
      * @return 解码结果（含负载与所用父 DEK）；无法定位或候选 DEK 全部试解失败返回 {@code null}。
      */
-    public Decoded decodeKeyed(byte[] obfuscatedBlock, String timestamp) {
-        byte[] block = deobfuscate(obfuscatedBlock);
+    public Decoded decodeKeyed(byte[] block, String timestamp) {
         if (block.length < Envelope.HEADER_LEN) {
             throw new IllegalArgumentException("block too short");
         }
@@ -72,7 +71,7 @@ public final class BlockResolver {
             byte[] encKey = deriveEncKey(dek);
             CipherCodec codec = new CipherCodec(encKey, dek);
             try {
-                byte[] plaintext = codec.decode(obfuscatedBlock, timestamp).plaintext;
+                byte[] plaintext = codec.decode(block, timestamp).plaintext;
                 return new Decoded(plaintext, dek.clone());
             } catch (IllegalStateException e) {
                 // tag 验证失败 → 试下一个候选
@@ -82,14 +81,14 @@ public final class BlockResolver {
     }
 
     /**
-     * 解析一个密文块（含随机异或混淆的落盘字节）。
+     * 解析一个密文块。
      *
-     * @param obfuscatedBlock 落盘块字节
-     * @param timestamp       块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文，重建 AAD）
+     * @param block     落盘块字节（信封原始字节）
+     * @param timestamp 块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文，重建 AAD）
      * @return 解密负载；候选 DEK 全部试解失败或无法定位返回 {@code null}。
      */
-    public byte[] decode(byte[] obfuscatedBlock, String timestamp) {
-        Decoded d = decodeKeyed(obfuscatedBlock, timestamp);
+    public byte[] decode(byte[] block, String timestamp) {
+        Decoded d = decodeKeyed(block, timestamp);
         return d == null ? null : d.plaintext;
     }
 
@@ -99,17 +98,5 @@ public final class BlockResolver {
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
-    }
-
-    private static byte[] deobfuscate(byte[] in) {
-        if (in.length == 0) {
-            throw new IllegalArgumentException("empty");
-        }
-        byte xor = (byte) (in[0] ^ Envelope.MAGIC[0]);
-        byte[] out = new byte[in.length];
-        for (int i = 0; i < in.length; i++) {
-            out[i] = (byte) (in[i] ^ xor);
-        }
-        return out;
     }
 }

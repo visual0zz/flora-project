@@ -7,7 +7,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
 
 /**
- * 设置页左栏渲染器：root 显示名（设置/图标/SSH 密钥/远程），无字符图标。从 {@code SanctumGui}
+ * 设置页左栏渲染器：root 显示名（全局设置/仓库设置/图标/SSH 密钥/远程），无字符图标。从 {@code SanctumGui}
  * 抽出为独立类，因其仅依赖 {@link ViewNodeType} 与节点 userObject，不依赖实例状态。
  */
 final class SettingsTreeRenderer extends DefaultTreeCellRenderer {
@@ -25,15 +25,14 @@ final class SettingsTreeRenderer extends DefaultTreeCellRenderer {
             Object uo = node.getUserObject();
             if (uo instanceof ViewNodeType tag) {
                 return switch (tag) {
+                    case GLOBAL -> "全局设置";
+                    case SETTINGS -> "仓库设置";
                     case ICON -> "图标";
                     case SSH_KEY -> "SSH 密钥";
                     case REMOTE -> "远程";
                     case PASSWORD -> "密码库";
                     default -> "设置";
                 };
-            }
-            if (uo == ViewNodeType.SETTINGS) {
-                return "设置";
             }
         }
         return "?";

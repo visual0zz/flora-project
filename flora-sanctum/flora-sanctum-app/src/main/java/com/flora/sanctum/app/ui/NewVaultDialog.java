@@ -71,13 +71,19 @@ final class NewVaultDialog extends JDialog {
     }
 
     private JPanel buildForm() {
-        JPanel form = new JPanel();
-        form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
+        JPanel form = new JPanel(new BorderLayout());
         form.setBorder(BorderFactory.createEmptyBorder(14, 16, 6, 16));
         form.setOpaque(false);
 
-        form.add(labeledRow("名称：", nameField));
-        form.add(Box.createVerticalStrut(10));
+        // 全部行放进一个 content 面板，再整体钉在 BorderLayout.NORTH：
+        // NORTH 区域只取首选高度、永不参与 BoxLayout 式的权重分配/拉伸，多余高度由空白 CENTER 吸收。
+        // 这与 kdf 三行被钉在 BorderLayout.NORTH 后的行为一致，所有编辑框保持单行高度。
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setOpaque(false);
+
+        content.add(labeledRow("名称：", nameField));
+        content.add(Box.createVerticalStrut(10));
 
         JPanel locRow = new JPanel(new BorderLayout(8, 0));
         locRow.setOpaque(false);
@@ -89,34 +95,36 @@ final class NewVaultDialog extends JDialog {
         locFieldRow.add(locationField, BorderLayout.CENTER);
         locFieldRow.add(browseBtn, BorderLayout.EAST);
         locRow.add(locFieldRow, BorderLayout.CENTER);
-        form.add(locRow);
-        form.add(Box.createVerticalStrut(6));
+        content.add(locRow);
+        content.add(Box.createVerticalStrut(6));
 
         // 实时最终路径提示（模仿 IDEA "Project will be created at"）：占满宽度、文本靠左（随窗口拉伸）
         finalPathLabel.setForeground(new Color(0x8E, 0x91, 0x96));
         finalPathLabel.setHorizontalAlignment(SwingConstants.LEFT);
-        form.add(leftRow(finalPathLabel));
-        form.add(Box.createVerticalStrut(10));
+        content.add(leftRow(finalPathLabel));
+        content.add(Box.createVerticalStrut(10));
 
         // 输入密码（新建即在创建页设定，避免后续再弹解锁页）
-        form.add(labeledRow("输入密码：", pwField));
-        form.add(Box.createVerticalStrut(4));
-        form.add(labeledRow("确认密码：", confirmField));
-        form.add(Box.createVerticalStrut(2));
+        content.add(labeledRow("输入密码：", pwField));
+        content.add(Box.createVerticalStrut(4));
+        content.add(labeledRow("确认密码：", confirmField));
+        content.add(Box.createVerticalStrut(2));
         mismatchLabel.setForeground(Color.RED.darker());
         JPanel hintRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         hintRow.setOpaque(false);
         hintRow.add(strengthLabel);
         hintRow.add(mismatchLabel);
-        form.add(hintRow);
-        form.add(Box.createVerticalStrut(10));
+        content.add(hintRow);
+        content.add(Box.createVerticalStrut(10));
 
         buildAdvanced();
-        form.add(advancedPanel);
-        form.add(Box.createVerticalStrut(8));
+        content.add(advancedPanel);
+        content.add(Box.createVerticalStrut(8));
 
         errorLabel.setForeground(Color.RED.darker());
-        form.add(leftRow(errorLabel));
+        content.add(leftRow(errorLabel));
+
+        form.add(content, BorderLayout.NORTH);
 
         // 名称/位置变更时刷新最终路径
         DocumentListener refresh = new DocumentListener() {

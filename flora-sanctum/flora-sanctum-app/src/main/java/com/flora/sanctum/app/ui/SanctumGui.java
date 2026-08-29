@@ -2562,15 +2562,15 @@ public final class SanctumGui {
         header.add(hLine, BorderLayout.SOUTH);
         box.add(header, BorderLayout.NORTH);
 
-        // 左栏：root 列表（全局配置 / 仓库配置 / 图标 / SSH 密钥 / 远程）
+        // 左栏：root 列表（全局设置 / 仓库设置 / 图标 / SSH 密钥 / 远程）
         settingsTree = new JTree();
         settingsTree.setRootVisible(false);
         settingsTree.setRowHeight(36);
         settingsTree.setCellRenderer(new SettingsTreeRenderer());
         DefaultMutableTreeNode top = new DefaultMutableTreeNode("设置");
-        DefaultMutableTreeNode setNode = new DefaultMutableTreeNode("仓库配置");
+        DefaultMutableTreeNode setNode = new DefaultMutableTreeNode("仓库设置");
         setNode.setUserObject(ViewNodeType.SETTINGS);
-        DefaultMutableTreeNode globalNode = new DefaultMutableTreeNode("全局配置");
+        DefaultMutableTreeNode globalNode = new DefaultMutableTreeNode("全局设置");
         globalNode.setUserObject(ViewNodeType.GLOBAL);
         DefaultMutableTreeNode iconNode = new DefaultMutableTreeNode("图标");
         iconNode.setUserObject(ViewNodeType.ICON);

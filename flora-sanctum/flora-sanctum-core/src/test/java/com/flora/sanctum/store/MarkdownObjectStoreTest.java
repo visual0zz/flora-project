@@ -25,6 +25,12 @@ class MarkdownObjectStoreTest {
         return new MarkdownObjectStore(dir);
     }
 
+    /** 期望的块文件路径：root/{第1字符}/{第2字符}/{后30字符}.md（两层单字母分片）。 */
+    private Path expectedFile(UUID uuid) {
+        String hex = uuid.toString().replace("-", "");
+        return dir.resolve(hex.substring(0, 1)).resolve(hex.substring(1, 2)).resolve(hex.substring(2) + ".md");
+    }
+
     private CipherCodec newCodec() {
         byte[] dek = new byte[32];
         new SecureRandomSource().nextBytes(dek);
@@ -49,9 +55,9 @@ class MarkdownObjectStoreTest {
         CipherCodec codec = newCodec();
         UUID uuid = UUID.randomUUID();
         store.put(uuid, "data".getBytes(), new CipherCodecAdapter(codec, uuid), "1");
-        // 路径：{前2字符}/{后30字符}.md（无连字符）
+        // 路径：{第1字符}/{第2字符}/{后30字符}.md（两层单字母分片）
         String hex = uuid.toString().replace("-", "");
-        Path file = dir.resolve(hex.substring(0, 2)).resolve(hex.substring(2) + ".md");
+        Path file = expectedFile(uuid);
         assertTrue(java.nio.file.Files.exists(file), "expected file at " + file);
         assertFalse(java.nio.file.Files.exists(dir.resolve(uuid + ".md")));
         List<Block> blocks = store.scan();
@@ -82,8 +88,7 @@ class MarkdownObjectStoreTest {
         UUID uuid = UUID.randomUUID();
         store.put(uuid, "data".getBytes(), new CipherCodecAdapter(codec, uuid), "1");
         store.delete(uuid);
-        String hex = uuid.toString().replace("-", "");
-        Path file = dir.resolve(hex.substring(0, 2)).resolve(hex.substring(2) + ".md");
+        Path file = expectedFile(uuid);
         assertFalse(java.nio.file.Files.exists(file));
         assertTrue(store.scan().isEmpty());
     }
@@ -99,7 +104,7 @@ class MarkdownObjectStoreTest {
         }
         assertEquals(n, store.scan().size());
         assertEquals(n, store.list().size());
-        // 每个文件一层子目录（root 下直接子项都是目录，非 md）
+        // root 下直接子项都是单字母目录（两层分片，非 md）
         try (var stream = java.nio.file.Files.list(dir)) {
             assertTrue(stream.allMatch(p -> java.nio.file.Files.isDirectory(p)
                     || !p.getFileName().toString().endsWith(".md")));
@@ -134,7 +139,7 @@ class MarkdownObjectStoreTest {
         assertEquals(uuid, written.uuid());
         assertEquals("7", written.timestampText());
         String hex = uuid.toString().replace("-", "");
-        Path file = dir.resolve(hex.substring(0, 2)).resolve(hex.substring(2) + ".md");
+        Path file = expectedFile(uuid);
         assertEquals(file, written.file());
     }
 
@@ -159,7 +164,7 @@ class MarkdownObjectStoreTest {
         store.put(uuid, "v2-updated".getBytes(), new CipherCodecAdapter(codec, uuid), "2");
         // 覆盖写后目标文件存在且为完整单行（原子替换，不留半写/损坏块）。
         String hex = uuid.toString().replace("-", "");
-        Path file = dir.resolve(hex.substring(0, 2)).resolve(hex.substring(2) + ".md");
+        Path file = expectedFile(uuid);
         String content = java.nio.file.Files.readString(file).trim();
         assertEquals(1, content.lines().count());
         assertTrue(content.matches("\\d+:[1-9A-HJ-NP-Za-km-z]+"));

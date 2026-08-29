@@ -18,10 +18,11 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 /**
- * Markdown 块存储实现：git 风格两层目录 + 一文件一块（见设计 04b）。
+ * Markdown 块存储实现：git 风格两层目录分片 + 一文件一块（见设计 04b）。
  * <p>
- * 布局：{@code root/{xx}/{rest}.md}，其中 {@code xx} 是 uuid 无连字符 hex 的前 2 字符，
- * {@code rest} 是剩余 30 字符。每个文件恰好一个块，内容为单行 {@code timestamp:base58}。
+ * 布局：{@code root/{a}/{b}/{rest}.md}，其中 {@code a}、{@code b} 分别是 uuid 无连字符 hex
+ * 的第 1、第 2 个字符（两层单字母目录分片），{@code rest} 是剩余 30 字符。
+ * 每个文件恰好一个块，内容为单行 {@code timestamp:base58}。
  * 不再支持一个文件多个块 / 用户正文与密文交错（旧格式兼容已去除）。
  */
 public final class MarkdownObjectStore implements ObjectStore {
@@ -41,15 +42,15 @@ public final class MarkdownObjectStore implements ObjectStore {
         return root;
     }
 
-    /** uuid → 32 位无连字符 hex（git 风格目录分片的前 2 字符即 hex 前缀）。 */
+    /** uuid → 32 位无连字符 hex（前 2 字符各作一层单字母目录分片）。 */
     static String hexOf(UUID uuid) {
         return uuid.toString().replace("-", "");
     }
 
-    /** 块文件路径：{@code root/{前2字符}/{后30字符}.md}。 */
+    /** 块文件路径：{@code root/{第1字符}/{第2字符}/{后30字符}.md}。 */
     Path fileOf(UUID uuid) {
         String hex = hexOf(uuid);
-        return root.resolve(hex.substring(0, 2)).resolve(hex.substring(2) + ".md");
+        return root.resolve(hex.substring(0, 1)).resolve(hex.substring(1, 2)).resolve(hex.substring(2) + ".md");
     }
 
     @Override

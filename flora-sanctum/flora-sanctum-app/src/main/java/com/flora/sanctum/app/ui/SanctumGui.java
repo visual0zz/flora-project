@@ -901,9 +901,10 @@ public final class SanctumGui {
         syncBtn = iconButton(SvgIcon.get(UiIcon.SYNC_NOW, 29), "同步");
         settingsBtn = iconButton(SvgIcon.get(UiIcon.SETTINGS, 29), "设置");
         lockBtn = iconButton(SvgIcon.get(UiIcon.LOCK_VAULT, 29), "锁定");
-        JButton importBtn = new JButton("导入");
-        importBtn.setToolTipText("从 KeePassXC / KeePass (KDBX4) 数据库导入");
-        importBtn.addActionListener(e -> doImportKdbx());
+        JButton importBtn = iconButton(SvgIcon.get(UiIcon.IMPORT, 29), "导入");
+        importBtn.addActionListener(e -> doImportWithDialog());
+        JButton exportBtn = iconButton(SvgIcon.get(UiIcon.EXPORT, 29), "导出");
+        exportBtn.addActionListener(e -> doExportWithDialog());
         statusLabel = new JLabel();
         syncBtn.setVisible(isFullyManaged());
 
@@ -924,6 +925,7 @@ public final class SanctumGui {
         top.add(settingsBtn);
         top.add(lockBtn);
         top.add(importBtn);
+        top.add(exportBtn);
         top.add(new JLabel("搜索:"));
         top.add(searchField);
         top.add(clearSearch);
@@ -2488,38 +2490,65 @@ public final class SanctumGui {
         statusLabel.setText("已新建文件夹，请重命名");
     }
 
-    /** 从 KeePassXC / KeePass (KDBX4) 导入：选文件 → 主密码 → 后台导入到当前仓库。 */
-    private void doImportKdbx() {
+    /** 导入入口：先选格式，再选文件，最后按格式分派（KDBX 需主密码，Sanctum 格式直接导入）。 */
+    private void doImportWithDialog() {
         if (sanctum == null || sanctum.objectTree() == null) {
             statusLabel.setText("请先打开一个仓库");
             return;
         }
+        List<String> formats = new ArrayList<>();
+        formats.add("KeePass KDBX"); // KDBX 导入（需主密码）
+        formats.add("Sanctum CSV");  // Sanctum 自有 CSV
+        formats.add("Sanctum JSON"); // Sanctum 自有 JSON
+        String fmt = showFormatDialog("导入格式", "选择要导入的文件格式", formats);
+        if (fmt == null) {
+            return; // 取消
+        }
+        String ext = switch (fmt) {
+            case "KeePass KDBX" -> "kdbx";
+            case "Sanctum CSV" -> "csv";
+            case "Sanctum JSON" -> "json";
+            default -> "";
+        };
         javax.swing.JFileChooser fc = new javax.swing.JFileChooser();
         fc.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                "KeePass 数据库 (*.kdbx)", "kdbx"));
+                fmt + " (*." + ext + ")", ext));
         if (fc.showOpenDialog(frame) != javax.swing.JFileChooser.APPROVE_OPTION) {
             return;
         }
         java.nio.file.Path file = fc.getSelectedFile().toPath();
-        java.util.Optional<com.flora.sanctum.app.io.importer.Importer> importer =
-                com.flora.sanctum.app.io.importer.Importer.forFile(file);
+        java.util.Optional<com.flora.sanctum.app.io.importer.Importer> importer = "KeePass KDBX".equals(fmt)
+                ? com.flora.sanctum.app.io.importer.Importer.forFile(file) // 按扩展名分派 KDBX
+                : com.flora.sanctum.app.io.importer.Importer.forFormatName(fmt); // 按格式名分派 Sanctum
         if (importer.isEmpty()) {
             javax.swing.JOptionPane.showMessageDialog(frame,
-                    "不支持的文件类型（仅支持 .kdbx）", "导入", javax.swing.JOptionPane.WARNING_MESSAGE);
+                    "不支持的文件类型：" + fmt, "导入", javax.swing.JOptionPane.WARNING_MESSAGE);
             return;
         }
-        ImportCreds creds = askImportPassword(file);
-        if (creds == null) {
-            return; // 取消
-        }
-        statusLabel.setText("正在导入 " + file.getFileName() + " …");
         final com.flora.sanctum.app.io.importer.Importer imp = importer.get();
+        if ("KeePass KDBX".equals(fmt)) {
+            ImportCreds creds = askImportPassword(file);
+            if (creds == null) {
+                return; // 取消
+            }
+            runImport(file, imp, creds.password, creds.keyFile);
+        } else {
+            runImport(file, imp, null, null);
+        }
+    }
+
+    /** 后台执行导入并刷新 UI；主密码在 finally 中清零。 */
+    private void runImport(java.nio.file.Path file,
+                           com.flora.sanctum.app.io.importer.Importer imp,
+                           char[] password, java.nio.file.Path keyFile) {
+        statusLabel.setText("正在导入 " + file.getFileName() + " …");
+        final char[] pw = password;
         new Thread(() -> {
             try {
                 com.flora.sanctum.app.io.importer.ImportContext ctx =
                         com.flora.sanctum.app.io.importer.ImportContext.builder(sanctum.objectTree())
-                                .password(creds.password)
-                                .keyFile(creds.keyFile)
+                                .password(pw)
+                                .keyFile(keyFile)
                                 .build();
                 com.flora.sanctum.app.io.importer.ImportResult result = imp.importFile(file, ctx);
                 javax.swing.SwingUtilities.invokeLater(() -> {
@@ -2539,11 +2568,66 @@ public final class SanctumGui {
                             "导入失败：" + msg, "导入错误", javax.swing.JOptionPane.ERROR_MESSAGE);
                 });
             } finally {
-                if (creds.password != null) {
-                    java.util.Arrays.fill(creds.password, '\0');
+                if (pw != null) {
+                    java.util.Arrays.fill(pw, '\0');
                 }
             }
-        }, "kdbx-import").start();
+        }, "import").start();
+    }
+
+    /** 导出入口：先选格式，再选保存文件，最后写盘。 */
+    private void doExportWithDialog() {
+        if (sanctum == null || sanctum.objectTree() == null) {
+            statusLabel.setText("请先打开一个仓库");
+            return;
+        }
+        String fmt = showFormatDialog("导出格式", "选择要导出的文件格式",
+                com.flora.sanctum.app.io.exporter.Exporter.formatNames());
+        if (fmt == null) {
+            return; // 取消
+        }
+        String ext = switch (fmt) {
+            case "Sanctum CSV" -> "csv";
+            case "Sanctum JSON" -> "json";
+            default -> "txt";
+        };
+        javax.swing.JFileChooser fc = new javax.swing.JFileChooser();
+        fc.setSelectedFile(new java.io.File("sanctum-export." + ext));
+        fc.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                fmt + " (*." + ext + ")", ext));
+        if (fc.showSaveDialog(frame) != javax.swing.JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        java.nio.file.Path file = fc.getSelectedFile().toPath();
+        if (!file.getFileName().toString().toLowerCase().endsWith("." + ext)) {
+            file = file.resolveSibling(file.getFileName().toString() + "." + ext);
+        }
+        java.util.Optional<com.flora.sanctum.app.io.exporter.Exporter> exporter =
+                com.flora.sanctum.app.io.exporter.Exporter.forFormatName(fmt);
+        if (exporter.isEmpty()) {
+            javax.swing.JOptionPane.showMessageDialog(frame,
+                    "不支持的导出格式：" + fmt, "导出", javax.swing.JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        try {
+            exporter.get().exportTo(file, sanctum.objectTree());
+            statusLabel.setText("已导出：" + file.getFileName());
+            javax.swing.JOptionPane.showMessageDialog(frame,
+                    "已导出到：\n" + file, "导出", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception ex) {
+            String msg = ex instanceof com.flora.sanctum.app.io.exporter.ExportException
+                    ? ex.getMessage() : ex.toString();
+            statusLabel.setText("导出失败");
+            javax.swing.JOptionPane.showMessageDialog(frame,
+                    "导出失败：" + msg, "导出错误", javax.swing.JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /** 格式选择弹窗：列出可选格式，返回所选格式名（取消返回 null）。 */
+    private String showFormatDialog(String title, String message, List<String> formats) {
+        return (String) javax.swing.JOptionPane.showInputDialog(frame, message, title,
+                javax.swing.JOptionPane.PLAIN_MESSAGE, null,
+                formats.toArray(String[]::new), formats.get(0));
     }
 
     /** 导入主密码对话框（含可选密钥文件）。返回 null 表示取消。 */

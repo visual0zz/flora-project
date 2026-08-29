@@ -22,7 +22,9 @@ public enum UiIcon {
     ADD_REMOTE("ui/add-remote"),
     SETTINGS("ui/settings"),
     SYNC_NOW("ui/sync-now"),
-    TRASH("ui/trash");
+    TRASH("ui/trash"),
+    IMPORT("ui/import"),
+    EXPORT("ui/export");
 
     private final String path;
 

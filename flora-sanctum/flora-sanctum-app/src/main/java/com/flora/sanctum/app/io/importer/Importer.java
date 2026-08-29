@@ -28,4 +28,11 @@ public interface Importer {
     static Optional<Importer> forFile(Path file) {
         return Importers.all().stream().filter(i -> i.supports(file)).findFirst();
     }
+
+    /** 从注册表中按格式名选取导入器。 */
+    static Optional<Importer> forFormatName(String name) {
+        return Importers.all().stream()
+                .filter(i -> i.formatName().equalsIgnoreCase(name))
+                .findFirst();
+    }
 }

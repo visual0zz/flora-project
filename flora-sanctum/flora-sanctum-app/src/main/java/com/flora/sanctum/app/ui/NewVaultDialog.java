@@ -152,12 +152,10 @@ final class NewVaultDialog extends JDialog {
 
         // 独立仓库：默认不勾选的单个勾选框；悬停显示原生提示气泡（不插入占用布局的控件）
         standaloneCheck.setOpaque(false);
-        standaloneCheck.setAlignmentX(Component.LEFT_ALIGNMENT);
         standaloneCheck.setHorizontalAlignment(SwingConstants.LEFT);
         standaloneCheck.setToolTipText("<html><div style='width:320px'>" + STANDALONE_INFO + "</div></html>");
         advancedPanel.add(standaloneCheck);
         advancedPanel.add(Box.createVerticalStrut(8));
-        kdfPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         advancedPanel.add(kdfPanel);
     }
 

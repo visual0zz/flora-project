@@ -36,6 +36,7 @@ import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 import javax.swing.JTextArea;
 import javax.swing.JTree;
+import javax.swing.SwingConstants;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
@@ -1323,7 +1324,7 @@ public final class SanctumGui {
         Icon ic = iconById(ref, 48);
         if (ic != null) {
             JLabel pic = new JLabel(ic);
-            pic.setAlignmentX(0f);
+            pic.setHorizontalAlignment(SwingConstants.LEFT);
             target.add(pic);
             target.add(javax.swing.Box.createVerticalStrut(6));
         }
@@ -2761,21 +2762,18 @@ public final class SanctumGui {
             settingsThemeCombo = new javax.swing.JComboBox<>(new String[]{"light", "dark", "stupid"});
             settingsThemeCombo.setSelectedItem(config.theme());
             settingsThemeCombo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-            settingsThemeCombo.setAlignmentX(0f);
             settingsEditPanel.add(new JLabel("界面主题"));
             settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
             settingsEditPanel.add(settingsThemeCombo);
         } else if ("lock".equals(key)) {
             settingsLockField = new JTextField(String.valueOf(lc.lockTimeoutSeconds()));
             settingsLockField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-            settingsLockField.setAlignmentX(0f);
             settingsEditPanel.add(new JLabel("自动锁定（秒）"));
             settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
             settingsEditPanel.add(settingsLockField);
         } else if ("clip".equals(key)) {
             settingsClipField = new JTextField(String.valueOf(lc.clipboardClearSeconds()));
             settingsClipField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-            settingsClipField.setAlignmentX(0f);
             settingsEditPanel.add(new JLabel("剪贴板清空（秒）"));
             settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
             settingsEditPanel.add(settingsClipField);
@@ -2794,7 +2792,7 @@ public final class SanctumGui {
         settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
         JLabel state = new JLabel(isStandalone ? "当前：独立运行（自带 lib/ 与启动脚本）"
                 : "当前：普通仓库（依赖本应用打开）");
-        state.setAlignmentX(0f);
+        state.setHorizontalAlignment(SwingConstants.LEFT);
         settingsEditPanel.add(state);
         if (isStandalone) {
             addSettingsActionBtn("删除独立运行", this::downgradeStandalone);
@@ -2901,7 +2899,7 @@ public final class SanctumGui {
     /** 在设置右栏追加一个操作按钮。 */
     private void addSettingsActionBtn(String label, Runnable action) {
         JButton b = new JButton(label);
-        b.setAlignmentX(0f);
+        b.setHorizontalAlignment(SwingConstants.LEFT);
         b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
         b.addActionListener(e -> action.run());
         settingsEditPanel.add(javax.swing.Box.createVerticalStrut(10));

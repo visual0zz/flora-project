@@ -38,7 +38,6 @@ final class KdfParamsPanel extends JPanel {
         JPanel grid = new JPanel();
         grid.setLayout(new BoxLayout(grid, BoxLayout.Y_AXIS));
         grid.setOpaque(false);
-        grid.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         memoryField = numberField(Argon2KDF.DEFAULT_MEMORY_KIB);
         iterationsField = numberField(Argon2KDF.DEFAULT_ITERATIONS);
@@ -70,7 +69,6 @@ final class KdfParamsPanel extends JPanel {
         JPanel r = new JPanel();
         r.setLayout(new BoxLayout(r, BoxLayout.X_AXIS));
         r.setOpaque(false);
-        r.setAlignmentX(Component.LEFT_ALIGNMENT);
         r.add(new JLabel(label));
         r.add(Box.createHorizontalStrut(8));
         r.add(f);

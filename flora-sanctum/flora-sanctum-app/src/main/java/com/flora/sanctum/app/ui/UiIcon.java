@@ -9,19 +9,19 @@ package com.flora.sanctum.app.ui;
  */
 public enum UiIcon {
 
-    CHECK("ui/check"),
-    CLOSE("ui/close"),
-    DELETE("ui/delete"),
+    SAVE_SETTINGS("ui/save-settings"),
+    GO_BACK("ui/go-back"),
+    DELETE_ITEM("ui/delete-item"),
     ENTRY("ui/entry"),
     FOLDER("ui/folder"),
-    ADD_IMAGE("ui/add-image"),
-    ADD_KEY("ui/add-key"),
-    LOCK("ui/lock"),
+    ADD_ICON("ui/add-icon"),
+    ADD_SSH_KEY("ui/add-ssh-key"),
+    LOCK_VAULT("ui/lock-vault"),
     NEW_ENTRY("ui/new-entry"),
     NEW_GROUP("ui/new-group"),
     ADD_REMOTE("ui/add-remote"),
     SETTINGS("ui/settings"),
-    SYNC("ui/sync"),
+    SYNC_NOW("ui/sync-now"),
     TRASH("ui/trash");
 
     private final String path;

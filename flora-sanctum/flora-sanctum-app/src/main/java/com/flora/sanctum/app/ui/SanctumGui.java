@@ -896,10 +896,10 @@ public final class SanctumGui {
         // 顶部工具栏（SVG 图标按钮 + tooltip，去文字标签；尺寸 24→29 ≈ +20%）
         newEntryBtn = iconButton(SvgIcon.get(UiIcon.NEW_ENTRY, 29), "新建条目");
         newGroupBtn = iconButton(SvgIcon.get(UiIcon.NEW_GROUP, 29), "新建文件夹");
-        delBtn = iconButton(SvgIcon.get(UiIcon.DELETE, 29), "删除");
-        syncBtn = iconButton(SvgIcon.get(UiIcon.SYNC, 29), "同步");
+        delBtn = iconButton(SvgIcon.get(UiIcon.DELETE_ITEM, 29), "删除");
+        syncBtn = iconButton(SvgIcon.get(UiIcon.SYNC_NOW, 29), "同步");
         settingsBtn = iconButton(SvgIcon.get(UiIcon.SETTINGS, 29), "设置");
-        lockBtn = iconButton(SvgIcon.get(UiIcon.LOCK, 29), "锁定");
+        lockBtn = iconButton(SvgIcon.get(UiIcon.LOCK_VAULT, 29), "锁定");
         JButton importBtn = new JButton("导入");
         importBtn.setToolTipText("从 KeePassXC / KeePass (KDBX4) 数据库导入");
         importBtn.addActionListener(e -> doImportKdbx());
@@ -2728,8 +2728,8 @@ public final class SanctumGui {
         JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 6));
         topBar.setOpaque(true);
         topBar.setBackground(UiTheme.PAPER_LIGHT);
-        JButton okBtn = iconButton(SvgIcon.get(UiIcon.CHECK, 29), "保存设置并返回");
-        JButton backBtn = iconButton(SvgIcon.get(UiIcon.CLOSE, 29), "返回");
+        JButton okBtn = iconButton(SvgIcon.get(UiIcon.SAVE_SETTINGS, 29), "保存设置并返回");
+        JButton backBtn = iconButton(SvgIcon.get(UiIcon.GO_BACK, 29), "返回");
         backBtn.addActionListener(e -> backFromSettings());
         topBar.add(okBtn);
         topBar.add(backBtn);
@@ -3055,9 +3055,9 @@ public final class SanctumGui {
         settingsActionBar.removeAll();
         switch (kind) {
             case ICON -> settingsActionBar.add(iconTextButton(
-                    SvgIcon.get(UiIcon.ADD_IMAGE, 20), "添加图标", this::doImportImageAndRefresh));
+                    SvgIcon.get(UiIcon.ADD_ICON, 20), "添加图标", this::doImportImageAndRefresh));
             case SSH_KEY -> settingsActionBar.add(iconTextButton(
-                    SvgIcon.get(UiIcon.ADD_KEY, 20), "添加 SSH 密钥", this::addSshKeyAndRefresh));
+                    SvgIcon.get(UiIcon.ADD_SSH_KEY, 20), "添加 SSH 密钥", this::addSshKeyAndRefresh));
             case REMOTE -> settingsActionBar.add(iconTextButton(
                     SvgIcon.get(UiIcon.ADD_REMOTE, 20), "添加远程", this::addRemoteAndRefresh));
             case GLOBAL, VAULT -> { }

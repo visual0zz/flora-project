@@ -91,6 +91,8 @@ public final class SanctumGui {
     private DefaultListModel<EntryListItem> entryModel;
     /** 模型变更总线：任何改动数据结构的操作后 markDirty()，统一触发一次树+列表重建。 */
     private final ModelChangeBus modelBus = new ModelChangeBus();
+    /** 模型变更总线是否已订阅（避免锁定→再解锁时重复订阅导致多次全量刷新）。 */
+    private boolean busSubscribed;
     /** 注入的同步服务（替代每次 doSync 内 new SyncService），复用同一实例。 */
     private com.flora.sanctum.app.sync.SyncService syncService;
     private JPanel editPanel;
@@ -462,7 +464,7 @@ public final class SanctumGui {
     }
 
     /** 在系统文件管理器中打开目录（Desktop.open，跨平台 fallback）。 */
-    private static void openInFileManager(String path) {
+    private void openInFileManager(String path) {
         try {
             java.awt.Desktop desktop = java.awt.Desktop.getDesktop();
             if (desktop.isSupported(java.awt.Desktop.Action.OPEN)) {
@@ -482,7 +484,8 @@ public final class SanctumGui {
                 pb = new ProcessBuilder("xdg-open", path);
             }
             pb.start();
-        } catch (Exception ignore) {
+        } catch (Exception e) {
+            showToast("无法打开目录：" + path);
         }
     }
 
@@ -864,9 +867,12 @@ public final class SanctumGui {
         config.setLastVault(unlockedVaultPath);
         frame.setTitle("flora-sanctum(" + root.getFileName() + ")");
         current.set(sanctum);
-        // 注入同步服务并订阅模型变更总线：此后所有模型改动经 markDirty() 统一刷新界面
+        // 注入同步服务并订阅模型变更总线：此后所有模型改动经 markDirty() 统一刷新界面（仅订阅一次）
         syncService = new com.flora.sanctum.app.sync.SyncService(sanctum.root());
-        modelBus.subscribe(this::refreshAll);
+        if (!busSubscribed) {
+            modelBus.subscribe(this::refreshAll);
+            busSubscribed = true;
+        }
         applyTheme(sanctum.config().theme()); // 解锁后应用仓库主题
         showEditPage();
         startAutoLockTimer();
@@ -1099,7 +1105,8 @@ public final class SanctumGui {
         boolean objectsRoot = ViewNodeType.PASSWORD == section; // 密码库根（可建文件夹）
         newEntryBtn.setEnabled(objectsCtx);
         newGroupBtn.setEnabled(objectsCtx || objectsRoot);
-        delBtn.setEnabled(true);
+        // 删除：仅选中具体对象（组/条目等，非区段根）时可用
+        delBtn.setEnabled(section == null);
     }
 
     private boolean isFullyManaged() {
@@ -1122,6 +1129,9 @@ public final class SanctumGui {
         treeRoot.add(objectsNode);
         // objects 层级：顶层文件夹（ObjectTree 根组，已排除 root group）+ 递归子文件夹
         for (GroupNode g : sanctum.objectTree().rootGroups()) {
+            if (g.deleted()) {
+                continue;
+            }
             addGroupNode(objectsNode, g.uuid(), g.name());
         }
 
@@ -1201,6 +1211,9 @@ public final class SanctumGui {
         GroupNode g = sanctum.objectTree().group(id);
         if (g != null) {
             for (GroupNode child : g.childGroups()) {
+                if (child.deleted()) {
+                    continue;
+                }
                 addGroupNode(node, child.uuid(), child.name());
             }
         }
@@ -1213,7 +1226,7 @@ public final class SanctumGui {
         if (groupCache == null) {
             groupCache = new LinkedHashMap<>();
             for (TreeNode n : sanctum.objectTree().nodes()) {
-                if (n instanceof GroupNode g) {
+                if (n instanceof GroupNode g && !n.deleted()) {
                     groupCache.put(g.uuid(), new String[]{g.parentRef(), g.name()});
                 }
             }
@@ -1249,7 +1262,7 @@ public final class SanctumGui {
         // 全局搜索：搜索非空时跨区段/文件夹搜索所有条目（不分当前选择）
         if (!q.isEmpty()) {
             for (TreeNode n : sanctum.objectTree().nodes()) {
-                if (n instanceof EntryNode e && matchesFilter(e, q)) {
+                if (n instanceof EntryNode e && !e.deleted() && matchesFilter(e, q)) {
                     String path = folderPathOf(e);
                     entryModel.addElement(new EntryListItem(e.uuid(), StoredNodeType.ENTRY,
                             path.isEmpty() ? e.name() : e.name() + "  ·  " + path, e.iconRef()));
@@ -1295,6 +1308,9 @@ public final class SanctumGui {
                         sanctum.objectTree().rootGroups().stream(),
                         sanctum.objectTree().rootEntries().stream()).toList();
         for (TreeNode n : items) {
+            if (n.deleted()) {
+                continue; // 已手动删除（移入垃圾桶）的节点不在普通列表展示
+            }
             if (n instanceof GroupNode g) {
                 String gname = g.name();
                 if (gname == null || gname.isBlank()) {
@@ -2645,9 +2661,10 @@ public final class SanctumGui {
         settingsTree.setSelectionPath(new javax.swing.tree.TreePath(new Object[]{top, setNode}));
 
         okBtn.addActionListener(e -> {
-            saveSettingsItems();
-            showToast("设置已保存");
-            backFromSettings();
+            if (saveSettingsItems()) {
+                showToast("设置已保存");
+                backFromSettings();
+            }
         });
         return box;
     }
@@ -2872,7 +2889,8 @@ public final class SanctumGui {
     }
 
     /** 保存已编辑的设置项到仓库。 */
-    private void saveSettingsItems() {
+    /** 保存已编辑的设置项到仓库；数字字段非法时提示并返回 false（不保存、不关闭）。 */
+    private boolean saveSettingsItems() {
         com.flora.sanctum.model.LibraryConfig lc = sanctum.config();
         if (settingsThemeCombo != null) {
             lc.setTheme((String) settingsThemeCombo.getSelectedItem());
@@ -2880,19 +2898,24 @@ public final class SanctumGui {
         if (settingsLockField != null) {
             try {
                 lc.setLockTimeoutSeconds(Integer.parseInt(settingsLockField.getText()));
-            } catch (NumberFormatException ignore) {
+            } catch (NumberFormatException e) {
+                showToast("自动锁定须为整数秒");
+                return false;
             }
         }
         if (settingsClipField != null) {
             try {
                 lc.setClipboardClearSeconds(Integer.parseInt(settingsClipField.getText()));
-            } catch (NumberFormatException ignore) {
+            } catch (NumberFormatException e) {
+                showToast("剪贴板清空须为整数秒");
+                return false;
             }
         }
         applyTheme(lc.theme());
         settingsThemeCombo = null;
         settingsLockField = null;
         settingsClipField = null;
+        return true;
     }
 
     /** 在设置右栏追加一个操作按钮。 */
@@ -3102,7 +3125,7 @@ public final class SanctumGui {
             this.size = size;
             String base = name == null || name.isBlank() ? "?" : name.trim();
             this.text = iconText(base);
-            float hue = (Math.abs(base.hashCode()) % 360) / 360f;
+            float hue = ((base.hashCode() & 0x7FFFFFFF) % 360) / 360f;
             this.bg = java.awt.Color.getHSBColor(hue, SATURATION, BRIGHTNESS);
         }
 

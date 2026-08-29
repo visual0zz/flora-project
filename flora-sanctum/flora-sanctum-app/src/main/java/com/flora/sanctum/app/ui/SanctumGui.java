@@ -31,7 +31,6 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
-import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
@@ -674,22 +673,14 @@ public final class SanctumGui {
         // 主密码强度实时提示（zxcvbn，与 KeePassXC 同源算法）；新建仓库时尤其重要
         JLabel strengthLabel = new JLabel("", JLabel.LEFT);
         c.gridy = 4;
-        c.insets = new Insets(0, 0, 2, 0);
+        c.insets = new Insets(0, 0, 6, 0);
         c.fill = GridBagConstraints.HORIZONTAL;
         panel.add(strengthLabel, c);
-        JProgressBar strengthBar = new JProgressBar(0, 4);
-        strengthBar.setValue(0);
-        strengthBar.setStringPainted(false);
-        strengthBar.setOpaque(false);
-        c.gridy = 5;
-        c.insets = new Insets(0, 0, 6, 0);
-        panel.add(strengthBar, c);
-        c.fill = GridBagConstraints.HORIZONTAL;
-        refreshStrength(pwField, strengthLabel, strengthBar);
+        refreshStrength(pwField, strengthLabel);
         pwField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(pwField, strengthLabel, strengthBar); }
-            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(pwField, strengthLabel, strengthBar); }
-            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(pwField, strengthLabel, strengthBar); }
+            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(pwField, strengthLabel); }
+            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(pwField, strengthLabel); }
+            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(pwField, strengthLabel); }
         });
 
         // 新建库的 Argon2id 强度已在「新建仓库」对话框中收集（见 NewVaultDialog），此处不再重复。
@@ -743,38 +734,18 @@ public final class SanctumGui {
     }
 
     /**
-     * 实时刷新主密码强度提示（标签 + 0–4 档进度条）。
+     * 实时刷新主密码强度提示（文本标签）。
      * 评估算法为 zxcvbn（与 KeePassXC 同源），质量分级沿用其熵阈值；仅提示不阻止创建。
      */
-    private void refreshStrength(JPasswordField pwField, JLabel label, JProgressBar bar) {
+    private void refreshStrength(JPasswordField pwField, JLabel label) {
         char[] pw = pwField.getPassword();
         if (pw.length == 0) {
             label.setText("");
-            bar.setValue(0);
-            bar.setForeground(java.awt.Color.GRAY);
             return;
         }
         PasswordStrength s = PasswordStrength.evaluate(new String(pw), null);
-        int score = switch (s.quality()) {
-            case BAD, POOR -> 0;
-            case WEAK -> 1;
-            case GOOD -> 2;
-            case EXCELLENT -> 3;
-        };
-        // zxcvbn 的原生 score 为 0–4，这里结合熵映射后取 max，使高强度档位更准确
-        int barValue = Math.max(score, estimateBar(s.entropy()));
-        bar.setValue(Math.min(barValue, 4));
         label.setText(strengthText(s));
-        bar.setForeground(strengthColor(s.quality()));
-    }
-
-    /** 仅按熵把 0–100 bits 线性映射到 0–4 档，作为 zxcvbn score 的补充。 */
-    private static int estimateBar(double entropy) {
-        if (entropy < 40) return 0;
-        if (entropy < 75) return 1;
-        if (entropy < 100) return 2;
-        if (entropy < 120) return 3;
-        return 4;
+        label.setForeground(strengthColor(s.quality()));
     }
 
     private static String strengthText(PasswordStrength s) {

@@ -98,7 +98,6 @@ final class NewVaultDialog extends JDialog {
         // 实时最终路径提示（模仿 IDEA "Project will be created at"）：占满宽度、文本靠左（随窗口拉伸）
         finalPathLabel.setForeground(new Color(0x8E, 0x91, 0x96));
         finalPathLabel.setHorizontalAlignment(SwingConstants.LEFT);
-        finalPathLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         form.add(finalPathLabel);
         form.add(Box.createVerticalStrut(10));
 
@@ -153,11 +152,9 @@ final class NewVaultDialog extends JDialog {
 
         // 独立仓库：默认不勾选的单个勾选框；悬停显示原生提示气泡（不插入占用布局的控件）
         standaloneCheck.setOpaque(false);
-        standaloneCheck.setAlignmentX(Component.LEFT_ALIGNMENT);
         standaloneCheck.setToolTipText("<html><div style='width:320px'>" + STANDALONE_INFO + "</div></html>");
         advancedPanel.add(standaloneCheck);
         advancedPanel.add(Box.createVerticalStrut(8));
-        kdfPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         advancedPanel.add(kdfPanel);
     }
 

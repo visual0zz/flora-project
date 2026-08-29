@@ -3,8 +3,19 @@ package com.flora.sanctum.app.bootstrap;
 import com.flora.root.codec.json.model.JsonObject;
 
 import java.io.IOException;
+import java.lang.module.ModuleReference;
+import java.lang.module.ResolvedModule;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.Enumeration;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 /**
  * 新建仓库（见设计"形态与启动"）。
@@ -69,18 +80,28 @@ public final class RepoCreator {
         return repoRoot;
     }
 
-    /** 复制应用自身 jar 到目标仓库的 lib/（module-path 分发目录 / fat jar 所在目录）。 */
+    /**
+     * 复制当前运行进程依赖的全部 jar 到目标仓库的 lib/，使仓库可独立启动。
+     * 收集策略（并集、按文件名去重）覆盖各种启动形态：
+     * 1) 启动模块层 {@link ModuleLayer#boot()} 中每个已解析模块的真实位置（module-path / IDE 模块启动 / maven 包）；
+     * 2) {@code java.class.path} 上的 jar（模块层未覆盖的普通 classpath jar）；
+     * 3) 应用 jar 同目录的兄弟 jar（分发 lib/ 形态兜底）。
+     * 若以上都取不到（如单一 fat jar，依赖内嵌于 BOOT-INF/lib），再直接抽出内嵌 jar。
+     * 排除 JDK 模块（jrt:）与运行 JRE 目录下的 jar。
+     */
     private static void copyLib(Path dir) throws IOException {
         Path lib = dir.resolve("lib");
         Files.createDirectories(lib);
-        Path libSource = mainJarDirectory();
-        if (libSource != null && Files.isDirectory(libSource)) {
-            try (var stream = Files.list(libSource)) {
-                for (Path jar : stream.filter(p -> p.getFileName().toString().endsWith(".jar")).toList()) {
-                    Files.copy(jar, lib.resolve(jar.getFileName()));
-                }
+        Set<String> copied = new java.util.HashSet<>();
+        for (Path jar : collectRuntimeJars()) {
+            String name = jar.getFileName() == null ? null : jar.getFileName().toString();
+            if (name == null || !copied.add(name)) {
+                continue;
             }
+            Files.copy(jar, lib.resolve(name), StandardCopyOption.REPLACE_EXISTING);
         }
+        // 单一 fat jar 形态：依赖内嵌于 BOOT-INF/lib，模块层/CLASSPATH 取不到，直接抽出
+        jarOfAppCodeSource().ifPresent(appJar -> extractFatJarLibs(appJar, lib, copied));
     }
 
     private static void deleteIfExists(Path p) throws IOException {
@@ -95,33 +116,112 @@ public final class RepoCreator {
         }
     }
 
-    /**
-     * 定位应用自身 jar 目录（构建独立仓库的 lib/ 复制源）。按多种启动方式兜底：
-     * 1) 主类 CodeSource（module-path 的 lib/ 目录 / classpath 的 jar 目录）；
-     * 2) 回退到当前工作目录的 lib/（独立仓库分发形态，脚本在仓库根运行）。
-     */
-    static Path mainJarDirectory() {
-        Path fromCode = codeSourceDirectory();
-        if (fromCode != null && Files.isDirectory(fromCode)) {
-            return fromCode;
+    /** 收集文件系统上的依赖 jar（应用模块 + 第三方模块 + classpath jar），排除 JDK 与运行 JRE。 */
+    private static List<Path> collectRuntimeJars() {
+        Set<Path> jars = new LinkedHashSet<>();
+        // 1) 启动模块层：每个已解析模块的真实位置（jar:file:.../x.jar!/... 或 file:.../x.jar）
+        for (ResolvedModule rm : ModuleLayer.boot().configuration().modules()) {
+            rm.reference().location().ifPresent(loc -> jarOf(loc).ifPresent(jars::add));
         }
-        Path cwdLib = Path.of("").toAbsolutePath().normalize().resolve("lib");
-        if (Files.isDirectory(cwdLib)) {
-            return cwdLib;
+        // 2) classpath 上的 jar（模块层未覆盖的普通 classpath jar）
+        String cp = System.getProperty("java.class.path", "");
+        for (String entry : cp.split(java.io.File.pathSeparator)) {
+            if (!entry.isEmpty()) {
+                Path p = Path.of(entry);
+                if (Files.isRegularFile(p) && entry.endsWith(".jar")) {
+                    jars.add(p);
+                }
+            }
         }
-        return fromCode;
+        // 3) 应用 jar 同目录的兄弟 jar（分发 lib/ 形态兜底）
+        jarOfAppCodeSource().ifPresent(appJar -> {
+            Path parent = appJar.getParent();
+            if (parent != null && Files.isDirectory(parent)) {
+                try (var s = Files.list(parent)) {
+                    s.filter(p -> p.getFileName() != null && p.getFileName().toString().endsWith(".jar"))
+                            .forEach(jars::add);
+                } catch (IOException ignore) {
+                }
+            }
+        });
+        // 排除运行 JRE 目录下的 jar
+        Path javaHome = Path.of(System.getProperty("java.home"));
+        return jars.stream()
+                .filter(p -> !isUnder(p, javaHome))
+                .map(p -> p.toAbsolutePath().normalize())
+                .distinct()
+                .toList();
     }
 
-    private static Path codeSourceDirectory() {
+    /** 由模块位置 URI 取 jar 文件路径；JDK 模块（jrt:）或非文件位置返回空。 */
+    private static Optional<Path> jarOf(URI uri) {
+        if (uri == null) {
+            return Optional.empty();
+        }
+        String s = uri.toString();
+        if (s.startsWith("jrt:")) {
+            return Optional.empty();
+        }
+        String file = s.startsWith("jar:") ? s.substring(4) : s;
+        int sep = file.indexOf("!/");
+        if (sep >= 0) {
+            file = file.substring(0, sep);
+        }
+        if (!file.startsWith("file:")) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(Path.of(new URI(file)));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    /** 应用自身（RepoCreator 所在类）的 jar 文件位置；非 jar 形态（如 IDE 爆炸类）返回空。 */
+    private static Optional<Path> jarOfAppCodeSource() {
         try {
             var loc = RepoCreator.class.getProtectionDomain().getCodeSource();
             if (loc == null || loc.getLocation() == null) {
-                return null;
+                return Optional.empty();
             }
             Path p = Path.of(loc.getLocation().toURI());
-            return Files.isDirectory(p) ? p : p.getParent();
+            if (Files.isRegularFile(p) && p.getFileName().toString().endsWith(".jar")) {
+                return Optional.of(p.toAbsolutePath().normalize());
+            }
+            return Optional.empty();
         } catch (Exception e) {
-            return null;
+            return Optional.empty();
+        }
+    }
+
+    /** 从单一 fat jar 的 BOOT-INF/lib 抽出依赖 jar 到 lib/（fat jar 形态兜底）。 */
+    private static void extractFatJarLibs(Path appJar, Path lib, Set<String> copied) {
+        try (JarFile jf = new JarFile(appJar.toFile())) {
+            Enumeration<JarEntry> entries = jf.entries();
+            while (entries.hasMoreElements()) {
+                JarEntry en = entries.nextElement();
+                String n = en.getName();
+                if (n.startsWith("BOOT-INF/lib/") && n.endsWith(".jar") && !en.isDirectory()) {
+                    String fname = n.substring("BOOT-INF/lib/".length());
+                    if (fname.indexOf('/') >= 0) {
+                        continue;
+                    }
+                    if (!copied.add(fname) || Files.exists(lib.resolve(fname))) {
+                        continue;
+                    }
+                    Files.copy(jf.getInputStream(en), lib.resolve(fname));
+                }
+            }
+        } catch (IOException ignore) {
+        }
+    }
+
+    /** p 是否位于 base 之下（含相等）。 */
+    private static boolean isUnder(Path p, Path base) {
+        try {
+            return p.toRealPath().startsWith(base.toRealPath());
+        } catch (IOException e) {
+            return p.startsWith(base);
         }
     }
 

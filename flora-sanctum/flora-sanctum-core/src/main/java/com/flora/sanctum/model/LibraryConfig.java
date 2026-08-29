@@ -13,12 +13,9 @@ import java.util.UUID;
 /**
  * 库配置数据（Sanctum = 元数据 + 配置数据 + List&lt;数据树&gt; 的"配置数据"部分）。
  * <p>
- * 承载两类：
- * <ul>
- *   <li><b>远程配置</b>（type=remote 节点）只读视图，写操作经 {@code RemoteTree} 承担。</li>
- *   <li><b>仓库级设置</b>（type=config 节点，key/value 加密存储于根对象下）：主题/自动锁定时长/剪贴板清空时长。
- *       不再落全局配置文件；未设置时返回默认值。</li>
- * </ul>
+ * 承载仓库级设置（type=config 节点，key/value 加密存储于根对象下）：主题/自动锁定时长/剪贴板清空时长。
+ * 不再落全局配置文件；未设置时返回默认值。远程配置与 SSH 密钥是一等数据节点（type=remote / type=ssh_key），
+ * 由 {@code RemoteTree}/{@code SshKeyTree} 负责读写，不在此类中重复表示。
  */
 public final class LibraryConfig {
 
@@ -26,28 +23,6 @@ public final class LibraryConfig {
 
     public LibraryConfig(TreeContext ctx) {
         this.ctx = ctx;
-    }
-
-    /** 远程配置列表（只读视图，来自 REMOTE 树节点）。 */
-    public List<RemoteConfig> remotes() {
-        List<RemoteConfig> out = new ArrayList<>();
-        for (JsonObject n : ctx.objects().values()) {
-            if (StoredNodeType.fromTag(n.getString("type")) == StoredNodeType.REMOTE) {
-                out.add(new RemoteConfig(n.getString("name"), n.getString("url"),
-                        Ref.parse(n.get("keyRef"), "key")));
-            }
-        }
-        return out;
-    }
-
-    /** 按名称查找远程配置；未找到返回 null。 */
-    public RemoteConfig remote(String name) {
-        for (RemoteConfig r : remotes()) {
-            if (r.name().equals(name)) {
-                return r;
-            }
-        }
-        return null;
     }
 
     // ---- 仓库级设置（type=config 节点，加密存储；见设计"设置存仓库"） ----
@@ -125,9 +100,5 @@ public final class LibraryConfig {
             }
         }
         return null;
-    }
-
-    /** 远程配置。 */
-    public record RemoteConfig(String name, String url, Ref keyRef) {
     }
 }

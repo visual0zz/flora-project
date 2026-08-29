@@ -31,4 +31,15 @@ public final class SshKeyNode extends TreeNode {
         JsonObject d = data();
         return d == null ? null : d.getString("value");
     }
+
+    /** 改名（不改 uuid，远程的 keyRef 不受影响）。 */
+    public void rename(String name) {
+        JsonObject d = data();
+        if (d == null) {
+            throw new IllegalArgumentException("ssh key not found");
+        }
+        d.put("name", name);
+        byte[] dek = ctx().vault().dataDek();
+        ctx().writeWithDek(uuid(), d, dek);
+    }
 }

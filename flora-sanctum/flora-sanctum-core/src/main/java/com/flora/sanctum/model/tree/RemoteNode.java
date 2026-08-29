@@ -34,7 +34,7 @@ public final class RemoteNode extends TreeNode {
     /** 远程配置引用的密钥（可 null）。 */
     public Ref keyRef() {
         JsonObject d = data();
-        return d == null ? null : Ref.parse(d.get("keyRef"), "key");
+        return d == null ? null : Ref.parse(d.get("keyRef"), StoredNodeType.SSH_KEY.tag());
     }
 
     /** 更新远程配置（url/keyRef 可 null）。 */
@@ -49,6 +49,17 @@ public final class RemoteNode extends TreeNode {
         } else {
             remote.remove("keyRef");
         }
+        byte[] dek = ctx().vault().dataDek();
+        ctx().writeWithDek(uuid(), remote, dek);
+    }
+
+    /** 改名（不改 uuid，远程的 keyRef 与外部引用不受影响）。 */
+    public void rename(String name) {
+        JsonObject remote = data();
+        if (remote == null) {
+            throw new IllegalArgumentException("remote not found");
+        }
+        remote.put("name", name);
         byte[] dek = ctx().vault().dataDek();
         ctx().writeWithDek(uuid(), remote, dek);
     }

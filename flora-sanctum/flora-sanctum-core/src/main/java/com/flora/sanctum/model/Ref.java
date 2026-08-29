@@ -12,7 +12,7 @@ import java.util.UUID;
  * {@code type} 为 {@code "<scheme>:<kind>"} 复合串：
  * <ul>
  *   <li>{@code node}：引用仓库内的一个数据节点，{@code kind} 等于被引用节点的 {@code type} 标签
- *       （icon→{@code ICON}，key→{@code SSH_KEY}，受 {@link StoredNodeType} 约束）；{@code id} 为该节点 uuid。</li>
+ *       （icon→{@code ICON}，sshKey→{@code SSH_KEY}，受 {@link StoredNodeType} 约束）；{@code id} 为该节点 uuid。</li>
  *   <li>{@code builtin}：引用应用内置资源（不进对象库），{@code kind} 为资源类别（目前仅 icon），
  *       {@code id} 为资源名（如 folder）。</li>
  * </ul>
@@ -47,9 +47,9 @@ public final class Ref {
         return node("icon", uuid);
     }
 
-    /** 仓库内密钥节点引用（node:key；被引用节点的存储 type 标签为 sshKey）。 */
+    /** 仓库内密钥节点引用（node:sshKey；kind 与被引用节点的 type 标签 SSH_KEY.tag() 一致）。 */
     public static Ref nodeKey(UUID uuid) {
-        return node("key", uuid);
+        return node(StoredNodeType.SSH_KEY.tag(), uuid);
     }
 
     /** 内置图标引用（builtin:icon）。 */

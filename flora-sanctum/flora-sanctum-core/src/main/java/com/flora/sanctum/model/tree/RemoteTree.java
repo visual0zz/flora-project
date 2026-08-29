@@ -51,6 +51,18 @@ public final class RemoteTree extends DataTree {
         return null;
     }
 
+    /** 引用了指定密钥的远程配置（用于删除密钥时清理悬空 keyRef）。 */
+    public List<RemoteNode> remotesWithKeyRef(UUID keyUuid) {
+        List<RemoteNode> out = new ArrayList<>();
+        for (RemoteNode r : remotes()) {
+            Ref ref = r.keyRef();
+            if (ref != null && "node".equals(ref.scheme()) && keyUuid.equals(ref.nodeUuid())) {
+                out.add(r);
+            }
+        }
+        return out;
+    }
+
     public RemoteNode addRemote(String name, String url, Ref keyRef) {
         UUID remoteUuid = UUID.randomUUID();
         JsonObject remote = new JsonObject();

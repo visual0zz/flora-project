@@ -1524,21 +1524,142 @@ public final class SanctumGui {
         target.repaint();
     }
 
-    /** SSH 密钥详情面板。渲染到指定目标面板。 */
+    /** SSH 密钥详情面板：改名保存 + 删除（删除时清理引用它的远程）。渲染到指定目标面板。 */
     private void renderSshKeyPanel(UUID keyUuid, JPanel target) {
         target.removeAll();
         SshKeyNode key = sanctum.sshKeyTree().find(keyUuid);
-        addInfoLabel("SSH 密钥：" + (key == null ? "?" : key.name()), target);
-        addInfoLabel("私钥已加密存储", target);
+        if (key == null) {
+            addInfoLabel("密钥不存在", target);
+            target.revalidate();
+            target.repaint();
+            return;
+        }
+        JPanel nameRow = new JPanel(new BorderLayout(6, 0));
+        nameRow.setOpaque(false);
+        nameRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        JLabel nameTag = new JLabel("名称 :");
+        nameTag.setFont(nameTag.getFont().deriveFont(Font.BOLD, 14f));
+        JTextField nameField = new JTextField(key.name() == null ? "" : key.name());
+        nameField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        nameRow.add(nameTag, BorderLayout.WEST);
+        nameRow.add(nameField, BorderLayout.CENTER);
+        target.add(nameRow);
+        addInfoLabel("私钥已加密存储（不显示明文）", target);
+
+        JButton saveBtn = new JButton("保存");
+        saveBtn.addActionListener(e -> {
+            String newName = nameField.getText().trim();
+            if (newName.isEmpty()) {
+                statusLabel.setText("密钥名称不能为空");
+                return;
+            }
+            SshKeyNode other = sanctum.sshKeyTree().key(newName);
+            if (other != null && !other.uuid().equals(keyUuid)) {
+                statusLabel.setText("已存在同名 SSH 密钥");
+                return;
+            }
+            resetAutoLock();
+            try {
+                key.rename(newName);
+                modelBus.markDirty();
+                modelBus.refresh();
+                statusLabel.setText("已保存");
+            } catch (Exception ex) {
+                statusLabel.setText("保存失败");
+            }
+        });
+        JButton delBtn = new JButton("删除密钥");
+        delBtn.addActionListener(e -> deleteSshKey(keyUuid));
+        target.add(javax.swing.Box.createVerticalStrut(10));
+        target.add(saveBtn);
+        target.add(javax.swing.Box.createVerticalStrut(8));
+        target.add(delBtn);
         target.revalidate();
         target.repaint();
     }
 
-    /** 远程配置详情面板。渲染到指定目标面板。 */
+    /** 远程配置详情面板：改名/改 URL/改密钥引用 + 保存 + 删除。渲染到指定目标面板。 */
     private void renderRemotePanel(UUID remoteUuid, JPanel target) {
         target.removeAll();
         RemoteNode remote = sanctum.remoteTree().find(remoteUuid);
-        addInfoLabel("远程：" + (remote == null ? "?" : remote.name()), target);
+        if (remote == null) {
+            addInfoLabel("远程不存在", target);
+            target.revalidate();
+            target.repaint();
+            return;
+        }
+        JTextField nameField = new JTextField(remote.name() == null ? "" : remote.name());
+        nameField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        JTextField urlField = new JTextField(remote.url() == null ? "" : remote.url());
+        urlField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        JComboBox<SshKeyNode> keyCombo = new JComboBox<>();
+        for (SshKeyNode k : sanctum.sshKeyTree().keys()) {
+            keyCombo.addItem(k);
+        }
+        keyCombo.setRenderer(new javax.swing.DefaultListCellRenderer() {
+            @Override
+            public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value,
+                                                                   int index, boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof SshKeyNode k) {
+                    setText(k.name());
+                }
+                return this;
+            }
+        });
+        Ref selRef = remote.keyRef();
+        UUID selKey = selRef != null && "node".equals(selRef.scheme()) ? selRef.nodeUuid() : null;
+        if (selKey != null) {
+            for (int i = 0; i < keyCombo.getItemCount(); i++) {
+                SshKeyNode k = keyCombo.getItemAt(i);
+                if (k != null && k.uuid().equals(selKey)) {
+                    keyCombo.setSelectedIndex(i);
+                    break;
+                }
+            }
+        }
+        JPanel form = new JPanel(new GridLayout(0, 2, 8, 8));
+        form.setOpaque(false);
+        form.add(new JLabel("名称:"));
+        form.add(nameField);
+        form.add(new JLabel("URL:"));
+        form.add(urlField);
+        form.add(new JLabel("SSH 密钥引用:"));
+        form.add(keyCombo);
+        target.add(form);
+
+        JButton saveBtn = new JButton("保存");
+        saveBtn.addActionListener(e -> {
+            String newName = nameField.getText().trim();
+            String url = urlField.getText().trim();
+            if (newName.isEmpty() || url.isEmpty()) {
+                statusLabel.setText("名称与 URL 必填");
+                return;
+            }
+            RemoteNode other = sanctum.remoteTree().remote(newName);
+            if (other != null && !other.uuid().equals(remoteUuid)) {
+                statusLabel.setText("已存在同名远程配置");
+                return;
+            }
+            SshKeyNode sel = (SshKeyNode) keyCombo.getSelectedItem();
+            Ref keyRef = sel != null ? Ref.nodeKey(sel.uuid()) : null;
+            resetAutoLock();
+            try {
+                remote.rename(newName);
+                remote.update(url, keyRef);
+                modelBus.markDirty();
+                modelBus.refresh();
+                statusLabel.setText("已保存");
+            } catch (Exception ex) {
+                statusLabel.setText("保存失败");
+            }
+        });
+        JButton delBtn = new JButton("删除远程");
+        delBtn.addActionListener(e -> deleteRemote(remoteUuid));
+        target.add(javax.swing.Box.createVerticalStrut(10));
+        target.add(saveBtn);
+        target.add(javax.swing.Box.createVerticalStrut(8));
+        target.add(delBtn);
         target.revalidate();
         target.repaint();
     }
@@ -2167,6 +2288,10 @@ public final class SanctumGui {
             statusLabel.setText("名称与私钥必填");
             return;
         }
+        if (sanctum.sshKeyTree().key(name) != null) {
+            statusLabel.setText("已存在同名 SSH 密钥");
+            return;
+        }
         resetAutoLock();
         try {
             sanctum.sshKeyTree().createSshKey(name, pem);
@@ -2214,6 +2339,10 @@ public final class SanctumGui {
             statusLabel.setText("名称与 URL 必填");
             return;
         }
+        if (sanctum.remoteTree().remote(name) != null) {
+            statusLabel.setText("已存在同名远程配置");
+            return;
+        }
         SshKeyNode sel = (SshKeyNode) keyCombo.getSelectedItem();
         Ref keyRef = sel != null ? Ref.nodeKey(sel.uuid()) : null;
         resetAutoLock();
@@ -2225,6 +2354,57 @@ public final class SanctumGui {
         } catch (Exception ex) {
             statusLabel.setText("远程添加失败");
         }
+    }
+
+    /** 删除 SSH 密钥（设置页物理删除）：先确认并清除引用该密钥的远程的 keyRef，再删除密钥。 */
+    private void deleteSshKey(UUID keyUuid) {
+        if (!detachKeyRefs(keyUuid)) {
+            return;
+        }
+        SshKeyNode k = sanctum.sshKeyTree().find(keyUuid);
+        if (k != null) {
+            k.delete();
+        }
+        refreshSettingsEntries();
+        statusLabel.setText("已删除 SSH 密钥");
+    }
+
+    /** 删除远程配置（设置页物理删除，无外部引用需清理）。 */
+    private void deleteRemote(UUID remoteUuid) {
+        RemoteNode r = sanctum.remoteTree().find(remoteUuid);
+        if (r == null) {
+            return;
+        }
+        if (JOptionPane.showConfirmDialog(frame, "删除远程配置 " + r.name() + "？", "确认",
+                JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) {
+            return;
+        }
+        r.delete();
+        refreshSettingsEntries();
+        statusLabel.setText("已删除远程配置");
+    }
+
+    /**
+     * 清理引用指定密钥的远程：列出并请用户确认，确认后把这些远程的 keyRef 清空（改回无密钥引用）。
+     * 返回是否继续删除（用户取消则返回 false，此时不改动任何远程）。
+     */
+    private boolean detachKeyRefs(UUID keyUuid) {
+        List<RemoteNode> refs = sanctum.remoteTree().remotesWithKeyRef(keyUuid);
+        if (refs.isEmpty()) {
+            return true;
+        }
+        StringBuilder sb = new StringBuilder("以下远程配置正在引用此密钥，删除后其密钥引用将被清除：\n");
+        for (RemoteNode r : refs) {
+            sb.append("· ").append(r.name()).append("\n");
+        }
+        if (JOptionPane.showConfirmDialog(frame, sb.toString(), "确认", JOptionPane.OK_CANCEL_OPTION)
+                != JOptionPane.OK_OPTION) {
+            return false;
+        }
+        for (RemoteNode r : refs) {
+            r.update(r.url(), null);
+        }
+        return true;
     }
 
     /** 为条目选择图标（内置 + 用户图标库）。 */
@@ -2429,6 +2609,10 @@ public final class SanctumGui {
             };
             int ok = JOptionPane.showConfirmDialog(frame, "删除" + what + "（移入垃圾桶，可恢复）?", "确认", JOptionPane.YES_NO_OPTION);
             if (ok == JOptionPane.YES_OPTION) {
+                // 删除 SSH 密钥前先清理引用它的远程，避免悬空 keyRef
+                if (type == StoredNodeType.SSH_KEY && !detachKeyRefs(entryUuid)) {
+                    return;
+                }
                 resetAutoLock();
                 TreeNode node = sanctum.findNode(entryUuid);
                 if (node != null) {

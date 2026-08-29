@@ -41,6 +41,16 @@ public final class SshKeyTree extends DataTree {
         return out;
     }
 
+    /** 按名称查找 SSH 密钥；未找到返回 null（供唯一性校验）。 */
+    public SshKeyNode key(String name) {
+        for (SshKeyNode k : keys()) {
+            if (name.equals(k.name())) {
+                return k;
+            }
+        }
+        return null;
+    }
+
     public SshKeyNode createSshKey(String name, String privateKeyPem) {
         UUID keyUuid = UUID.randomUUID();
         JsonObject key = new JsonObject();

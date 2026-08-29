@@ -159,8 +159,8 @@ public final class SanctumGui {
 
     /** 统一启动编排：HTTP 服务 + 托盘 + 自动锁定编排在此收敛（原 run）。 */
     private void bootstrap() {
-        // 启动时未解锁无法读仓库设置，主题用默认；解锁后按仓库主题应用
-        applyTheme(com.flora.sanctum.model.LibraryConfig.DEFAULT_THEME);
+        // 主题存于全局配置文件（未解锁亦可读取）→ 启动时直接应用全局主题
+        applyTheme(config.theme());
         try {
             httpServer = new com.flora.sanctum.app.server.SanctumHttpServer(current::get, 0);
             httpServer.start();
@@ -212,18 +212,17 @@ public final class SanctumGui {
     }
 
     /** 应用 FlatLaf 主题（light/dark/system）。 */
+    /**
+     * 应用界面主题（light / dark / stupid）。主题存于全局配置文件（{@link UserConfig}），
+     * 未解锁亦可读取；切换后刷新组件树使已有控件采用新配色。
+     */
     private void applyTheme(String theme) {
         try {
-            boolean dark = switch (theme == null ? "system" : theme) {
-                case "light" -> false;
-                case "dark" -> true;
-                default -> isSystemDark();
-            };
-            if (dark) {
-                com.formdev.flatlaf.FlatDarkLaf.setup();
-            } else {
-                com.formdev.flatlaf.FlatLightLaf.setup();
-                applyPaperTheme();
+            com.formdev.flatlaf.FlatLightLaf.setup();
+            UiTheme.applyScheme(theme);  // 覆盖 UIManager 颜色。刷新 UI：让已存在的组件采用新的默认值。
+            if (frame != null) {
+                javax.swing.SwingUtilities.updateComponentTreeUI(frame);
+                frame.repaint();
             }
         } catch (Exception ignore) {
             // 主题安装失败则保留系统默认外观
@@ -844,7 +843,7 @@ public final class SanctumGui {
             modelBus.subscribe(this::refreshAll);
             busSubscribed = true;
         }
-        applyTheme(sanctum.config().theme()); // 解锁后应用仓库主题
+        applyTheme(config.theme()); // 解锁后应用全局主题（存全局配置文件）
         showEditPage();
         startAutoLockTimer();
     }
@@ -2562,20 +2561,23 @@ public final class SanctumGui {
         header.add(hLine, BorderLayout.SOUTH);
         box.add(header, BorderLayout.NORTH);
 
-        // 左栏：root 列表（设置 / 图标 / SSH 密钥 / 远程）
+        // 左栏：root 列表（全局配置 / 仓库配置 / 图标 / SSH 密钥 / 远程）
         settingsTree = new JTree();
         settingsTree.setRootVisible(false);
         settingsTree.setRowHeight(36);
         settingsTree.setCellRenderer(new SettingsTreeRenderer());
         DefaultMutableTreeNode top = new DefaultMutableTreeNode("设置");
-        DefaultMutableTreeNode setNode = new DefaultMutableTreeNode("设置");
+        DefaultMutableTreeNode setNode = new DefaultMutableTreeNode("仓库配置");
         setNode.setUserObject(ViewNodeType.SETTINGS);
+        DefaultMutableTreeNode globalNode = new DefaultMutableTreeNode("全局配置");
+        globalNode.setUserObject(ViewNodeType.GLOBAL);
         DefaultMutableTreeNode iconNode = new DefaultMutableTreeNode("图标");
         iconNode.setUserObject(ViewNodeType.ICON);
         DefaultMutableTreeNode sshNode = new DefaultMutableTreeNode("SSH 密钥");
         sshNode.setUserObject(ViewNodeType.SSH_KEY);
         DefaultMutableTreeNode remoteNode = new DefaultMutableTreeNode("远程");
         remoteNode.setUserObject(ViewNodeType.REMOTE);
+        top.add(globalNode);
         top.add(setNode);
         top.add(iconNode);
         top.add(sshNode);
@@ -2629,7 +2631,8 @@ public final class SanctumGui {
         box.add(mainSplit, BorderLayout.CENTER);
 
         // 默认选中"设置" root
-        settingsTree.setSelectionPath(new javax.swing.tree.TreePath(new Object[]{top, setNode}));
+        // 默认选中"全局配置" root（含界面主题）
+        settingsTree.setSelectionPath(new javax.swing.tree.TreePath(new Object[]{top, globalNode}));
 
         okBtn.addActionListener(e -> {
             if (saveSettingsItems()) {
@@ -2651,8 +2654,13 @@ public final class SanctumGui {
             return;
         }
         Object uo = node.getUserObject();
-        if (uo == ViewNodeType.SETTINGS) {
+        // 全局配置（存全局配置文件）：界面主题等
+        if (uo == ViewNodeType.GLOBAL) {
             addSettingsEntry("主题", "theme");
+            settingsEntryList.setSelectedIndex(0);
+            return;
+        }
+        if (uo == ViewNodeType.SETTINGS) {
             addSettingsEntry("自动锁定", "lock");
             addSettingsEntry("剪贴板清空", "clip");
             addSettingsEntry("独立运行", "standalone");
@@ -2749,8 +2757,9 @@ public final class SanctumGui {
     private void renderSettingsItem(String key) {
         com.flora.sanctum.model.LibraryConfig lc = sanctum.config();
         if ("theme".equals(key)) {
-            settingsThemeCombo = new javax.swing.JComboBox<>(new String[]{"system", "light", "dark"});
-            settingsThemeCombo.setSelectedItem(lc.theme());
+            // 主题存全局配置文件（UserConfig：应用级 ~/.flora-sanctum/config.json 或独立仓库级 standalone.json）
+            settingsThemeCombo = new javax.swing.JComboBox<>(new String[]{"light", "dark", "stupid"});
+            settingsThemeCombo.setSelectedItem(config.theme());
             settingsThemeCombo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
             settingsThemeCombo.setAlignmentX(0f);
             settingsEditPanel.add(new JLabel("界面主题"));
@@ -2864,7 +2873,7 @@ public final class SanctumGui {
     private boolean saveSettingsItems() {
         com.flora.sanctum.model.LibraryConfig lc = sanctum.config();
         if (settingsThemeCombo != null) {
-            lc.setTheme((String) settingsThemeCombo.getSelectedItem());
+            config.setTheme((String) settingsThemeCombo.getSelectedItem());
         }
         if (settingsLockField != null) {
             try {
@@ -2882,7 +2891,7 @@ public final class SanctumGui {
                 return false;
             }
         }
-        applyTheme(lc.theme());
+        applyTheme(config.theme());
         settingsThemeCombo = null;
         settingsLockField = null;
         settingsClipField = null;

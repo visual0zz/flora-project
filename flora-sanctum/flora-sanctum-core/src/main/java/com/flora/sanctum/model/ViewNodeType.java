@@ -12,8 +12,13 @@ public enum ViewNodeType {
     ICON("图标"),
     SSH_KEY("SSH 密钥"),
     REMOTE("远程"),
-    /** 设置区段。 */
-    SETTINGS("设置"),
+    /** 仓库配置区段（自动锁定/剪贴板清空等，存仓库内加密 config 节点）。 */
+    SETTINGS("仓库配置"),
+    /**
+     * 全局配置区段（界面主题等，存全局配置文件：应用级 ~/.flora-sanctum/config.json
+     * 或独立仓库级 standalone.json）。
+     */
+    GLOBAL("全局配置"),
     /** 垃圾桶虚拟根（与数据根平级，见设计 idea20260826-sanctum-trash）。 */
     TRASH("垃圾桶");
 

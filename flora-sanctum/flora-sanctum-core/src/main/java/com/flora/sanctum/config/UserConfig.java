@@ -44,9 +44,14 @@ public final class UserConfig {
     }
 
     /** 主题模式：light / dark / system。 */
+    /**
+     * 界面主题（light / dark / stupid；默认 light）。
+     * <p>
+     * stupid 主题所有位置颜色在应用主题时随机生成（每次应用不同，仅供娱乐）。
+     */
     public String theme() {
         String v = data.getString("theme");
-        return v == null ? "system" : v;
+        return v == null ? "light" : v;
     }
 
     public void setTheme(String theme) {

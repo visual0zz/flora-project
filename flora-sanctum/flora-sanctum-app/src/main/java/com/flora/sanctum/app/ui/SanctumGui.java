@@ -2181,6 +2181,7 @@ public final class SanctumGui {
     private JList<SettingsModel.SettingsEntry> settingsEntryList;
     private DefaultListModel<SettingsModel.SettingsEntry> settingsEntryModel;
     private JPanel settingsEditPanel;
+    private JPanel settingsActionBar;
     private SettingsModel.SettingsContext settingsCtx;
     private SettingsModel.Setting renderedSetting;
     private JComponent renderedControl;
@@ -2743,6 +2744,11 @@ public final class SanctumGui {
         header.add(hLine, BorderLayout.SOUTH);
         box.add(header, BorderLayout.NORTH);
 
+        // 按钮栏：按左栏选中区段显示对应的"添加"按钮（图标 + 文字）
+        settingsActionBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 6));
+        settingsActionBar.setOpaque(true);
+        settingsActionBar.setBackground(UiTheme.PAPER_LIGHT);
+
         // 左栏：root 列表（全局设置 / 仓库设置 / 图标 / SSH 密钥 / 远程）
         settingsTree = new JTree();
         settingsTree.setRootVisible(false);
@@ -2811,7 +2817,11 @@ public final class SanctumGui {
         mainSplit.setDividerLocation(160);
         keepDividerRatio(mainSplit, "ui.divider.main", 160);
         mainSplit.setOpaque(false);
-        box.add(mainSplit, BorderLayout.CENTER);
+        JPanel centerArea = new JPanel(new BorderLayout());
+        centerArea.setOpaque(false);
+        centerArea.add(settingsActionBar, BorderLayout.NORTH);
+        centerArea.add(mainSplit, BorderLayout.CENTER);
+        box.add(centerArea, BorderLayout.CENTER);
 
         // 默认选中"全局设置" root（含界面主题）
         settingsTree.setSelectionPath(new javax.swing.tree.TreePath(new Object[]{top, globalNode}));
@@ -2840,6 +2850,8 @@ public final class SanctumGui {
         Object sel = settingsTree.getLastSelectedPathComponent();
         if (!(sel instanceof DefaultMutableTreeNode node)
                 || !(node.getUserObject() instanceof SettingsModel.SettingsCategory cat)) {
+            settingsActionBar.removeAll();
+            settingsActionBar.repaint();
             return;
         }
         switch (cat.kind()) {
@@ -2882,6 +2894,7 @@ public final class SanctumGui {
                 }
             }
         }
+        setupSettingsActionBar(cat.kind());
         settingsEntryList.setSelectedIndex(settingsEntryModel.size() > 0 ? 0 : -1);
         showSettingsSelection();
     }
@@ -2900,7 +2913,6 @@ public final class SanctumGui {
                 switch (oe.kind()) {
                     case ICON -> {
                         renderSettingsIcon(Ref.fromLegacyId(oe.id()), settingsEditPanel);
-                        addSettingsActionBtn("导入图片", this::doImportImageAndRefresh);
                         addSettingsActionBtn("删除图标", () -> {
                             if (isBuiltinIcon(oe.id())) {
                                 JOptionPane.showMessageDialog(frame, "预制图标不能删除", "提示",
@@ -2921,11 +2933,9 @@ public final class SanctumGui {
                     }
                     case SSH_KEY -> {
                         renderSshKeyPanel(UUID.fromString(oe.id()), settingsEditPanel);
-                        addSettingsActionBtn("添加 SSH 密钥", this::addSshKeyAndRefresh);
                     }
                     case REMOTE -> {
                         renderRemotePanel(UUID.fromString(oe.id()), settingsEditPanel);
-                        addSettingsActionBtn("添加远程", this::addRemoteAndRefresh);
                     }
                     // GLOBAL / VAULT 仅产生 SettingEntry，不会进入此分支
                     case GLOBAL, VAULT -> { }
@@ -3038,6 +3048,33 @@ public final class SanctumGui {
         b.addActionListener(e -> action.run());
         settingsEditPanel.add(javax.swing.Box.createVerticalStrut(10));
         settingsEditPanel.add(b);
+    }
+
+    /** 按左栏选中的区段重建按钮栏：仅对应"添加"按钮可见，其余区段清空。 */
+    private void setupSettingsActionBar(SettingsModel.SettingsCategory.Kind kind) {
+        settingsActionBar.removeAll();
+        switch (kind) {
+            case ICON -> settingsActionBar.add(iconTextButton(
+                    SvgIcon.get(UiIcon.ADD_IMAGE, 20), "添加图标", this::doImportImageAndRefresh));
+            case SSH_KEY -> settingsActionBar.add(iconTextButton(
+                    SvgIcon.get(UiIcon.ADD_KEY, 20), "添加 SSH 密钥", this::addSshKeyAndRefresh));
+            case REMOTE -> settingsActionBar.add(iconTextButton(
+                    SvgIcon.get(UiIcon.ADD_REMOTE, 20), "添加远程", this::addRemoteAndRefresh));
+            case GLOBAL, VAULT -> { }
+        }
+        settingsActionBar.revalidate();
+        settingsActionBar.repaint();
+    }
+
+    /** 带图标与文字的按钮（用于按钮栏）。 */
+    private static JButton iconTextButton(Icon icon, String label, Runnable action) {
+        JButton b = new JButton(label, icon);
+        b.setFocusPainted(false);
+        b.setHorizontalAlignment(SwingConstants.LEFT);
+        b.setIconTextGap(6);
+        b.setMargin(new Insets(4, 10, 4, 12));
+        b.addActionListener(e -> action.run());
+        return b;
     }
 
     private void doImportImageAndRefresh() {

@@ -14,9 +14,12 @@ public enum UiIcon {
     DELETE("ui/delete"),
     ENTRY("ui/entry"),
     FOLDER("ui/folder"),
+    ADD_IMAGE("ui/add-image"),
+    ADD_KEY("ui/add-key"),
     LOCK("ui/lock"),
     NEW_ENTRY("ui/new-entry"),
     NEW_GROUP("ui/new-group"),
+    ADD_REMOTE("ui/add-remote"),
     SETTINGS("ui/settings"),
     SYNC("ui/sync"),
     TRASH("ui/trash");

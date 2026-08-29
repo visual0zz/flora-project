@@ -144,16 +144,20 @@ final class NewVaultDialog extends JDialog {
     private void buildAdvanced() {
         advancedPanel.setLayout(new BoxLayout(advancedPanel, BoxLayout.Y_AXIS));
         advancedPanel.setOpaque(false);
+        javax.swing.border.TitledBorder advTitle = BorderFactory.createTitledBorder(
+                "高级 (如果不理解这些设置项是什么，保持默认即可)");
+        advTitle.setTitleJustification(javax.swing.border.TitledBorder.LEFT);
         advancedPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createTitledBorder(
-                        "高级 (如果不理解这些设置项是什么，保持默认即可)"),
+                advTitle,
                 BorderFactory.createEmptyBorder(8, 10, 10, 10)));
 
         // 独立仓库：默认不勾选的单个勾选框；悬停显示原生提示气泡（不插入占用布局的控件）
         standaloneCheck.setOpaque(false);
+        standaloneCheck.setAlignmentX(Component.LEFT_ALIGNMENT);
         standaloneCheck.setToolTipText("<html><div style='width:320px'>" + STANDALONE_INFO + "</div></html>");
         advancedPanel.add(standaloneCheck);
         advancedPanel.add(Box.createVerticalStrut(8));
+        kdfPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         advancedPanel.add(kdfPanel);
     }
 

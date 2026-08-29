@@ -29,7 +29,9 @@ final class KdfParamsPanel extends JPanel {
     KdfParamsPanel() {
         super(new BorderLayout(0, 4));
         setOpaque(false);
-        setBorder(BorderFactory.createTitledBorder("Argon2id"));
+        javax.swing.border.TitledBorder tb = BorderFactory.createTitledBorder("Argon2id");
+        tb.setTitleJustification(javax.swing.border.TitledBorder.LEFT);
+        setBorder(tb);
 
         JPanel grid = new JPanel(new GridBagLayout());
         grid.setOpaque(false);
@@ -48,13 +50,13 @@ final class KdfParamsPanel extends JPanel {
         c.gridx = 0; c.gridy = 2; grid.add(new JLabel("并行度："), c);
         c.gridx = 1; grid.add(parallelismField, c);
 
-        add(grid, BorderLayout.CENTER);
+        add(grid, BorderLayout.WEST);
 
         hint = new JLabel("默认 " + Argon2KDF.DEFAULT_MEMORY_KIB + " KiB / "
                 + Argon2KDF.DEFAULT_ITERATIONS + " 轮 / " + Argon2KDF.DEFAULT_PARALLELISM
                 + " 线程；数值越大越安全也越慢");
         hint.setForeground(Color.GRAY);
-        add(hint, BorderLayout.SOUTH);
+        add(hint, BorderLayout.WEST);
     }
 
     private static JTextField numberField(int def) {

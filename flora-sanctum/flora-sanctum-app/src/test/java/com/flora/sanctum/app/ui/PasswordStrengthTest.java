@@ -36,6 +36,7 @@ class PasswordStrengthTest {
     }
 
     @Test
+    @SuppressWarnings("osmetes:secret")
     void userWordsLowerStrength() {
         // 含用户弱词（仓库名）时，强度应被拉低
         PasswordStrength plain = PasswordStrength.evaluate("FloraProject2024", null);

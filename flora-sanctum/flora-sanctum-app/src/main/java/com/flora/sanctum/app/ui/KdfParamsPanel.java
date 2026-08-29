@@ -3,12 +3,14 @@ package com.flora.sanctum.app.ui;
 import com.flora.sanctum.crypto.Argon2KDF;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -33,22 +35,20 @@ final class KdfParamsPanel extends JPanel {
         tb.setTitleJustification(javax.swing.border.TitledBorder.LEFT);
         setBorder(tb);
 
-        JPanel grid = new JPanel(new GridBagLayout());
+        JPanel grid = new JPanel();
+        grid.setLayout(new BoxLayout(grid, BoxLayout.Y_AXIS));
         grid.setOpaque(false);
-        GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(2, 4, 2, 4);
-        c.anchor = GridBagConstraints.WEST;
+        grid.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         memoryField = numberField(Argon2KDF.DEFAULT_MEMORY_KIB);
         iterationsField = numberField(Argon2KDF.DEFAULT_ITERATIONS);
         parallelismField = numberField(Argon2KDF.DEFAULT_PARALLELISM);
 
-        c.gridx = 0; c.gridy = 0; grid.add(new JLabel("内存 (KiB)："), c);
-        c.gridx = 1; grid.add(memoryField, c);
-        c.gridx = 0; c.gridy = 1; grid.add(new JLabel("迭代次数："), c);
-        c.gridx = 1; grid.add(iterationsField, c);
-        c.gridx = 0; c.gridy = 2; grid.add(new JLabel("并行度："), c);
-        c.gridx = 1; grid.add(parallelismField, c);
+        grid.add(row("内存 (KiB)：", memoryField));
+        grid.add(Box.createVerticalStrut(6));
+        grid.add(row("迭代次数：", iterationsField));
+        grid.add(Box.createVerticalStrut(6));
+        grid.add(row("并行度：", parallelismField));
 
         add(grid, BorderLayout.NORTH);
 
@@ -63,6 +63,18 @@ final class KdfParamsPanel extends JPanel {
         JTextField f = new JTextField(Integer.toString(def), 10);
         f.setMaximumSize(new Dimension(120, 24));
         return f;
+    }
+
+    /** 一行：标签 + 输入框（左对齐，不加 glue，避免内容被居中分配到右侧）。 */
+    private static JPanel row(String label, JTextField f) {
+        JPanel r = new JPanel();
+        r.setLayout(new BoxLayout(r, BoxLayout.X_AXIS));
+        r.setOpaque(false);
+        r.setAlignmentX(Component.LEFT_ALIGNMENT);
+        r.add(new JLabel(label));
+        r.add(Box.createHorizontalStrut(8));
+        r.add(f);
+        return r;
     }
 
     /**

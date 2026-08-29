@@ -18,9 +18,6 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -98,7 +95,7 @@ final class NewVaultDialog extends JDialog {
         // 实时最终路径提示（模仿 IDEA "Project will be created at"）：占满宽度、文本靠左（随窗口拉伸）
         finalPathLabel.setForeground(new Color(0x8E, 0x91, 0x96));
         finalPathLabel.setHorizontalAlignment(SwingConstants.LEFT);
-        form.add(finalPathLabel);
+        form.add(leftRow(finalPathLabel));
         form.add(Box.createVerticalStrut(10));
 
         // 输入密码（新建即在创建页设定，避免后续再弹解锁页）
@@ -119,7 +116,7 @@ final class NewVaultDialog extends JDialog {
         form.add(Box.createVerticalStrut(8));
 
         errorLabel.setForeground(Color.RED.darker());
-        form.add(errorLabel);
+        form.add(leftRow(errorLabel));
 
         // 名称/位置变更时刷新最终路径
         DocumentListener refresh = new DocumentListener() {
@@ -141,7 +138,7 @@ final class NewVaultDialog extends JDialog {
     }
 
     private void buildAdvanced() {
-        advancedPanel.setLayout(new BoxLayout(advancedPanel, BoxLayout.Y_AXIS));
+        advancedPanel.setLayout(new BorderLayout(0, 8));
         advancedPanel.setOpaque(false);
         javax.swing.border.TitledBorder advTitle = BorderFactory.createTitledBorder(
                 "高级 (如果不理解这些设置项是什么，保持默认即可)");
@@ -152,11 +149,10 @@ final class NewVaultDialog extends JDialog {
 
         // 独立仓库：默认不勾选的单个勾选框；悬停显示原生提示气泡（不插入占用布局的控件）
         standaloneCheck.setOpaque(false);
-        standaloneCheck.setHorizontalAlignment(SwingConstants.LEFT);
+        standaloneCheck.setHorizontalAlignment(SwingConstants.LEFT);   // NORTH 区被拉伸满宽，内容贴左
         standaloneCheck.setToolTipText("<html><div style='width:320px'>" + STANDALONE_INFO + "</div></html>");
-        advancedPanel.add(standaloneCheck);
-        advancedPanel.add(Box.createVerticalStrut(8));
-        advancedPanel.add(kdfPanel);
+        advancedPanel.add(standaloneCheck, BorderLayout.NORTH);
+        advancedPanel.add(kdfPanel, BorderLayout.CENTER);
     }
 
     /** 独立仓库说明：鼠标悬停于勾选框时展示。 */
@@ -279,6 +275,14 @@ final class NewVaultDialog extends JDialog {
         row.setOpaque(false);
         row.add(new JLabel(label), BorderLayout.WEST);
         row.add(field, BorderLayout.CENTER);
+        return row;
+    }
+
+    /** 把任意组件包进一个满宽、内容贴左的容器：让裸组件在 BoxLayout 纵排中也靠左而非居中。 */
+    private static JPanel leftRow(Component c) {
+        JPanel row = new JPanel(new BorderLayout());
+        row.setOpaque(false);
+        row.add(c, BorderLayout.NORTH);
         return row;
     }
 

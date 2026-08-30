@@ -162,6 +162,74 @@ class SanctumTest {
     }
 
     @Test
+    void moveGroupReparentAndSurvivesRelockAfterOldParentGone() {
+        char[] pw = "pw".toCharArray();
+        Sanctum s = Sanctum.createAndUnlock(dir, pw, 8192, 2, 1);
+        GroupNode a = s.objectTree().createGroup(null, "A");
+        GroupNode b = s.objectTree().createGroup(null, "B");
+        GroupNode c = a.createChildGroup("C");
+        EntryNode e = c.createEntry("条目", new EntryFields("pw", null, "u", List.of()));
+        e.createField("memo", "v", null);
+
+        // 把 C（含条目与字段）从 A 移到 B
+        s.move(c.uuid(), b.uuid());
+
+        // 旧父 A 删除并 GC，模拟旧父 DEK 离开索引
+        a.delete();
+        s.collectGarbage();
+
+        s.close();
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlock(pw);
+        GroupNode c2 = s2.objectTree().group(c.uuid());
+        assertNotNull(c2);
+        assertEquals(b.uuid(), UUID.fromString(c2.parentRef()));
+        EntryNode e2 = c2.entries().get(0);
+        assertEquals("pw", e2.password());
+        assertEquals("u", e2.username());
+        assertEquals(1, e2.fields().size());
+        assertEquals("v", e2.fields().get(0).value());
+        // 移动后的子树不应被判为不可解锁
+        assertTrue(s2.trash().unlockable().stream().noneMatch(u -> u.equals(c.uuid()) || u.equals(e.uuid())),
+                "重路由后子树不应不可解锁");
+    }
+
+    @Test
+    void moveEntryReparentAndSurvivesRelock() {
+        char[] pw = "pw".toCharArray();
+        Sanctum s = Sanctum.createAndUnlock(dir, pw, 8192, 2, 1);
+        GroupNode a = s.objectTree().createGroup(null, "A");
+        GroupNode b = s.objectTree().createGroup(null, "B");
+        EntryNode e = a.createEntry("条目", new EntryFields("pw", null, "u", List.of()));
+        e.createField("memo", "v", null);
+
+        s.move(e.uuid(), b.uuid());
+
+        s.close();
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlock(pw);
+        EntryNode e2 = s2.objectTree().entry(e.uuid());
+        assertNotNull(e2);
+        assertEquals(b.uuid(), UUID.fromString(e2.parentRef()));
+        assertEquals("pw", e2.password());
+        assertEquals(1, e2.fields().size());
+        assertEquals("v", e2.fields().get(0).value());
+    }
+
+    @Test
+    void moveRejectsMovingIntoOwnSubtree() {
+        char[] pw = "pw".toCharArray();
+        Sanctum s = Sanctum.createAndUnlock(dir, pw, 8192, 2, 1);
+        GroupNode a = s.objectTree().createGroup(null, "A");
+        GroupNode c = a.createChildGroup("C");
+
+        // 把 A 移到其子孙 C 之下应被环检测拒绝
+        assertThrows(IllegalArgumentException.class, () -> s.move(a.uuid(), c.uuid()));
+        // 移动到自身也应被拒绝
+        assertThrows(IllegalArgumentException.class, () -> s.move(a.uuid(), a.uuid()));
+    }
+
+    @Test
     void changeMasterPassword() {
         char[] oldPw = "old".toCharArray();
         char[] newPw = "new-pass".toCharArray();

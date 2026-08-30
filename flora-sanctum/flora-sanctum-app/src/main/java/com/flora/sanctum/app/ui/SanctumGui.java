@@ -40,6 +40,7 @@ import javax.swing.JTree;
 import javax.swing.SwingConstants;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
+import javax.swing.TransferHandler;
 import javax.swing.border.EmptyBorder;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
@@ -58,7 +59,9 @@ import java.awt.Insets;
 import java.awt.LayoutManager;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.Transferable;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -933,9 +936,17 @@ public final class SanctumGui {
         groupTree.setFont(groupTree.getFont().deriveFont(Font.PLAIN, 14f));
         groupTree.setRowHeight(36);
         groupTree.setCellRenderer(new FolderTreeRenderer());
+        // 拖拽改归属：左树既是拖源也是放置目标（拖到文件夹或根）
+        groupTree.setDragEnabled(true);
+        groupTree.setDropMode(javax.swing.DropMode.ON);
+        groupTree.setTransferHandler(new TreeDragHandler());
         // 条目列表模型需先于 refreshAll() 就绪：其内部 refreshEntryList 会调用 entryModel.clear()
         entryModel = new DefaultListModel<>();
         entryList = new JList<>(entryModel);
+        // 拖拽改归属：中间栏拖出条目/文件夹，拖到文件夹（中间栏或左树）即改归属
+        entryList.setDragEnabled(true);
+        entryList.setDropMode(javax.swing.DropMode.ON);
+        entryList.setTransferHandler(new ListDragHandler());
         refreshAll();
         groupTree.addTreeSelectionListener(e -> {
             resetAutoLock();
@@ -1143,6 +1154,147 @@ public final class SanctumGui {
             case UNREACHABLE -> trashView.unreachable();
             case UNLOCKABLE -> trashView.unlockable();
         };
+    }
+
+    // ---- 拖拽改归属（左树 / 中间栏） ----
+
+    /** 解析拖拽传输的 uuid（以 stringFlavor 携带）。 */
+    private static UUID parseDragged(TransferHandler.TransferSupport support) {
+        try {
+            if (!support.isDataFlavorSupported(DataFlavor.stringFlavor)) {
+                return null;
+            }
+            Object data = support.getTransferable().getTransferData(DataFlavor.stringFlavor);
+            if (data instanceof String s && !s.isBlank()) {
+                return UUID.fromString(s.trim());
+            }
+        } catch (Exception ignore) {
+        }
+        return null;
+    }
+
+    /** 执行归属变更：委托 core 的 NodeMover（经 Sanctum.move），失败给出状态提示。 */
+    private void performMove(UUID dragged, UUID targetGroup) {
+        if (dragged == null || targetGroup == null) {
+            return;
+        }
+        try {
+            sanctum.move(dragged, targetGroup);
+            refreshAll();
+            statusLabel.setText("已调整归属");
+        } catch (Exception ex) {
+            statusLabel.setText("移动失败："
+                    + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+        }
+    }
+
+    private static UUID uuidOf(String ref) {
+        if (ref == null) {
+            return null;
+        }
+        try {
+            return UUID.fromString(ref);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    /** 左树拖拽：拖出组/条目，拖入文件夹（或根「密码库」区段）即改归属。 */
+    private final class TreeDragHandler extends TransferHandler {
+        @Override
+        public int getSourceActions(JComponent c) {
+            return MOVE;
+        }
+
+        @Override
+        protected Transferable createTransferable(JComponent c) {
+            Object sel = currentSelection();
+            if (sel instanceof UUID u && !isTrashSelection()) {
+                return new StringSelection(u.toString());
+            }
+            return null;
+        }
+
+        @Override
+        public boolean canImport(TransferHandler.TransferSupport support) {
+            return support.isDataFlavorSupported(DataFlavor.stringFlavor);
+        }
+
+        @Override
+        public boolean importData(TransferHandler.TransferSupport support) {
+            UUID dragged = parseDragged(support);
+            if (dragged == null) {
+                return false;
+            }
+            JTree.DropLocation loc = (JTree.DropLocation) support.getDropLocation();
+            if (loc == null || loc.getPath() == null) {
+                return false;
+            }
+            Object uo = ((DefaultMutableTreeNode) loc.getPath().getLastPathComponent()).getUserObject();
+            UUID targetGroup;
+            if (uo instanceof UUID g) {
+                targetGroup = g;
+            } else if (uo instanceof ViewNodeType t && t == ViewNodeType.PASSWORD) {
+                targetGroup = null; // 落到根（顶层）
+            } else {
+                return false;
+            }
+            performMove(dragged, targetGroup);
+            return true;
+        }
+    }
+
+    /** 中间栏拖拽：拖出条目/文件夹，拖入文件夹（中间栏或左树）即改归属。 */
+    private final class ListDragHandler extends TransferHandler {
+        @Override
+        public int getSourceActions(JComponent c) {
+            return MOVE;
+        }
+
+        @Override
+        protected Transferable createTransferable(JComponent c) {
+            UUID u = selectedEntryUuid();
+            if (u == null || (trashView != null && trashView.contains(u))) {
+                return null;
+            }
+            return new StringSelection(u.toString());
+        }
+
+        @Override
+        public boolean canImport(TransferHandler.TransferSupport support) {
+            return support.isDataFlavorSupported(DataFlavor.stringFlavor);
+        }
+
+        @Override
+        public boolean importData(TransferHandler.TransferSupport support) {
+            UUID dragged = parseDragged(support);
+            if (dragged == null) {
+                return false;
+            }
+            JList.DropLocation loc = (JList.DropLocation) support.getDropLocation();
+            int idx = loc == null ? -1 : loc.getIndex();
+            UUID targetGroup = null;
+            if (idx >= 0 && idx < entryModel.size()) {
+                EntryListItem item = entryModel.getElementAt(idx);
+                if (item.type() == StoredNodeType.GROUP) {
+                    targetGroup = item.uuid();
+                } else if (item.type() == StoredNodeType.ENTRY) {
+                    EntryNode en = sanctum.objectTree().entry(item.uuid());
+                    targetGroup = en == null ? null : uuidOf(en.parentRef());
+                }
+            } else {
+                // 拖到空白处：落在当前选中的文件夹（若当前区段是某组）
+                UUID cur = currentGroupId();
+                if (cur != null && typeOf(cur) == StoredNodeType.GROUP) {
+                    targetGroup = cur;
+                }
+            }
+            if (targetGroup == null) {
+                return false;
+            }
+            performMove(dragged, targetGroup);
+            return true;
+        }
     }
 
     /** 跨树按 uuid 取展示名（组/条目/图标/SSH/远程）；未知显示 uuid 前 8 位。 */

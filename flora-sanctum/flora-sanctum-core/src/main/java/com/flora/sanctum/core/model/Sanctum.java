@@ -170,6 +170,11 @@ public final class Sanctum implements AutoCloseable {
         return new TrashClassifier(context).classify();
     }
 
+    /** 改变节点归属（组/条目移动到新父之下；委托 NodeMover，含 DEK 重路由与环检测）。 */
+    public void move(UUID node, UUID newParent) {
+        new NodeMover(context, vault).move(node, newParent);
+    }
+
     /** 取某 group 的 DEK（null 若未发现）。 */
     byte[] groupDek(UUID groupUuid) {
         return vault == null ? null : vault.groupDek(groupUuid);

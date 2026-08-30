@@ -104,7 +104,7 @@ public final class SanctumGui {
     private java.util.Timer autoLockTimer;
     private java.util.Timer clipboardTimer;
     private String unlockedVaultPath;
-    /** 独立仓库形态（standalone.json 判定）：无历史仓库列表页。 */
+    /** 独立仓库形态（lib/ + edit 脚本判定）：无历史仓库列表页。 */
     private boolean standalone;
     /** 当前仓库数据根（解锁目标 / 锁定后直接回到该仓库解锁页）。 */
     private Path targetVaultRoot;
@@ -132,7 +132,7 @@ public final class SanctumGui {
         this.standalone = false;
     }
 
-    /** 独立仓库形态：读仓库级配置（仓库根 standalone.json），页面从该仓库解锁页开始。 */
+    /** 独立仓库形态：读仓库级配置（仓库根 config.json），页面从该仓库解锁页开始。 */
     private SanctumGui(Path repoRoot) {
         this.config = new UserConfig(repoRoot);
         this.standalone = true;
@@ -2937,8 +2937,7 @@ public final class SanctumGui {
         // 每次刷新重建上下文，使"独立运行"状态实时反映磁盘（配置/删除后立即生效）
         Path repoRoot = currentRepoRoot();
         boolean standalone = repoRoot != null
-                && java.nio.file.Files.isRegularFile(
-                        repoRoot.resolve(com.flora.sanctum.app.bootstrap.VaultDetector.standaloneFileName()));
+                && com.flora.sanctum.app.bootstrap.VaultDetector.isStandaloneRepo(repoRoot);
         settingsCtx = new SettingsModel.SettingsContext(config, sanctum.config(), repoRoot, standalone,
                 this::upgradeStandalone, this::downgradeStandalone);
         Object sel = settingsTree.getLastSelectedPathComponent();
@@ -3046,7 +3045,7 @@ public final class SanctumGui {
         settingsEditPanel.add(control);
     }
 
-    /** 把当前普通仓库升级为独立仓库（新增 standalone.json / lib/ / 启动脚本，数据不动）。 */
+    /** 把当前普通仓库升级为独立仓库（新增 config.json / lib/ / edit 脚本，数据不动）。 */
     private void upgradeStandalone() {
         Path root = currentRepoRoot();
         if (root == null) {
@@ -3054,7 +3053,7 @@ public final class SanctumGui {
             return;
         }
         if (JOptionPane.showConfirmDialog(frame,
-                "将当前普通仓库配置为独立运行？\n仓库根将新增 standalone.json、lib/ 与启动脚本（数据不动）。\n之后可用仓库内脚本独立启动。",
+                "将当前普通仓库配置为独立运行？\n仓库根将新增 config.json、lib/ 与 edit 脚本（数据不动）。\n之后可用仓库内 edit 脚本独立启动。",
                 "配置独立运行", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) {
             return;
         }
@@ -3068,7 +3067,7 @@ public final class SanctumGui {
         }
     }
 
-    /** 把当前独立仓库降级为普通仓库（移除 standalone.json / lib/ / 启动脚本，数据不动）。 */
+    /** 把当前独立仓库降级为普通仓库（移除 config.json / lib/ / edit 脚本，数据不动）。 */
     private void downgradeStandalone() {
         Path root = currentRepoRoot();
         if (root == null) {
@@ -3076,7 +3075,7 @@ public final class SanctumGui {
             return;
         }
         if (JOptionPane.showConfirmDialog(frame,
-                "删除独立运行？\n将移除 standalone.json、lib/ 与启动脚本，仓库恢复为普通仓库（数据不动）。",
+                "删除独立运行？\n将移除 config.json、lib/ 与 edit 脚本，仓库恢复为普通仓库（数据不动）。",
                 "删除独立运行", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) {
             return;
         }
@@ -3098,7 +3097,7 @@ public final class SanctumGui {
         return targetVaultRoot;
     }
 
-    /** 复制给 standalone.json 的配置：优先当前仓库 LibraryConfig，否则应用级配置。 */
+    /** 复制给仓库级 config.json 的配置：优先当前仓库 LibraryConfig，否则应用级配置。 */
     private JsonObject configForStandalone() {
         if (sanctum != null && sanctum.isUnlocked()) {
             com.flora.sanctum.core.model.LibraryConfig lc = sanctum.config();

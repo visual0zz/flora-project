@@ -2,7 +2,7 @@
 <assembly xmlns="http://maven.apache.org/ASSEMBLY/2.1.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.1.0 https://maven.apache.org/xsd/assembly-2.1.0.xsd">
-    <!-- flora-sanctum 分发 zip：lib/(应用 jar + 全量依赖) + 多平台启动脚本 + 应用级配置（见设计"形态与启动"） -->
+    <!-- flora-sanctum 分发 zip：lib/(应用 jar + 全量依赖) + 应用启动脚本 + 默认配置（见设计"形态与启动"） -->
     <id>dist</id>
     <formats>
         <format>zip</format>
@@ -10,13 +10,14 @@
     <includeBaseDirectory>true</includeBaseDirectory>
     <baseDirectory>flora-sanctum</baseDirectory>
     <files>
-        <!-- 启动脚本（跨平台双头脚本：bash 段 + :windows cmd 段；经 -Dflora.repo 传仓库根，module-path 启动） -->
+        <!-- 应用形态启动脚本（start.cmd 非 edit 脚本，故分发版以应用形态启动，进入历史仓库列表页）。
+             独立仓库由应用内"配置独立运行"生成 lib/ + edit/edit.bat，jar 据此判定孤立形态。 -->
         <file>
             <source>src/main/resources/script/start.cmd</source>
             <outputDirectory>/</outputDirectory>
             <fileMode>0755</fileMode>
         </file>
-        <!-- 应用级默认配置（新建独立仓库时复制为仓库级） -->
+        <!-- 应用级默认配置（仓库级 config.json 的初值由应用内复制生成，此处作为默认模板） -->
         <file>
             <source>src/main/resources/config.json</source>
             <outputDirectory>/</outputDirectory>

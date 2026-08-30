@@ -271,7 +271,7 @@ final class SettingsModel {
             p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
             p.setOpaque(false);
             JLabel state = new JLabel(ctx.standalone()
-                    ? "当前：独立运行（自带 lib/ 与启动脚本）"
+                    ? "当前：独立运行（自带 lib/ 与 edit 脚本）"
                     : "当前：普通仓库（依赖本应用打开）");
             state.setHorizontalAlignment(SwingConstants.LEFT);
             p.add(state);

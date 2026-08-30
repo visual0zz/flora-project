@@ -28,11 +28,11 @@ class VaultDetectorTest {
     void detectStandaloneRepo() throws Exception {
         Path repo = dir.resolve("standalone");
         Files.createDirectories(repo.resolve("lib"));
+        Files.writeString(repo.resolve("edit"), "#!/usr/bin/env bash\n");
         Files.writeString(repo.resolve("a.md"), "1:abc\n");
-        Files.writeString(repo.resolve("standalone.json"), "{}");
         assertEquals(VaultDetector.Type.STANDALONE, VaultDetector.detect(repo));
         assertEquals(repo, VaultDetector.dataDir(repo));
-        assertEquals(repo.resolve("standalone.json"), VaultDetector.configFile(repo));
+        assertEquals(repo.resolve("config.json"), VaultDetector.configFile(repo));
     }
 
     @Test
@@ -48,7 +48,7 @@ class VaultDetectorTest {
     void writeAndReadRepoConfig() throws Exception {
         Path repo = dir.resolve("cfg");
         Files.createDirectories(repo);
-        Files.writeString(repo.resolve("standalone.json"), "{}");
+        Files.writeString(repo.resolve("config.json"), "{}");
         JsonObject app = new JsonObject();
         app.put("theme", "dark");
         VaultDetector.writeRepoConfig(repo, app);
@@ -66,8 +66,10 @@ class VaultDetectorTest {
 
         assertEquals(repo, vaultRoot);
         assertTrue(Files.isDirectory(repo.resolve("lib")));
-        assertTrue(Files.exists(repo.resolve("start.cmd")));
-        assertTrue(Files.exists(repo.resolve("standalone.json")));
+        assertTrue(Files.exists(repo.resolve("edit")));
+        assertTrue(Files.exists(repo.resolve("edit.bat")));
+        assertTrue(Files.exists(repo.resolve("config.json")));
+        assertTrue(VaultDetector.isStandaloneRepo(repo));
     }
 
     @Test
@@ -91,9 +93,10 @@ class VaultDetectorTest {
         cfg.put("theme", "dark");
         RepoCreator.upgradeToStandalone(repo, cfg);
 
-        assertTrue(Files.exists(repo.resolve("standalone.json")));
+        assertTrue(Files.exists(repo.resolve("config.json")));
         assertTrue(Files.isDirectory(repo.resolve("lib")));
-        assertTrue(Files.exists(repo.resolve("start.cmd")));
+        assertTrue(Files.exists(repo.resolve("edit")));
+        assertTrue(Files.exists(repo.resolve("edit.bat")));
         assertEquals(VaultDetector.Type.STANDALONE, VaultDetector.detect(repo));
         // 数据仍在仓库根（未移动）
         assertTrue(Files.exists(repo.resolve("aa").resolve("b.md")));
@@ -107,15 +110,17 @@ class VaultDetectorTest {
         Files.createDirectories(repo.resolve("lib"));
         Files.createDirectories(repo.resolve("aa"));
         Files.writeString(repo.resolve("aa").resolve("b.md"), "1:abc\n");
-        Files.writeString(repo.resolve("standalone.json"), "{}");
-        Files.writeString(repo.resolve("start.cmd"), "#!/bin/bash\n");
+        Files.writeString(repo.resolve("config.json"), "{}");
+        Files.writeString(repo.resolve("edit"), "#!/usr/bin/env bash\n");
+        Files.writeString(repo.resolve("edit.bat"), "@echo off\n");
         assertEquals(VaultDetector.Type.STANDALONE, VaultDetector.detect(repo));
 
         RepoCreator.downgradeToNormal(repo);
 
-        assertFalse(Files.exists(repo.resolve("standalone.json")));
+        assertFalse(Files.exists(repo.resolve("config.json")));
+        assertFalse(Files.exists(repo.resolve("edit")));
+        assertFalse(Files.exists(repo.resolve("edit.bat")));
         assertFalse(Files.exists(repo.resolve("lib")));
-        assertFalse(Files.exists(repo.resolve("start.cmd")));
         assertEquals(VaultDetector.Type.NORMAL, VaultDetector.detect(repo));
         // 数据仍在仓库根
         assertTrue(Files.exists(repo.resolve("aa").resolve("b.md")));

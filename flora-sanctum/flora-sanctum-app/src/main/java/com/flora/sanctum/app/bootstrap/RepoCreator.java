@@ -21,8 +21,8 @@ import java.util.jar.JarFile;
  * 新建仓库（见设计"形态与启动"）。
  * <ul>
  *   <li><b>普通仓库</b>：在目标目录直接建数据块结构（两层目录，该目录即 vault 根）。</li>
- *   <li><b>独立仓库</b>：把应用自身复制为 {@code { standalone.json, data/, lib/, start.cmd }}，
- *       复制应用级配置为仓库级配置（不含密钥等加密信息），之后可由该仓库自己的脚本启动。</li>
+ *   <li><b>独立仓库</b>：把应用自身复制为 {@code { config.json, lib/, edit, edit.bat }}，
+ *       复制应用级配置为仓库级配置（不含密钥等加密信息），之后可由该仓库自己的 edit 脚本启动。</li>
  * </ul>
  */
 public final class RepoCreator {
@@ -37,7 +37,7 @@ public final class RepoCreator {
     }
 
     /**
-     * 新建独立仓库：把应用自身（lib/ + 启动脚本 + standalone.json）复制到目标目录，
+     * 新建独立仓库：把应用自身（lib/ + edit 脚本 + config.json）复制到目标目录，
      * 数据块（两层目录 + md）直接建在仓库根（与普通仓库布局一致）。
      * 应用自身不打开它。
      *
@@ -47,36 +47,37 @@ public final class RepoCreator {
     public static Path createStandalone(Path dir, JsonObject appConfig) throws IOException {
         Files.createDirectories(dir);
         copyLib(dir);
-        writeScript(dir);
+        writeScripts(dir);
         VaultDetector.writeRepoConfig(dir, appConfig);
         return dir;
     }
 
     /**
-     * 把普通仓库原地升级为独立仓库：仓库根新增 {@code standalone.json}、{@code lib/} 与启动脚本，
+     * 把普通仓库原地升级为独立仓库：仓库根新增 {@code config.json}、{@code lib/} 与 edit 脚本，
      * 数据块不动（普通/独立仓库数据布局一致，无 data 层）。返回仓库根。
      */
     public static Path upgradeToStandalone(Path repoRoot, JsonObject appConfig) throws IOException {
-        if (Files.isRegularFile(repoRoot.resolve(VaultDetector.standaloneFileName()))) {
+        if (VaultDetector.isStandaloneRepo(repoRoot)) {
             throw new IOException("已是独立仓库");
         }
         if (Files.exists(repoRoot.resolve("lib"))) {
             throw new IOException("lib 目录已存在");
         }
         copyLib(repoRoot);
-        writeScript(repoRoot);
+        writeScripts(repoRoot);
         VaultDetector.writeRepoConfig(repoRoot, appConfig);
         return repoRoot;
     }
 
     /**
-     * 把独立仓库降级为普通仓库：移除 {@code standalone.json}、{@code lib/} 与启动脚本，
+     * 把独立仓库降级为普通仓库：移除 {@code config.json}、{@code lib/} 与 edit 脚本，
      * 数据块不动。返回仓库根。
      */
     public static Path downgradeToNormal(Path repoRoot) throws IOException {
         deleteIfExists(repoRoot.resolve("lib"));
-        deleteIfExists(repoRoot.resolve("start.cmd"));
-        deleteIfExists(repoRoot.resolve(VaultDetector.standaloneFileName()));
+        deleteIfExists(repoRoot.resolve("edit"));
+        deleteIfExists(repoRoot.resolve("edit.bat"));
+        deleteIfExists(repoRoot.resolve("config.json"));
         return repoRoot;
     }
 
@@ -226,25 +227,27 @@ public final class RepoCreator {
     }
 
     /**
-     * 写入跨平台启动脚本（双头脚本：bash 段 + :windows cmd 段，module-path 启动）。
-     * 依赖本地 JRE（JAVA_HOME 优先，其次 PATH 的 java）；git 为可选（运行时探测）。
-     * standalone.json 在仓库根，jar 启动时自行判定孤立形态。
+     * 写入独立仓库启动脚本：posix 版 {@code edit} 与 windows 版 {@code edit.bat}（分开两个文件）。
+     * 二者均经 {@code --module-path lib} 启动应用。依赖本地 JRE（JAVA_HOME 优先，其次 PATH 的 java）；
+     * git 为可选（运行时探测）。jar 启动时自行判定孤立形态（自身位于 lib/ 且仓库根含 edit 脚本）。
+     * <p>
+     * 必须用 LF 换行（bash 段在 CRLF 下无法解析；cmd 亦兼容 LF 批处理）。
      */
-    private static void writeScript(Path dir) throws IOException {
-        // 必须用 LF 换行（bash 段在 CRLF 下无法解析）；cmd 亦兼容 LF 批处理。
-        String script = "#!/usr/bin/env bash\n"
-                + "@goto :windows || true\n"
-                + "# Cross-platform launcher for standalone repo. Requires local JRE; git is optional.\n"
+    private static void writeScripts(Path dir) throws IOException {
+        String posix = "#!/usr/bin/env bash\n"
+                + "# Launcher for standalone repo. Requires local JRE; git is optional.\n"
                 + "cd \"$(dirname \"$0\")\" || exit 1\n"
                 + "if [ -n \"$JAVA_HOME\" ] && [ -x \"$JAVA_HOME/bin/java\" ]; then\n"
                 + "  JAVA=\"$JAVA_HOME/bin/java\"\n"
                 + "else\n"
                 + "  JAVA=java\n"
                 + "fi\n"
-                + "exec \"$JAVA\" --module-path lib --module com.flora.sanctum.app/com.flora.sanctum.app.Main \"$@\" || exit 1\n"
-                + "\n"
-                + ":windows\n"
-                + "@echo off\n"
+                + "exec \"$JAVA\" --module-path lib --module com.flora.sanctum.app/com.flora.sanctum.app.Main \"$@\" || exit 1\n";
+        Path editFile = dir.resolve("edit");
+        Files.writeString(editFile, posix);
+        editFile.toFile().setExecutable(true);
+
+        String windows = "@echo off\n"
                 + "cd /d \"%~dp0\"\n"
                 + "if defined JAVA_HOME (\n"
                 + "  set \"JAVA=%JAVA_HOME%\\bin\\java.exe\"\n"
@@ -253,8 +256,8 @@ public final class RepoCreator {
                 + "  set \"JAVA=java\"\n"
                 + ")\n"
                 + "\"%JAVA%\" --module-path lib --module com.flora.sanctum.app/com.flora.sanctum.app.Main %*\n";
-        Path cmdFile = dir.resolve("start.cmd");
-        Files.writeString(cmdFile, script);
-        cmdFile.toFile().setExecutable(true);
+        Path batFile = dir.resolve("edit.bat");
+        Files.writeString(batFile, windows);
+        batFile.toFile().setExecutable(true);
     }
 }

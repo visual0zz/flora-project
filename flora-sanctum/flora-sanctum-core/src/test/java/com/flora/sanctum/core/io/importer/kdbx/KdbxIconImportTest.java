@@ -131,4 +131,39 @@ class KdbxIconImportTest {
         // 无图标引用
         assertNull(e0Node.iconRef(), "无图标引用的条目 iconRef 应为 null");
     }
+
+    @Test
+    void notesFieldBecomesBuiltinPreset() throws Exception {
+        Sanctum sanctum = Sanctum.createAndUnlock(
+                Path.of(System.getProperty("java.io.tmpdir"), "kdbx-notes-" + System.nanoTime()),
+                "pw".toCharArray(), 8192, 2, 1);
+        var tree = sanctum.objectTree();
+
+        KdbxDocument.KdbxGroup root = new KdbxDocument.KdbxGroup();
+        root.name = "Root";
+
+        KdbxDocument.KdbxEntry e = new KdbxDocument.KdbxEntry();
+        e.name = "WithNotes";
+        e.fields.put("UserName", new KdbxDocument.KdbxField("alice", false));
+        e.fields.put("Password", new KdbxDocument.KdbxField("secret", true));
+        e.fields.put("Notes", new KdbxDocument.KdbxField("这是备注\n第二行", false));
+        e.fields.put("CustomKey", new KdbxDocument.KdbxField("cv", false));
+        root.entries.add(e);
+
+        ImportContext ctx = ImportContext.builder(tree).build();
+        KdbxMapper.map(new KdbxDocument(root, Map.of()), ctx);
+
+        EntryNode node = tree.rootGroups().stream()
+                .filter(g -> "Root".equals(g.name())).findFirst().orElseThrow()
+                .entries().stream()
+                .filter(en -> "WithNotes".equals(en.name())).findFirst().orElseThrow();
+
+        // Notes 转译为内置备注字段，而非附加自定义字段
+        assertEquals("这是备注\n第二行", node.notes());
+        assertTrue(node.fields().stream().noneMatch(f -> "notes".equals(f.fieldName())),
+                "Notes 不应再作为附加自定义字段出现");
+        // 其它自定义字段仍正常保留
+        assertTrue(node.fields().stream().anyMatch(f -> "CustomKey".equals(f.fieldName())),
+                "其它自定义字段应保留");
+    }
 }

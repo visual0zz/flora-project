@@ -48,7 +48,7 @@ class SanctumTest {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "条目",
                 new EntryFields("s3cret", null, "alice", List.of()));
-        FieldNode note = entry.createField("notes", "memo", null);
+        FieldNode note = entry.createField("memo", "memo", null);
 
         note.delete();
         assertNull(s.objectTree().field(note.uuid()));
@@ -242,7 +242,7 @@ class SanctumTest {
     void updateFieldKindChangesKind() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "条目", EntryFields.EMPTY);
-        FieldNode field = entry.createField("notes", "memo", null);
+        FieldNode field = entry.createField("memo", "memo", null);
         assertNull(field.kind());
         field.updateKind("totp");
         assertEquals("totp", s.objectTree().field(field.uuid()).kind());
@@ -294,6 +294,27 @@ class SanctumTest {
         entry.updateBuiltins(new EntryFields("p@ss2", "https://example.com", "alice", List.of()));
         long updateTime2 = s.objectTree().entry(entry.uuid()).updateTime();
         assertTrue(updateTime2 >= ct);
+    }
+
+    @Test
+    void entryNotesIsBuiltinPresetField() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
+        EntryNode entry = s.objectTree().createEntry(null, "账号", EntryFields.EMPTY);
+        assertNull(entry.notes());
+
+        entry.setNotes("多行\n备注内容");
+        assertEquals("多行\n备注内容", s.objectTree().entry(entry.uuid()).notes());
+
+        // 清空备注应删除预设块
+        entry.setNotes("");
+        assertNull(s.objectTree().entry(entry.uuid()).notes());
+
+        // 备注与密码等内置字段相互独立
+        entry.setNotes("私有备注");
+        entry.updateBuiltins(new EntryFields("p@ss", null, "alice", List.of()));
+        EntryNode reread = s.objectTree().entry(entry.uuid());
+        assertEquals("私有备注", reread.notes());
+        assertEquals("p@ss", reread.password());
     }
 
     @Test

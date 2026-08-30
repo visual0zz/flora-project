@@ -22,7 +22,7 @@ public final class EntryFields {
 
     /** 预设字段名集合（独立块存储，GUI 固定显示不可删除）。 */
     public static final Set<String> PRESET_NAMES = Set.of(
-            "password", "url", "username", "labels", "createTime", "updateTime");
+            "password", "url", "username", "labels", "notes", "createTime", "updateTime");
 
     private final String password;
     private final String url;

@@ -109,7 +109,16 @@ final class KdbxMapper {
                 continue; // 已由 EntryFields 写入
             }
             KdbxDocument.KdbxField kf = me.getValue();
-            String fieldName = "Notes".equalsIgnoreCase(key) ? "notes" : key;
+            // KeePassXC 的 Notes 转译为内置备注字段（预设块），而非附加自定义字段
+            if ("Notes".equalsIgnoreCase(key)) {
+                try {
+                    en.setNotes(kf.value);
+                } catch (Exception ex) {
+                    warnings.add("条目「" + ke.name + "」备注跳过：" + ex.getMessage());
+                }
+                continue;
+            }
+            String fieldName = key;
             String kind = null;
             if (key.toLowerCase().contains("totp") || kf.value.startsWith("otpauth://")) {
                 kind = "totp";

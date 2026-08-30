@@ -52,6 +52,11 @@ public final class EntryNode extends ObjectNode {
         return EntryFields.parseLabels(v);
     }
 
+    /** 备注（内置预设字段，多行纯文本）。 */
+    public String notes() {
+        return presetValue("notes");
+    }
+
     /** 自定义图标引用（可 null）。 */
     public Ref iconRef() {
         JsonObject d = data();
@@ -113,6 +118,16 @@ public final class EntryNode extends ObjectNode {
         writePreset("username", fields.username(), groupId);
         writePreset("labels", EntryFields.labelsToString(fields.labels()), groupId);
         writePreset("updateTime", String.valueOf(now), groupId);
+    }
+
+    /** 设置/清除备注（内置预设字段，独立块；value 空则删除块）。 */
+    public void setNotes(String notes) {
+        JsonObject entry = data();
+        if (entry == null) {
+            throw new IllegalArgumentException("entry not found");
+        }
+        UUID groupId = ctx().parentGroupUuid(entry);
+        writePreset("notes", notes, groupId);
     }
 
     /** 设置/清除自定义图标引用（iconUuid=null 清除）。 */

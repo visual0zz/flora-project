@@ -1834,6 +1834,22 @@ public final class SanctumGui {
                 com.flora.sanctum.core.model.EntryFields.labelsToString(entryNode.labels()));
         editPanel.add(makeEntryRow("标签 :", labelsField, false));
 
+        // 备注（内置预设字段，多行）
+        JTextArea notesArea = new JTextArea(entryNode.notes() == null ? "" : entryNode.notes());
+        notesArea.setLineWrap(true);
+        notesArea.setWrapStyleWord(true);
+        JScrollPane notesScroll = new JScrollPane(notesArea);
+        notesScroll.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
+        JPanel notesRow = new JPanel(new BorderLayout(0, 0));
+        notesRow.setOpaque(false);
+        notesRow.setBorder(new javax.swing.border.EmptyBorder(0, 0, 8, 0));
+        notesRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 98));
+        JLabel notesTag = new JLabel("备注 :");
+        notesTag.setPreferredSize(new Dimension(110, 24));
+        notesRow.add(notesTag, BorderLayout.WEST);
+        notesRow.add(notesScroll, BorderLayout.CENTER);
+        editPanel.add(notesRow);
+
         // 时间信息（只读）
         editPanel.add(makeInfoRow("创建时间", formatTime(entryNode.createTime())));
         editPanel.add(makeInfoRow("更新时间", formatTime(entryNode.updateTime())));
@@ -1913,6 +1929,7 @@ public final class SanctumGui {
                         urlField.getText(),
                         usernameField.getText(),
                         com.flora.sanctum.core.model.EntryFields.parseLabels(labelsField.getText())));
+                entryNode.setNotes(notesArea.getText());
             } catch (Exception ex) {
                 statusLabel.setText("保存失败");
                 return;

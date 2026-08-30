@@ -50,7 +50,7 @@ class SanctumFormatTest {
                 List.of("work", "important")));
         EntryNode top = st.createEntry(null, "顶层条目",
                 new EntryFields("toppw", null, "bob", List.of("misc")));
-        FieldNode note = top.createField("notes", "自定义备注", "text");
+        FieldNode note = top.createField("memo", "自定义备注", "text");
         assertNotNull(note);
 
         // 导出到临时文件
@@ -88,7 +88,7 @@ class SanctumFormatTest {
         assertEquals("bob", topBack.username());
         assertEquals(List.of("misc"), topBack.labels());
         assertEquals(1, topBack.fields().size());
-        assertEquals("notes", topBack.fields().get(0).fieldName());
+        assertEquals("memo", topBack.fields().get(0).fieldName());
         assertEquals("自定义备注", topBack.fields().get(0).value());
     }
 

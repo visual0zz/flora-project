@@ -111,21 +111,6 @@ public final class SanctumGui {
     /** 垃圾桶视图（每次重建树时刷新；含三类异常节点 uuid 与「原位置」计算）。 */
     private com.flora.sanctum.core.model.TrashView trashView;
 
-    /** 垃圾桶区段下的三类子分组标记（作为树节点 userObject）。 */
-    private enum TrashCategory {
-        MANUAL("手动删除", com.flora.sanctum.core.model.TrashView.TrashKind.MANUAL),
-        UNREACHABLE("不可达", com.flora.sanctum.core.model.TrashView.TrashKind.UNREACHABLE),
-        UNLOCKABLE("不可解锁", com.flora.sanctum.core.model.TrashView.TrashKind.UNLOCKABLE);
-
-        final String label;
-        final com.flora.sanctum.core.model.TrashView.TrashKind kind;
-
-        TrashCategory(String label, com.flora.sanctum.core.model.TrashView.TrashKind kind) {
-            this.label = label;
-            this.kind = kind;
-        }
-    }
-
     /** 应用形态：读系统级配置（~/.flora-sanctum/config.json），页面从历史仓库列表开始。 */
     private SanctumGui() {
         this.config = new UserConfig();
@@ -1112,17 +1097,20 @@ public final class SanctumGui {
         }
 
         // 垃圾桶虚拟根（与数据根平级，无对应存储；见设计 idea20260826-sanctum-trash）
+        // 不再分三个子组：所有类型（手动删除/不可达/不可解锁）直接列在垃圾桶下，
+        // 标签带类型后缀以便区分；选中后由右侧 renderTrashNode 展示其所属类型。
         DefaultMutableTreeNode trashNode = new DefaultMutableTreeNode("垃圾桶");
         trashNode.setUserObject(ViewNodeType.TRASH);
         treeRoot.add(trashNode);
-        for (TrashCategory cat : TrashCategory.values()) {
-            DefaultMutableTreeNode catNode = new DefaultMutableTreeNode(cat.label);
-            catNode.setUserObject(cat);
-            trashNode.add(catNode);
-            for (UUID id : trashUuids(cat.kind)) {
-                DefaultMutableTreeNode leaf = new DefaultMutableTreeNode(nodeName(id));
-                leaf.setUserObject(id);
-                catNode.add(leaf);
+        if (trashView != null) {
+            for (com.flora.sanctum.core.model.TrashView.TrashKind k
+                    : com.flora.sanctum.core.model.TrashView.TrashKind.values()) {
+                for (UUID id : trashUuids(k)) {
+                    String suffix = "  ·  [" + k.label() + "]";
+                    DefaultMutableTreeNode leaf = new DefaultMutableTreeNode(nodeName(id) + suffix);
+                    leaf.setUserObject(id);
+                    trashNode.add(leaf);
+                }
             }
         }
 
@@ -1131,6 +1119,18 @@ public final class SanctumGui {
         for (int r = 0; r < groupTree.getRowCount(); r++) {
             groupTree.expandRow(r);
         }
+    }
+
+    /** 取节点的图标引用（条目/文件夹），无则返回 null；用于垃圾桶列表中对象的图标展示。 */
+    private Ref iconRefOfNode(UUID id) {
+        TreeNode n = sanctum.findNode(id);
+        if (n instanceof EntryNode en) {
+            return en.iconRef();
+        }
+        if (n instanceof GroupNode g) {
+            return g.iconRef();
+        }
+        return null;
     }
 
     /** 某类垃圾桶节点的 uuid 列表。 */
@@ -1272,6 +1272,20 @@ public final class SanctumGui {
             for (RemoteNode r : sanctum.remoteTree().remotes()) {
                 entryModel.addElement(new EntryListItem(r.uuid(), StoredNodeType.REMOTE,
                         r.name(), null));
+            }
+            return;
+        }
+
+        // 垃圾桶区段：扁平列出所有类型（手动删除/不可达/不可解锁），标签带类型后缀以便区分
+        if (ViewNodeType.TRASH == section) {
+            if (trashView != null) {
+                for (com.flora.sanctum.core.model.TrashView.TrashKind k
+                        : com.flora.sanctum.core.model.TrashView.TrashKind.values()) {
+                    for (UUID id : trashUuids(k)) {
+                        String label = nodeName(id) + "  ·  [" + k.label() + "]";
+                        entryModel.addElement(new EntryListItem(id, typeOf(id), label, iconRefOfNode(id)));
+                    }
+                }
             }
             return;
         }
@@ -1496,6 +1510,11 @@ public final class SanctumGui {
             return;
         }
         selectedEntry = u;
+        // 垃圾桶中的对象：右侧展示只读详情（含所属类型：手动删除/不可达/不可解锁）
+        if (trashView != null && trashView.contains(u)) {
+            renderTrashNode(u);
+            return;
+        }
         StoredNodeType type = typeOf(u);
         if (type == StoredNodeType.GROUP) {
             renderGroupPanel(u);
@@ -3214,10 +3233,6 @@ public final class SanctumGui {
                     } else {
                         setText(sectionDisplayName(tag));
                     }
-                } else if (uo instanceof TrashCategory cat) {
-                    setText(cat.label);
-                    setIcon(SvgIcon.get(UiIcon.TRASH, 24));
-                    setDisabledIcon(SvgIcon.get(UiIcon.TRASH, 24));
                 } else if (uo instanceof UUID uuid) {
                     String[] info = groupsById().get(uuid);
                     String name = info == null ? null : info[1];

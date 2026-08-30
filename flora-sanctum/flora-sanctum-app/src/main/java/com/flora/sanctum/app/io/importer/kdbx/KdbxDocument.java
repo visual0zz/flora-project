@@ -12,9 +12,16 @@ import java.util.Map;
 public final class KdbxDocument {
 
     public final KdbxGroup root;
+    /** 文档级自定义图标：CustomIconUUID 的 hex → 原始图像字节（PNG/JPG/GIF 等）。 */
+    public final Map<String, byte[]> customIcons;
 
     public KdbxDocument(KdbxGroup root) {
+        this(root, Map.of());
+    }
+
+    public KdbxDocument(KdbxGroup root, Map<String, byte[]> customIcons) {
         this.root = root;
+        this.customIcons = customIcons;
     }
 
     /** 扁平统计（含嵌套）。 */
@@ -46,6 +53,8 @@ public final class KdbxDocument {
     public static final class KdbxGroup {
         public String name = "";
         public String uuid;                       // 原 16 字节 uuid 的 hex，仅作参考
+        public Integer iconId;                    // 内置图标索引（可空）
+        public String customIconUuid;             // 自定义图标 UUID hex（可空）
         public final List<KdbxGroup> groups = new ArrayList<>();
         public final List<KdbxEntry> entries = new ArrayList<>();
     }
@@ -54,6 +63,8 @@ public final class KdbxDocument {
     public static final class KdbxEntry {
         public String name = "";
         public String uuid;
+        public Integer iconId;                    // 内置图标索引（可空）
+        public String customIconUuid;             // 自定义图标 UUID hex（可空）
         /** 字段名 → 字段（保持 XML 出现顺序，便于内层流顺序解密）。 */
         public final Map<String, KdbxField> fields = new LinkedHashMap<>();
         public Long creationTime;

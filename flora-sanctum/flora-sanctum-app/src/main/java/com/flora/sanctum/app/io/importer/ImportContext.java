@@ -1,6 +1,7 @@
 package com.flora.sanctum.app.io.importer;
 
 import com.flora.sanctum.model.tree.GroupNode;
+import com.flora.sanctum.model.tree.IconTree;
 import com.flora.sanctum.model.tree.ObjectTree;
 
 import java.nio.file.Path;
@@ -17,6 +18,7 @@ public final class ImportContext {
     private final Path keyFile;
     private final ImportListener listener;
     private final GroupNode targetGroup;
+    private final IconTree iconTree;
 
     private ImportContext(Builder b) {
         this.tree = Objects.requireNonNull(b.tree, "tree");
@@ -24,10 +26,16 @@ public final class ImportContext {
         this.keyFile = b.keyFile;
         this.listener = b.listener == null ? ImportListeners.noop() : b.listener;
         this.targetGroup = b.targetGroup;
+        this.iconTree = b.iconTree;
     }
 
     public ObjectTree tree() {
         return tree;
+    }
+
+    /** 图标树（用于导入时复制自定义图标 / 引用内置图标）。非 KDBX 导入或测试可为 null。 */
+    public IconTree iconTree() {
+        return iconTree;
     }
 
     /** 主密码（可能为 null，仅用密钥文件时）。 */
@@ -66,6 +74,7 @@ public final class ImportContext {
         private Path keyFile;
         private ImportListener listener;
         private GroupNode targetGroup;
+        private IconTree iconTree;
 
         private Builder(ObjectTree tree) {
             this.tree = tree;
@@ -88,6 +97,12 @@ public final class ImportContext {
 
         public Builder targetGroup(GroupNode targetGroup) {
             this.targetGroup = targetGroup;
+            return this;
+        }
+
+        /** 图标树（用于导入时复制自定义图标 / 引用内置图标）。可为 null。 */
+        public Builder iconTree(IconTree iconTree) {
+            this.iconTree = iconTree;
             return this;
         }
 

@@ -42,6 +42,9 @@ class Kdbx4SyntaxRobustnessTest {
         assertNotNull(doc.root, "根分组为空");
         assertEquals("Root", doc.root.name, "根分组名应为 Root");
 
+        // 文档级自定义图标映射应被解析（即使样本未含自定义图标，也应为非 null 的合法 Map）
+        assertNotNull(doc.customIcons, "自定义图标映射不应为 null");
+
         // 嵌套分组应正确解析：Root > "Group 中文一层" > "SubGroup 第二层"
         KdbxDocument.KdbxGroup g1 = findGroup(doc.root, "Group 中文一层");
         assertNotNull(g1, "应解析出一级嵌套分组");

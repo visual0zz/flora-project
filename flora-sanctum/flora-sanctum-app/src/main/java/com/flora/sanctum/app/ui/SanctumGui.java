@@ -2549,6 +2549,7 @@ public final class SanctumGui {
                         com.flora.sanctum.app.io.importer.ImportContext.builder(sanctum.objectTree())
                                 .password(pw)
                                 .keyFile(keyFile)
+                                .iconTree(sanctum.iconTree())
                                 .build();
                 com.flora.sanctum.app.io.importer.ImportResult result = imp.importFile(file, ctx);
                 javax.swing.SwingUtilities.invokeLater(() -> {

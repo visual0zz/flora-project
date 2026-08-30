@@ -13,7 +13,11 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 
 /**
  * 解析 KDBX4 内层（内层头 + 内层 XML）。
@@ -64,6 +68,7 @@ final class KdbxXml {
             f.setNamespaceAware(false);
             Document doc = f.newDocumentBuilder().parse(new ByteArrayInputStream(xmlBytes));
             Element root = doc.getDocumentElement();
+            Map<String, byte[]> customIcons = parseCustomIcons(root);
             Element rootGroup = firstChild(root, "Root");
             if (rootGroup == null) {
                 throw new ImportException("KDBX 缺少 <Root>");
@@ -73,7 +78,7 @@ final class KdbxXml {
                 throw new ImportException("KDBX 缺少根 <Group>");
             }
             KdbxDocument.KdbxGroup g = parseGroup(group, stream);
-            return new KdbxDocument(g);
+            return new KdbxDocument(g, customIcons);
         } catch (ImportException e) {
             throw e;
         } catch (Exception e) {
@@ -85,6 +90,7 @@ final class KdbxXml {
         KdbxDocument.KdbxGroup g = new KdbxDocument.KdbxGroup();
         g.name = textOfChild(groupEl, "Name");
         g.uuid = uuidText(groupEl);
+        readIconRef(groupEl, v -> g.iconId = v, v -> g.customIconUuid = v);
         for (Element e : childElements(groupEl)) {
             String tag = e.getTagName();
             if ("Entry".equals(tag)) {
@@ -99,6 +105,7 @@ final class KdbxXml {
     private static KdbxDocument.KdbxEntry parseEntry(Element entryEl, KdbxStreamCipher stream) {
         KdbxDocument.KdbxEntry e = new KdbxDocument.KdbxEntry();
         e.uuid = uuidText(entryEl);
+        readIconRef(entryEl, v -> e.iconId = v, v -> e.customIconUuid = v);
         // 内层随机流的密钥流在所有受保护字段上按 XML 文档顺序连续推进。
         // 因此必须严格按文档顺序遍历条目子元素：直接 <String> 子元素的受保护值既解密又保留；
         // <History> 内的历史条目同样含受保护字段，需推进密钥流但不保留其内容。
@@ -127,6 +134,71 @@ final class KdbxXml {
         KdbxDocument.KdbxField title = e.fields.get("Title");
         e.name = title == null ? "" : title.value;
         return e;
+    }
+
+    /** 解析文档级自定义图标（Meta/CustomIcons）：UUID hex → 原始图像字节。不消耗内层密钥流。 */
+    private static Map<String, byte[]> parseCustomIcons(Element root) {
+        Element meta = firstChild(root, "Meta");
+        if (meta == null) {
+            return Map.of();
+        }
+        Element ci = firstChild(meta, "CustomIcons");
+        if (ci == null) {
+            return Map.of();
+        }
+        Map<String, byte[]> map = new LinkedHashMap<>();
+        for (Element iconEl : childElements(ci)) {
+            if (!"CustomIcon".equals(iconEl.getTagName())) {
+                continue;
+            }
+            String uuid = uuidText(iconEl);
+            Element dataEl = firstChild(iconEl, "Data");
+            if (uuid == null || dataEl == null) {
+                continue;
+            }
+            try {
+                byte[] data = Base64.getDecoder().decode(dataEl.getTextContent().trim());
+                map.put(uuid, data);
+            } catch (Exception ignored) {
+            }
+        }
+        return map;
+    }
+
+    /** 读取分组/条目上的图标引用：<IconID>（内置索引）与 <CustomIconUUID>（自定义 UUID hex）。 */
+    private static void readIconRef(Element el, IntConsumer iconIdSetter,
+                                     Consumer<String> customSetter) {
+        Element iconIdEl = firstChild(el, "IconID");
+        if (iconIdEl != null) {
+            try {
+                iconIdSetter.accept(Integer.parseInt(iconIdEl.getTextContent().trim()));
+            } catch (Exception ignored) {
+            }
+        }
+        Element cuiEl = firstChild(el, "CustomIconUUID");
+        if (cuiEl != null) {
+            String uuid = uuidFromBase64(cuiEl.getTextContent().trim());
+            if (uuid != null) {
+                customSetter.accept(uuid);
+            }
+        }
+    }
+
+    /** 将 KeePass 的 base64 UUID 文本解码为 32 位 hex 串。 */
+    private static String uuidFromBase64(String b64) {
+        if (b64 == null || b64.isBlank()) {
+            return null;
+        }
+        try {
+            byte[] b = Base64.getDecoder().decode(b64.trim());
+            StringBuilder sb = new StringBuilder();
+            for (byte x : b) {
+                sb.append(String.format("%02x", x));
+            }
+            return sb.toString();
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     /** 仅推进内层流密钥流：对子树内所有受保护 <Value> 按文档顺序解密（结果丢弃）。 */

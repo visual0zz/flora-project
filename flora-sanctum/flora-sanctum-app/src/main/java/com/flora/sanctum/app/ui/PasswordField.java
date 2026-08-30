@@ -51,7 +51,7 @@ public final class PasswordField extends JPanel {
 
     /** 密码明文（字符串形式，便于 GUI 读取）。 */
     public String getText() {
-        return field.getText();
+        return new String(field.getPassword());
     }
 
     public void setText(String text) {

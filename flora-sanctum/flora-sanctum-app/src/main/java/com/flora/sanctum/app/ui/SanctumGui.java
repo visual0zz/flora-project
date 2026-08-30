@@ -1935,7 +1935,7 @@ public final class SanctumGui {
         editPanel.repaint();
     }
 
-    /** 垃圾桶节点只读详情面板：标注删除类型 + 原位置，内容只读（名称/字段不可改，无操作按钮）。 */
+    /** 垃圾桶节点只读详情面板：标注删除类型 + 原位置，内容只读；提供「还原」（手动删除可点）与「彻底删除」按钮。 */
     private void renderTrashNode(UUID uuid) {
         editPanel.removeAll();
         if (trashView == null) {
@@ -1978,8 +1978,50 @@ public final class SanctumGui {
         } else {
             editPanel.add(makeInfoRow("状态", "无法解密（不可解锁）"));
         }
+        // 操作按钮：还原（仅手动删除可还原）/ 彻底删除（三类均可）
+        boolean manual = kind != null && kind == com.flora.sanctum.core.model.TrashView.TrashKind.MANUAL;
+        JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        actionRow.setOpaque(false);
+        actionRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        JButton restoreBtn = new JButton("还原");
+        restoreBtn.setEnabled(manual);
+        restoreBtn.setToolTipText(manual ? "放回原位置" : "仅手动删除的条目可还原");
+        restoreBtn.addActionListener(e -> doTrashRestore(uuid));
+        JButton purgeBtn = new JButton("彻底删除");
+        purgeBtn.setToolTipText("物理删除该对象及其全部内容，不可恢复");
+        purgeBtn.addActionListener(e -> doTrashPurge(uuid));
+        actionRow.add(restoreBtn);
+        actionRow.add(purgeBtn);
+        editPanel.add(actionRow);
         editPanel.revalidate();
         editPanel.repaint();
+    }
+
+    /** 还原垃圾桶对象（放回原位置）。 */
+    private void doTrashRestore(UUID uuid) {
+        try {
+            sanctum.restore(uuid);
+            modelBus.markDirty();
+            modelBus.refresh();
+        } catch (Exception ex) {
+            statusLabel.setText("还原失败：" + ex.getMessage());
+        }
+    }
+
+    /** 彻底删除垃圾桶对象（带确认）。 */
+    private void doTrashPurge(UUID uuid) {
+        int ok = JOptionPane.showConfirmDialog(frame,
+                "彻底删除后无法恢复，确定吗？", "彻底删除", JOptionPane.YES_NO_OPTION);
+        if (ok != JOptionPane.YES_OPTION) {
+            return;
+        }
+        try {
+            sanctum.purge(uuid);
+            modelBus.markDirty();
+            modelBus.refresh();
+        } catch (Exception ex) {
+            statusLabel.setText("彻底删除失败：" + ex.getMessage());
+        }
     }
 
     /** 渲染条目编辑面板（内置字段 + 自定义字段）。 */

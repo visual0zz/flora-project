@@ -175,6 +175,31 @@ public final class Sanctum implements AutoCloseable {
         new NodeMover(context, vault).move(node, newParent);
     }
 
+    /** 还原手动删除的节点：撤销 deleted 标记，节点凭 parent 字段回到原位置。 */
+    public void restore(UUID uuid) {
+        TreeNode n = findNode(uuid);
+        if (n == null) {
+            throw new IllegalArgumentException("node not found: " + uuid);
+        }
+        n.restore();
+    }
+
+    /** 彻底删除节点：物理删除其存储块及全部后代块（避免留下孤儿块）。 */
+    public void purge(UUID uuid) {
+        TreeNode n = findNode(uuid);
+        if (n == null) {
+            throw new IllegalArgumentException("node not found: " + uuid);
+        }
+        purgeRecursive(uuid);
+    }
+
+    private void purgeRecursive(UUID uuid) {
+        for (UUID child : context.childrenOf(uuid)) {
+            purgeRecursive(child);
+        }
+        context.delete(uuid);
+    }
+
     /** 取某 group 的 DEK（null 若未发现）。 */
     byte[] groupDek(UUID groupUuid) {
         return vault == null ? null : vault.groupDek(groupUuid);

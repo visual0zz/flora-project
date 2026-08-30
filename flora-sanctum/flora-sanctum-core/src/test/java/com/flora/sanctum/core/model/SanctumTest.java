@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -514,5 +515,55 @@ class SanctumTest {
 
         TrashView trash = s.trash();
         assertTrue(trash.unreachable().contains(entry.uuid()), "篡改 parent 后应判定为不可达");
+    }
+
+    // ---- 垃圾桶：门面还原 / 彻底删除 ----
+
+    @Test
+    void facadeRestorePutsDeletedEntryBackInPlace() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
+        GroupNode group = s.objectTree().createGroup(null, "社交");
+        EntryNode entry = group.createEntry("微博", EntryFields.EMPTY);
+        UUID id = entry.uuid();
+
+        entry.markDeleted();
+        assertTrue(s.trash().manual().contains(id), "删除后应进入垃圾桶");
+
+        s.restore(id);
+
+        assertFalse(s.trash().manual().contains(id), "还原后应移出垃圾桶");
+        assertFalse(entry.deleted());
+        assertTrue(group.entries().stream().anyMatch(e -> e.uuid().equals(id)),
+                "还原后条目应回到原组下");
+    }
+
+    @Test
+    void facadePurgeRemovesWholeSubtreeFromStore() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
+        GroupNode parent = s.objectTree().createGroup(null, "父");
+        GroupNode child = parent.createChildGroup("子");
+        EntryNode e1 = parent.createEntry("条目A", EntryFields.EMPTY);
+        EntryNode e2 = child.createEntry("条目B", EntryFields.EMPTY);
+        e1.createField("备注", "x", null);
+
+        // 收集子树全部 uuid（组 + 条目 + 全部字段块，含预设字段块）
+        List<UUID> descendants = new ArrayList<>();
+        descendants.add(parent.uuid());
+        descendants.add(child.uuid());
+        descendants.add(e1.uuid());
+        descendants.add(e2.uuid());
+        descendants.addAll(e1.tree().context().childrenOf(e1.uuid()));
+        descendants.addAll(e1.tree().context().childrenOf(e2.uuid()));
+        int blocksBefore = s.store().scan().size();
+
+        s.purge(parent.uuid());
+
+        for (UUID u : descendants) {
+            assertNull(s.findNode(u), "purge 后 " + u + " 不应再存在");
+            assertNull(s.store().get(u, null), "purge 后块 " + u + " 应物理删除");
+        }
+        assertEquals(blocksBefore - descendants.size(), s.store().scan().size(),
+                "purge 应物理删除全部后代块，不留孤儿");
+        assertFalse(s.trash().contains(parent.uuid()), "purge 后不应再出现在垃圾桶");
     }
 }

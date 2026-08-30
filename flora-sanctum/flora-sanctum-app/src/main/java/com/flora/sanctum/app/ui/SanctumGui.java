@@ -32,7 +32,6 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSeparator;
-import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
@@ -45,6 +44,7 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -666,7 +666,7 @@ public final class SanctumGui {
         JPanel pwRow = new JPanel(new BorderLayout(8, 0));
         pwRow.setOpaque(false);
         pwRow.add(new JLabel("主密码："), BorderLayout.WEST);
-        JPasswordField pwField = new JPasswordField();
+        PasswordField pwField = new PasswordField(20);
         pwRow.add(pwField, BorderLayout.CENTER);
         c.gridy = 3;
         c.insets = new Insets(3, 0, 3, 0);
@@ -679,7 +679,7 @@ public final class SanctumGui {
         c.fill = GridBagConstraints.HORIZONTAL;
         panel.add(strengthLabel, c);
         refreshStrength(pwField, strengthLabel);
-        pwField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+        pwField.addDocumentListener(new javax.swing.event.DocumentListener() {
             @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(pwField, strengthLabel); }
             @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(pwField, strengthLabel); }
             @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(pwField, strengthLabel); }
@@ -726,7 +726,7 @@ public final class SanctumGui {
         c.weighty = 1.0;
         panel.add(javax.swing.Box.createVerticalGlue(), c);
 
-        java.util.function.Consumer<JPasswordField> unlock = f ->
+        java.util.function.Consumer<PasswordField> unlock = f ->
                 doUnlock(root, f, error, unlockLayer, unlockBtn, spinnerTimer);
         unlockBtn.addActionListener(e -> unlock.accept(pwField));
         pwField.addActionListener(e -> unlock.accept(pwField));
@@ -739,7 +739,7 @@ public final class SanctumGui {
      * 实时刷新主密码强度提示（文本标签）。
      * 评估算法为 zxcvbn（与 KeePassXC 同源），质量分级沿用其熵阈值；仅提示不阻止创建。
      */
-    private void refreshStrength(JPasswordField pwField, JLabel label) {
+    private void refreshStrength(PasswordField pwField, JLabel label) {
         char[] pw = pwField.getPassword();
         if (pw.length == 0) {
             label.setText("");
@@ -775,7 +775,7 @@ public final class SanctumGui {
         };
     }
 
-    private void doUnlock(Path root, JPasswordField pwField, JLabel error,
+    private void doUnlock(Path root, PasswordField pwField, JLabel error,
                           javax.swing.JLayer<JButton> unlockLayer,
                           JButton unlockBtn, javax.swing.Timer spinnerTimer) {
         char[] pw = pwField.getPassword();
@@ -1827,7 +1827,8 @@ public final class SanctumGui {
         editPanel.add(makeEntryRow("URL :", urlField, false));
         JTextField usernameField = makeEntryField(entryNode.username());
         editPanel.add(makeEntryRow("用户名 :", usernameField, false));
-        JTextField passwordField = makeEntryField(entryNode.password());
+        PasswordField passwordField = new PasswordField(20);
+        passwordField.setText(entryNode.password());
         editPanel.add(makeEntryRow("密码 :", passwordField, false));
         JTextField labelsField = makeEntryField(
                 com.flora.sanctum.core.model.EntryFields.labelsToString(entryNode.labels()));
@@ -1995,7 +1996,7 @@ public final class SanctumGui {
     }
 
     /** 构造一行：左标签 + 右文本字段（高度受限）。required=true 时标签标红加粗。 */
-    private JPanel makeEntryRow(String label, JTextField field, boolean required) {
+    private JPanel makeEntryRow(String label, Component field, boolean required) {
         JPanel row = new JPanel(new BorderLayout(0, 0));
         row.setOpaque(false); // 透明透出卡片背景，与编辑栏对齐
         javax.swing.border.EmptyBorder pad = new javax.swing.border.EmptyBorder(0, 0, 8, 0);
@@ -2637,7 +2638,7 @@ public final class SanctumGui {
         javax.swing.JDialog d = new javax.swing.JDialog(frame, "导入 " + file.getFileName(), true);
         d.setLayout(new java.awt.BorderLayout(10, 10));
         JPanel form = new JPanel(new java.awt.GridLayout(0, 1, 6, 6));
-        javax.swing.JPasswordField pf = new javax.swing.JPasswordField();
+        PasswordField pf = new PasswordField(20);
         form.add(new javax.swing.JLabel("主密码："));
         form.add(pf);
         javax.swing.JButton keyBtn = new javax.swing.JButton("选择密钥文件（可选）");

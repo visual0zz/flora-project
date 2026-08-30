@@ -8,7 +8,6 @@ import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 import javax.swing.Box;
 import javax.swing.SwingConstants;
@@ -44,8 +43,8 @@ final class NewVaultDialog extends JDialog {
     private final JPanel advancedPanel = new JPanel();
     private final JCheckBox standaloneCheck = new JCheckBox("独立仓库", false);
     private final KdfParamsPanel kdfPanel = new KdfParamsPanel();
-    private final JPasswordField pwField = new JPasswordField(20);
-    private final JPasswordField confirmField = new JPasswordField(20);
+    private final PasswordField pwField = new PasswordField(20);
+    private final PasswordField confirmField = new PasswordField(20);
     private final JLabel strengthLabel = new JLabel("", JLabel.LEFT);
     private final JLabel mismatchLabel = new JLabel("", JLabel.LEFT);
     private final JLabel errorLabel = new JLabel("", JLabel.LEFT);
@@ -139,8 +138,8 @@ final class NewVaultDialog extends JDialog {
             @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(); }
             @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(); }
         };
-        pwField.getDocument().addDocumentListener(strengthRefresh);
-        confirmField.getDocument().addDocumentListener(strengthRefresh);
+        pwField.addDocumentListener(strengthRefresh);
+        confirmField.addDocumentListener(strengthRefresh);
         return form;
     }
 
@@ -275,7 +274,7 @@ final class NewVaultDialog extends JDialog {
         return home;
     }
 
-    private static JPanel labeledRow(String label, JTextField field) {
+    private static JPanel labeledRow(String label, Component field) {
         JPanel row = new JPanel(new BorderLayout(8, 0));
         row.setOpaque(false);
         row.add(new JLabel(label), BorderLayout.WEST);

@@ -24,7 +24,9 @@ public enum UiIcon {
     SYNC_NOW("ui/sync-now"),
     TRASH("ui/trash"),
     IMPORT("ui/import"),
-    EXPORT("ui/export");
+    EXPORT("ui/export"),
+    EYE("ui/eye"),
+    EYE_OFF("ui/eye-off");
 
     private final String path;
 

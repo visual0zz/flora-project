@@ -151,7 +151,12 @@ final class KdbxXml {
             if (!"CustomIcon".equals(iconEl.getTagName())) {
                 continue;
             }
-            String uuid = uuidText(iconEl);
+            // KeePass 2.x 把图标 UUID 放在 <CustomIcon> 的 UUID 属性（base64）上；
+            // 个别导出工具可能写作子元素 <UUID>，此处两者都兼容。
+            String uuid = uuidFromBase64(iconEl.getAttribute("UUID").trim());
+            if (uuid == null) {
+                uuid = uuidText(iconEl);
+            }
             Element dataEl = firstChild(iconEl, "Data");
             if (uuid == null || dataEl == null) {
                 continue;

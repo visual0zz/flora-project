@@ -1040,7 +1040,8 @@ public final class SanctumGui {
         editCard.add(editScroll, BorderLayout.CENTER);
 
         JSplitPane rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, entryPanel, editCard);
-        rightSplit.setDividerSize(0); // 去除右边卡片与中间列表之间的分割线
+        rightSplit.setDividerSize(5); // 可鼠标拖拽调整中/右分界（保留极简视觉）
+        rightSplit.setContinuousLayout(true);
         rightSplit.setDividerLocation(280);
         keepDividerRatio(rightSplit, "ui.divider.right", 280);
         rightSplit.setOpaque(false);
@@ -2907,7 +2908,8 @@ public final class SanctumGui {
 
         // 三栏：左 root + 中条目 + 右编辑（右分割线不显示，比例存储保留）
         JSplitPane rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, entryScroll, editCard);
-        rightSplit.setDividerSize(0);
+        rightSplit.setDividerSize(5); // 可鼠标拖拽调整中/右分界
+        rightSplit.setContinuousLayout(true);
         rightSplit.setDividerLocation(240);
         keepDividerRatio(rightSplit, "ui.divider.right", 240);
         rightSplit.setOpaque(false);

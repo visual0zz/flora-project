@@ -1,6 +1,6 @@
 package com.flora.sanctum.app.sync;
 
-import com.flora.sanctum.model.Sanctum;
+import com.flora.sanctum.core.model.Sanctum;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

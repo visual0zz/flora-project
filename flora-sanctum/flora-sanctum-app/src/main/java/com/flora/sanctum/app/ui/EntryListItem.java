@@ -1,7 +1,7 @@
 package com.flora.sanctum.app.ui;
 
-import com.flora.sanctum.model.Ref;
-import com.flora.sanctum.model.StoredNodeType;
+import com.flora.sanctum.core.model.Ref;
+import com.flora.sanctum.core.model.StoredNodeType;
 
 import java.util.UUID;
 

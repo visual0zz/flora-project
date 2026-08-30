@@ -1,19 +1,19 @@
 package com.flora.sanctum.app.ui;
 
-import com.flora.sanctum.config.UserConfig;
-import com.flora.sanctum.model.StoredNodeType;
-import com.flora.sanctum.model.ViewNodeType;
-import com.flora.sanctum.model.tree.DataTree;
-import com.flora.sanctum.model.tree.EntryNode;
-import com.flora.sanctum.model.FieldKind;
-import com.flora.sanctum.model.tree.FieldNode;
-import com.flora.sanctum.model.tree.GroupNode;
-import com.flora.sanctum.model.tree.IconNode;
-import com.flora.sanctum.model.tree.RemoteNode;
-import com.flora.sanctum.model.Sanctum;
-import com.flora.sanctum.model.Ref;
-import com.flora.sanctum.model.tree.SshKeyNode;
-import com.flora.sanctum.model.tree.TreeNode;
+import com.flora.sanctum.core.config.UserConfig;
+import com.flora.sanctum.core.model.StoredNodeType;
+import com.flora.sanctum.core.model.ViewNodeType;
+import com.flora.sanctum.core.model.tree.DataTree;
+import com.flora.sanctum.core.model.tree.EntryNode;
+import com.flora.sanctum.core.model.FieldKind;
+import com.flora.sanctum.core.model.tree.FieldNode;
+import com.flora.sanctum.core.model.tree.GroupNode;
+import com.flora.sanctum.core.model.tree.IconNode;
+import com.flora.sanctum.core.model.tree.RemoteNode;
+import com.flora.sanctum.core.model.Sanctum;
+import com.flora.sanctum.core.model.Ref;
+import com.flora.sanctum.core.model.tree.SshKeyNode;
+import com.flora.sanctum.core.model.tree.TreeNode;
 import com.flora.root.codec.json.model.JsonObject;
 
 import javax.swing.BorderFactory;
@@ -109,18 +109,18 @@ public final class SanctumGui {
     /** 当前仓库数据根（解锁目标 / 锁定后直接回到该仓库解锁页）。 */
     private Path targetVaultRoot;
     /** 垃圾桶视图（每次重建树时刷新；含三类异常节点 uuid 与「原位置」计算）。 */
-    private com.flora.sanctum.model.TrashView trashView;
+    private com.flora.sanctum.core.model.TrashView trashView;
 
     /** 垃圾桶区段下的三类子分组标记（作为树节点 userObject）。 */
     private enum TrashCategory {
-        MANUAL("手动删除", com.flora.sanctum.model.TrashView.TrashKind.MANUAL),
-        UNREACHABLE("不可达", com.flora.sanctum.model.TrashView.TrashKind.UNREACHABLE),
-        UNLOCKABLE("不可解锁", com.flora.sanctum.model.TrashView.TrashKind.UNLOCKABLE);
+        MANUAL("手动删除", com.flora.sanctum.core.model.TrashView.TrashKind.MANUAL),
+        UNREACHABLE("不可达", com.flora.sanctum.core.model.TrashView.TrashKind.UNREACHABLE),
+        UNLOCKABLE("不可解锁", com.flora.sanctum.core.model.TrashView.TrashKind.UNLOCKABLE);
 
         final String label;
-        final com.flora.sanctum.model.TrashView.TrashKind kind;
+        final com.flora.sanctum.core.model.TrashView.TrashKind kind;
 
-        TrashCategory(String label, com.flora.sanctum.model.TrashView.TrashKind kind) {
+        TrashCategory(String label, com.flora.sanctum.core.model.TrashView.TrashKind kind) {
             this.label = label;
             this.kind = kind;
         }
@@ -804,7 +804,7 @@ public final class SanctumGui {
                     result[0] = Sanctum.open(root);
                     result[0].unlock(pwCopy);
                 }
-            } catch (com.flora.sanctum.model.vault.VaultUnlockException ex) {
+            } catch (com.flora.sanctum.core.model.vault.VaultUnlockException ex) {
                 // 解锁失败分阶段报告（魔数/结构、manifest MAC、根对象缺失/解密等），给针对性提示
                 failMsg[0] = ex.getMessage();
             } catch (Exception ex) {
@@ -1133,7 +1133,7 @@ public final class SanctumGui {
     }
 
     /** 某类垃圾桶节点的 uuid 列表。 */
-    private List<UUID> trashUuids(com.flora.sanctum.model.TrashView.TrashKind kind) {
+    private List<UUID> trashUuids(com.flora.sanctum.core.model.TrashView.TrashKind kind) {
         if (trashView == null) {
             return List.of();
         }
@@ -1769,7 +1769,7 @@ public final class SanctumGui {
         if (trashView == null) {
             return;
         }
-        com.flora.sanctum.model.TrashView.TrashKind kind = trashView.kindOf(uuid);
+        com.flora.sanctum.core.model.TrashView.TrashKind kind = trashView.kindOf(uuid);
         // 类型标签
         JLabel typeTag = new JLabel("垃圾桶 · " + (kind == null ? "未知" : kind.label()));
         typeTag.setFont(typeTag.getFont().deriveFont(Font.BOLD, 14f));
@@ -1829,7 +1829,7 @@ public final class SanctumGui {
         JTextField passwordField = makeEntryField(entryNode.password());
         editPanel.add(makeEntryRow("密码 :", passwordField, false));
         JTextField labelsField = makeEntryField(
-                com.flora.sanctum.model.EntryFields.labelsToString(entryNode.labels()));
+                com.flora.sanctum.core.model.EntryFields.labelsToString(entryNode.labels()));
         editPanel.add(makeEntryRow("标签 :", labelsField, false));
 
         // 时间信息（只读）
@@ -1906,11 +1906,11 @@ public final class SanctumGui {
                 if (!newName.equals(entryNode.name())) {
                     entryNode.rename(newName);
                 }
-                entryNode.updateBuiltins(new com.flora.sanctum.model.EntryFields(
+                entryNode.updateBuiltins(new com.flora.sanctum.core.model.EntryFields(
                         passwordField.getText(),
                         urlField.getText(),
                         usernameField.getText(),
-                        com.flora.sanctum.model.EntryFields.parseLabels(labelsField.getText())));
+                        com.flora.sanctum.core.model.EntryFields.parseLabels(labelsField.getText())));
             } catch (Exception ex) {
                 statusLabel.setText("保存失败");
                 return;
@@ -2062,7 +2062,7 @@ public final class SanctumGui {
                 statusLabel.setText("字段名不能为空");
                 return;
             }
-            if (com.flora.sanctum.model.EntryFields.isPreset(fn)) {
+            if (com.flora.sanctum.core.model.EntryFields.isPreset(fn)) {
                 statusLabel.setText("预设字段名不可用于自定义字段");
                 return;
             }
@@ -2444,7 +2444,7 @@ public final class SanctumGui {
             return;
         }
         UUID entryUuid = sanctum.objectTree().createEntry(groupId, "新建条目",
-                new com.flora.sanctum.model.EntryFields("", null, null, java.util.List.of())).uuid();
+                new com.flora.sanctum.core.model.EntryFields("", null, null, java.util.List.of())).uuid();
         resetAutoLock();
         modelBus.markDirty();
         modelBus.refresh();
@@ -2517,15 +2517,15 @@ public final class SanctumGui {
             return;
         }
         java.nio.file.Path file = fc.getSelectedFile().toPath();
-        java.util.Optional<com.flora.sanctum.app.io.importer.Importer> importer = "KeePass KDBX".equals(fmt)
-                ? com.flora.sanctum.app.io.importer.Importer.forFile(file) // 按扩展名分派 KDBX
-                : com.flora.sanctum.app.io.importer.Importer.forFormatName(fmt); // 按格式名分派 Sanctum
+        java.util.Optional<com.flora.sanctum.core.io.importer.Importer> importer = "KeePass KDBX".equals(fmt)
+                ? com.flora.sanctum.core.io.importer.Importer.forFile(file) // 按扩展名分派 KDBX
+                : com.flora.sanctum.core.io.importer.Importer.forFormatName(fmt); // 按格式名分派 Sanctum
         if (importer.isEmpty()) {
             javax.swing.JOptionPane.showMessageDialog(frame,
                     "不支持的文件类型：" + fmt, "导入", javax.swing.JOptionPane.WARNING_MESSAGE);
             return;
         }
-        final com.flora.sanctum.app.io.importer.Importer imp = importer.get();
+        final com.flora.sanctum.core.io.importer.Importer imp = importer.get();
         if ("KeePass KDBX".equals(fmt)) {
             ImportCreds creds = askImportPassword(file);
             if (creds == null) {
@@ -2539,19 +2539,19 @@ public final class SanctumGui {
 
     /** 后台执行导入并刷新 UI；主密码在 finally 中清零。 */
     private void runImport(java.nio.file.Path file,
-                           com.flora.sanctum.app.io.importer.Importer imp,
+                           com.flora.sanctum.core.io.importer.Importer imp,
                            char[] password, java.nio.file.Path keyFile) {
         statusLabel.setText("正在导入 " + file.getFileName() + " …");
         final char[] pw = password;
         new Thread(() -> {
             try {
-                com.flora.sanctum.app.io.importer.ImportContext ctx =
-                        com.flora.sanctum.app.io.importer.ImportContext.builder(sanctum.objectTree())
+                com.flora.sanctum.core.io.importer.ImportContext ctx =
+                        com.flora.sanctum.core.io.importer.ImportContext.builder(sanctum.objectTree())
                                 .password(pw)
                                 .keyFile(keyFile)
                                 .iconTree(sanctum.iconTree())
                                 .build();
-                com.flora.sanctum.app.io.importer.ImportResult result = imp.importFile(file, ctx);
+                com.flora.sanctum.core.io.importer.ImportResult result = imp.importFile(file, ctx);
                 javax.swing.SwingUtilities.invokeLater(() -> {
                     modelBus.markDirty();
                     modelBus.refresh();
@@ -2561,7 +2561,7 @@ public final class SanctumGui {
                 });
             } catch (Exception ex) {
                 Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                String msg = cause instanceof com.flora.sanctum.app.io.importer.ImportException
+                String msg = cause instanceof com.flora.sanctum.core.io.importer.ImportException
                         ? cause.getMessage() : cause.toString();
                 javax.swing.SwingUtilities.invokeLater(() -> {
                     statusLabel.setText("导入失败");
@@ -2583,7 +2583,7 @@ public final class SanctumGui {
             return;
         }
         String fmt = showFormatDialog("导出格式", "选择要导出的文件格式",
-                com.flora.sanctum.app.io.exporter.Exporter.formatNames());
+                com.flora.sanctum.core.io.exporter.Exporter.formatNames());
         if (fmt == null) {
             return; // 取消
         }
@@ -2603,8 +2603,8 @@ public final class SanctumGui {
         if (!file.getFileName().toString().toLowerCase().endsWith("." + ext)) {
             file = file.resolveSibling(file.getFileName().toString() + "." + ext);
         }
-        java.util.Optional<com.flora.sanctum.app.io.exporter.Exporter> exporter =
-                com.flora.sanctum.app.io.exporter.Exporter.forFormatName(fmt);
+        java.util.Optional<com.flora.sanctum.core.io.exporter.Exporter> exporter =
+                com.flora.sanctum.core.io.exporter.Exporter.forFormatName(fmt);
         if (exporter.isEmpty()) {
             javax.swing.JOptionPane.showMessageDialog(frame,
                     "不支持的导出格式：" + fmt, "导出", javax.swing.JOptionPane.WARNING_MESSAGE);
@@ -2616,7 +2616,7 @@ public final class SanctumGui {
             javax.swing.JOptionPane.showMessageDialog(frame,
                     "已导出到：\n" + file, "导出", javax.swing.JOptionPane.INFORMATION_MESSAGE);
         } catch (Exception ex) {
-            String msg = ex instanceof com.flora.sanctum.app.io.exporter.ExportException
+            String msg = ex instanceof com.flora.sanctum.core.io.exporter.ExportException
                     ? ex.getMessage() : ex.toString();
             statusLabel.setText("导出失败");
             javax.swing.JOptionPane.showMessageDialog(frame,
@@ -3101,7 +3101,7 @@ public final class SanctumGui {
     /** 复制给 standalone.json 的配置：优先当前仓库 LibraryConfig，否则应用级配置。 */
     private JsonObject configForStandalone() {
         if (sanctum != null && sanctum.isUnlocked()) {
-            com.flora.sanctum.model.LibraryConfig lc = sanctum.config();
+            com.flora.sanctum.core.model.LibraryConfig lc = sanctum.config();
             JsonObject cfg = new JsonObject();
             cfg.put("theme", lc.theme());
             cfg.put("lockTimeoutSeconds", lc.lockTimeoutSeconds());

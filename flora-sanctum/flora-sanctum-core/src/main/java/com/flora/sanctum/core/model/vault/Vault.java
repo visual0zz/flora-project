@@ -1,0 +1,169 @@
+package com.flora.sanctum.core.model.vault;
+import com.flora.sanctum.core.model.*;
+
+import com.flora.sanctum.core.crypto.Argon2KDF;
+import com.flora.sanctum.core.crypto.impl.BlockResolver;
+import com.flora.sanctum.core.crypto.impl.KeyIdIndex;
+import com.flora.sanctum.core.crypto.impl.SecureRandomSource;
+import com.flora.sanctum.core.crypto.impl.HkdfSha256;
+import com.flora.sanctum.core.store.Block;
+import com.flora.sanctum.core.store.ObjectStore;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * 解锁后的库状态（见设计 02"解锁流程"）。
+ * <p>
+ * 持有 KEK、manifest、keyId 索引与存储引用；锁定即丢弃（不持有 DEK 明文持久态）。
+ */
+public final class Vault {
+
+    private final ObjectStore store;
+    private Manifest manifest;
+    private final KeyIdIndex keyIdIndex;
+    private final BlockResolver resolver;
+    private final SecureRandomSource random;
+    private WarehouseClock clock;
+    private byte[] dataDek; // 唯一根对象（DATA）的 DEK，解锁期间驻留，锁定/关闭时清除
+    private java.util.UUID rootObjectUuid; // 唯一根对象 uuid（manifest 记录，解锁后登记）
+    private final java.util.Map<java.util.UUID, byte[]> groupDeks = new java.util.LinkedHashMap<>();
+    private byte[] kek; // 解锁期间驻留内存，锁定/关闭时清除
+    private byte[] repoKeyIdSeed; // 仓库级 keyId 派生种子（DATA 根 json 存储），锁定/关闭时清除
+
+    Vault(ObjectStore store, Manifest manifest, KeyIdIndex keyIdIndex, SecureRandomSource random, byte[] kek, long baseTimestamp) {
+        this.store = store;
+        this.manifest = manifest;
+        this.keyIdIndex = keyIdIndex;
+        this.resolver = new BlockResolver(keyIdIndex, this::repoKeyIdSeed);
+        this.random = random;
+        this.clock = new WarehouseClock(baseTimestamp);
+        this.kek = kek == null ? null : kek.clone();
+    }
+
+    public WarehouseClock clock() {
+        return clock;
+    }
+
+    /** 登记根对象 DEK（唯一根，DATA 概念）。 */
+    public void addRootDek(byte[] dek) {
+        this.dataDek = dek.clone();
+        // 同时登记进 keyId 索引
+        keyIdIndex.register(dek);
+    }
+
+    /** 登记根对象的 uuid（manifest 记录，解锁后登记）。 */
+    public void addRootObjectUuid(java.util.UUID groupUuid) {
+        this.rootObjectUuid = groupUuid;
+    }
+
+    /** 取根对象的 uuid。 */
+    public java.util.UUID rootObjectUuid() {
+        return rootObjectUuid;
+    }
+
+    /** 唯一根对象（DATA）的 DEK，所有普通对象/图标/SSH 密钥/远程配置均归其加密归属。 */
+    public byte[] dataDek() {
+        if (dataDek == null) {
+            throw new IllegalStateException("no root DEK");
+        }
+        return dataDek.clone();
+    }
+
+    /** 登记 group DEK（group uuid → DEK，供目录/递归解锁/创建路由）。 */
+    public void addGroupDek(java.util.UUID groupUuid, byte[] dek) {
+        groupDeks.put(groupUuid, dek.clone());
+        keyIdIndex.register(dek);
+    }
+
+    /** 取某 group 的 DEK。 */
+    public byte[] groupDek(java.util.UUID groupUuid) {
+        byte[] d = groupDeks.get(groupUuid);
+        return d == null ? null : d.clone();
+    }
+
+    /** 驻留内存的 KEK（解锁期间；锁定后为 null）。 */
+    public byte[] kek() {
+        return kek == null ? null : kek.clone();
+    }
+
+    /** 仓库级 keyId 派生种子（解锁期间；未存储则 null）。 */
+    public byte[] repoKeyIdSeed() {
+        return repoKeyIdSeed == null ? null : repoKeyIdSeed.clone();
+    }
+
+    /** 登记仓库级 keyId 派生种子（解锁时从 DATA 根 json 读取）。 */
+    public void setRepoKeyIdSeed(byte[] seed) {
+        if (repoKeyIdSeed != null) {
+            java.util.Arrays.fill(repoKeyIdSeed, (byte) 0);
+        }
+        this.repoKeyIdSeed = seed == null ? null : seed.clone();
+    }
+
+    /** 换主密码后更新驻留 KEK。 */
+    public void replaceKek(byte[] newKek) {
+        if (kek != null) {
+            java.util.Arrays.fill(kek, (byte) 0);
+        }
+        this.kek = newKek == null ? null : newKek.clone();
+    }
+
+    /** 清除驻留密钥（锁定/关闭时）。 */
+    public void clearSecrets() {
+        if (kek != null) {
+            java.util.Arrays.fill(kek, (byte) 0);
+            kek = null;
+        }
+        if (dataDek != null) {
+            java.util.Arrays.fill(dataDek, (byte) 0);
+            dataDek = null;
+        }
+        for (byte[] d : groupDeks.values()) {
+            java.util.Arrays.fill(d, (byte) 0);
+        }
+        groupDeks.clear();
+        if (repoKeyIdSeed != null) {
+            java.util.Arrays.fill(repoKeyIdSeed, (byte) 0);
+            repoKeyIdSeed = null;
+        }
+        keyIdIndex.clear();
+    }
+
+    public ObjectStore store() {
+        return store;
+    }
+
+    public Manifest manifest() {
+        return manifest;
+    }
+
+    /** 换主密码/更新 KDF 参数后替换内存 manifest（供后续 close/写回使用新值）。 */
+    public void replaceManifest(Manifest manifest) {
+        this.manifest = manifest;
+    }
+
+    public KeyIdIndex keyIdIndex() {
+        return keyIdIndex;
+    }
+
+    public BlockResolver resolver() {
+        return resolver;
+    }
+
+    public SecureRandomSource random() {
+        return random;
+    }
+
+    /**
+     * 解密一个密文块为负载字节；非本库可解返回 null。
+     *
+     * @param timestamp 块级时间戳原文（落盘前缀字符串，重建 AAD）
+     */
+    public byte[] resolve(byte[] obfuscatedBlock, String timestamp) {
+        return resolver.decode(obfuscatedBlock, timestamp);
+    }
+}

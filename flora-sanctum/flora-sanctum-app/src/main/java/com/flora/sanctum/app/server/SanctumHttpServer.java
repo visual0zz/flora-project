@@ -4,8 +4,8 @@ import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.codec.json.model.JsonArray;
 
-import com.flora.sanctum.model.ExternalKeyService;
-import com.flora.sanctum.model.Sanctum;
+import com.flora.sanctum.core.model.ExternalKeyService;
+import com.flora.sanctum.core.model.Sanctum;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 

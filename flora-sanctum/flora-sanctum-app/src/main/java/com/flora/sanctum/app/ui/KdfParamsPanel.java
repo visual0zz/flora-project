@@ -1,6 +1,6 @@
 package com.flora.sanctum.app.ui;
 
-import com.flora.sanctum.crypto.Argon2KDF;
+import com.flora.sanctum.core.crypto.Argon2KDF;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;

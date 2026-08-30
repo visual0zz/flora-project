@@ -1,6 +1,6 @@
 package com.flora.sanctum.app.ui;
 
-import com.flora.sanctum.model.ViewNodeType;
+import com.flora.sanctum.core.model.ViewNodeType;
 
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.JList;

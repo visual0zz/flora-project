@@ -1,7 +1,7 @@
 package com.flora.sanctum.app.ui;
 
-import com.flora.sanctum.config.UserConfig;
-import com.flora.sanctum.model.LibraryConfig;
+import com.flora.sanctum.core.config.UserConfig;
+import com.flora.sanctum.core.model.LibraryConfig;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;

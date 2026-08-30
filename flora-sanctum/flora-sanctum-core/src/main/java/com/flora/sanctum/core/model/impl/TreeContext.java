@@ -64,12 +64,27 @@ public final class TreeContext {
         }
     }
 
-    /** 维护 parentOf / childrenByParent 索引（从对象 parent 字段解析）。 */
+    /**
+     * 维护 parentOf / childrenByParent 索引（从对象 parent 字段解析）。
+     * <p>幂等：写入前先清除该 uuid 既有的索引位置。setIcon / rename 会以同一 uuid 二次写入对象，
+     * 若不清除则会在父组的子列表里重复追加（表现为组/条目在树中重复渲染）；parent 变化的移动场景
+     * 也借此从旧父子列表移除。仅当目标父下确实不含该 uuid 时才追加，杜绝同父重复项。</p>
+     */
     private void indexObject(UUID uuid, JsonObject obj) {
         UUID parent = resolveParent(obj.getString("parent"));
+        UUID oldParent = parentOf.get(uuid);
+        if (oldParent != null) {
+            List<UUID> oldSiblings = childrenByParent.get(oldParent);
+            if (oldSiblings != null) {
+                oldSiblings.remove(uuid);
+            }
+        }
         parentOf.put(uuid, parent);
         if (parent != null) {
-            childrenByParent.computeIfAbsent(parent, k -> new ArrayList<>()).add(uuid);
+            List<UUID> siblings = childrenByParent.computeIfAbsent(parent, k -> new ArrayList<>());
+            if (!siblings.contains(uuid)) {
+                siblings.add(uuid);
+            }
         }
     }
 

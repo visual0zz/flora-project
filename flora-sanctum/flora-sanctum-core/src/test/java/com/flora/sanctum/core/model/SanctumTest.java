@@ -383,6 +383,39 @@ class SanctumTest {
         assertFalse(s.trash().manual().contains(group.uuid()));
     }
 
+    // ---- 回归：同一 uuid 被二次写入（setIcon / rename）时索引不能重复 ----
+
+    @Test
+    void setGroupIconDoesNotDuplicateInParent() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
+        GroupNode parent = s.objectTree().createGroup(null, "父");
+        IconNode icon = s.iconTree().createIcon("icon", new byte[]{1}, "png");
+        GroupNode child = parent.createChildGroup("子");
+        // KdbxMapper 在其后调用 setIcon，复用同一 uuid 二次写入 group 对象
+        child.setIcon(icon.uuid());
+        assertEquals(1, parent.childGroups().size(), "同一 uuid 二次写入不应在父组子列表重复");
+        assertEquals(child.uuid(), parent.childGroups().get(0).uuid());
+    }
+
+    @Test
+    void setEntryIconDoesNotDuplicateInParent() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
+        GroupNode parent = s.objectTree().createGroup(null, "父");
+        IconNode icon = s.iconTree().createIcon("icon", new byte[]{1}, "png");
+        EntryNode entry = parent.createEntry("条目", EntryFields.EMPTY);
+        entry.setIcon(icon.uuid());
+        assertEquals(1, parent.entries().size(), "同一 uuid 二次写入不应在父组子列表重复");
+    }
+
+    @Test
+    void renameGroupDoesNotDuplicateInParent() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
+        GroupNode parent = s.objectTree().createGroup(null, "父");
+        GroupNode child = parent.createChildGroup("子");
+        child.rename("新名");
+        assertEquals(1, parent.childGroups().size(), "rename 复用同一 uuid 不应在父组子列表重复");
+    }
+
     @Test
     void unreachableEntryClassified() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);

@@ -275,12 +275,15 @@ final class SettingsModel {
                     : "当前：普通仓库（依赖本应用打开）");
             state.setHorizontalAlignment(SwingConstants.LEFT);
             p.add(state);
-            p.add(Box.createVerticalStrut(10));
-            JButton b = new JButton(ctx.standalone() ? "删除独立运行" : "配置独立运行");
-            b.setHorizontalAlignment(SwingConstants.LEFT);
-            b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-            b.addActionListener(e -> (ctx.standalone() ? ctx.downgradeStandalone() : ctx.upgradeStandalone()).run());
-            p.add(b);
+            // 独立运行形态下不提供"删除独立运行"按钮（避免运行中破坏自带 lib/ 与 edit 脚本）
+            if (!ctx.standalone()) {
+                p.add(Box.createVerticalStrut(10));
+                JButton b = new JButton("配置独立运行");
+                b.setHorizontalAlignment(SwingConstants.LEFT);
+                b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+                b.addActionListener(e -> ctx.upgradeStandalone().run());
+                p.add(b);
+            }
             return p;
         }
 

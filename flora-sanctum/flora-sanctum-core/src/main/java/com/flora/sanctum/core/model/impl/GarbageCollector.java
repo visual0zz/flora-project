@@ -30,8 +30,8 @@ public final class GarbageCollector {
     public List<UUID> collect() {
         List<Block> blocks = ctx.store().scan();
         Set<UUID> reachable = new HashSet<>();
-        // 根：manifest（明文块）+ 根对象（manifest.rootObjectUuid 定位，KEK 包裹）
-        java.util.UUID rootUuid = ctx.vault().manifest().rootObjectUuid();
+        // 根：manifest（明文块）+ 根对象（uuid 由 KEK 单向推导并登记在 vault 上，用 KEK 加解密）
+        java.util.UUID rootUuid = ctx.vault().rootObjectUuid();
         for (Block b : blocks) {
             if (b.isPlaintext()) {
                 reachable.add(b.uuid());
@@ -77,7 +77,7 @@ public final class GarbageCollector {
     }
 
     private JsonObject nodeOf(Block b) {
-        byte[] plain = ctx.vault().resolve(b.masked(), b.timestampText());
+        byte[] plain = ctx.vault().resolve(b.masked(), b.uuid(), b.timestampText());
         if (plain == null) {
             return null;
         }

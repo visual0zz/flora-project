@@ -9,9 +9,9 @@ import java.util.UUID;
  * 将 {@link CipherCodec} 适配为存储层 {@link Codec}。
  * <p>
  * encode：用 CipherCodec 加密对象负载成标准块（信封原始字节），并返回落盘字节。
- * decode：解异或 + GCM-SIV 解密。注意 decode 需要 uuid（作为 encode 时的对象身份），
- * 由 {@link #encode} 内部生成的 keyId 与 uuid 共同决定；此处 decode 依赖调用方
- * 传入对象 uuid。
+ * decode：GCM-SIV 解密并验证 tag。对象 uuid 不写入信封头，而在构造时注入后于加解密两侧
+ * 参与 AAD（{@code uuid ‖ 时间戳 ‖ 信封头}）；文件块的 uuid 由块文件路径反推。
+ * keyId 由 {@link CipherCodec#encode} 内部生成（nonce 随机 + KeyIdDeriver 派生）。
  */
 public final class CipherCodecAdapter implements Codec {
 
@@ -31,7 +31,6 @@ public final class CipherCodecAdapter implements Codec {
 
     @Override
     public byte[] decode(byte[] data, String timestamp) {
-        CipherCodec.DecodedBlock d = codec.decode(data, timestamp);
-        return d.plaintext;
+        return codec.decode(data, objectUuid, timestamp);
     }
 }

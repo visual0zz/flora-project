@@ -3,9 +3,12 @@ package com.flora.sanctum.core.store;
 import com.flora.sanctum.core.crypto.impl.Envelope;
 
 /**
- * 块级信封操作（存储层）：magic 识别、头部字段提取。
+ * 块级信封识别（存储层）：magic 匹配与最小长度校验。
  * <p>
- * 存储层不解析负载语义，只做块边界识别与头部读取（见设计 04b"块自描述"）。
+ * 存储层不解析负载语义，只做块边界识别（见设计 04b"块自描述"）。
+ * 头部字段（nonce、keyId）的提取在 {@link com.flora.sanctum.core.crypto.impl.CipherCodec} 与
+ * {@link com.flora.sanctum.core.crypto.impl.BlockResolver} 内完成；对象 uuid 不存于头部，
+ * 由块文件路径反推（见 {@link Block#uuid()}）。
  */
 public final class BlockHeader {
 
@@ -23,15 +26,5 @@ public final class BlockHeader {
             }
         }
         return true;
-    }
-
-    /** 从块读取 uuid（偏移 magic_len+2，16 字节）。 */
-    public static java.util.UUID uuid(byte[] block) {
-        if (!isBlock(block)) {
-            throw new IllegalArgumentException("not a block");
-        }
-        java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(block, Envelope.MAGIC_LEN + 2, 16)
-                .order(java.nio.ByteOrder.BIG_ENDIAN);
-        return new java.util.UUID(bb.getLong(), bb.getLong());
     }
 }

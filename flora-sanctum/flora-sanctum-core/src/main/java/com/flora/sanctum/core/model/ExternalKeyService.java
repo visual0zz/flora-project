@@ -26,6 +26,9 @@ import java.util.UUID;
  *   再以 GCM-SIV tag 试解密确证（与系统块同一 keyId 定位机制，见设计 02"可定位"）。
  * - {@code list()}：列出 externalKey 字段的 uuid + 描述。
  * <p>
+ * 该密文块是经 HTTP 传递的内嵌 blob（无文件路径），加解密两侧 AAD 的 uuid 统一用
+ * {@link CipherCodec#EMBEDDED_UUID}；密钥身份由 keyId 路由保证，不依赖 uuid 入块。
+ * <p>
  * 防泄漏：解密候选域 = 仅 {@code kind:"externalKey"} 的字段密钥（懒构建 keyId 索引），
  * 系统 DEK 不在候选里，外部即使传入系统块密文也解不出（见设计 02"隔离与防泄漏"）。
  */
@@ -61,7 +64,7 @@ public final class ExternalKeyService {
         byte[] encKey = KeyDerivation.encKey(keyMaterial);
         CipherCodec codec = new CipherCodec(encKey, keyMaterial, sanctum.vault().repoKeyIdSeed(),
                 sanctum.vault().random());
-        return codec.encode(fieldUuid, data, "0");
+        return codec.encode(CipherCodec.EMBEDDED_UUID, data, "0");
     }
 
     /** 解密：从密文头 (nonce, keyId) 恢复 dekId 定位候选，再 tag 试解确证（与系统块同一机制）。 */
@@ -72,7 +75,7 @@ public final class ExternalKeyService {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("invalid base58");
         }
-        int nonceOff = BlockFormat.MAGIC_LEN + 2 + 16;
+        int nonceOff = BlockFormat.MAGIC_LEN + 2;
         int keyIdOff = nonceOff + BlockFormat.NONCE_LEN;
         if (block.length < keyIdOff + BlockFormat.KEYID_LEN || !BlockHeader.isBlock(block)) {
             throw new IllegalArgumentException("not a block");
@@ -92,7 +95,7 @@ public final class ExternalKeyService {
             CipherCodec codec = new CipherCodec(encKey, keyMaterial, sanctum.vault().repoKeyIdSeed(),
                     sanctum.vault().random());
             try {
-                return codec.decode(block, "0").plaintext;
+                return codec.decode(block, CipherCodec.EMBEDDED_UUID, "0");
             } catch (IllegalStateException ignore) {
                 // tag 不符 → 试下一个候选（同 dekId 碰撞）
             }
@@ -152,7 +155,7 @@ public final class ExternalKeyService {
     }
 
     private JsonObject readNode(Block b) {
-        byte[] plain = sanctum.vault().resolve(b.masked(), b.timestampText());
+        byte[] plain = sanctum.vault().resolve(b.masked(), b.uuid(), b.timestampText());
         if (plain == null) {
             return null;
         }

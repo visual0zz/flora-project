@@ -23,6 +23,9 @@ import java.util.stream.Stream;
  * 布局：{@code root/{a}/{b}/{rest}.md}，其中 {@code a}、{@code b} 分别是 uuid 无连字符 hex
  * 的第 1、第 2 个字符（两层单字母目录分片），{@code rest} 是剩余 30 字符。
  * 每个文件恰好一个块，内容为单行 {@code timestamp:base58}，正文与密文不交错。
+ * <p>
+ * 块的 uuid 不写入信封头，只由该文件路径承载（见 {@link #uuidOf}）；因此路径即对象身份，
+ * 块被移动到别处即无法定位、且即便分片路径合法也会因 AAD 不一致而解密失败。
  */
 public final class MarkdownObjectStore implements ObjectStore {
 
@@ -50,6 +53,28 @@ public final class MarkdownObjectStore implements ObjectStore {
     Path fileOf(UUID uuid) {
         String hex = hexOf(uuid);
         return root.resolve(hex.substring(0, 1)).resolve(hex.substring(1, 2)).resolve(hex.substring(2) + ".md");
+    }
+
+    /**
+     * 块文件路径反推 uuid（{@link #fileOf} 的逆）：取末三段 {@code {第1字符}/{第2字符}/{后30字符}.md}
+     * 拼成 32 位无连字符 hex 再还原为 UUID。
+     *
+     * @throws IllegalArgumentException 路径不是两块分片的 {@code *.md} 布局，或拼出的不是 32 位 hex
+     */
+    public static UUID uuidOf(Path file) {
+        String name = file.getFileName().toString();
+        Path parent = file.getParent();
+        if (!name.endsWith(".md") || parent == null || parent.getParent() == null) {
+            throw new IllegalArgumentException("not a block file: " + file);
+        }
+        String hex = parent.getParent().getFileName().toString()
+                + parent.getFileName().toString()
+                + name.substring(0, name.length() - 3);
+        if (hex.length() != 32) {
+            throw new IllegalArgumentException("bad block path: " + file);
+        }
+        return UUID.fromString(hex.substring(0, 8) + "-" + hex.substring(8, 12) + "-"
+                + hex.substring(12, 16) + "-" + hex.substring(16, 20) + "-" + hex.substring(20));
     }
 
     @Override
@@ -89,7 +114,7 @@ public final class MarkdownObjectStore implements ObjectStore {
             } catch (AtomicMoveNotSupportedException e) {
                 Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
             }
-            return new Block(file, 1, timestamp, toWrite, toWrite);
+            return new Block(file, 1, timestamp, toWrite, toWrite, blockUuid);
         } catch (IOException e) {
             throw new IllegalStateException("write failed: " + file, e);
         } finally {
@@ -152,7 +177,8 @@ public final class MarkdownObjectStore implements ObjectStore {
             if (!BlockHeader.isBlock(bytes)) {
                 return;
             }
-            out.add(new Block(file, 1, ts, bytes, bytes));
+            // uuid 由路径承载：路径不符合 {a}/{b}/{rest}.md 分片布局时无法定位该块（如被移动过），跳过
+            out.add(new Block(file, 1, ts, bytes, bytes, uuidOf(file)));
         } catch (Exception ignore) {
             // 损坏/非本应用文件，跳过
         }

@@ -9,6 +9,8 @@ import java.util.UUID;
  * 块 = base58 串，解码后是标准信封字节（无额外异或混淆）。存储层记录块的物理位置
  * （文件 + 行号）与块级时间戳（落盘为 {@code timestamp:base58} 前缀）以支持定位与冲突仲裁。
  * {@code masked}/{@code unmasked} 为同一信封原始字节（两者等价）。
+ * <p>
+ * 对象 uuid 不写入信封头，由块文件路径承载并反推（见 {@link #uuid()}）。
  */
 public final class Block {
 
@@ -18,14 +20,16 @@ public final class Block {
     private final String timestampText; // 落盘前缀时间戳原文（AAD 重建依赖原文，见设计 04）
     private final byte[] masked;
     private final byte[] unmasked;
+    private final UUID uuid;
 
-    public Block(Path file, long line, String timestampText, byte[] masked, byte[] unmasked) {
+    public Block(Path file, long line, String timestampText, byte[] masked, byte[] unmasked, UUID uuid) {
         this.file = file;
         this.line = line;
         this.timestamp = Long.parseLong(timestampText);
         this.timestampText = timestampText;
         this.masked = masked;
         this.unmasked = unmasked;
+        this.uuid = uuid;
     }
 
     public Path file() {
@@ -54,9 +58,13 @@ public final class Block {
         return unmasked.clone();
     }
 
-    /** 对象 UUID（块内自述）。 */
+    /**
+     * 对象 UUID。不存于信封头内，而由块文件路径反推
+     * （见 {@link com.flora.sanctum.core.store.impl.MarkdownObjectStore#uuidOf}），
+     * 因此块被移动到别的路径即得到不同 uuid，AAD 认证随之失败。
+     */
     public UUID uuid() {
-        return BlockHeader.uuid(unmasked);
+        return uuid;
     }
 
     /** 是否密文块（flags 偏移 MAGIC_LEN+1 = 9，0x01）。 */

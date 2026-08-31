@@ -36,7 +36,8 @@ public final class TrashClassifier {
     /** 扫描并分类，返回垃圾桶视图（含三类 uuid 集合与「原位置」路径计算）。 */
     public TrashView classify() {
         Vault vault = ctx.vault();
-        java.util.UUID rootUuid = vault.manifest() == null ? null : vault.manifest().rootObjectUuid();
+        // 根对象 uuid 由 KEK 单向推导并登记在 vault 上（不记入 manifest）
+        java.util.UUID rootUuid = vault.rootObjectUuid();
         String root = rootUuid == null ? null : rootUuid.toString();
 
         // 可达集（复用 GarbageCollector 思想，仅判不删）
@@ -122,7 +123,7 @@ public final class TrashClassifier {
     }
 
     private JsonObject nodeOf(Block b) {
-        byte[] plain = ctx.vault().resolve(b.masked(), b.timestampText());
+        byte[] plain = ctx.vault().resolve(b.masked(), b.uuid(), b.timestampText());
         if (plain == null) {
             return null;
         }

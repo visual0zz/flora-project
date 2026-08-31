@@ -6,12 +6,15 @@ package com.flora.sanctum.core.store;
  * magic 为固定 6 字节魔数（见 {@link #MAGIC}）。version 字段统一为 1（VERSION_1，第一代格式），
  * 块类型由 flags 区分（FLAG_CIPHER / FLAG_PLAINTEXT）。
  * <ul>
- *   <li><b>明文块</b>（仅 manifest）：头 = magic(6)+version(1)+flags(1)+uuid(16)，
+ *   <li><b>明文块</b>（仅 manifest）：头 = magic(6)+version(1)+flags(1)，
  *       payload 从 {@link #PLAINTEXT_HEADER_LEN} 开始，尾附 MAC（见 {@link com.flora.sanctum.core.model.impl.ManifestStore}）。</li>
- *   <li><b>密文块</b>：头 = magic(6)+version(1)+flags(1)+uuid(16)+nonce(12)+keyId(8)，
+ *   <li><b>密文块</b>：头 = magic(6)+version(1)+flags(1)+nonce(12)+keyId(8)，
  *       nonce 置于 keyId 前（解析时先读 nonce 作 keyId 派生的 seed）。内部存储与外部加密数据
  *       用同一格式（见设计"keyId 防关联"）。</li>
  * </ul>
+ * 对象 uuid 不写入信封头，而由块文件路径承载（{@code root/{a}/{b}/{rest}.md}，
+ * 见 {@link com.flora.sanctum.core.store.impl.MarkdownObjectStore}）；读取时从路径反推并参与
+ * AAD 认证，使块内容与其存放位置绑定（块被移动到别的路径即认证失败）。
  */
 public final class BlockFormat {
 
@@ -22,8 +25,8 @@ public final class BlockFormat {
     public static final byte[] MAGIC = {(byte) 0xBD, (byte) 0xE0, (byte) 0xE0, (byte) 0xB3, (byte) 0xE7, (byte) 0xEE};
     public static final int MAGIC_LEN = 6;
 
-    /** 明文块头长度：magic(6)+version(1)+flags(1)+uuid(16) = 24。 */
-    public static final int PLAINTEXT_HEADER_LEN = MAGIC_LEN + 1 + 1 + 16;
+    /** 明文块头长度：magic(6)+version(1)+flags(1) = 8。 */
+    public static final int PLAINTEXT_HEADER_LEN = MAGIC_LEN + 1 + 1;
 
     /** GCM-SIV tag 长度（128 位）。 */
     public static final int TAG_LEN = 16;
@@ -34,8 +37,8 @@ public final class BlockFormat {
     /** keyId 长度（64 位）。 */
     public static final int KEYID_LEN = 8;
 
-    /** 密文块头长度：magic(6)+version(1)+flags(1)+uuid(16)+nonce(12)+keyId(8) = 44。 */
-    public static final int HEADER_LEN = MAGIC_LEN + 1 + 1 + 16 + NONCE_LEN + KEYID_LEN;
+    /** 密文块头长度：magic(6)+version(1)+flags(1)+nonce(12)+keyId(8) = 28。 */
+    public static final int HEADER_LEN = MAGIC_LEN + 1 + 1 + NONCE_LEN + KEYID_LEN;
 
     /** 格式版本（第一代；明文与密文块统一，块类型由 flags 区分）。 */
     public static final byte VERSION_1 = 1;

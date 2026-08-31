@@ -12,7 +12,7 @@ public interface ObjectStore {
     /**
      * 读取某对象的原始字节。
      *
-     * @param blockUuid 对象 UUID（块内自述）
+     * @param blockUuid 对象 UUID（由块文件路径承载，不在块内存储）
      * @param codec     编解码器（null 视为裸明文读取）
      * @return 解码后的字节；未找到返回 {@code null}
      */
@@ -21,7 +21,7 @@ public interface ObjectStore {
     /**
      * 写入/更新某对象：重新加密（若 codec 非 null）并覆盖对应文件。
      *
-     * @param blockUuid 对象 UUID（块内自述）
+     * @param blockUuid 对象 UUID（由块文件路径承载，不在块内存储）
      * @param data      待写入字节（明文或 codec 加密后的密文，取决于 codec）
      * @param codec     编解码器（null 视为裸明文写入）
      * @param timestamp 块级时间戳（规范 ASCII 十进制字符串，落盘为 {@code timestamp:base58} 前缀，且作为 codec 的 AAD）

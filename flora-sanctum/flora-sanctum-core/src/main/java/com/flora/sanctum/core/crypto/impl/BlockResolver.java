@@ -3,6 +3,7 @@ package com.flora.sanctum.core.crypto.impl;
 import com.flora.sanctum.core.crypto.KeyIdDeriver;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
@@ -40,10 +41,12 @@ public final class BlockResolver {
      * 解析一个密文块，经 keyId 路由定位父 DEK 并解密（见设计"keyId 防关联"）。
      *
      * @param block     落盘块字节（信封原始字节）
+     * @param uuid      对象 uuid（不存于块内；文件块由块文件路径反推，内嵌块用
+     *                  {@link CipherCodec#EMBEDDED_UUID}，重建 AAD）
      * @param timestamp 块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文，重建 AAD）
      * @return 解码结果（含负载与所用父 DEK）；无法定位或候选 DEK 全部试解失败返回 {@code null}。
      */
-    public Decoded decodeKeyed(byte[] block, String timestamp) {
+    public Decoded decodeKeyed(byte[] block, UUID uuid, String timestamp) {
         if (block.length < Envelope.HEADER_LEN) {
             throw new IllegalArgumentException("block too short");
         }
@@ -55,7 +58,7 @@ public final class BlockResolver {
         if (block[Envelope.MAGIC_LEN + 1] != Envelope.FLAG_CIPHER) {
             return null; // 明文块不在此解析
         }
-        int nonceOff = Envelope.MAGIC_LEN + 2 + 16;
+        int nonceOff = Envelope.MAGIC_LEN + 2;
         byte[] nonce = new byte[Envelope.NONCE_LEN];
         System.arraycopy(block, nonceOff, nonce, 0, Envelope.NONCE_LEN);
         byte[] keyId = new byte[Envelope.KEYID_LEN];
@@ -71,7 +74,7 @@ public final class BlockResolver {
             byte[] encKey = deriveEncKey(dek);
             CipherCodec codec = new CipherCodec(encKey, dek);
             try {
-                byte[] plaintext = codec.decode(block, timestamp).plaintext;
+                byte[] plaintext = codec.decode(block, uuid, timestamp);
                 return new Decoded(plaintext, dek.clone());
             } catch (IllegalStateException e) {
                 // tag 验证失败 → 试下一个候选
@@ -84,11 +87,13 @@ public final class BlockResolver {
      * 解析一个密文块。
      *
      * @param block     落盘块字节（信封原始字节）
+     * @param uuid      对象 uuid（不存于块内；文件块由块文件路径反推，内嵌块用
+     *                  {@link CipherCodec#EMBEDDED_UUID}，重建 AAD）
      * @param timestamp 块级时间戳（规范 ASCII 十进制字符串，落盘前缀原文，重建 AAD）
      * @return 解密负载；候选 DEK 全部试解失败或无法定位返回 {@code null}。
      */
-    public byte[] decode(byte[] block, String timestamp) {
-        Decoded d = decodeKeyed(block, timestamp);
+    public byte[] decode(byte[] block, UUID uuid, String timestamp) {
+        Decoded d = decodeKeyed(block, uuid, timestamp);
         return d == null ? null : d.plaintext;
     }
 

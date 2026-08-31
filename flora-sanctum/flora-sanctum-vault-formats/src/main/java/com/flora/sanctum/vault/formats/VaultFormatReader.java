@@ -2,6 +2,7 @@ package com.flora.sanctum.vault.formats;
 
 import com.flora.sanctum.kdbx.KdbxDocument;
 import com.flora.sanctum.vault.formats.bitwarden.BitwardenReader;
+import com.flora.sanctum.vault.formats.kp1.KeePass1Reader;
 
 import java.io.ByteArrayInputStream;
 import java.util.LinkedHashSet;
@@ -13,7 +14,7 @@ import java.util.zip.ZipInputStream;
  * 第三方保险库读取入口：自动识别格式并分派到对应读取器。
  * <p>识别规则（均只基于非敏感的文件头/结构特征）：
  * <ul>
- *   <li>KeePass 1.x：魔数 {@code 0x9AA2D903 0xB54BFB67} 且主版本号为 1；</li>
+ *   <li>KeePass 1.x：魔数 {@code 0x9AA2D903 0xB54BFB65}（第二个签名与 KDBX 的 {@code 0xB54BFB67} 不同）；</li>
  *   <li>1Password OPVault：ZIP 中含 {@code profile.js}（通常在 {@code default/} 下）；</li>
  *   <li>1Password 1PUX：ZIP 中含 {@code export.data}；</li>
  *   <li>Bitwarden：JSON 文本，含 {@code items}/{@code $type:"Bitwarden"} 等特征键。</li>
@@ -24,7 +25,9 @@ import java.util.zip.ZipInputStream;
 public final class VaultFormatReader {
 
     private static final int SIG1 = 0x9AA2D903;
-    private static final int SIG2 = 0xB54BFB67;
+    /** KeePass1 的第二签名；KDBX（KeePass2）为 {@code 0xB54BFB67}，据此区分同一族格式。 */
+    private static final int SIG2_KEEPASS1 = 0xB54BFB65;
+    private static final int SIG2_KDBX = 0xB54BFB67;
 
     private VaultFormatReader() {
     }
@@ -36,10 +39,13 @@ public final class VaultFormatReader {
         }
         int sig1 = readLe32(data, 0);
         int sig2 = readLe32(data, 4);
-        if (sig1 == SIG1 && sig2 == SIG2) {
-            int version = readLe32(data, 8);
-            int major = (version >>> 16) & 0xFFFF;
-            return major == 1 ? VaultFormat.KEEPASS1 : null; // KDBX 交给 kdbx 模块
+        if (sig1 == SIG1) {
+            if (sig2 == SIG2_KEEPASS1) {
+                return VaultFormat.KEEPASS1;
+            }
+            if (sig2 == SIG2_KDBX) {
+                return null; // KDBX 交给 kdbx 模块
+            }
         }
         if (isZip(data)) {
             Set<String> names = zipEntryNames(data);
@@ -69,6 +75,7 @@ public final class VaultFormatReader {
         // 各格式读取器按实现进度接入；未实现的格式给出明确的不支持提示（仍为可编译、可工作模块）。
         return switch (f) {
             case BITWARDEN -> new BitwardenReader().read(data, password, keyFile);
+            case KEEPASS1 -> new KeePass1Reader().read(data, password, keyFile);
             default -> throw VaultReadException.of(VaultReadException.Stage.UNSUPPORTED, f,
                     "该保险库格式的只读读取器尚未实现");
         };

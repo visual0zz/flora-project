@@ -11,4 +11,5 @@ module com.flora.sanctum.vault.formats {
 
     exports com.flora.sanctum.vault.formats;
     exports com.flora.sanctum.vault.formats.bitwarden;
+    exports com.flora.sanctum.vault.formats.kp1;
 }

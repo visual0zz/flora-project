@@ -1,4 +1,7 @@
-package com.flora.sanctum.core.io.importer.kdbx;
+package com.flora.sanctum.kdbx.internal;
+
+import com.flora.sanctum.kdbx.KdbxReadException;
+import com.flora.sanctum.kdbx.KdbxReadException.Stage;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.ChaCha20ParameterSpec;
@@ -8,7 +11,7 @@ import java.util.Arrays;
 import java.util.UUID;
 
 /**
- * KDBX4 载荷密码算法（走 JDK {@code javax.crypto}，不引入 BouncyCastle）。
+ * KDBX 载荷密码算法（走 JDK {@code javax.crypto}，不引入 BouncyCastle）。
  * <ul>
  *   <li>AES-256-CBC：PKCS#7 填充（JDK 用 PKCS5Padding 等价）。</li>
  *   <li>ChaCha20：12 字节 nonce、初始块计数器 0。</li>
@@ -38,7 +41,7 @@ final class KdbxCipher {
                     new ChaCha20ParameterSpec(nonce, 0));
             return c.doFinal(ciphertext);
         }
-        throw new UnsupportedOperationException("不支持的 KDBX 加密算法: " + cipherId);
+        throw new KdbxReadException(Stage.DECRYPT, "不支持的 KDBX 加密算法: " + cipherId);
     }
 
     static boolean isSupported(UUID cipherId) {

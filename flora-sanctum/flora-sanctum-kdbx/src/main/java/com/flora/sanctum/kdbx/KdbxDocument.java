@@ -1,4 +1,4 @@
-package com.flora.sanctum.core.io.importer.kdbx;
+package com.flora.sanctum.kdbx;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -6,8 +6,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * KDBX4 解密后的内存模型（与具体加密无关，仅描述分组/条目/字段）。
+ * KDBX 解密后的内存模型（与具体加密无关，仅描述分组/条目/字段）。
  * <p>字段值已是明文（受保护字段已用内层流解密）。时间字段为 epoch 毫秒，解析失败为 null。</p>
+ * <p>本类型是 KDBX 读取模块对外暴露的通用结果，与 Sanctum 等上层模型解耦。</p>
  */
 public final class KdbxDocument {
 

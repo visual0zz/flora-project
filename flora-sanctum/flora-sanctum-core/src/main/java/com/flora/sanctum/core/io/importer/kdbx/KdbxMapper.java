@@ -2,6 +2,7 @@ package com.flora.sanctum.core.io.importer.kdbx;
 
 import com.flora.sanctum.core.icon.BuiltinIcons;
 import com.flora.sanctum.core.io.importer.ImportContext;
+import com.flora.sanctum.kdbx.KdbxDocument;
 import com.flora.sanctum.core.io.importer.ImportListener;
 import com.flora.sanctum.core.io.importer.ImportResult;
 import com.flora.sanctum.core.model.EntryFields;

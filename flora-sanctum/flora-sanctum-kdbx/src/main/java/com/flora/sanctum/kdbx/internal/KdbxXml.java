@@ -1,6 +1,9 @@
-package com.flora.sanctum.core.io.importer.kdbx;
+package com.flora.sanctum.kdbx.internal;
 
-import com.flora.sanctum.core.io.importer.ImportException;
+import com.flora.sanctum.kdbx.KdbxDocument;
+import com.flora.sanctum.kdbx.KdbxReadException;
+import com.flora.sanctum.kdbx.KdbxReadException.Stage;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -20,16 +23,16 @@ import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
 /**
- * 解析 KDBX4 内层（内层头 + 内层 XML）。
+ * 解析 KDBX 内层（内层头 + 内层 XML）。
  * <p>内层头给出内层随机流算法与密钥；XML 中 {@code Protected="True"} 的字段值先 Base64 解码，
  * 再用内层流（顺序密钥流）异或还原明文。</p>
  */
-final class KdbxXml {
+public final class KdbxXml {
 
     private KdbxXml() {
     }
 
-    static KdbxDocument parse(byte[] inner) throws ImportException {
+    public static KdbxDocument parse(byte[] inner) throws KdbxReadException {
         int p = 0;
         int innerStreamId = 1;            // 默认 Salsa20
         byte[] innerKey = new byte[32];
@@ -38,7 +41,7 @@ final class KdbxXml {
             int len = readLe32(inner, p);
             p += 4;
             if (p + len > inner.length) {
-                throw new ImportException("内层头越界");
+                throw new KdbxReadException(Stage.INNER, "内层头越界");
             }
             byte[] field = new byte[len];
             System.arraycopy(inner, p, field, 0, len);
@@ -53,7 +56,7 @@ final class KdbxXml {
             }
         }
         if (p >= inner.length) {
-            throw new ImportException("内层 XML 缺失");
+            throw new KdbxReadException(Stage.INNER, "内层 XML 缺失");
         }
         byte[] xmlBytes = new byte[inner.length - p];
         System.arraycopy(inner, p, xmlBytes, 0, xmlBytes.length);
@@ -62,7 +65,12 @@ final class KdbxXml {
         return parseXml(xmlBytes, stream);
     }
 
-    private static KdbxDocument parseXml(byte[] xmlBytes, KdbxStreamCipher stream) throws ImportException {
+    /** KDBX2/3 入口：内层随机流算法与密钥来自外层头部字段（无 TLV 内层头），直接解析 XML。 */
+    public static KdbxDocument parseInner(byte[] xmlBytes, KdbxStreamCipher stream) throws KdbxReadException {
+        return parseXml(xmlBytes, stream);
+    }
+
+    static KdbxDocument parseXml(byte[] xmlBytes, KdbxStreamCipher stream) throws KdbxReadException {
         try {
             DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
             f.setNamespaceAware(false);
@@ -71,18 +79,18 @@ final class KdbxXml {
             Map<String, byte[]> customIcons = parseCustomIcons(root);
             Element rootGroup = firstChild(root, "Root");
             if (rootGroup == null) {
-                throw new ImportException("KDBX 缺少 <Root>");
+                throw new KdbxReadException(Stage.XML, "KDBX 缺少 <Root>");
             }
             Element group = firstChild(rootGroup, "Group");
             if (group == null) {
-                throw new ImportException("KDBX 缺少根 <Group>");
+                throw new KdbxReadException(Stage.XML, "KDBX 缺少根 <Group>");
             }
             KdbxDocument.KdbxGroup g = parseGroup(group, stream);
             return new KdbxDocument(g, customIcons);
-        } catch (ImportException e) {
+        } catch (KdbxReadException e) {
             throw e;
         } catch (Exception e) {
-            throw new ImportException("KDBX XML 解析失败", e);
+            throw new KdbxReadException(Stage.XML, "KDBX XML 解析失败", e);
         }
     }
 
@@ -172,7 +180,7 @@ final class KdbxXml {
 
     /** 读取分组/条目上的图标引用：<IconID>（内置索引）与 <CustomIconUUID>（自定义 UUID hex）。 */
     private static void readIconRef(Element el, IntConsumer iconIdSetter,
-                                     Consumer<String> customSetter) {
+                                    Consumer<String> customSetter) {
         Element iconIdEl = firstChild(el, "IconID");
         if (iconIdEl != null) {
             try {

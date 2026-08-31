@@ -1,12 +1,9 @@
 package com.flora.sanctum.core.io.importer;
 
 import com.flora.root.runtime.log.Logger;
-import com.flora.root.runtime.log.LoggerFactory;
 
 /** {@link ImportListener} 的常用实现。 */
 public final class ImportListeners {
-
-    private static final Logger LOG = LoggerFactory.getLogger(ImportListeners.class);
 
     private ImportListeners() {
     }
@@ -24,17 +21,37 @@ public final class ImportListeners {
         };
     }
 
-    /** 把进度与告警转发到控制台（用于测试/无头环境）。 */
+    /** 把进度与告警转发到标准输出（用于测试/无头环境直接观察，不依赖日志框架）。 */
     public static ImportListener console() {
         return new ImportListener() {
             @Override
             public void onProgress(int done, int total, String stage) {
-                LOG.info("[import] {}/{} {}", done, total, stage);
+                System.out.println("[import] " + done + "/" + total + " " + stage);
             }
 
             @Override
             public void onWarning(String message) {
-                LOG.warn("[import:warn] {}", message);
+                System.out.println("[import:warn] " + message);
+            }
+        };
+    }
+
+    /**
+     * 把进度与告警转发到外部传入的日志器。
+     * <p>日志的落点（文件位置、滚动、XDG 等）完全由调用方决定，core 不感知、不负责创建。</p>
+     *
+     * @param logger 调用方提供的日志器，不得为 null
+     */
+    public static ImportListener logging(Logger logger) {
+        return new ImportListener() {
+            @Override
+            public void onProgress(int done, int total, String stage) {
+                logger.info("[import] {}/{} {}", done, total, stage);
+            }
+
+            @Override
+            public void onWarning(String message) {
+                logger.warn("[import:warn] {}", message);
             }
         };
     }

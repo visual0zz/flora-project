@@ -13,8 +13,10 @@ import com.flora.sanctum.core.model.tree.RemoteNode;
 import com.flora.sanctum.core.model.Sanctum;
 import com.flora.sanctum.core.model.Ref;
 import com.flora.sanctum.core.model.tree.SshKeyNode;
+import com.flora.sanctum.core.io.importer.ImportListeners;
 import com.flora.sanctum.core.model.tree.TreeNode;
 import com.flora.root.codec.json.model.JsonObject;
+import com.flora.root.runtime.log.LoggerFactory;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -2782,6 +2784,7 @@ public final class SanctumGui {
                                 .password(pw)
                                 .keyFile(keyFile)
                                 .iconTree(sanctum.iconTree())
+                                .listener(ImportListeners.logging(LoggerFactory.getLogger(SanctumGui.class)))
                                 .build();
                 com.flora.sanctum.core.io.importer.ImportResult result = imp.importFile(file, ctx);
                 javax.swing.SwingUtilities.invokeLater(() -> {

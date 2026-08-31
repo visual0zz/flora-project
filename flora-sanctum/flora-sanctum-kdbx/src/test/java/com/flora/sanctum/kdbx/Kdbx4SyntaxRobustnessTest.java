@@ -1,6 +1,5 @@
-package com.flora.sanctum.core.io.importer.kdbx;
+package com.flora.sanctum.kdbx;
 
-import com.flora.sanctum.core.io.importer.ImportException;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -12,12 +11,12 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 验证导入器在 KDBX4 文件包含「当前不读取」的高级语法（条目历史、附件/二进制、
+ * 验证读取器在 KDBX4 文件包含「当前不读取」的高级语法（条目历史、附件/二进制、
  * 回收站/DeletedObjects、自定义数据 CustomData、自定义图标 CustomIcons、自定义属性、
  * 嵌套分组、Unicode）时，仍能正确读取主要内容（分组/条目/字符串字段/时间），且这些内容
  * 不会串入或破坏主数据。
  * <p>样本 {@code Kdbx4Features.kdbx} 由 pykeepass（独立实现）生成：KDBX 4.0、Argon2d、
- * 密码 "t"，包含上述全部高级语法。导入器无需理解这些语法，只需忽略它们并正确抽取主内容。</p>
+ * 密码 "t"，包含上述全部高级语法。读取器无需理解这些语法，只需忽略它们并正确抽取主内容。</p>
  */
 class Kdbx4SyntaxRobustnessTest {
 
@@ -36,8 +35,8 @@ class Kdbx4SyntaxRobustnessTest {
 
     @Test
     void parsesFileWithAdvancedSyntaxFeatures() throws Exception {
-        byte[] data = loadResource("/com/flora/sanctum/core/io/importer/kdbx/Kdbx4Features.kdbx");
-        KdbxDocument doc = KdbxParser.parse(data, "test".toCharArray(), null);
+        byte[] data = loadResource("/com/flora/sanctum/kdbx/Kdbx4Features.kdbx");
+        KdbxDocument doc = KdbxReader.read(data, "test".toCharArray(), null);
 
         assertNotNull(doc.root, "根分组为空");
         assertEquals("Root", doc.root.name, "根分组名应为 Root");
@@ -80,9 +79,9 @@ class Kdbx4SyntaxRobustnessTest {
 
     @Test
     void wrongPasswordRejected() throws Exception {
-        byte[] data = loadResource("/com/flora/sanctum/core/io/importer/kdbx/Kdbx4Features.kdbx");
-        assertThrows(ImportException.class,
-                () -> KdbxParser.parse(data, "wrong".toCharArray(), null),
+        byte[] data = loadResource("/com/flora/sanctum/kdbx/Kdbx4Features.kdbx");
+        assertThrows(KdbxReadException.class,
+                () -> KdbxReader.read(data, "wrong".toCharArray(), null),
                 "错误密码应被拒绝");
     }
 

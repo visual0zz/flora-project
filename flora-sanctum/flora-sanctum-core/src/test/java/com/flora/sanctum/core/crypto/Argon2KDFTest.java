@@ -1,6 +1,6 @@
 package com.flora.sanctum.core.crypto;
 
-import com.flora.sanctum.core.crypto.impl.Argon2;
+import com.flora.root.crypto.Argon2;
 import com.flora.sanctum.core.crypto.impl.SecureRandomSource;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;

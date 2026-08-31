@@ -6,16 +6,17 @@
 
     <parent>
         <groupId>io.gitee.visual0zz</groupId>
-        <artifactId>flora-project</artifactId>
+        <artifactId>flora-sanctum</artifactId>
         <version>0.1</version>
     </parent>
 
-    <artifactId>flora-sanctum</artifactId>
-    <packaging>pom</packaging>
+    <artifactId>flora-sanctum-kdbx</artifactId>
 
-    <modules>
-        <module>flora-sanctum-kdbx</module>
-        <module>flora-sanctum-core</module>
-        <module>flora-sanctum-app</module>
-    </modules>
+    <dependencies>
+        <dependency>
+            <groupId>io.gitee.visual0zz</groupId>
+            <artifactId>flora-root</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
 </project>

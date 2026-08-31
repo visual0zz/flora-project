@@ -25,5 +25,6 @@ module com.flora.sanctum.core {
     exports com.flora.sanctum.core.icon;
 
     requires com.flora.root;
+    requires com.flora.sanctum.kdbx;
     requires java.xml;
 }

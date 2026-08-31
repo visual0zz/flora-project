@@ -1,6 +1,6 @@
 package com.flora.sanctum.core.crypto;
 
-import com.flora.sanctum.core.crypto.impl.Argon2;
+import com.flora.root.crypto.Argon2;
 import com.flora.sanctum.core.crypto.impl.HkdfSha256;
 
 /**
@@ -60,6 +60,7 @@ public final class Argon2KDF {
             java.util.Arrays.fill(pwd, (byte) 0);
         }
     }
+
 
     /**
      * 原始 Argon2 派生（输入为任意字节，非口令）：供 KDBX 等外部格式密钥派生使用。

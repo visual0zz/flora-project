@@ -1,4 +1,6 @@
-package com.flora.sanctum.core.io.importer.kdbx;
+package com.flora.sanctum.kdbx.internal;
+
+import com.flora.root.crypto.Salsa20;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.ChaCha20ParameterSpec;
@@ -29,25 +31,33 @@ final class KdbxStreamCipher {
     private final byte[] key;
     private final byte[] nonce;
     private final Salsa20 salsa;
+    private final Arc4 arc4;
     private long position;
 
     KdbxStreamCipher(int innerStreamId, byte[] innerKey) {
         // KeePass 内层随机流密钥由内层头写入的原始种子派生（见类注释），
         // 种子长度可能为 32 或 64 字节，统一按规范做散列派生。
         byte[] seed = innerKey == null ? new byte[32] : innerKey;
+        this.innerStreamId = innerStreamId;
         if (innerStreamId == 2) {
-            this.innerStreamId = 2;
             this.key = sha256(seed);
             this.nonce = SALSA20_IV;
             this.salsa = new Salsa20(this.key, SALSA20_IV);
+            this.arc4 = null;
         } else if (innerStreamId == 3) {
-            this.innerStreamId = 3;
             byte[] kh = sha512(seed);
             this.key = new byte[32];
             this.nonce = new byte[12];
             System.arraycopy(kh, 0, this.key, 0, 32);
             System.arraycopy(kh, 32, this.nonce, 0, 12);
             this.salsa = null;
+            this.arc4 = null;
+        } else if (innerStreamId == 1) {
+            // KDBX2/3 内层流 ArcFourVariant：key = sha256(种子)，标准 RC4，丢弃前 1024 字节密钥流。
+            this.key = sha256(seed);
+            this.nonce = null;
+            this.salsa = null;
+            this.arc4 = new Arc4(this.key);
         } else {
             throw new IllegalArgumentException("不支持的内层随机流 id=" + innerStreamId);
         }
@@ -73,6 +83,9 @@ final class KdbxStreamCipher {
     private byte[] keystream(int len) {
         if (innerStreamId == 2) {
             return salsa.keystream(len, position);
+        }
+        if (innerStreamId == 1) {
+            return arc4.keystream(len);
         }
         // ChaCha20：用 JDK 逐 64 字节块生成密钥流（连续推进 position）
         byte[] out = new byte[len];
@@ -110,6 +123,42 @@ final class KdbxStreamCipher {
             return MessageDigest.getInstance("SHA-512").digest(d);
         } catch (Exception e) {
             throw new IllegalStateException("SHA-512 不可用", e);
+        }
+    }
+
+    /** 标准 RC4（KeePass ArcFourVariant 内层流）：key=SHA-256 种子，初始化后丢弃前 1024 字节密钥流。 */
+    private static final class Arc4 {
+        private final byte[] s = new byte[256];
+        private int i;
+        private int j;
+
+        Arc4(byte[] key) {
+            for (int k = 0; k < 256; k++) {
+                s[k] = (byte) k;
+            }
+            int j = 0;
+            for (int k = 0; k < 256; k++) {
+                j = (j + (s[k] & 0xff) + (key[k % key.length] & 0xff)) & 0xff;
+                byte t = s[k];
+                s[k] = s[j];
+                s[j] = t;
+            }
+            this.i = 0;
+            this.j = 0;
+            keystream(1024); // 丢弃前 1024 字节弱密钥流
+        }
+
+        byte[] keystream(int len) {
+            byte[] out = new byte[len];
+            for (int k = 0; k < len; k++) {
+                i = (i + 1) & 0xff;
+                j = (j + (s[i] & 0xff)) & 0xff;
+                byte t = s[i];
+                s[i] = s[j];
+                s[j] = t;
+                out[k] = (byte) (s[((s[i] & 0xff) + (s[j] & 0xff)) & 0xff] & 0xff);
+            }
+            return out;
         }
     }
 }

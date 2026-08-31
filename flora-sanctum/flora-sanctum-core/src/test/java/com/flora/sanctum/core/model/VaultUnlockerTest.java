@@ -26,7 +26,7 @@ class VaultUnlockerTest {
     Path dir;
 
     /**
-     * 构造一个可完整解锁的最小仓库：manifest 明文块（按固定 uuid 经 store 落到分片路径）
+     * 构造一个可完整解锁的最小仓库：manifest 明文块（普通随机 uuid，扫描 type=="manifest" 定位）
      * + 根对象块（uuid 由 KEK 单向推导，直接用 KEK 加密，仅持 repoKeyIdSeed）。
      *
      * @param withRoot false 时只写 manifest，用于验证根对象缺失的解锁失败阶段
@@ -39,11 +39,11 @@ class VaultUnlockerTest {
         byte[] kek = kdf.derive(password);
         byte[] macKey = kdf.manifestMacKey(kek);
 
-        // manifest 不记录根对象 uuid（根 uuid 由 KEK 单向推导得出）
+        // manifest 不记录根对象 uuid（根 uuid 由 KEK 单向推导得出）；manifest 用普通随机 uuid
         JsonObject manifest = new JsonObject();
         manifest.put("version", 1);
         manifest.put("type", "manifest");
-        manifest.put("cryptoVersion", "gcm-siv-1");
+        manifest.put("crypto", "gcm-siv-1");
         manifest.put("kdf", "argon2id");
         manifest.put("salt", Base64.getEncoder().encodeToString(salt));
         JsonObject params = new JsonObject();
@@ -51,24 +51,32 @@ class VaultUnlockerTest {
         params.put("iterations", 3);
         params.put("parallelism", 4);
         manifest.put("params", params);
-        manifest.put("updateTimestamp", 1);
 
         ObjectStore store = new MarkdownObjectStore(dir);
+        UUID manifestUuid = UUID.randomUUID();
         byte[] payload = JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
-        byte[] block = ManifestStore.buildBlock(payload, "1", macKey);
-        store.put(Manifest.MANIFEST_UUID, block, null, "1");
+        byte[] block = ManifestStore.buildBlock(
+                com.flora.sanctum.core.crypto.impl.CipherCodec.uuidBytes(manifestUuid), payload, "1", macKey);
+        store.put(manifestUuid, block, null, "1");
 
         if (!withRoot) {
             return store;
         }
-        // 根对象块：{type:root, repoKeyIdSeed}，直接用 KEK 加密（无独立 DEK、无内嵌包裹块），时间戳 1
+        // 根对象块：{type:root, repoKeyIdSeed, dek}，直接用 KEK 加密；dek 为 KEK 包裹的随机 rootDek
         byte[] repoSeed = new byte[32];
         rng.nextBytes(repoSeed);
+        byte[] rootDek = new byte[32];
+        rng.nextBytes(rootDek);
         com.flora.sanctum.core.crypto.impl.CipherCodec rootCodec = new com.flora.sanctum.core.crypto.impl.CipherCodec(
                 com.flora.sanctum.core.crypto.KeyDerivation.encKey(kek), kek, repoSeed, rng);
+        // rootDek 由 KEK 包裹（内嵌块，AAD 用 EMBEDDED_UUID，timestamp=0）
+        byte[] wrappedDek = new com.flora.sanctum.core.crypto.impl.CipherCodec(
+                com.flora.sanctum.core.crypto.KeyDerivation.encKey(kek), kek, repoSeed, rng)
+                .encode(com.flora.sanctum.core.crypto.impl.CipherCodec.EMBEDDED_UUID, rootDek, "0");
         JsonObject root = new JsonObject();
         root.put("type", "root");
         root.put("repoKeyIdSeed", Base64.getEncoder().encodeToString(repoSeed));
+        root.put("dek", Base64.getEncoder().encodeToString(wrappedDek));
         byte[] rootJson = JsonUtil.toJsonString(root).getBytes(StandardCharsets.UTF_8);
         UUID rootUuid = RootUuid.derive(kek);
         byte[] rootBlock = rootCodec.encode(rootUuid, rootJson, "1");
@@ -87,7 +95,7 @@ class VaultUnlockerTest {
         VaultUnlocker unlocker = new VaultUnlocker(store);
         Vault vault = unlocker.unlock(pw);
         assertNotNull(vault);
-        assertEquals("gcm-siv-1", vault.manifest().cryptoVersion());
+        assertEquals("gcm-siv-1", vault.manifest().crypto());
         // 根对象 uuid 由 KEK 推导，解锁后登记在 vault 上（manifest 未记录）
         assertNotNull(vault.rootObjectUuid());
     }

@@ -52,7 +52,7 @@ public final class IconTree extends DataTree {
         }
         icon.put("data", Base64.getEncoder().encodeToString(data));
         icon.put("format", format);
-        byte[] dek = context().vault().dataDek();
+        byte[] dek = context().vault().rootDek();
         context().writeWithDek(iconUuid, icon, dek);
         return new IconNode(iconUuid, this);
     }

@@ -23,10 +23,10 @@ import java.util.UUID;
  * <p>
  * 块格式与密文对齐：{@code 信封头 + JSON 负载 + MAC(尾附)}，
  * MAC = HMAC-SHA256(macKey, {@code uuid ‖ 时间戳 ‖ 信封头 ‖ 负载})，不存于 JSON 内部。
- * 信封头为 {@code magic+version+flags}（不含 uuid）：manifest 的 uuid 是固定的
- * {@link Manifest#MANIFEST_UUID}，与密文块同一约定由块文件路径承载。
- * 读：按固定 uuid（{@link Manifest#MANIFEST_UUID}）定位明文块 → 拆出负载解析为 {@link Manifest}；
- * 写：构造负载 JSON + 计算 MAC + 拼块落盘（覆盖同一固定 uuid 块）。
+ * 信封头为 {@code magic+version+flags}（不含 uuid）。manifest 块使用普通随机 uuid
+ * （无特殊预留值），因此定位时遍历全部明文块、按负载 {@code type=="manifest"} 识别，
+ * 而非依赖固定路径。写：复用既有 manifest 块的 uuid（覆盖更新）或生成新的随机 uuid
+ * （首次创建）。
  */
 public final class ManifestStore {
 
@@ -50,32 +50,31 @@ public final class ManifestStore {
     }
 
     /** MAC 输入：uuid(16B) ‖ 时间戳(ASCII 原文) ‖ 信封头 ‖ 负载。 */
-    public static byte[] macInput(byte[] header, String timestamp, byte[] payload) {
-        byte[] id = CipherCodec.uuidBytes(Manifest.MANIFEST_UUID);
+    public static byte[] macInput(byte[] uuidBytes, byte[] header, String timestamp, byte[] payload) {
         byte[] ts = timestamp.getBytes(StandardCharsets.US_ASCII);
-        byte[] out = new byte[id.length + ts.length + header.length + payload.length];
-        System.arraycopy(id, 0, out, 0, id.length);
-        System.arraycopy(ts, 0, out, id.length, ts.length);
-        System.arraycopy(header, 0, out, id.length + ts.length, header.length);
-        System.arraycopy(payload, 0, out, id.length + ts.length + header.length, payload.length);
+        byte[] out = new byte[uuidBytes.length + ts.length + header.length + payload.length];
+        System.arraycopy(uuidBytes, 0, out, 0, uuidBytes.length);
+        System.arraycopy(ts, 0, out, uuidBytes.length, ts.length);
+        System.arraycopy(header, 0, out, uuidBytes.length + ts.length, header.length);
+        System.arraycopy(payload, 0, out, uuidBytes.length + ts.length + header.length, payload.length);
         return out;
     }
 
     /** 计算 manifest MAC：HMAC-SHA256(macKey, uuid ‖ 时间戳(ASCII 原文) ‖ 信封头 ‖ 负载)。 */
-    public static byte[] computeMac(byte[] macKey, byte[] header, String timestamp, byte[] payload) {
+    public static byte[] computeMac(byte[] uuidBytes, byte[] macKey, byte[] header, String timestamp, byte[] payload) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(macKey, "HmacSHA256"));
-            return mac.doFinal(macInput(header, timestamp, payload));
+            return mac.doFinal(macInput(uuidBytes, header, timestamp, payload));
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException(e);
         }
     }
 
     /** 构造完整明文块：header + payload + mac（信封原始字节，无异或混淆）。 */
-    public static byte[] buildBlock(byte[] payload, String timestamp, byte[] macKey) {
+    public static byte[] buildBlock(byte[] uuidBytes, byte[] payload, String timestamp, byte[] macKey) {
         byte[] header = plaintextHeader();
-        byte[] mac = computeMac(macKey, header, timestamp, payload);
+        byte[] mac = computeMac(uuidBytes, macKey, header, timestamp, payload);
         byte[] block = new byte[header.length + payload.length + mac.length];
         System.arraycopy(header, 0, block, 0, header.length);
         System.arraycopy(payload, 0, block, header.length, payload.length);
@@ -100,8 +99,8 @@ public final class ManifestStore {
     }
 
     /** 校验完整明文块 MAC（uuid+header+timestamp(ASCII 原文)+payload 与尾附 MAC 比对）。 */
-    public static boolean verifyMac(byte[] full, String timestamp, byte[] macKey) {
-        byte[] expected = computeMac(macKey, headerOf(full), timestamp, payloadOf(full));
+    public static boolean verifyMac(byte[] uuidBytes, byte[] full, String timestamp, byte[] macKey) {
+        byte[] expected = computeMac(uuidBytes, macKey, headerOf(full), timestamp, payloadOf(full));
         return MessageDigestIsEqual(expected, macOf(full));
     }
 
@@ -111,7 +110,11 @@ public final class ManifestStore {
 
     // ---- 实例读写 ----
 
-    /** 读取 manifest；不存在返回 null。 */
+    /**
+     * 读取 manifest；不存在返回 null。
+     * <p>定位：扫描全部明文块，按负载 {@code type=="manifest"} 识别（无特殊 uuid）。
+     * 若存在多个 manifest 明文块（异常），取首个可解析者。</p>
+     */
     public Manifest read() {
         Block b = findBlock();
         if (b == null) {
@@ -124,23 +127,42 @@ public final class ManifestStore {
         }
     }
 
-    /** 按固定 uuid 定位 manifest 明文块（含物理定位）；不存在返回 null。 */
+    /**
+     * 扫描全部明文块定位 manifest 引导块（按负载 {@code type=="manifest"} 识别，无特殊 uuid）；
+     * 不存在返回 null。
+     */
     public Block findBlock() {
         for (Block b : store.scan()) {
-            if (b.isPlaintext() && Manifest.MANIFEST_UUID.equals(b.uuid())) {
-                return b;
+            if (!b.isPlaintext()) {
+                continue;
+            }
+            try {
+                byte[] payload = payloadOf(b.unmasked());
+                com.flora.root.codec.json.model.JsonObject n =
+                        com.flora.root.codec.JsonUtil.parseObject(
+                                new String(payload, java.nio.charset.StandardCharsets.UTF_8));
+                if (StoredNodeType.MANIFEST == StoredNodeType.fromTag(n.getString("type"))) {
+                    return b;
+                }
+            } catch (Exception ignore) {
+                // 非 manifest 明文块或损坏块，跳过
             }
         }
         return null;
     }
 
-    /** 写 manifest 明文块（构造 JSON + 计算 MAC + 落盘）。 */
-    public void write(Manifest m, byte[] macKey) {
-        UUID uuid = Manifest.MANIFEST_UUID;
+    /**
+     * 写 manifest 明文块（构造 JSON + 计算 MAC + 落盘）。
+     * <p>uuid 策略：若已存在 manifest 块则复用其 uuid（覆盖更新），否则生成新的随机 uuid。
+     * 负载内不含时间戳；{@code timestamp} 仅作块级前缀参与 MAC/AAD 与冲突仲裁。</p>
+     */
+    public void write(Manifest m, byte[] macKey, String timestamp) {
+        Block existing = findBlock();
+        UUID uuid = existing == null ? UUID.randomUUID() : existing.uuid();
         JsonObject manifest = new JsonObject();
         manifest.put("version", m.version());
         manifest.put("type", StoredNodeType.MANIFEST.tag());
-        manifest.put("cryptoVersion", m.cryptoVersion());
+        manifest.put("crypto", m.crypto());
         manifest.put("kdf", m.kdf());
         manifest.put("salt", Base64.getEncoder().encodeToString(m.salt()));
         JsonObject params = new JsonObject();
@@ -148,9 +170,8 @@ public final class ManifestStore {
         params.put("iterations", m.iterations());
         params.put("parallelism", m.parallelism());
         manifest.put("params", params);
-        manifest.put("updateTimestamp", m.updateTimestamp());
         byte[] payload = JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
-        byte[] obf = buildBlock(payload, Long.toString(m.updateTimestamp()), macKey);
-        store.put(uuid, obf, null, Long.toString(m.updateTimestamp()));
+        byte[] obf = buildBlock(CipherCodec.uuidBytes(uuid), payload, timestamp, macKey);
+        store.put(uuid, obf, null, timestamp);
     }
 }

@@ -39,7 +39,7 @@ public final class SshKeyNode extends TreeNode {
             throw new IllegalArgumentException("ssh key not found");
         }
         d.put("name", name);
-        byte[] dek = ctx().vault().dataDek();
+        byte[] dek = ctx().vault().rootDek();
         ctx().writeWithDek(uuid(), d, dek);
     }
 }

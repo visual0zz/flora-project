@@ -218,9 +218,14 @@ public final class TreeContext {
         }
     }
 
-    /** 找加密归属 DEK：条目/字段若在子 group 下用该 group DEK，否则用 data 根。 */
+    /** 找加密归属 DEK：顶层（groupId=null 或 root uuid）用 rootDek，否则用对应 group DEK，兜底 KEK。 */
     public byte[] dekFor(UUID groupId) {
-        if (groupId != null && vault.groupDek(groupId) != null) {
+        if (groupId == null) {
+            // 顶层对象归属根对象：rootDek（注册为 groupDek(rootObjectUuid)）；未登记时兜底 KEK
+            byte[] root = vault.rootDek();
+            return root != null ? root : vault.dataDek();
+        }
+        if (vault.groupDek(groupId) != null) {
             return vault.groupDek(groupId);
         }
         return vault.dataDek();

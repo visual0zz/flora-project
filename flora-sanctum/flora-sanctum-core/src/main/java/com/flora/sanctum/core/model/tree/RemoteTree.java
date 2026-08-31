@@ -73,7 +73,7 @@ public final class RemoteTree extends DataTree {
         if (keyRef != null) {
             remote.put("keyRef", keyRef.toJson());
         }
-        byte[] dek = context().vault().dataDek();
+        byte[] dek = context().vault().rootDek();
         context().writeWithDek(remoteUuid, remote, dek);
         return new RemoteNode(remoteUuid, this);
     }

@@ -17,15 +17,16 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 换主密码：以新 KEK 迁移根对象与全部根级块、重包根级分组 DEK，并更新 manifest MAC。
+ * 换主密码：以新 KEK 迁移根对象与全部根级块、重包 rootDek 的外层，并更新 manifest MAC。
  * <p>
- * 根对象直接以 KEK 加解密，且其 uuid 由 KEK 单向推导（见 {@link RootUuid#derive}），
- * 因此换主密码后 KEK 变化会连带三件事：
+ * 根对象 uuid 由 KEK 单向推导（见 {@link RootUuid#derive}），故换主密码后 KEK 变化会连带：
  * <ol>
  *   <li>根对象 uuid 改变 ⇒ 根对象块改写至新分片路径、旧路径删除；</li>
- *   <li>根级密钥即 KEK、无独立根 DEK 可供"只换包裹" ⇒ 所有以根对象为 parent 的块
- *       都要以新 KEK 重新加密，并把 parent 改指新的根对象 uuid；</li>
- *   <li>根级分组的 DEK 原由旧 KEK 包裹 ⇒ 改用新 KEK 重新包裹。</li>
+ *   <li>根对象本身仍直接以 KEK 加解密，但其内嵌的 rootDek 仅外层由旧 KEK 包裹改为新 KEK 包裹，
+ *       rootDek 的明文值不变；</li>
+ *   <li>顶层对象（parent 指向根对象 uuid）以 rootDek 加密（非 KEK），rootDek 值不变，
+ *       故仅把 parent 改指新根 uuid 并以 rootDek 重写即可，无需用新 KEK 重加密；
+ *       顶层 group 的 DEK 原由 rootDek 包裹，值不变，包裹层保持不变。</li>
  * </ol>
  * 更深层级以分组 DEK 加解密、parent 指向分组 uuid，均不受密码轮换影响。
  */
@@ -47,21 +48,30 @@ public final class MasterKeyRotator {
         try {
             UUID oldRootUuid = RootUuid.derive(oldKek);
             UUID newRootUuid = RootUuid.derive(newKek);
-            byte[] oldEnc = KeyDerivation.encKey(oldKek);
-            // 解旧块用的编解码器：根块与根级块都以 KEK 加密，无需 keyId 路由
-            CipherCodec oldCodec = new CipherCodec(oldEnc, oldKek, ctx.random());
-            migrateRootObject(oldCodec, oldRootUuid, newRootUuid, newKek);
-            migrateRootLevelBlocks(oldCodec, oldRootUuid, newRootUuid, newKek);
+            // rootDek 明文值换主密码时不变：先取出，迁移全程复用同一值，结尾重挂到新根 uuid
+            byte[] rootDek = vault.rootDek();
+            if (rootDek == null) {
+                throw new IllegalStateException("root DEK unavailable");
+            }
+            // 仓库级 keyId 种子（解锁时已在 vault 中），用于 keyId 派生；解码侧 keyId 取自块头，种子仅供编码
+            byte[] seed = vault.repoKeyIdSeed();
+            // 两个解码器：根对象块以 KEK 加密；顶层块（parent=根）以 rootDek 加密
+            CipherCodec oldKekCodec = new CipherCodec(KeyDerivation.encKey(oldKek), oldKek, seed, ctx.random());
+            CipherCodec oldRootDekCodec = new CipherCodec(KeyDerivation.encKey(rootDek), rootDek, seed, ctx.random());
+            migrateRootObject(oldKekCodec, oldRootUuid, newRootUuid, newKek, rootDek);
+            migrateRootLevelBlocks(oldRootDekCodec, oldRootUuid, newRootUuid, rootDek);
             // 更新 manifest 的 MAC（用新 KEK）；manifest 不记录根对象 uuid，无根相关字段需改
-            Manifest updated = new Manifest(m.version(), m.cryptoVersion(), m.kdf(),
-                    m.salt(), memoryKiB, iterations, parallelism, m.updateTimestamp());
+            Manifest updated = new Manifest(m.version(), m.crypto(), m.kdf(),
+                    m.salt(), memoryKiB, iterations, parallelism);
             byte[] macKey = updated.manifestMacKey(newKek);
-            new ManifestStore(ctx.store(), ctx.random()).write(updated, macKey);
+            new ManifestStore(ctx.store(), ctx.random()).write(updated, macKey,
+                    Long.toString(ctx.nextTimestamp()));
             vault.replaceManifest(updated);
             vault.replaceKek(newKek);
-            // 根级密钥即 KEK：换 KEK 后同步登记（含 keyId 索引），根对象 uuid 也随之更新
+            // 根级密钥仍即 KEK（用于包裹 rootDek 与 root 块）；rootDek 值不变，重挂到新根 uuid
             vault.addRootDek(newKek);
             vault.addRootObjectUuid(newRootUuid);
+            vault.addGroupDek(newRootUuid, rootDek);
         } finally {
             java.util.Arrays.fill(newKek, (byte) 0);
             java.util.Arrays.fill(oldKek, (byte) 0);
@@ -69,7 +79,7 @@ public final class MasterKeyRotator {
     }
 
     /** 把根对象从旧 uuid 路径迁移到新 uuid 路径（旧 KEK 解出、新 KEK 重写、删除旧块）。 */
-    private void migrateRootObject(CipherCodec oldCodec, UUID oldRootUuid, UUID newRootUuid, byte[] newKek) {
+    private void migrateRootObject(CipherCodec oldCodec, UUID oldRootUuid, UUID newRootUuid, byte[] newKek, byte[] rootDek) {
         Block rootBlock = null;
         for (Block b : ctx.store().scan()) {
             if (oldRootUuid.equals(b.uuid())) {
@@ -82,6 +92,9 @@ public final class MasterKeyRotator {
         }
         byte[] plain = oldCodec.decode(rootBlock.masked(), oldRootUuid, rootBlock.timestampText());
         JsonObject n = JsonUtil.parseObject(new String(plain, StandardCharsets.UTF_8));
+        // rootDek 明文值不变，仅其被 KEK 包裹的外层改用新 KEK 重包
+        byte[] wrapped = ctx.wrapDek(rootDek, newKek);
+        n.put("dek", Base64.getEncoder().encodeToString(wrapped));
         ctx.writeWithDek(newRootUuid, n, newKek);
         if (!newRootUuid.equals(oldRootUuid)) {
             ctx.delete(oldRootUuid);
@@ -89,11 +102,11 @@ public final class MasterKeyRotator {
     }
 
     /**
-     * 迁移根级块（parent 指向旧根 uuid）：parent 改指新根 uuid、以新 KEK 重新加密；
-     * 根级分组还要把其 DEK 的包裹从旧 KEK 换成新 KEK。
-     * 非根级块（以分组 DEK 加密）无法用旧 KEK 解开，自然跳过。
+     * 迁移根级块（parent 指向旧根 uuid）：parent 改指新根 uuid、以 rootDek 重写（rootDek 值不变）。
+     * 顶层 group 的 dek 字段由 rootDek 包裹（值不变），包裹层保持不变。
+     * 非根级块（以分组 DEK 加密、parent 指向分组 uuid）无法用 rootDek 解开，自然跳过。
      */
-    private void migrateRootLevelBlocks(CipherCodec oldCodec, UUID oldRootUuid, UUID newRootUuid, byte[] newKek) {
+    private void migrateRootLevelBlocks(CipherCodec codec, UUID oldRootUuid, UUID newRootUuid, byte[] dek) {
         String oldRootStr = oldRootUuid.toString();
         for (Block b : new ArrayList<>(ctx.store().scan())) {
             if (!b.isCipher()) {
@@ -101,9 +114,9 @@ public final class MasterKeyRotator {
             }
             byte[] plain;
             try {
-                plain = oldCodec.decode(b.masked(), b.uuid(), b.timestampText());
+                plain = codec.decode(b.masked(), b.uuid(), b.timestampText());
             } catch (Exception e) {
-                continue; // 不是以 KEK 加密的根级块
+                continue; // 非以 rootDek 加密的根级块（深层块/根对象外的其它）
             }
             JsonObject n;
             try {
@@ -113,16 +126,11 @@ public final class MasterKeyRotator {
             }
             String parent = n.getString("parent");
             if (parent == null || !oldRootStr.equals(parent)) {
-                continue; // 不是根级块
+                continue; // 非顶层块
             }
             n.put("parent", newRootUuid.toString());
-            String dekB64 = n.getString("dek");
-            if (dekB64 != null) {
-                byte[] groupDek = oldCodec.decode(Base64.getDecoder().decode(dekB64),
-                        CipherCodec.EMBEDDED_UUID, "0");
-                n.put("dek", Base64.getEncoder().encodeToString(ctx.wrapDek(groupDek, newKek)));
-            }
-            ctx.writeWithDek(b.uuid(), n, newKek);
+            // dek 字段（如顶层 group）由 rootDek 包裹，值不变，无需重包；直接以 rootDek 重写
+            ctx.writeWithDek(b.uuid(), n, dek);
         }
     }
 }

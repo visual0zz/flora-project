@@ -6,11 +6,15 @@ import java.util.Base64;
 /**
  * manifest 明文引导块（见设计 02"manifest"）。
  * <p>
- * 负载 JSON：{version, type:"manifest", cryptoVersion, kdf, salt, params{memoryKiB,iterations,parallelism},
- * updateTimestamp}。块格式与密文对齐：{@code 信封头 + 负载 + MAC(尾附)}，
+ * 负载 JSON：{version, type:"manifest", crypto, kdf, salt, params{memoryKiB,iterations,parallelism}}。
+ * 块格式与密文对齐：{@code 信封头 + 负载 + MAC(尾附)}，
  * MAC = HMAC-SHA256(macKey, {@code uuid ‖ 时间戳 ‖ 信封头 ‖ 负载})
  * （见 {@link com.flora.sanctum.core.model.impl.ManifestStore}）。
- * 时间戳存于块前缀，MAC 不存于 JSON 内部（与密文 tag 位置对应）。
+ * 负载内不含时间戳：块级时间戳存于块前缀（见 MarkdownObjectStore），既参与 AAD/MAC，
+ * 也用于冲突仲裁与时钟锚点，但不在 JSON 内部冗余存储。
+ * <p>
+ * manifest 块的 uuid 为普通随机 uuid（不预留特殊值），定位时通过全局扫描明文块、
+ * 按 {@code type=="manifest"} 识别，而非依赖固定路径。
  * <p>
  * 根对象 uuid 不由 manifest 记录，而由 KEK 单向推导
  * （见 {@link com.flora.sanctum.core.crypto.RootUuid#derive}）：同一主密码即重算出同一根对象路径，
@@ -18,41 +22,31 @@ import java.util.Base64;
  */
 public final class Manifest {
 
-    /**
-     * 固定保留 uuid：manifest 引导块永远使用此 uuid，使其分片路径确定不变
-     * （Markdown 存储下为 {@code <库根>/00/00000000000000000000000000000000.md}），
-     * 无需扫描即可定位。全 0 为系统保留块，普通数据节点用随机 uuid，不会与之冲突。
-     */
-    public static final java.util.UUID MANIFEST_UUID = new java.util.UUID(0L, 0L);
-
     private final int version;
-    private final String cryptoVersion;
+    private final String crypto;
     private final String kdf;
     private final byte[] salt;
     private final int memoryKiB;
     private final int iterations;
     private final int parallelism;
-    private final long updateTimestamp;
 
-    public Manifest(int version, String cryptoVersion, String kdf, byte[] salt,
-                    int memoryKiB, int iterations, int parallelism,
-                    long updateTimestamp) {
+    public Manifest(int version, String crypto, String kdf, byte[] salt,
+                    int memoryKiB, int iterations, int parallelism) {
         this.version = version;
-        this.cryptoVersion = cryptoVersion;
+        this.crypto = crypto;
         this.kdf = kdf;
         this.salt = salt;
         this.memoryKiB = memoryKiB;
         this.iterations = iterations;
         this.parallelism = parallelism;
-        this.updateTimestamp = updateTimestamp;
     }
 
     public int version() {
         return version;
     }
 
-    public String cryptoVersion() {
-        return cryptoVersion;
+    public String crypto() {
+        return crypto;
     }
 
     public String kdf() {
@@ -75,10 +69,6 @@ public final class Manifest {
         return parallelism;
     }
 
-    public long updateTimestamp() {
-        return updateTimestamp;
-    }
-
     /** manifest MAC 密钥派生：macKey = HKDF-SHA256(KEK, "sanctum-manifest-mac", 32B)（见 02）。 */
     public byte[] manifestMacKey(byte[] kek) {
         return com.flora.sanctum.core.crypto.impl.HkdfSha256.derive(kek, null, "sanctum-manifest-mac", 32);
@@ -94,13 +84,12 @@ public final class Manifest {
         com.flora.root.codec.json.model.JsonObject params = n.getObject("params");
         return new Manifest(
                 n.getInt("version"),
-                n.getString("cryptoVersion"),
+                n.getString("crypto"),
                 n.getString("kdf"),
                 Base64.getDecoder().decode(n.getString("salt")),
                 params.getInt("memoryKiB"),
                 params.getInt("iterations"),
-                params.getInt("parallelism"),
-                n.getLong("updateTimestamp") == null ? 1 : n.getLong("updateTimestamp")
+                params.getInt("parallelism")
         );
     }
 }

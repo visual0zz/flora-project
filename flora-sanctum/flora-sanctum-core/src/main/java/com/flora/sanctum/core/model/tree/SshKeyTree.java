@@ -58,7 +58,7 @@ public final class SshKeyTree extends DataTree {
         key.put("parent", context().vault().rootObjectUuid().toString());
         key.put("name", name);
         key.put("value", privateKeyPem);
-        byte[] dek = context().vault().dataDek();
+        byte[] dek = context().vault().rootDek();
         context().writeWithDek(keyUuid, key, dek);
         return new SshKeyNode(keyUuid, this);
     }

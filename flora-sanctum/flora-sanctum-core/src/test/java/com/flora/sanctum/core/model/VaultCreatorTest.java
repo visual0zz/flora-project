@@ -27,9 +27,9 @@ class VaultCreatorTest {
         VaultUnlocker unlocker = new VaultUnlocker(store);
         Vault vault = unlocker.unlock(pw);
         assertNotNull(vault);
-        assertEquals("gcm-siv-1", vault.manifest().cryptoVersion());
-        // 单根模型：唯一根对象 DEK 对应 1 条 dekId 索引（KEK 不入索引，见设计"keyId 防关联"）
-        assertEquals(1, vault.keyIdIndex().size());
+        assertEquals("gcm-siv-1", vault.manifest().crypto());
+        // 单根模型：keyId 索引含两条——根对象块用的 KEK 与被注册为 groupDek 的 rootDek
+        assertEquals(2, vault.keyIdIndex().size());
     }
 
     @Test

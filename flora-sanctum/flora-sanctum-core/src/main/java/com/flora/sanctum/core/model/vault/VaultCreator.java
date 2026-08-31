@@ -60,32 +60,29 @@ public final class VaultCreator {
         }
     }
 
-    /** 写 manifest 明文块。MAC 覆盖 uuid + 完整信封头 + 时间戳 + 负载，尾附（与密文块结构对齐）。 */
+    /** 写 manifest 明文块（随机 uuid，经 ManifestStore 落盘；MAC 覆盖 uuid + 完整信封头 + 时间戳 + 负载）。 */
     private void writeManifestBlock(byte[] salt, int memKiB, int iterations, int parallelism, byte[] macKey) {
-        UUID uuid = Manifest.MANIFEST_UUID;
-        com.flora.root.codec.json.model.JsonObject manifest = new com.flora.root.codec.json.model.JsonObject();
-        manifest.put("version", 1);
-        manifest.put("type", StoredNodeType.MANIFEST.tag());
-        manifest.put("cryptoVersion", "gcm-siv-1");
-        manifest.put("kdf", "argon2id");
-        manifest.put("salt", Base64.getEncoder().encodeToString(salt));
-        com.flora.root.codec.json.model.JsonObject params = new com.flora.root.codec.json.model.JsonObject();
-        params.put("memoryKiB", memKiB);
-        params.put("iterations", iterations);
-        params.put("parallelism", parallelism);
-        manifest.put("params", params);
-        manifest.put("updateTimestamp", 1);
-        byte[] payload = com.flora.root.codec.JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
-        byte[] block = com.flora.sanctum.core.model.impl.ManifestStore.buildBlock(payload, "1", macKey);
-        store.put(uuid, block, null, "1");
+        Manifest manifest = new Manifest(1, "gcm-siv-1", "argon2id", salt, memKiB, iterations, parallelism);
+        new com.flora.sanctum.core.model.impl.ManifestStore(store, random).write(manifest, macKey, "1");
     }
 
     private void writeRootGroup(java.util.UUID rootUuid, byte[] kek, byte[] repoKeyIdSeed) {
-        com.flora.root.codec.json.model.JsonObject group = new com.flora.root.codec.json.model.JsonObject();
-        group.put("type", StoredNodeType.ROOT.tag());
-        // 根对象直接使用 KEK 加解密（无独立根 DEK、无内嵌包裹块），仅承载仓库级 keyId 派生种子
-        group.put("repoKeyIdSeed", Base64.getEncoder().encodeToString(repoKeyIdSeed));
-        writeCipherBlock(rootUuid, group, kek, 1);
+        // 生成独立 rootDek，用 KEK 包裹存入根对象；顶层对象/顶层分组 DEK 均用 rootDek 加密与包裹
+        byte[] rootDek = new byte[32];
+        random.nextBytes(rootDek);
+        try {
+            com.flora.sanctum.core.crypto.impl.CipherCodec codec = new com.flora.sanctum.core.crypto.impl.CipherCodec(
+                    com.flora.sanctum.core.crypto.KeyDerivation.encKey(kek), kek, repoKeyIdSeed, random);
+            byte[] wrapped = codec.encode(com.flora.sanctum.core.crypto.impl.CipherCodec.EMBEDDED_UUID, rootDek, "0");
+            com.flora.root.codec.json.model.JsonObject group = new com.flora.root.codec.json.model.JsonObject();
+            group.put("type", StoredNodeType.ROOT.tag());
+            // 根对象仍由 KEK 直接加解密；仅承载仓库级 keyId 派生种子与（KEK 包裹的）rootDek
+            group.put("repoKeyIdSeed", Base64.getEncoder().encodeToString(repoKeyIdSeed));
+            group.put("dek", Base64.getEncoder().encodeToString(wrapped));
+            writeCipherBlock(rootUuid, group, kek, 1);
+        } finally {
+            java.util.Arrays.fill(rootDek, (byte) 0);
+        }
     }
 
     private void writeCipherBlock(java.util.UUID uuid, com.flora.root.codec.json.model.JsonObject payload,

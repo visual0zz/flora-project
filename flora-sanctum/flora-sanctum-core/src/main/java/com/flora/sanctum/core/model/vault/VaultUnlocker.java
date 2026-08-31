@@ -33,7 +33,7 @@ public final class VaultUnlocker {
      */
     public Vault unlock(char[] masterPassword) {
         List<Block> blocks = store.scan();
-        // 1. 找 manifest 明文块（固定 MANIFEST_UUID 定位）
+        // 1. 找 manifest 明文块（扫描全部明文块，按 type=="manifest" 识别）
         Block manifestBlock = findManifest(blocks);
         if (manifestBlock == null) {
             throw new VaultUnlockException(VaultUnlockException.Phase.NOT_A_VAULT);
@@ -54,7 +54,8 @@ public final class VaultUnlocker {
         byte[] kek = kdf.derive(masterPassword);
         try {
             // 4. 验证 manifest MAC（覆盖完整信封头 + 时间戳原文 + 负载，尾附于块末）
-            verifyMac(full, manifestBlock.timestampText(), manifest, kek);
+            verifyMac(com.flora.sanctum.core.crypto.impl.CipherCodec.uuidBytes(manifestBlock.uuid()),
+                    full, manifestBlock.timestampText(), manifest, kek);
         } catch (VaultUnlockException e) {
             java.util.Arrays.fill(kek, (byte) 0);
             throw e;
@@ -75,12 +76,13 @@ public final class VaultUnlocker {
     }
 
     /**
-     * 发现并登记根密钥与全部 group DEK（见设计 02"解锁流程"）。
-     * 根对象 uuid 由 KEK 单向推导定位（O(1)），根对象直接以 KEK 解密并取出 repoKeyIdSeed；
-     * 根级密钥即 KEK（根对象无独立 DEK），登记进 keyId 索引后，
+     * 发现并登记根密钥与全部 group DEK（见设计"root DEK"）。
+     * 根对象 uuid 由 KEK 单向推导定位（O(1)），根对象直接以 KEK 解密，取出 repoKeyIdSeed 与
+     * （KEK 包裹的）rootDek；rootDek 注册为 {@code groupDek(rootUuid)}，作为顶层子树加密根。
+     * 根级密钥仍即 KEK（dataDek），用于包裹 rootDek 与 root 块本身；登记进 keyId 索引后，
      * 后续 cipher 块统一经 keyId 路由（BlockResolver）定位父 DEK 解开，对 type==group 且含 dek 的
      * 用父 DEK 解出子 DEK 并登记，逐层递归直至无新增。
-     * <p>根对象缺失/无法解密/内容不完整时抛 {@link VaultUnlockException}。
+     * <p>根对象缺失/无法解密/内容不完整（缺 repoKeyIdSeed 或 dek）时抛 {@link VaultUnlockException}。
      */
     private void discoverRootDeks(Vault vault, byte[] kek, List<Block> blocks) {
         // 根对象块用 KEK 加密，但 keyId 由 repoKeyIdSeed 派生（解锁时尚未读出），
@@ -101,14 +103,21 @@ public final class VaultUnlocker {
             throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_DECRYPT_FAILED);
         }
         com.flora.root.codec.json.model.JsonObject n = parsePlain(plain);
-        // 根对象以 KEK 加解密、无独立 DEK；其必要内容是仓库级 keyId 派生种子
-        if (n == null || n.getString("repoKeyIdSeed") == null) {
+        // 根对象以 KEK 加解密；必要内容是仓库级 keyId 派生种子与（KEK 包裹的）rootDek
+        if (n == null || n.getString("repoKeyIdSeed") == null || n.getString("dek") == null) {
             throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
         }
         vault.addRootObjectUuid(rootUuid);
         vault.setRepoKeyIdSeed(java.util.Base64.getDecoder().decode(n.getString("repoKeyIdSeed")));
-        // 根级密钥即 KEK：顶层对象与顶层分组 DEK 的包裹都由它承担
+        // dataDek 仍是 KEK（用于包裹 rootDek 与 root 块）；rootDek 解出后注册为 groupDek(rootUuid)，
+        // 顶层对象与顶层分组 DEK 的加密/包裹改由 rootDek 承担
         vault.addRootDek(kek);
+        byte[] wrapped = java.util.Base64.getDecoder().decode(n.getString("dek"));
+        byte[] rootDek = unwrap(vault, kek, wrapped);
+        if (rootDek == null) {
+            throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_DECRYPT_FAILED);
+        }
+        vault.addGroupDek(rootUuid, rootDek);
         // 逐层发现 group DEK：repoKeyIdSeed 已读出，cipher 块经 keyId 路由定位父 DEK 解开；
         // 父 DEK 必先于子块登记于 KeyIdIndex（树自顶向下展开），故 keyId 路由始终可命中。
         boolean any = true;
@@ -185,18 +194,32 @@ public final class VaultUnlocker {
         return Math.max(max, cappedNow);
     }
 
+    /**
+     * 扫描全部明文块定位 manifest 引导块（按负载 {@code type=="manifest"} 识别，无特殊 uuid）。
+     * 不存在返回 null。
+     */
     private Block findManifest(List<Block> blocks) {
         for (Block b : blocks) {
-            if (b.isPlaintext() && Manifest.MANIFEST_UUID.equals(b.uuid())) {
-                return b;
+            if (!b.isPlaintext()) {
+                continue;
+            }
+            try {
+                byte[] payload = com.flora.sanctum.core.model.impl.ManifestStore.payloadOf(b.unmasked());
+                com.flora.root.codec.json.model.JsonObject n = com.flora.root.codec.JsonUtil.parseObject(
+                        new String(payload, java.nio.charset.StandardCharsets.UTF_8));
+                if (StoredNodeType.MANIFEST == StoredNodeType.fromTag(n.getString("type"))) {
+                    return b;
+                }
+            } catch (Exception ignore) {
+                // 非 manifest 明文块或损坏块，跳过
             }
         }
         return null;
     }
 
-    private void verifyMac(byte[] full, String timestamp, Manifest m, byte[] kek) {
+    private void verifyMac(byte[] uuidBytes, byte[] full, String timestamp, Manifest m, byte[] kek) {
         byte[] macKey = m.manifestMacKey(kek);
-        if (!com.flora.sanctum.core.model.impl.ManifestStore.verifyMac(full, timestamp, macKey)) {
+        if (!com.flora.sanctum.core.model.impl.ManifestStore.verifyMac(uuidBytes, full, timestamp, macKey)) {
             throw new VaultUnlockException(VaultUnlockException.Phase.MANIFEST_CORRUPT);
         }
     }

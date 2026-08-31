@@ -6,6 +6,7 @@ import com.flora.root.codec.json.model.JsonObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -253,6 +254,51 @@ class SanctumTest {
     }
 
     @Test
+    void changeMasterPasswordMigratesRootLevelGroupDek() {
+        char[] oldPw = "old".toCharArray();
+        char[] newPw = "new-pass".toCharArray();
+        Sanctum s = Sanctum.createAndUnlock(dir, oldPw, 8192, 2, 1);
+        // 顶层分组的 DEK 由根级密钥（= KEK）包裹：换密码后必须重新包裹才能解开
+        GroupNode group = s.objectTree().createGroup(null, "社交");
+        EntryNode entry = group.createEntry("微博", new EntryFields("s3cret", null, null, List.of()));
+
+        s.changeMasterPassword(newPw, 65536, 3, 4);
+        s.close();
+
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlock(newPw);
+        assertTrue(s2.isUnlocked());
+        assertNotNull(s2.groupDek(group.uuid()), "顶层分组 DEK 应改用新 KEK 包裹并可解开");
+        EntryNode e = s2.objectTree().entry(entry.uuid());
+        assertNotNull(e, "分组内条目在换密码后应仍可读");
+        assertEquals("s3cret", e.password());
+        s2.close();
+    }
+
+    @Test
+    void relocatedBlockFailsAuthentication() throws Exception {
+        char[] pw = "pw".toCharArray();
+        Sanctum s = Sanctum.createAndUnlock(dir, pw, 8192, 2, 1);
+        UUID entryId = s.objectTree().createEntry(null, "条目", EntryFields.EMPTY).uuid();
+        s.close();
+
+        // 对象 uuid 由块文件路径承载：把文件改名为另一个合法分片名，反推出的 uuid 即改变
+        String hex = entryId.toString().replace("-", "");
+        Path blockFile = dir.resolve(hex.substring(0, 1)).resolve(hex.substring(1, 2))
+                .resolve(hex.substring(2) + ".md");
+        assertTrue(Files.exists(blockFile), "条目块文件应存在");
+        String rest = hex.substring(2);
+        Files.move(blockFile, blockFile.resolveSibling(
+                (rest.charAt(0) == 'f' ? "a" : "f") + rest.substring(1) + ".md"));
+
+        // uuid 参与 AAD 且不写入块内：路径一变 ⇒ AAD 不一致 ⇒ 该块无法解密
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlock(pw);
+        assertNull(s2.objectTree().entry(entryId), "被移动到别处的块应因 AAD 不一致而无法解密");
+        s2.close();
+    }
+
+    @Test
     void gcKeepsReachableObjects() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         GroupNode group = s.objectTree().createGroup(null, "社交");
@@ -281,8 +327,8 @@ class SanctumTest {
         assertEquals(root, icon.parentRef());
         assertEquals(root, ssh.parentRef());
 
-        // manifest 明文块记录根对象 uuid
-        assertEquals(root, s.vault().manifest().rootObjectUuid().toString());
+        // 根对象 uuid 由 KEK 单向推导（不记入 manifest），登记在 vault 上
+        assertEquals(root, s.vault().rootObjectUuid().toString());
 
         s.close();
         Sanctum s2 = Sanctum.open(dir);
@@ -291,7 +337,7 @@ class SanctumTest {
         assertEquals(root2, s2.objectTree().group(group.uuid()).parentRef());
         assertEquals(root2, s2.objectTree().entry(entry.uuid()).parentRef());
         assertEquals(root2, s2.remoteTree().remote("origin").parentRef());
-        assertEquals(root2, s2.vault().manifest().rootObjectUuid().toString());
+        assertEquals(root2, s2.vault().rootObjectUuid().toString());
     }
 
     @Test

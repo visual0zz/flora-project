@@ -41,7 +41,7 @@ class KeyIdIndexTest {
 
         // 通过 resolver 解析（候选含三个 DEK，应命中 dek2）
         BlockResolver resolver = new BlockResolver(index, () -> repoSeed);
-        byte[] decoded = resolver.decode(block, "0");
+        byte[] decoded = resolver.decode(block, uuid, "0");
         assertNotNull(decoded);
         assertArrayEquals(plain, decoded);
     }
@@ -53,12 +53,13 @@ class KeyIdIndexTest {
         byte[] repoSeed = new byte[32];
         RNG.nextBytes(repoSeed);
         CipherCodec codec = new CipherCodec(derive(dekUsed), dekUsed, repoSeed, RNG);
-        byte[] block = codec.encode(UUID.randomUUID(), "x".getBytes(), "0");
+        UUID uuid = UUID.randomUUID();
+        byte[] block = codec.encode(uuid, "x".getBytes(), "0");
 
         // 索引里没有任何 DEK
         KeyIdIndex empty = new KeyIdIndex();
         BlockResolver resolver = new BlockResolver(empty, () -> repoSeed);
-        assertNull(resolver.decode(block, "0"));
+        assertNull(resolver.decode(block, uuid, "0"));
     }
 
     @Test

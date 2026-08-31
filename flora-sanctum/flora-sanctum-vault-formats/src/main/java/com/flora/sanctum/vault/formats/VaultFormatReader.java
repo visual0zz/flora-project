@@ -3,6 +3,7 @@ package com.flora.sanctum.vault.formats;
 import com.flora.sanctum.kdbx.KdbxDocument;
 import com.flora.sanctum.vault.formats.bitwarden.BitwardenReader;
 import com.flora.sanctum.vault.formats.kp1.KeePass1Reader;
+import com.flora.sanctum.vault.formats.opvault.OpVaultReader;
 
 import java.io.ByteArrayInputStream;
 import java.util.LinkedHashSet;
@@ -76,6 +77,7 @@ public final class VaultFormatReader {
         return switch (f) {
             case BITWARDEN -> new BitwardenReader().read(data, password, keyFile);
             case KEEPASS1 -> new KeePass1Reader().read(data, password, keyFile);
+            case OPVAULT -> new OpVaultReader().read(data, password, keyFile);
             default -> throw VaultReadException.of(VaultReadException.Stage.UNSUPPORTED, f,
                     "该保险库格式的只读读取器尚未实现");
         };

@@ -12,7 +12,7 @@ import java.util.jar.JarFile;
 /**
  * 内置图标库（数据层资源，位于 core 模块 resources/icons/library/*.svg）。
  * <p>提供图标的名字列表与资源 URL，供渲染（app 的 SvgIcon）与数据导入（KDBX 内置图标映射）复用，
- * 使 core 不再反向依赖 app.ui。扫描逻辑在此实现，渲染（jsvg）仍留在 app。</p>
+ * 扫描逻辑在 core 实现，渲染（jsvg）由 app 负责，保持 core 对 app 无依赖。</p>
  */
 public final class BuiltinIcons {
 

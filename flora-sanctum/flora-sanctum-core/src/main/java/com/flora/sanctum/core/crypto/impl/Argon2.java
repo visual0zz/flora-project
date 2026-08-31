@@ -21,7 +21,7 @@ public final class Argon2 {
     public static final int TYPE_ID = 2;
 
     /**
-     * Argon2id 摘要（兼容旧调用，等价于 {@code digest(TYPE_ID, ...)}）。
+     * Argon2id 摘要（等价于 {@code digest(TYPE_ID, ...)}）。
      *
      * @param password    密码字节
      * @param salt        盐

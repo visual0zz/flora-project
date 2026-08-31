@@ -16,8 +16,7 @@ import java.awt.Dimension;
 import java.nio.file.Path;
 
 /**
- * 设置页的纯模型层：把「一条设置」建模为自描述对象，使类型信息留在 model 中，
- * 而非散落在并行数组与多层 switch / 字符串判断里。
+ * 设置页的纯模型层：把「一条设置」建模为自描述对象，使类型信息留在 model 中。
  *
  * <p>路由：{@link Setting#store()} 声明该值落在哪套存储（{@link SettingStore#USER} 明文全局配置，
  * 或 {@link SettingStore#VAULT} 仓库内加密配置），由 {@link Setting#createControl}/{@link Setting#saveValue}

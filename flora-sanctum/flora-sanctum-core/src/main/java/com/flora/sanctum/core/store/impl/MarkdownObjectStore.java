@@ -22,8 +22,7 @@ import java.util.stream.Stream;
  * <p>
  * 布局：{@code root/{a}/{b}/{rest}.md}，其中 {@code a}、{@code b} 分别是 uuid 无连字符 hex
  * 的第 1、第 2 个字符（两层单字母目录分片），{@code rest} 是剩余 30 字符。
- * 每个文件恰好一个块，内容为单行 {@code timestamp:base58}。
- * 不再支持一个文件多个块 / 用户正文与密文交错（旧格式兼容已去除）。
+ * 每个文件恰好一个块，内容为单行 {@code timestamp:base58}，正文与密文不交错。
  */
 public final class MarkdownObjectStore implements ObjectStore {
 

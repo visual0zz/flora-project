@@ -12,8 +12,8 @@ import java.util.UUID;
 /**
  * 条目节点：内置预设字段（名称/密码/URL/用户名/标签/创建时间/更新时间）+ 自定义字段。
  * <p>
- * 预设字段以独立块存储（type=field，fieldName 固定为预设名，随机 uuid，parent=条目），
- * 不再是 entry 负载 JSON 中的字段。自定义字段块 type 为 customField。
+ * 预设字段以独立块存储（块 type 为 {@code field}，fieldName 固定为预设名，随机 uuid，parent=条目），
+ * 自定义字段块 type 为 {@code customField}。
  * 新建/编辑/删除等操作由节点承担（见设计 05）。
  */
 public final class EntryNode extends ObjectNode {
@@ -77,7 +77,7 @@ public final class EntryNode extends ObjectNode {
 
     /**
      * 读预设字段块的值；预设字段以条目子节点形式存储（随机 uuid，parent=条目，name=预设名），
-     * 与自定义字段结构一致，经 childrenOf 按 name 定位。不回退到 entry 旧字段（不兼容旧库）。
+     * 与自定义字段结构一致，经 childrenOf 按 name 定位。
      */
     private String presetValue(String name) {
         FieldNode f = presetChild(name);
@@ -105,7 +105,7 @@ public final class EntryNode extends ObjectNode {
         ctx().write(uuid(), entry, groupId);
     }
 
-    /** 更新内置预设字段（password/url/username/labels）+ updateTime（独立块）。不回退 entry 旧字段（不兼容旧库）。 */
+    /** 更新内置预设字段（password/url/username/labels）+ updateTime，均写为独立块。 */
     public void updateBuiltins(EntryFields fields) {
         JsonObject entry = data();
         if (entry == null) {

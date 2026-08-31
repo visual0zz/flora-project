@@ -5,8 +5,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
 
 /**
- * 设置页左栏渲染器：区段显示名（全局设置/仓库设置/图标/SSH 密钥/远程），无字符图标。从 {@code SanctumGui}
- * 抽出为独立类，因其仅依赖区段节点 userObject，不依赖实例状态。
+ * 设置页左栏渲染器：区段显示名（全局设置/仓库设置/图标/SSH 密钥/远程），无字符图标。
  */
 final class SettingsTreeRenderer extends DefaultTreeCellRenderer {
     @Override

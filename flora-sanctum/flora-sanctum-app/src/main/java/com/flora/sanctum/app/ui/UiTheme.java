@@ -11,7 +11,7 @@ import java.util.Random;
  * <p>
  * 支持三套方案（见 {@link #applyScheme(String)}）：
  * <ul>
- *   <li>{@code light}：暖纸纯色风格（参考 openhanako Warm Paper）——原配色，默认方案。
+ *   <li>{@code light}：暖纸纯色风格（参考 openhanako Warm Paper）——默认方案。
  *   <li>{@code dark}：暗色方案（深色底、浅色文字）。
  *   <li>{@code stupid}：所有位置颜色在应用主题时随机生成（每次应用都不同，仅供娱乐）。
  * </ul>
@@ -57,7 +57,7 @@ public final class UiTheme {
         apply();
     }
 
-    /** light：暖纸风格（原配色）。 */
+    /** light：暖纸风格。 */
     private static void applyLight() {
         PAPER = new Color(0xF8, 0xF5, 0xED);
         PAPER_LIGHT = new Color(0xF4, 0xF2, 0xEA);

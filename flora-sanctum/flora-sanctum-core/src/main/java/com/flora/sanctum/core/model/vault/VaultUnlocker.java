@@ -77,7 +77,7 @@ public final class VaultUnlocker {
      * 根对象由 manifest.rootObjectUuid 定位（O(1)），KEK 试解出 root DEK 与 repoKeyIdSeed 后，
      * 后续 cipher 块统一经 keyId 路由（BlockResolver）定位父 DEK 解开，对 type==group 且含 dek 的
      * 用父 DEK 解出子 DEK 并登记，逐层递归直至无新增。
-     * <p>根对象缺失/无法解密/内容不完整时抛 {@link VaultUnlockException}（不再静默）。
+     * <p>根对象缺失/无法解密/内容不完整时抛 {@link VaultUnlockException}。
      */
     private void discoverRootDeks(Vault vault, byte[] kek, List<Block> blocks) {
         // 根对象块用 KEK 加密，但 keyId 由 repoKeyIdSeed 派生（解锁时尚未读出），

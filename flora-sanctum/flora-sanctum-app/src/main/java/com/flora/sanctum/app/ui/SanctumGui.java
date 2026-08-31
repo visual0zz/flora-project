@@ -98,7 +98,7 @@ public final class SanctumGui {
     private final ModelChangeBus modelBus = new ModelChangeBus();
     /** 模型变更总线是否已订阅（避免锁定→再解锁时重复订阅导致多次全量刷新）。 */
     private boolean busSubscribed;
-    /** 注入的同步服务（替代每次 doSync 内 new SyncService），复用同一实例。 */
+    /** 注入的同步服务，复用同一实例。 */
     private com.flora.sanctum.app.sync.SyncService syncService;
     private JPanel editPanel;
     private JLabel statusLabel;
@@ -488,7 +488,7 @@ public final class SanctumGui {
         showUnlockPage(dataRoot);
     }
 
-    // ---- 新建 / 导入 / 打开（原 SelectScreen 入口，合并进历史页） ----
+    // ---- 新建 / 导入 / 打开 ----
 
     private void doNewVault() {
         NewVaultDialog dlg = new NewVaultDialog(frame, req -> {
@@ -509,7 +509,7 @@ public final class SanctumGui {
     }
 
     /**
-     * 新建链路：仓库目录已就绪后，直接用「新建仓库」页设定的主密码创建并解锁（不再弹解锁页）。
+     * 新建链路：仓库目录已就绪后，直接用「新建仓库」页设定的主密码创建并解锁。
      * Argon2 派生耗时，放后台线程执行；期间模态进度框显示转圈，成功直达编辑页，失败回历史列表。
      */
     private void createAndUnlockVault(Path root, char[] pw, int[] kdf) {
@@ -673,7 +673,7 @@ public final class SanctumGui {
             @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { refreshStrength(pwField, strengthLabel); }
         });
 
-        // 新建库的 Argon2id 强度已在「新建仓库」对话框中收集（见 NewVaultDialog），此处不再重复。
+        // 新建库的 Argon2id 强度已在「新建仓库」对话框中收集（见 NewVaultDialog）。
 
         // 解锁按钮（与"回到历史列表"等宽居中；转圈以 JLayer 画在按钮右内侧，不占排版）
         JButton unlockBtn = new JButton("解锁");
@@ -1108,7 +1108,7 @@ public final class SanctumGui {
         }
 
         // 垃圾桶虚拟根（与数据根平级，无对应存储；见设计 idea20260826-sanctum-trash）
-        // 不再分三个子组：所有类型（手动删除/不可达/不可解锁）直接列在垃圾桶下，
+        // 所有类型（手动删除/不可达/不可解锁）直接列在垃圾桶下，
         // 标签带类型后缀以便区分；选中后由右侧 renderTrashNode 展示其所属类型。
         DefaultMutableTreeNode trashNode = new DefaultMutableTreeNode("垃圾桶");
         trashNode.setUserObject(ViewNodeType.TRASH);

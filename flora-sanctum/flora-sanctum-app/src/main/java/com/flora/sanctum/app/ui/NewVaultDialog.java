@@ -102,7 +102,7 @@ final class NewVaultDialog extends JDialog {
         content.add(leftRow(finalPathLabel));
         content.add(Box.createVerticalStrut(10));
 
-        // 输入密码（新建即在创建页设定，避免后续再弹解锁页）
+        // 输入密码（新建即在创建页设定）
         content.add(labeledRow("输入密码：", pwField));
         content.add(Box.createVerticalStrut(4));
         content.add(labeledRow("确认密码：", confirmField));
@@ -165,7 +165,7 @@ final class NewVaultDialog extends JDialog {
     private static final String STANDALONE_INFO =
             "勾选后，仓库根会自带启动脚本与运行依赖（config.json + lib/ + edit 脚本），"
                     + "并可把应用级配置（不含密钥）复制为仓库级配置。"
-                    + "之后该仓库可由自身的 edit 脚本独立启动，不再依赖本机安装的应用。"
+                    + "之后该仓库可由自身的 edit 脚本独立启动。"
                     + "不勾选则为普通仓库：仅建立数据块，需通过本应用打开。";
 
     private JPanel buildButtons() {

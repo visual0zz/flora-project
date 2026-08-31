@@ -27,8 +27,8 @@ public final class SecureRandomSource {
      * 进程内叠加熵状态（256 位）。每次 {@link #overlay} 调用都将多个零成本、跨平台、
      * 不可观测的抖动源（高精度时钟间隔、线程标识、对象地址哈希、空闲堆差分、
      * 线程数、调用计数）与既有状态混合进来，作为 HKDF 的 info 参与输出混合。
-     * 相比原先的单 long 累加器，状态空间更大，且抖动源彼此正交，单一调用更难被预测。
-     * <p>访问受 {@code stateLock} 保护，保证多线程下状态更新的原子性与可见性。</p>
+     * 状态空间为 256 位，抖动源彼此正交，单一调用难以被预测。
+     * <p>访问在内部 {@code synchronized} 锁保护下进行，保证多线程下状态更新的原子性与可见性。</p>
      */
     private final byte[] state = new byte[32];
     private final Runtime runtime = Runtime.getRuntime();

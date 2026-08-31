@@ -6,8 +6,8 @@ import com.flora.sanctum.core.model.StoredNodeType;
 import java.util.UUID;
 
 /**
- * 条目列表中一项的域对象封装（替代过去的并行数组 entryUuids/listItemTypes/listItemIcons）。
- * 渲染器、双击导航、选中解析直接读此对象，消除"按索引在三个平行数组间对齐"的易错模式。
+ * 条目列表中一项的域对象封装。
+ * 渲染器、双击导航、选中解析直接读此对象。
  *
  * @param uuid     节点 uuid（列表项为组/条目/图标/SSH/远程时均有）
  * @param type     存储类型，供图标与双击导航判断

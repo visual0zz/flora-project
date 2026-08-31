@@ -1,7 +1,7 @@
 package com.flora.sanctum.core.io.importer.kdbx;
 
 /**
- * Salsa20 流密码（RFC 8439 变体的替代内核，KeePass 内层随机流使用 64 位块计数器 + 8 字节 nonce）。
+ * Salsa20 流密码（KeePass 内层随机流的一种变体：使用 64 位块计数器 + 8 字节 nonce）。
  * <p>JDK 未提供 Salsa20，故自研；仅用于解密 KDBX 受保护字段，不依赖任何第三方库。</p>
  */
 final class Salsa20 {

@@ -15,7 +15,7 @@ import java.util.UUID;
  * 声明式引用遍历表：节点类型 → 其持有的引用字段名，以及字段名 → 引用默认 kind。
  * <p>
  * GC / 垃圾桶分类复用本表，从节点 JSON 收集全部 {@link Ref} 并经 {@link RefResolverRegistry}
- * 求可达块集合，取代此前散落在各处的 {@code icon}/{@code keyRef} 字符串读取逻辑。
+ * 求可达块集合。
  * 新增引用类型时，只需在此处登记字段，无需改动 GC 遍历代码。
  */
 public final class RefScan {

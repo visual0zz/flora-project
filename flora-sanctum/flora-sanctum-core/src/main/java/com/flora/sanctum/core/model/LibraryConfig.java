@@ -14,7 +14,7 @@ import java.util.UUID;
  * 库配置数据（Sanctum = 元数据 + 配置数据 + List&lt;数据树&gt; 的"配置数据"部分）。
  * <p>
  * 承载仓库级设置（type=config 节点，key/value 加密存储于根对象下）：主题/自动锁定时长/剪贴板清空时长。
- * 不再落全局配置文件；未设置时返回默认值。远程配置与 SSH 密钥是一等数据节点（type=remote / type=ssh_key），
+ * 配置数据以仓库内加密节点存储（见设计"设置存仓库"）；未设置时返回默认值。远程配置与 SSH 密钥是一等数据节点（type=remote / type=ssh_key），
  * 由 {@code RemoteTree}/{@code SshKeyTree} 负责读写，不在此类中重复表示。
  */
 public final class LibraryConfig {

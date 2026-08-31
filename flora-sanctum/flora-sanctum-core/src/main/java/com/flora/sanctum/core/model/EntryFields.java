@@ -7,8 +7,8 @@ import java.util.Set;
 /**
  * 条目内置预设字段（password / url / username / labels / createTime / updateTime）。
  * <p>
- * 自 2026-08 起预设字段改为独立块存储（type=field，fieldName 固定为预设名），
- * 不再是 entry 负载 JSON 中的字段。labels 不可变（{@link List#copyOf}）。
+ * 预设字段以独立块存储（块 type 为 {@code field}，fieldName 固定为预设名），
+ * 不放在 entry 负载 JSON 内。labels 不可变（{@link List#copyOf}）。
  *
  * @param password 口令（必填语义）
  * @param url     服务 URL

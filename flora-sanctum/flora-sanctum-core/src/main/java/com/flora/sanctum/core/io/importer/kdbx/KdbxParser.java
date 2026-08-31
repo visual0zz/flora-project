@@ -135,7 +135,7 @@ final class KdbxParser {
 
         // ---- 派生密钥（严格对齐 KeePassXC 源码）----
         // KDF 输入 = CompositeKey::rawKey = sha256( concat( 各分量 rawKey ) )，口令分量 rawKey = sha256(password)
-        // transformedDatabaseKey = KDF 原始输出（KDF 后不再 sha256）
+        // transformedDatabaseKey = KDF 原始输出（直接作为变换后的数据库密钥，不做二次散列）
         // finalKey = sha256(masterSeed ‖ transformedDatabaseKey)
         // K_1 = sha512(masterSeed ‖ transformedDatabaseKey ‖ 0x01)
         Map<String, Object> kdf = parseVariantDictionary(kdfParamsBytes);

@@ -10,8 +10,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 自研 GCM-SIV 与 Bouncy Castle 参考实现的 KAT 回归 + RFC 官方向量 + 往返/篡改测试。
- * <p>KAT 值由替换前的 BC GCMSIVBlockCipher 生成（AES-256，12 字节 nonce），
- * 验证自研实现与其逐字节一致。KAT 字符串是测试向量而非真实密钥，故抑制 secret 检查。</p>
+ * <p>基于 AES-256、12 字节 nonce 的 GCM-SIV 已知答案向量（KAT），用于回归验证
+ * 加解密输出与已知向量逐字节一致。KAT 字符串是测试向量而非真实密钥，故抑制 secret 检查。</p>
  */
 @SuppressWarnings("osmetes:secret")
 class GcmSivTest {

@@ -7,7 +7,7 @@ package com.flora.sanctum.core.model.vault;
  * 写入时间戳 = {@code max(单调时钟偏移毫秒 + baseTimestamp, 全库当前最大时间戳)}。
  * <p>
  * nanoTime 用单调时钟（不受系统改时间影响），存储单位毫秒。锚点由解锁方
- * {@code VaultUnlocker} 扫描全部块后计算传入，不再持久化到 manifest。
+ * {@code VaultUnlocker} 扫描全部块后计算并传入（不写回 manifest，每次解锁重新计算）。
  */
 public final class WarehouseClock {
 

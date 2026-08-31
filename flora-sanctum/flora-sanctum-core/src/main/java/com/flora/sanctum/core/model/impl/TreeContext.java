@@ -23,7 +23,6 @@ import java.util.concurrent.locks.ReentrantLock;
  * 树操作上下文：数据树节点执行新建/编辑/删除所需的底层能力（存储、加密、DEK 路由、时间戳）。
  * <p>
  * 持有解锁后的 {@link Vault}、内存对象图（unlock 时扫描构建），节点写操作经此落盘并同步内存图。
- * 对应重构前 {@code Sanctum} 的私有方法（writeObject/readObject/resolveDekFor/nextTimestamp/wrap）。
  */
 public final class TreeContext {
 
@@ -33,7 +32,7 @@ public final class TreeContext {
     private final Map<UUID, Block> blocks = new LinkedHashMap<>();
     /**
      * 双索引（与 objects/blocks 同步维护）：uuid → 父 uuid（顶层/根概念为 null），
-     * 以及父 uuid → 直接子 uuid 列表。取代 childrenOf 的全图线性扫描（O(n)→O(1)）。
+     * 以及父 uuid → 直接子 uuid 列表，使 childrenOf 查表为 O(1)。
      */
     private final Map<UUID, UUID> parentOf = new LinkedHashMap<>();
     private final Map<UUID, List<UUID>> childrenByParent = new LinkedHashMap<>();

@@ -344,19 +344,9 @@ public final class KdbxParser {
             throw fail(Stage.KDF, "AES-KDF 缺少 MasterSeed");
         }
         try {
-            javax.crypto.Cipher c = javax.crypto.Cipher.getInstance("AES/ECB/NoPadding");
-            c.init(javax.crypto.Cipher.ENCRYPT_MODE,
-                    new javax.crypto.spec.SecretKeySpec(salt, "AES"));
-            byte[] transformed = input.clone();
-            for (long i = 0; i < rounds; i++) {
-                transformed = c.doFinal(transformed);
-            }
-            return sha256(transformed);
-        } catch (javax.crypto.IllegalBlockSizeException | javax.crypto.BadPaddingException
-                 | java.security.InvalidKeyException e) {
+            return com.flora.root.crypto.AesKdf.transform(input, salt, rounds);
+        } catch (IllegalArgumentException | IllegalStateException e) {
             throw fail(Stage.KDF, "AES-KDF 计算失败: " + e.getMessage(), e);
-        } catch (java.security.NoSuchAlgorithmException | javax.crypto.NoSuchPaddingException e) {
-            throw fail(Stage.KDF, "不支持 AES-KDF: " + e.getMessage(), e);
         }
     }
 

@@ -22,11 +22,11 @@
 **Why：**
 经排查，真正触发点是 `KdbxMapper` 在 `createChildGroup`/`createEntry` 之后对带图标的
 节点调用 `setIcon`，而 `setIcon`/`rename` 会以**同一个 uuid** 再次 `ctx().write(...)`，
-再次进入 `indexObject`。原 `indexObject` 仅做 `childrenByParent.get(parent).add(uuid)`，
-从不移除旧位置，于是同一 uuid 在父组子列表中被追加两次；`addGroupNode`/`childGroups()`
-经 `childrenOf()` 遍历该含重复项的列表，导致节点被渲染两次。KeePassXC 文件几乎每个节点
-都带图标，故“每个 item 都被重复”。重锁后 `unlock` 经 `scanAll()` 从文件重建索引（每 uuid
-仅一次）所以恢复正常——反证数据无问题、问题在内存索引。
+再次进入 `indexObject`。彼时 `indexObject` 不具备幂等性（仅向父组子列表追加、不清除旧位置），
+同一 uuid 被追加两次；`addGroupNode`/`childGroups()` 经 `childrenOf()` 遍历该含重复项的
+列表，导致节点被渲染两次。KeePassXC 文件几乎每个节点都带图标，故"每个 item 都被重复"。
+重锁后 `unlock` 经 `scanAll()` 从文件重建索引（每 uuid 仅一次）所以恢复正常——反证数据无
+问题、问题在内存索引。`indexObject` 的幂等约定见 `../design/idea20260812-sanctum-treecontext-index.md`。
 
 候选 B 的“原子替换”即便实现，临时树仍走同一条 `createChildGroup`+`setIcon` 写入路径，
 索引同样会重复；除非把“替换”实现成“从干净文件整体重建索引”，那等于变相重解锁，
@@ -35,7 +35,5 @@
 
 **How to apply：**
 - 任何以相同 uuid 二次写入对象（setIcon / rename / 移动）的代码，都依赖 `indexObject` 的幂等性，
-  新增此类写入路径时无需再手动去重。
-- `indexObject` 现保证：写入前先清除该 uuid 在旧父（或同父旧位置）的索引，且仅在目标父下
-  确实不含该 uuid 时才追加，从而同时覆盖“同父重复”与“parent 变化（移动）”两种情形。
-- 若未来确需“导入期间模型完全不反映中间态”，再单独评估候选 B 的临时树隔离，与本次根因修复互不冲突。
+  新增此类写入路径时无需再手动去重（幂等约定见上述设计文档）。
+- 若未来确需"导入期间模型完全不反映中间态"，再单独评估候选 B 的临时树隔离，与本次根因修复互不冲突。

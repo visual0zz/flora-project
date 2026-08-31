@@ -2,9 +2,9 @@
 
 ## 背景（问题）
 
-`TreeContext` 当前仅以 `Map<UUID,JsonObject> objects` + `Map<UUID,Block> blocks` 两张 uuid 索引表
-在内存中维护对象图。`childrenOf(parent)`（按 parent 列出直接子节点）是**全图线性扫描**
-（`TreeContext.java:167`），每次遍历整个对象图匹配 `parent` 字段。条目/组的子节点查询（预设字段、
+改造前，`TreeContext` 仅以 `Map<UUID,JsonObject> objects` + `Map<UUID,Block> blocks` 两张 uuid 索引表
+在内存中维护对象图。`childrenOf(parent)`（按 parent 列出直接子节点）是**全图线性扫描**，
+每次遍历整个对象图匹配 `parent` 字段。条目/组的子节点查询（预设字段、
 自定义字段、子组、子条目）都走它，规模增长后查询成本随对象总数线性上升。
 
 此外模型层**无任何并发保护**：`objects`/`blocks`/底层 `MarkdownObjectStore` 都是非线程安全结构，
@@ -23,6 +23,11 @@
 
 `childrenOf(UUID parent)` 改为 O(1) 查表返回列表副本；新增 `parentUuidOf(UUID)` 走 `parentOf`。
 索引在 `scanAll()` 构建（从每对象的 `parent` 字段解析），在 `writeCipherBlock`/`delete` 增量维护。
+
+`indexObject` 必须是**幂等**的：写入前先清除该 uuid 在旧父（或同父旧位置）的索引，仅当目标父下
+不含该 uuid 时才追加，从而同时覆盖「同父重复」与「parent 变化（移动）」两种情形。这是在 KeePassXC
+导入（setIcon/rename 以同 uuid 二次写入）后消除重复渲染的根因修复，详见
+`decision/decision20260830-02-sanctum.md`。
 
 注意：调用方传入 `childrenOf` 的 parent 永远是可解析的 real UUID（条目/组 uuid；顶层项的 parent
 是根对象 uuid，亦为 real UUID），故索引以 `UUID` 为键即可覆盖全部现有用例，无需支持根概念 tag 字符串键。

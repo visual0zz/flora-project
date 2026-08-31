@@ -107,6 +107,8 @@ module com.flora.root {
     exports com.flora.root.runtime.virtual.filesys.backend;
     // 语义/目的标注注解（如 ModuleEntry）
     exports com.flora.root.tag;
+    // 密码学原语（Argon2 / BLAKE2b / Salsa20 及 KeePass KDF 封装），纯 Java 无第三方依赖
+    exports com.flora.root.crypto;
 
     uses Converter;
     uses AiProvider;

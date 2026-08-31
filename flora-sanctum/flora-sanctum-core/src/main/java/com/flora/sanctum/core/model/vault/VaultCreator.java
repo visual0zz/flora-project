@@ -2,6 +2,7 @@ package com.flora.sanctum.core.model.vault;
 import com.flora.sanctum.core.model.*;
 
 import com.flora.sanctum.core.crypto.Argon2KDF;
+import com.flora.sanctum.core.crypto.RootUuid;
 import com.flora.sanctum.core.crypto.impl.SecureRandomSource;
 import com.flora.sanctum.core.store.ObjectStore;
 
@@ -13,7 +14,8 @@ import java.util.UUID;
  * 新建库（见设计 02"manifest"与"文件夹 DEK"）。
  * <p>
  * 生成 salt、manifest（明文块 + MAC）、唯一根对象（data 根，type=root，
- * 持根 DEK 与 repoKeyIdSeed，经 KEK 包裹），写入库根。
+ * 持 repoKeyIdSeed，经 KEK 直接加密），写入库根。
+ * 根对象 uuid 由 KEK 单向推导（见 {@link RootUuid#derive}），不落盘也不记入 manifest。
  */
 public final class VaultCreator {
 
@@ -43,10 +45,10 @@ public final class VaultCreator {
         repoKeyIdSeed = seed;
         try {
             byte[] macKey = kdf.manifestMacKey(kek);
-            // 先定根对象 uuid（manifest 记录，解锁 O(1) 定位）
-            java.util.UUID rootUuid = java.util.UUID.randomUUID();
-            writeManifestBlock(salt, memoryKiB, iterations, parallelism, macKey, kek, rootUuid);
-            // 唯一根对象：data 根（type=root），持 root DEK 与 repoKeyIdSeed
+            // 根对象 uuid 由 KEK 单向推导：不落盘、不记入 manifest，解锁时以同一 KEK 重算定位
+            java.util.UUID rootUuid = RootUuid.derive(kek);
+            writeManifestBlock(salt, memoryKiB, iterations, parallelism, macKey);
+            // 唯一根对象：data 根（type=root），持 repoKeyIdSeed，直接用 KEK 加密
             writeRootGroup(rootUuid, kek, seed);
         } finally {
             if (repoKeyIdSeed != null) {
@@ -58,9 +60,8 @@ public final class VaultCreator {
         }
     }
 
-    /** 写 manifest 明文块。MAC 覆盖完整信封头 + 时间戳 + 负载，尾附（与密文块结构对齐）。 */
-    private void writeManifestBlock(byte[] salt, int memKiB, int iterations, int parallelism, byte[] macKey, byte[] kek,
-                                    java.util.UUID rootObjectUuid) {
+    /** 写 manifest 明文块。MAC 覆盖 uuid + 完整信封头 + 时间戳 + 负载，尾附（与密文块结构对齐）。 */
+    private void writeManifestBlock(byte[] salt, int memKiB, int iterations, int parallelism, byte[] macKey) {
         UUID uuid = Manifest.MANIFEST_UUID;
         com.flora.root.codec.json.model.JsonObject manifest = new com.flora.root.codec.json.model.JsonObject();
         manifest.put("version", 1);
@@ -73,32 +74,18 @@ public final class VaultCreator {
         params.put("iterations", iterations);
         params.put("parallelism", parallelism);
         manifest.put("params", params);
-        manifest.put("rootObjectUuid", rootObjectUuid.toString());
         manifest.put("updateTimestamp", 1);
         byte[] payload = com.flora.root.codec.JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
-        byte[] block = com.flora.sanctum.core.model.impl.ManifestStore.buildBlock(uuid, payload, "1", macKey);
+        byte[] block = com.flora.sanctum.core.model.impl.ManifestStore.buildBlock(payload, "1", macKey);
         store.put(uuid, block, null, "1");
     }
 
     private void writeRootGroup(java.util.UUID rootUuid, byte[] kek, byte[] repoKeyIdSeed) {
         com.flora.root.codec.json.model.JsonObject group = new com.flora.root.codec.json.model.JsonObject();
         group.put("type", StoredNodeType.ROOT.tag());
-        // 生成独立随机 DEK，用 KEK 包裹（存于根对象密文块内）
-        byte[] dek = new byte[32];
-        random.nextBytes(dek);
-        byte[] wrapped = wrap(dek, kek);
-        group.put("dek", Base64.getEncoder().encodeToString(wrapped));
-        // 根对象承载仓库级 keyId 派生种子（仅存一份）
+        // 根对象直接使用 KEK 加解密（无独立根 DEK、无内嵌包裹块），仅承载仓库级 keyId 派生种子
         group.put("repoKeyIdSeed", Base64.getEncoder().encodeToString(repoKeyIdSeed));
         writeCipherBlock(rootUuid, group, kek, 1);
-    }
-
-    /** 用 KEK 包裹一个 DEK（AES-GCM-SIV，nonce 随机；内部信封无块时间戳，timestamp=0）。 */
-    private byte[] wrap(byte[] dek, byte[] kek) {
-        byte[] encKey = com.flora.sanctum.core.crypto.KeyDerivation.encKey(kek);
-        com.flora.sanctum.core.crypto.impl.CipherCodec codec =
-                new com.flora.sanctum.core.crypto.impl.CipherCodec(encKey, kek, repoKeyIdSeed, random);
-        return codec.encode(UUID.randomUUID(), dek, "0");
     }
 
     private void writeCipherBlock(java.util.UUID uuid, com.flora.root.codec.json.model.JsonObject payload,

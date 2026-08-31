@@ -29,8 +29,8 @@ public final class Vault {
     private final BlockResolver resolver;
     private final SecureRandomSource random;
     private WarehouseClock clock;
-    private byte[] dataDek; // 唯一根对象（DATA）的 DEK，解锁期间驻留，锁定/关闭时清除
-    private java.util.UUID rootObjectUuid; // 唯一根对象 uuid（manifest 记录，解锁后登记）
+    private byte[] dataDek; // 根级密钥（即 KEK）：根对象直接用 KEK 加解密，无独立根 DEK
+    private java.util.UUID rootObjectUuid; // 唯一根对象 uuid（由 KEK 单向推导，解锁后登记）
     private final java.util.Map<java.util.UUID, byte[]> groupDeks = new java.util.LinkedHashMap<>();
     private byte[] kek; // 解锁期间驻留内存，锁定/关闭时清除
     private byte[] repoKeyIdSeed; // 仓库级 keyId 派生种子（DATA 根 json 存储），锁定/关闭时清除
@@ -49,14 +49,14 @@ public final class Vault {
         return clock;
     }
 
-    /** 登记根对象 DEK（唯一根，DATA 概念）。 */
+    /** 登记根级密钥（根对象以 KEK 直接加解密，故根级密钥即 KEK；同时登记进 keyId 索引）。 */
     public void addRootDek(byte[] dek) {
         this.dataDek = dek.clone();
         // 同时登记进 keyId 索引
         keyIdIndex.register(dek);
     }
 
-    /** 登记根对象的 uuid（manifest 记录，解锁后登记）。 */
+    /** 登记根对象的 uuid（由 KEK 单向推导得到，解锁后登记）。 */
     public void addRootObjectUuid(java.util.UUID groupUuid) {
         this.rootObjectUuid = groupUuid;
     }
@@ -66,7 +66,10 @@ public final class Vault {
         return rootObjectUuid;
     }
 
-    /** 唯一根对象（DATA）的 DEK，所有普通对象/图标/SSH 密钥/远程配置均归其加密归属。 */
+    /**
+     * 根级密钥（即 KEK）。所有普通对象/图标/SSH 密钥/远程配置归其加密归属，
+     * 顶层分组的 DEK 也用它包裹。
+     */
     public byte[] dataDek() {
         if (dataDek == null) {
             throw new IllegalStateException("no root DEK");
@@ -161,9 +164,10 @@ public final class Vault {
     /**
      * 解密一个密文块为负载字节；非本库可解返回 null。
      *
+     * @param uuid      块的对象 uuid（不存于块内；文件块由块文件路径反推，重建 AAD）
      * @param timestamp 块级时间戳原文（落盘前缀字符串，重建 AAD）
      */
-    public byte[] resolve(byte[] obfuscatedBlock, String timestamp) {
-        return resolver.decode(obfuscatedBlock, timestamp);
+    public byte[] resolve(byte[] obfuscatedBlock, java.util.UUID uuid, String timestamp) {
+        return resolver.decode(obfuscatedBlock, uuid, timestamp);
     }
 }

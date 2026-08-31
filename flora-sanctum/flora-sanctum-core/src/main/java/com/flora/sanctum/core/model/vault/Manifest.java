@@ -7,9 +7,14 @@ import java.util.Base64;
  * manifest 明文引导块（见设计 02"manifest"）。
  * <p>
  * 负载 JSON：{version, type:"manifest", cryptoVersion, kdf, salt, params{memoryKiB,iterations,parallelism},
- * rootObjectUuid, updateTimestamp}。块格式与密文对齐：{@code 信封头 + 负载 + MAC(尾附)}，
- * MAC = HMAC-SHA256(macKey, 完整信封头 ‖ 时间戳 ‖ 负载)（见 {@link com.flora.sanctum.core.model.impl.ManifestStore}）。
+ * updateTimestamp}。块格式与密文对齐：{@code 信封头 + 负载 + MAC(尾附)}，
+ * MAC = HMAC-SHA256(macKey, {@code uuid ‖ 时间戳 ‖ 信封头 ‖ 负载})
+ * （见 {@link com.flora.sanctum.core.model.impl.ManifestStore}）。
  * 时间戳存于块前缀，MAC 不存于 JSON 内部（与密文 tag 位置对应）。
+ * <p>
+ * 根对象 uuid 不由 manifest 记录，而由 KEK 单向推导
+ * （见 {@link com.flora.sanctum.core.crypto.RootUuid#derive}）：同一主密码即重算出同一根对象路径，
+ * 换主密码后根对象的分片位置随之改变。
  */
 public final class Manifest {
 
@@ -27,12 +32,11 @@ public final class Manifest {
     private final int memoryKiB;
     private final int iterations;
     private final int parallelism;
-    private final java.util.UUID rootObjectUuid;
     private final long updateTimestamp;
 
     public Manifest(int version, String cryptoVersion, String kdf, byte[] salt,
                     int memoryKiB, int iterations, int parallelism,
-                    java.util.UUID rootObjectUuid, long updateTimestamp) {
+                    long updateTimestamp) {
         this.version = version;
         this.cryptoVersion = cryptoVersion;
         this.kdf = kdf;
@@ -40,7 +44,6 @@ public final class Manifest {
         this.memoryKiB = memoryKiB;
         this.iterations = iterations;
         this.parallelism = parallelism;
-        this.rootObjectUuid = rootObjectUuid;
         this.updateTimestamp = updateTimestamp;
     }
 
@@ -72,11 +75,6 @@ public final class Manifest {
         return parallelism;
     }
 
-    /** 根对象 uuid（manifest 记录，解锁 O(1) 定位）。 */
-    public java.util.UUID rootObjectUuid() {
-        return rootObjectUuid;
-    }
-
     public long updateTimestamp() {
         return updateTimestamp;
     }
@@ -94,11 +92,6 @@ public final class Manifest {
             throw new IllegalArgumentException("not a manifest");
         }
         com.flora.root.codec.json.model.JsonObject params = n.getObject("params");
-        // 兼容旧 vault：优先新 key "rootObjectUuid"，回退旧 key "rootGroupUuid"。
-        String rootUuidStr = n.getString("rootObjectUuid");
-        if (rootUuidStr == null) {
-            rootUuidStr = n.getString("rootGroupUuid");
-        }
         return new Manifest(
                 n.getInt("version"),
                 n.getString("cryptoVersion"),
@@ -107,7 +100,6 @@ public final class Manifest {
                 params.getInt("memoryKiB"),
                 params.getInt("iterations"),
                 params.getInt("parallelism"),
-                rootUuidStr == null ? null : java.util.UUID.fromString(rootUuidStr),
                 n.getLong("updateTimestamp") == null ? 1 : n.getLong("updateTimestamp")
         );
     }

@@ -1,0 +1,71 @@
+{
+  "encrypted": false,
+  "folders": [
+    {
+      "id": "folder-work",
+      "name": "Work"
+    },
+    {
+      "id": "folder-personal",
+      "name": "Personal"
+    }
+  ],
+  "items": [
+    {
+      "id": "item-google",
+      "folderId": "folder-work",
+      "name": "Google",
+      "type": 1,
+      "notes": "work account notes",
+      "favorite": false,
+      "login": {
+        "username": "alice@example.com",
+        "password": "s3cr3t",
+        "totp": "otpauth://totp/Google:alice@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Google",
+        "uris": [
+          {
+            "match": null,
+            "uri": "https://google.com"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "name": "RecoveryEmail",
+          "value": "backup@example.com",
+          "type": 0
+        }
+      ]
+    },
+    {
+      "id": "item-bank",
+      "folderId": "folder-personal",
+      "name": "Bank",
+      "type": 1,
+      "notes": null,
+      "login": {
+        "username": "bob",
+        "password": "hunter2",
+        "uris": [
+          {
+            "match": null,
+            "uri": "https://bank.example.org"
+          }
+        ]
+      },
+      "fields": []
+    },
+    {
+      "id": "item-nofolder",
+      "folderId": null,
+      "name": "Loose Note Login",
+      "type": 1,
+      "notes": "no folder",
+      "login": {
+        "username": "carol",
+        "password": "pw-carol",
+        "uris": []
+      }
+    }
+  ]
+}

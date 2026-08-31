@@ -15,6 +15,7 @@
 
     <modules>
         <module>flora-sanctum-kdbx</module>
+        <module>flora-sanctum-vault-formats</module>
         <module>flora-sanctum-core</module>
         <module>flora-sanctum-app</module>
     </modules>

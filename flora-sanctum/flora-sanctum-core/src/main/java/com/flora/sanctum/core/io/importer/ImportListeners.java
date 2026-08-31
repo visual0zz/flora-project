@@ -1,7 +1,12 @@
 package com.flora.sanctum.core.io.importer;
 
+import com.flora.root.runtime.log.Logger;
+import com.flora.root.runtime.log.LoggerFactory;
+
 /** {@link ImportListener} 的常用实现。 */
 public final class ImportListeners {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ImportListeners.class);
 
     private ImportListeners() {
     }
@@ -24,12 +29,12 @@ public final class ImportListeners {
         return new ImportListener() {
             @Override
             public void onProgress(int done, int total, String stage) {
-                System.out.println("[import] " + done + "/" + total + " " + stage);
+                LOG.info("[import] {}/{} {}", done, total, stage);
             }
 
             @Override
             public void onWarning(String message) {
-                System.out.println("[import:warn] " + message);
+                LOG.warn("[import:warn] {}", message);
             }
         };
     }

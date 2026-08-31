@@ -1,7 +1,11 @@
 package com.flora.sanctum.app;
 
+import com.flora.sanctum.app.bootstrap.LogSetup;
 import com.flora.sanctum.app.bootstrap.VaultDetector;
 import com.flora.sanctum.app.ui.SanctumGui;
+
+import com.flora.root.runtime.log.Logger;
+import com.flora.root.runtime.log.LoggerFactory;
 
 import java.nio.file.Path;
 
@@ -14,15 +18,20 @@ import java.nio.file.Path;
  */
 public final class Main {
 
+    private static final Logger LOG = LoggerFactory.getLogger(Main.class);
+
     private Main() {
     }
 
     public static void main(String[] args) {
+        LogSetup.install();
         Path standaloneRoot = VaultDetector.detectStandaloneRoot();
         if (standaloneRoot != null) {
+            LOG.info("Starting in standalone repository mode, root={}", standaloneRoot);
             Path vaultRoot = VaultDetector.vaultRoot(standaloneRoot);
             SanctumGui.launchDirect(standaloneRoot, vaultRoot);
         } else {
+            LOG.info("Starting in application mode");
             SanctumGui.launch();
         }
     }

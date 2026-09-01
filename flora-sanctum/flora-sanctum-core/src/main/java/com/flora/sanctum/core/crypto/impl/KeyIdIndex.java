@@ -23,13 +23,13 @@ public final class KeyIdIndex {
     private final Map<ByteKey, List<byte[]>> entries = new HashMap<>();
 
     /** 登记一个 DEK，建立其 dekId 索引条目。 */
-    public void register(byte[] dek) {
+    public synchronized void register(byte[] dek) {
         byte[] dekId = KeyIdDeriver.dekId(dek);
         entries.computeIfAbsent(new ByteKey(dekId), k -> new ArrayList<>()).add(dek.clone());
     }
 
     /** 按 dekId 查候选 DEK 列表（可能多个，需试解确证）。 */
-    public List<byte[]> lookup(byte[] dekId) {
+    public synchronized List<byte[]> lookup(byte[] dekId) {
         if (dekId.length != Involution.FEISTEL_BLOCK_BYTES) {
             throw new IllegalArgumentException("dekId must be 8 bytes");
         }
@@ -45,12 +45,12 @@ public final class KeyIdIndex {
     }
 
     /** 候选 DEK 数（碰撞时 &gt;1）。 */
-    public int candidateCount(byte[] dekId) {
+    public synchronized int candidateCount(byte[] dekId) {
         return lookup(dekId).size();
     }
 
     /** 清空并擦除内部 DEK 副本（锁定/解锁失败时，见设计 03"内存秘密清除"）。 */
-    public void clear() {
+    public synchronized void clear() {
         for (List<byte[]> list : entries.values()) {
             for (byte[] dek : list) {
                 java.util.Arrays.fill(dek, (byte) 0);
@@ -59,12 +59,12 @@ public final class KeyIdIndex {
         entries.clear();
     }
 
-    public int size() {
+    public synchronized int size() {
         return entries.size();
     }
 
     @Override
-    public String toString() {
+    public synchronized String toString() {
         return "KeyIdIndex{entries=" + entries.size() + "}";
     }
 

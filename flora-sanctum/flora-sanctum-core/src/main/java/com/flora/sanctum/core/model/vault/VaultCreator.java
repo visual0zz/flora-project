@@ -68,18 +68,24 @@ public final class VaultCreator {
 
     private void writeRootGroup(java.util.UUID rootUuid, byte[] kek, byte[] repoKeyIdSeed) {
         // 生成独立 rootDek 明文存入根对象；顶层对象/顶层分组 DEK 均用 rootDek 加密与包裹。
-        // 根对象块整体以 KEK 加密（外层保护），dek 字段直接存明文 base64，无需内层包裹。
-        byte[] rootDek = new byte[32];
-        random.nextBytes(rootDek);
+        // 根对象块整体以 KEK 加密（外层保护），dek1/dek2 字段直接存明文 base64，无需内层包裹。
+        // 双 DEK：dek1 退役中、dek2 活跃，供惰性轮换（前向保密，见 GroupKeyRotation 设计）。
+        byte[] dek1 = new byte[32];
+        byte[] dek2 = new byte[32];
+        random.nextBytes(dek1);
+        random.nextBytes(dek2);
         try {
             com.flora.root.codec.json.model.JsonObject group = new com.flora.root.codec.json.model.JsonObject();
             group.put("type", StoredNodeType.ROOT.tag());
-            // 根对象仍由 KEK 直接加解密；仅承载仓库级 keyId 派生种子与明文 rootDek
+            // 根对象仍由 KEK 直接加解密；仅承载仓库级 keyId 派生种子与明文 rootDek 对
             group.put("repoKeyIdSeed", Base64.getEncoder().encodeToString(repoKeyIdSeed));
-            group.put("dek", Base64.getEncoder().encodeToString(rootDek));
+            group.put("dek1", Base64.getEncoder().encodeToString(dek1));
+            group.put("dek2", Base64.getEncoder().encodeToString(dek2));
+            group.remove("dek");
             writeCipherBlock(rootUuid, group, kek, 1);
         } finally {
-            java.util.Arrays.fill(rootDek, (byte) 0);
+            java.util.Arrays.fill(dek1, (byte) 0);
+            java.util.Arrays.fill(dek2, (byte) 0);
         }
     }
 

@@ -5,7 +5,9 @@ import com.flora.sanctum.core.model.vault.*;
 import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.sanctum.core.crypto.KeyDerivation;
+import com.flora.sanctum.core.crypto.KeyIdDeriver;
 import com.flora.sanctum.core.crypto.impl.CipherCodec;
+import com.flora.sanctum.core.crypto.impl.Envelope;
 import com.flora.sanctum.core.crypto.impl.SecureRandomSource;
 import com.flora.sanctum.core.store.Block;
 import com.flora.sanctum.core.store.ObjectStore;
@@ -13,6 +15,7 @@ import com.flora.sanctum.core.store.impl.CipherCodecAdapter;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -174,6 +177,9 @@ public final class TreeContext {
     /** 按归属加密写入（子文件夹用文件夹 DEK，顶层用 data 根 DEK），并同步内存图与索引。 */
     public void write(UUID uuid, JsonObject payload, UUID groupId) {
         writeCipherBlock(uuid, payload, dekFor(groupId));
+        // 子节点新建/编辑/标记删除后，尝试对其归属组做惰性密钥轮换（前向保密）
+        UUID parentGroup = (groupId == null) ? vault.rootObjectUuid() : groupId;
+        maybeRotateGroupKeys(parentGroup);
     }
 
     /** 用指定 DEK 加密写入（icon/sshKey/remote 按根概念路由），并同步内存图与索引。 */
@@ -202,19 +208,25 @@ public final class TreeContext {
     /** 删除对象并同步内存图、索引与块定位。 */
     public void delete(UUID uuid) {
         lock.lock();
+        UUID parent = null;
         try {
+            parent = parentOf.get(uuid);
             store.delete(uuid);
             objects.remove(uuid);
             blocks.remove(uuid);
-            UUID parent = parentOf.remove(uuid);
             if (parent != null) {
                 List<UUID> siblings = childrenByParent.get(parent);
                 if (siblings != null) {
                     siblings.remove(uuid);
                 }
             }
+            parentOf.remove(uuid);
         } finally {
             lock.unlock();
+        }
+        // 硬删除后其父组的退役 dek1 使用数可能下降 → 尝试轮换（含软删除块计入）
+        if (parent != null) {
+            maybeRotateGroupKeys(parent);
         }
     }
 
@@ -250,6 +262,102 @@ public final class TreeContext {
             return siblings == null ? List.of() : List.copyOf(siblings);
         } finally {
             lock.unlock();
+        }
+    }
+
+    /**
+     * 组密钥惰性轮换（前向保密，见设计"组密钥轮换"）。
+     * <p>
+     * 新/改子节点一律用活跃 dek2（{@link #dekFor} 取 dek2）。若退役中的 dek1 已无任何直接子节点
+     * 或条目字段使用（含软删除块——其仅打标记、保留 parent 链路，故仍在 {@code childrenOf} 中、
+     * 计入使用），则丢弃 dek1、把 dek2 提升为 dek1 并随机新建 dek2，然后用新密钥对重写组块。
+     * dek 与组 JSON 其他字段整体被父 DEK 加密，不单独包裹（避免双层加密）。
+     * <p>
+     * 仅枚举本组直接子节点与其条目字段判定 dek1 是否仍被使用——它们才是用本组 DEK 加密的对象，
+     * 不扫描全库；孙子节点用其自身父组 DEK，不在此范围。
+     */
+    public void maybeRotateGroupKeys(UUID groupUuid) {
+        if (groupUuid == null) {
+            return;
+        }
+        Vault.GroupKeys keys = vault.groupKeys(groupUuid);
+        if (keys == null) {
+            return;
+        }
+        byte[] dek1 = keys.dek1();
+        byte[] dek2 = keys.dek2();
+        // 尚未开始迁移（含旧格式单 dek：dek1==dek2）时不轮换
+        if (Arrays.equals(dek1, dek2)) {
+            return;
+        }
+        if (dek1StillUsed(groupUuid, dek1)) {
+            return; // dek1 仍被使用，不丢弃
+        }
+        // 轮换：dek2 提升为 dek1，随机新建 dek2
+        byte[] newDek2 = new byte[32];
+        random().nextBytes(newDek2);
+        vault.replaceGroupDek(groupUuid, dek2, newDek2);
+        rewriteGroupKeys(groupUuid, dek2, newDek2);
+    }
+
+    /** 退役中 dek1 是否仍被本组任一直接子节点/条目字段使用（含软删除块）。 */
+    private boolean dek1StillUsed(UUID groupUuid, byte[] dek1) {
+        byte[] seed = vault.repoKeyIdSeed();
+        if (seed == null) {
+            return true; // 无法判定时保守：认为仍在使用，不丢弃
+        }
+        for (UUID child : childrenOf(groupUuid)) {
+            if (blockUsesDek(child, dek1, seed)) {
+                return true;
+            }
+        }
+        // 条目字段的 parent 指向条目而非本组，但其块用本组 DEK 加密，需单列枚举
+        for (UUID entry : childrenOf(groupUuid)) {
+            JsonObject e = read(entry);
+            if (e == null || StoredNodeType.ENTRY != StoredNodeType.fromTag(e.getString("type"))) {
+                continue;
+            }
+            for (UUID field : childrenOf(entry)) {
+                if (blockUsesDek(field, dek1, seed)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** 块是否用指定 DEK 加密：仅读信封头 (nonce, keyId) 反推 dekId 比较，不解密、不扫描全库。 */
+    private boolean blockUsesDek(UUID uuid, byte[] dek, byte[] seed) {
+        Block b = blockOf(uuid);
+        if (b == null || !b.isCipher()) {
+            return false;
+        }
+        byte[] raw = b.masked();
+        if (raw.length < Envelope.HEADER_LEN) {
+            return false;
+        }
+        int no = Envelope.MAGIC_LEN + 2;
+        byte[] nonce = Arrays.copyOfRange(raw, no, no + Envelope.NONCE_LEN);
+        byte[] keyId = Arrays.copyOfRange(raw, no + Envelope.NONCE_LEN,
+                no + Envelope.NONCE_LEN + Envelope.KEYID_LEN);
+        byte[] cid = KeyIdDeriver.resolveDekId(seed, nonce, keyId);
+        return Arrays.equals(cid, KeyIdDeriver.dekId(dek));
+    }
+
+    /** 用新密钥对重写组（含根）块；dek1/dek2 随组 JSON 整体被父 DEK 加密，移除旧单 dek 字段。 */
+    private void rewriteGroupKeys(UUID groupUuid, byte[] dek1, byte[] dek2) {
+        JsonObject json = read(groupUuid);
+        if (json == null) {
+            return;
+        }
+        json.put("dek1", java.util.Base64.getEncoder().encodeToString(dek1));
+        json.put("dek2", java.util.Base64.getEncoder().encodeToString(dek2));
+        json.remove("dek");
+        if (groupUuid.equals(vault.rootObjectUuid())) {
+            // 根对象块整体以 KEK 加密（外层保护）
+            writeWithDek(groupUuid, json, vault.dataDek());
+        } else {
+            write(groupUuid, json, parentUuidOf(groupUuid));
         }
     }
 }

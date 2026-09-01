@@ -46,6 +46,7 @@ public final class NodeMover {
 
     private void moveGroup(UUID groupUuid, UUID newParent) {
         checkNoCycle(groupUuid, newParent);
+        UUID oldParent = ctx.parentUuidOf(groupUuid);
         JsonObject g = ctx.read(groupUuid);
         if (g == null) {
             throw new IllegalArgumentException("组不存在：" + groupUuid);
@@ -53,15 +54,20 @@ public final class NodeMover {
         if (newParent != null && typeOf(newParent) != StoredNodeType.GROUP) {
             throw new IllegalArgumentException("组的父必须是组或根");
         }
-        byte[] rawDek = vault.groupDek(groupUuid);
-        if (rawDek == null) {
+        Vault.GroupKeys keys = vault.groupKeys(groupUuid);
+        if (keys == null) {
             throw new IllegalStateException("组 DEK 尚未就绪（未解锁或已锁定）");
         }
-        // 组块整体改用新父 DEK 重加密（外层保护）；dek 字段直接存明文 base64，无需重新包裹
+        // 组块整体改用新父 DEK 重加密（外层保护）；dek1/dek2 直接存明文 base64，无需重新包裹
         g.put("parent", parentStr(newParent));
-        g.put("dek", Base64.getEncoder().encodeToString(rawDek));
+        g.put("dek1", Base64.getEncoder().encodeToString(keys.dek1()));
+        g.put("dek2", Base64.getEncoder().encodeToString(keys.dek2()));
+        g.remove("dek");
         ctx.write(groupUuid, g, newParent);
-        // 子孙（子组/条目/字段）加密 DEK 基于本组 DEK，移动前后不变，无需重加密
+        // 旧父失去本组这一子节点，其退役 dek1 使用数可能下降 → 尝试轮换
+        if (oldParent != null) {
+            ctx.maybeRotateGroupKeys(oldParent);
+        }
     }
 
     private void moveEntry(UUID entryUuid, UUID newParentGroup) {
@@ -75,6 +81,7 @@ public final class NodeMover {
         if (e == null) {
             throw new IllegalArgumentException("条目不存在：" + entryUuid);
         }
+        UUID oldParentGroup = ctx.parentGroupUuid(e);
         e.put("parent", newParentGroup.toString());
         ctx.write(entryUuid, e, newParentGroup);
         // 字段块随条目改归属到新组 DEK 之下重加密（field.parent 仍指向条目，不变）
@@ -83,6 +90,10 @@ public final class NodeMover {
             if (field != null) {
                 ctx.write(f, field, newParentGroup);
             }
+        }
+        // 旧父组失去本条目这一子节点，其退役 dek1 使用数可能下降 → 尝试轮换
+        if (oldParentGroup != null) {
+            ctx.maybeRotateGroupKeys(oldParentGroup);
         }
     }
 

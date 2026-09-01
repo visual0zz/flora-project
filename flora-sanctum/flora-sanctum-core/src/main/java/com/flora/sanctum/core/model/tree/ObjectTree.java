@@ -85,16 +85,23 @@ public final class ObjectTree extends DataTree {
     public GroupNode createGroup(UUID parentId, String name) {
         UUID groupUuid = UUID.randomUUID();
         UUID effectiveParent = parentId != null ? parentId : context().vault().rootObjectUuid();
-        byte[] dek = new byte[32];
-        context().random().nextBytes(dek);
-        // 组块整体用父组 DEK（顶层 rootDek）加密（外层保护），dek 字段直接存明文 base64，无需内层包裹
+        // 组块整体用父组 DEK（顶层 rootDek）加密（外层保护）；dek1/dek2 直接存明文 base64，无需内层包裹。
+        // 双 DEK：dek1 退役中、dek2 活跃，新/改子节点一律用 dek2（惰性轮换见 TreeContext）。
+        byte[] dek1 = new byte[32];
+        byte[] dek2 = new byte[32];
+        context().random().nextBytes(dek1);
+        context().random().nextBytes(dek2);
         JsonObject group = new JsonObject();
         group.put("type", StoredNodeType.GROUP.tag());
         group.put("name", name);
         group.put("parent", effectiveParent.toString());
-        group.put("dek", Base64.getEncoder().encodeToString(dek));
+        group.put("dek1", Base64.getEncoder().encodeToString(dek1));
+        group.put("dek2", Base64.getEncoder().encodeToString(dek2));
+        group.remove("dek");
         context().write(groupUuid, group, effectiveParent);
-        context().vault().addGroupDek(groupUuid, dek);
+        context().vault().addGroupDek(groupUuid, dek1, dek2);
+        java.util.Arrays.fill(dek1, (byte) 0);
+        java.util.Arrays.fill(dek2, (byte) 0);
         return new GroupNode(groupUuid, this);
     }
 

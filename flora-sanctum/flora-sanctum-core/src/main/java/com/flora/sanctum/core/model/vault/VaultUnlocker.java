@@ -103,17 +103,20 @@ public final class VaultUnlocker {
             throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_DECRYPT_FAILED);
         }
         com.flora.root.codec.json.model.JsonObject n = parsePlain(plain);
-        // 根对象以 KEK 加解密；必要内容是仓库级 keyId 派生种子与明文 rootDek
-        if (n == null || n.getString("repoKeyIdSeed") == null || n.getString("dek") == null) {
+        // 根对象以 KEK 加解密；必要内容是仓库级 keyId 派生种子与明文 rootDek 对（dek1/dek2）
+        if (n == null || n.getString("repoKeyIdSeed") == null) {
+            throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
+        }
+        Vault.GroupKeys rk = readGroupKeys(n);
+        if (rk == null) {
             throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
         }
         vault.addRootObjectUuid(rootUuid);
         vault.setRepoKeyIdSeed(java.util.Base64.getDecoder().decode(n.getString("repoKeyIdSeed")));
-        // dataDek 仍是 KEK（用于加密 root 块）；rootDek 明文解出后注册为 groupDek(rootUuid)，
-        // 顶层对象与顶层分组 DEK 的加密改由 rootDek 承担
+        // dataDek 仍是 KEK（用于加密 root 块）；rootDek 对明文解出后注册为 groupDek(rootUuid)，
+        // 顶层对象与顶层分组 DEK 的加密改由活跃 rootDek(dek2) 承担
         vault.addRootDek(kek);
-        byte[] rootDek = java.util.Base64.getDecoder().decode(n.getString("dek"));
-        vault.addGroupDek(rootUuid, rootDek);
+        vault.addGroupDek(rootUuid, rk.dek1(), rk.dek2());
         // 逐层发现 group DEK：repoKeyIdSeed 已读出，cipher 块经 keyId 路由定位父 DEK 解开；
         // 父 DEK 必先于子块登记于 KeyIdIndex（树自顶向下展开），故 keyId 路由始终可命中。
         boolean any = true;
@@ -131,12 +134,13 @@ public final class VaultUnlocker {
                 try {
                     com.flora.root.codec.json.model.JsonObject gn = parsePlain(d.plaintext);
                     StoredNodeType nt = StoredNodeType.fromTag(gn == null ? null : gn.getString("type"));
-                    if (nt == StoredNodeType.GROUP && gn.getString("dek") != null
-                            && vault.groupDek(b.uuid()) == null) {
-                        // 组块整体以父 DEK 加密（外层保护），dek 字段直接存明文 base64
-                        byte[] gdek = java.util.Base64.getDecoder().decode(gn.getString("dek"));
-                        vault.addGroupDek(b.uuid(), gdek);
-                        any = true;
+                    if (nt == StoredNodeType.GROUP) {
+                        // 组块整体以父 DEK 加密（外层保护），dek1/dek2 字段直接存明文 base64
+                        Vault.GroupKeys gk = readGroupKeys(gn);
+                        if (gk != null && vault.groupKeys(b.uuid()) == null) {
+                            vault.addGroupDek(b.uuid(), gk.dek1(), gk.dek2());
+                            any = true;
+                        }
                     }
                 } catch (Exception ignore) {
                 }
@@ -151,6 +155,26 @@ public final class VaultUnlocker {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /**
+     * 从组/根对象 JSON 读取密钥对：新格式取 dek1/dek2；旧格式单 dek 则 dek1==dek2==dek。
+     * 两者均缺失返回 null（必要字段不完整）。
+     */
+    private static Vault.GroupKeys readGroupKeys(com.flora.root.codec.json.model.JsonObject gn) {
+        String s1 = gn.getString("dek1");
+        String s2 = gn.getString("dek2");
+        if (s1 != null && s2 != null) {
+            return new Vault.GroupKeys(
+                    java.util.Base64.getDecoder().decode(s1),
+                    java.util.Base64.getDecoder().decode(s2));
+        }
+        String sd = gn.getString("dek"); // 旧格式单 dek 回退
+        if (sd == null) {
+            return null;
+        }
+        byte[] d = java.util.Base64.getDecoder().decode(sd);
+        return new Vault.GroupKeys(d, d);
     }
 
     private byte[] tryDecode(Vault vault, byte[] dk, Block b) {

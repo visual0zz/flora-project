@@ -31,7 +31,19 @@ public final class Vault {
     private WarehouseClock clock;
     private byte[] dataDek; // 根级密钥（即 KEK）：根对象直接用 KEK 加解密，无独立根 DEK
     private java.util.UUID rootObjectUuid; // 唯一根对象 uuid（由 KEK 单向推导，解锁后登记）
-    private final java.util.Map<java.util.UUID, byte[]> groupDeks = new java.util.LinkedHashMap<>();
+    /** 组密钥对：dek1=退役中（旧键，可能仍被旧子节点使用），dek2=活跃（新写入子节点用）。 */
+    public static final record GroupKeys(byte[] dek1, byte[] dek2) {
+        public GroupKeys {
+            dek1 = dek1.clone();
+            dek2 = dek2.clone();
+        }
+        public byte[] dek1() { return dek1.clone(); }
+        public byte[] dek2() { return dek2.clone(); }
+    }
+
+    // 并发写入下 createGroup（建组登记）与 maybeRotateGroupKeys（轮换改写登记）会并发读写本表，
+    // 故用并发安全映射，避免 LinkedHashMap 在并发 get/put 下抛出 ConcurrentModificationException。
+    private final java.util.Map<java.util.UUID, GroupKeys> groupDeks = new java.util.concurrent.ConcurrentHashMap<>();
     private byte[] kek; // 解锁期间驻留内存，锁定/关闭时清除
     private byte[] repoKeyIdSeed; // 仓库级 keyId 派生种子（DATA 根 json 存储），锁定/关闭时清除
 
@@ -88,16 +100,30 @@ public final class Vault {
         return d == null ? null : d.clone();
     }
 
-    /** 登记 group DEK（group uuid → DEK，供目录/递归解锁/创建路由）。 */
-    public void addGroupDek(java.util.UUID groupUuid, byte[] dek) {
-        groupDeks.put(groupUuid, dek.clone());
-        keyIdIndex.register(dek);
+    /** 登记 group 密钥对（dek1 退役中 / dek2 活跃），两者均登记进 keyId 索引。 */
+    public void addGroupDek(java.util.UUID groupUuid, byte[] dek1, byte[] dek2) {
+        groupDeks.put(groupUuid, new GroupKeys(dek1, dek2));
+        keyIdIndex.register(dek1);
+        if (!java.util.Arrays.equals(dek1, dek2)) {
+            keyIdIndex.register(dek2);
+        }
     }
 
-    /** 取某 group 的 DEK。 */
+    /** 取某 group 的活跃 DEK（dek2，新写入子节点用）；未登记返回 null。 */
     public byte[] groupDek(java.util.UUID groupUuid) {
-        byte[] d = groupDeks.get(groupUuid);
-        return d == null ? null : d.clone();
+        GroupKeys k = groupDeks.get(groupUuid);
+        return k == null ? null : k.dek2();
+    }
+
+    /** 取某 group 的完整密钥对（含退役中 dek1）；未登记返回 null。 */
+    public GroupKeys groupKeys(java.util.UUID groupUuid) {
+        GroupKeys k = groupDeks.get(groupUuid);
+        return k == null ? null : new GroupKeys(k.dek1(), k.dek2());
+    }
+
+    /** 原地替换 group 密钥对（轮换后调用：dek2 提升为 dek1，并随机新建 dek2）。 */
+    public void replaceGroupDek(java.util.UUID groupUuid, byte[] dek1, byte[] dek2) {
+        addGroupDek(groupUuid, dek1, dek2);
     }
 
     /** 驻留内存的 KEK（解锁期间；锁定后为 null）。 */
@@ -136,8 +162,9 @@ public final class Vault {
             java.util.Arrays.fill(dataDek, (byte) 0);
             dataDek = null;
         }
-        for (byte[] d : groupDeks.values()) {
-            java.util.Arrays.fill(d, (byte) 0);
+        for (GroupKeys k : groupDeks.values()) {
+            java.util.Arrays.fill(k.dek1(), (byte) 0);
+            java.util.Arrays.fill(k.dek2(), (byte) 0);
         }
         groupDeks.clear();
         if (repoKeyIdSeed != null) {

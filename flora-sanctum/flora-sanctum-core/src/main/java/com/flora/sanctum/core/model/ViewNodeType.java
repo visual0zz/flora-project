@@ -25,7 +25,12 @@ public enum ViewNodeType {
      * 外部密钥虚拟根（与数据根平级，只读聚合展示所有 {@code kind:"externalKey"} 字段；
      * 见需求：主界面展示用虚拟顶层节点，展示实际存储路径 + 脱敏密钥）。
      */
-    EXTERNAL_KEY("外部密钥");
+    EXTERNAL_KEY("外部密钥"),
+    /**
+     * 动态码虚拟根（与数据根平级，只读聚合展示所有 {@code kind:"totp"} 字段；
+     * 中间条目列表动态刷新每条的动态码，选中后右侧只读展示所属条目路径等信息）。
+     */
+    TOTP("动态码");
 
     private final String displayName;
 

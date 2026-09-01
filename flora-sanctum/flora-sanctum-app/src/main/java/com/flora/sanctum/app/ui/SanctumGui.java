@@ -120,6 +120,16 @@ public final class SanctumGui {
     private List<com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo> externalKeys = List.of();
     /** 外部密钥字段 uuid 集合（快速判定某个 uuid 是否属于外部密钥虚拟区段）。 */
     private java.util.Set<UUID> externalKeyUuids = java.util.Set.of();
+    /** TOTP 虚拟区段数据源：全部 kind:"totp" 字段（重建树时刷新）。 */
+    private List<FieldNode> totpFieldsCache = List.of();
+    /** TOTP 字段 uuid 集合（快速判定某个 uuid 是否属于 TOTP 虚拟区段）。 */
+    private java.util.Set<UUID> totpUuids = java.util.Set.of();
+    /** TOTP 聚合视图是否激活（区段根或某条 TOTP 被选中），驱动动态码定时器。 */
+    private boolean totpViewActive = false;
+    /** TOTP 中间列表项顺序（定时器原地刷新展示文本用）。 */
+    private List<UUID> totpListOrder = List.of();
+    /** 动态码刷新定时器（1s）。 */
+    private javax.swing.Timer totpTimer;
 
     /** 应用形态：读系统级配置（~/.flora-sanctum/config.json），页面从历史仓库列表开始。 */
     private SanctumGui() {
@@ -958,7 +968,16 @@ public final class SanctumGui {
         groupTree.addTreeSelectionListener(e -> {
             resetAutoLock();
             updateToolbar();
+            // 离开 TOTP 视图即停定时器（任一非 TOTP 选择都先停，避免误刷其它列表）
+            totpViewActive = false;
+            stopTotpTimer();
             Object sel = currentSelection();
+            // 选中 TOTP 字段 → 填充中间列表（动态码）+ 右侧只读详情
+            if (sel instanceof UUID u && isTotpSelection()) {
+                refreshEntryList("");
+                renderTotpNode(u);
+                return;
+            }
             // 选中外部密钥字段 → 右侧只读详情，不刷新条目列表
             if (sel instanceof UUID u && isExternalKeySelection()) {
                 renderExternalKeyNode(u);
@@ -1077,8 +1096,8 @@ public final class SanctumGui {
     /** 根据当前树选择切换工具栏按钮可用性。 */
     private void updateToolbar() {
         ViewNodeType section = sectionOf(currentSelection());
-        // 选中垃圾桶 / 外部密钥节点 → 只读，禁用新建/删除
-        if (isTrashSelection() || isExternalKeySelection()) {
+        // 选中垃圾桶 / 外部密钥 / 动态码节点 → 只读，禁用新建/删除
+        if (isTrashSelection() || isExternalKeySelection() || isTotpSelection()) {
             newEntryBtn.setEnabled(false);
             newGroupBtn.setEnabled(false);
             delBtn.setEnabled(false);
@@ -1153,6 +1172,22 @@ public final class SanctumGui {
             DefaultMutableTreeNode leaf = new DefaultMutableTreeNode(info.name());
             leaf.setUserObject(info.uuid());
             externalKeyNode.add(leaf);
+        }
+
+        // 动态码虚拟根（与数据根平级，只读聚合展示所有 totp 字段，中间列表动态刷新动态码）
+        totpFieldsCache = totpFields();
+        java.util.Set<UUID> tSet = new java.util.HashSet<>();
+        for (FieldNode tf : totpFieldsCache) {
+            tSet.add(tf.uuid());
+        }
+        totpUuids = tSet;
+        DefaultMutableTreeNode totpNode = new DefaultMutableTreeNode("动态码");
+        totpNode.setUserObject(ViewNodeType.TOTP);
+        treeRoot.add(totpNode);
+        for (FieldNode tf : totpFieldsCache) {
+            DefaultMutableTreeNode leaf = new DefaultMutableTreeNode(totpItemName(tf));
+            leaf.setUserObject(tf.uuid());
+            totpNode.add(leaf);
         }
 
         groupTree.setModel(new DefaultTreeModel(treeRoot));
@@ -1422,6 +1457,11 @@ public final class SanctumGui {
         Object sel = currentSelection();
         ViewNodeType section = sectionOf(sel);
         UUID groupId = section == null ? groupIdOf(sel) : null;
+        // 进入 TOTP 视图且非搜索时才启动动态码定时器；其它任何情形（含搜索）一律停止
+        if (section != ViewNodeType.TOTP || !q.isEmpty()) {
+            totpViewActive = false;
+            stopTotpTimer();
+        }
 
         // 全局搜索：搜索非空时跨区段/文件夹搜索所有条目（不分当前选择）
         if (!q.isEmpty()) {
@@ -1485,6 +1525,20 @@ public final class SanctumGui {
                 String label = info.name() + (path.isEmpty() ? "" : "  ·  " + path);
                 entryModel.addElement(new EntryListItem(info.uuid(), StoredNodeType.FIELD, label, null));
             }
+            return;
+        }
+
+        // 动态码区段：列出全部 totp 字段，标签含所属条目名 + 动态刷新动态码（只读聚合视图）
+        if (ViewNodeType.TOTP == section) {
+            totpViewActive = true;
+            List<UUID> order = new java.util.ArrayList<>();
+            for (FieldNode tf : totpFieldsCache) {
+                order.add(tf.uuid());
+                String label = totpItemName(tf) + "  ·  " + safeTotp(tf) + " (" + totpRemaining() + "s)";
+                entryModel.addElement(new EntryListItem(tf.uuid(), StoredNodeType.FIELD, label, null));
+            }
+            totpListOrder = order;
+            startTotpTimer();
             return;
         }
 
@@ -1682,7 +1736,22 @@ public final class SanctumGui {
 
     /** 若当前选中是区段节点（ViewNodeType userObject）则返回，否则 null。 */
     private ViewNodeType sectionOf(Object sel) {
-        return sel instanceof ViewNodeType t ? t : null;
+        if (sel instanceof ViewNodeType t) {
+            return t;
+        }
+        // 虚拟区段内的叶子（字段 uuid）归入其所属区段，便于 refreshEntryList 正确识别
+        if (sel instanceof UUID u) {
+            if (externalKeyUuids.contains(u)) {
+                return ViewNodeType.EXTERNAL_KEY;
+            }
+            if (totpUuids.contains(u)) {
+                return ViewNodeType.TOTP;
+            }
+            if (trashView != null && trashView.contains(u)) {
+                return ViewNodeType.TRASH;
+            }
+        }
+        return null;
     }
 
     /** 区段展示名（对象树区段与设置区段等）。 */
@@ -1693,6 +1762,7 @@ public final class SanctumGui {
             case REMOTE -> "远程";
             case PASSWORD -> "密码库";
             case EXTERNAL_KEY -> "外部密钥";
+            case TOTP -> "动态码";
             default -> "设置";
         };
     }
@@ -1712,6 +1782,11 @@ public final class SanctumGui {
         // 外部密钥字段：右侧展示只读详情（实际存储路径 + 脱敏密钥）
         if (externalKeyUuids.contains(u)) {
             renderExternalKeyNode(u);
+            return;
+        }
+        // TOTP 字段：右侧展示只读详情（所属条目路径 + 动态码 + 脱敏种子）
+        if (totpUuids.contains(u)) {
+            renderTotpNode(u);
             return;
         }
         // 垃圾桶中的对象：右侧展示只读详情（含所属类型：手动删除/不可达/不可解锁）
@@ -2134,8 +2209,13 @@ public final class SanctumGui {
         editPanel.repaint();
     }
 
-    /** 外部密钥字段的实际存储路径：字段名沿 field → 所属条目 → 文件夹链回溯。 */
+    /** 外部密钥字段的实际存储路径：委托通用字段路径计算。 */
     private String externalKeyStoragePath(UUID fieldUuid) {
+        return fieldStoragePath(fieldUuid);
+    }
+
+    /** 任意字段的实际存储路径：沿 field → 所属条目 → 文件夹链回溯为「文件夹/条目/字段」。 */
+    private String fieldStoragePath(UUID fieldUuid) {
         FieldNode f = sanctum.objectTree().field(fieldUuid);
         if (f == null || f.data() == null) {
             return "";
@@ -2153,6 +2233,159 @@ public final class SanctumGui {
         String path = folder.isEmpty() ? entryName : folder + "/" + entryName;
         String fieldName = f.fieldName();
         return path + " / " + (fieldName == null || fieldName.isBlank() ? "未命名" : fieldName);
+    }
+
+    /** TOTP 只读详情：所属条目名 + 字段名 + 存储路径 + 当前动态码 + 脱敏种子。 */
+    private void renderTotpNode(UUID uuid) {
+        editPanel.removeAll();
+        FieldNode f = sanctum.objectTree().field(uuid);
+        String entryName = "?";
+        String fieldName = "?";
+        String path = "";
+        String seed = "";
+        if (f != null && f.data() != null) {
+            fieldName = f.fieldName() == null ? "未命名" : f.fieldName();
+            seed = f.value() == null ? "" : f.value();
+            String pid = f.data().getString("parent");
+            if (pid != null) {
+                EntryNode e = sanctum.objectTree().entry(UUID.fromString(pid));
+                if (e != null) {
+                    entryName = e.name() == null ? "未命名" : e.name();
+                    path = fieldStoragePath(uuid);
+                }
+            }
+        }
+
+        JLabel title = new JLabel("动态码 (TOTP)");
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 14f));
+        title.setForeground(new java.awt.Color(70, 90, 150));
+        editPanel.add(title);
+        addInfoLabel("只读聚合视图，编辑请在所属条目的编辑页进行", editPanel);
+
+        editPanel.add(makeInfoRow("条目", entryName));
+        editPanel.add(makeInfoRow("字段", fieldName));
+        editPanel.add(makeInfoRow("存储路径", path));
+
+        // 当前动态码（大号展示 + 倒计时）
+        String code = safeTotp(f);
+        JLabel codeLabel = new JLabel(code + "  (" + totpRemaining() + "s)");
+        codeLabel.setFont(codeLabel.getFont().deriveFont(Font.BOLD, 20f));
+        codeLabel.setForeground(new java.awt.Color(40, 110, 60));
+        editPanel.add(codeLabel);
+
+        // 种子（脱敏展示，眼睛切换，不可编辑）
+        PasswordField seedField = new PasswordField(28);
+        seedField.setText(seed);
+        seedField.setEditable(false);
+        editPanel.add(makeEntryRow("种子 :", seedField, false));
+
+        // 复制动态码（明文进剪贴板，走统一清空计时）
+        JButton copyBtn = new JButton("复制动态码");
+        copyBtn.addActionListener(e -> {
+            if (code == null || code.isEmpty() || "——".equals(code)) {
+                statusLabel.setText("动态码不可用");
+                return;
+            }
+            setClipboard(code);
+            copiedPlaintext = code;
+            startClipboardTimer();
+            statusLabel.setText("已复制");
+        });
+        JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        actionRow.setOpaque(false);
+        actionRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        actionRow.add(copyBtn);
+        editPanel.add(actionRow);
+
+        editPanel.revalidate();
+        editPanel.repaint();
+    }
+
+    /** TOTP 列表项展示名：所属条目名 / 字段名。 */
+    private String totpItemName(FieldNode f) {
+        String fieldName = f.fieldName();
+        String pid = f.data() == null ? null : f.data().getString("parent");
+        String entryName = "?";
+        if (pid != null) {
+            EntryNode e = sanctum.objectTree().entry(UUID.fromString(pid));
+            if (e != null) {
+                entryName = e.name() == null ? "未命名" : e.name();
+            }
+        }
+        return entryName + " / " + (fieldName == null || fieldName.isBlank() ? "未命名" : fieldName);
+    }
+
+    /** 当前 TOTP 动态码（解析失败返回占位符）。 */
+    private String safeTotp(FieldNode f) {
+        if (f == null) {
+            return "——";
+        }
+        try {
+            return f.totpCode();
+        } catch (Exception ex) {
+            return "——";
+        }
+    }
+
+    /** 距下次动态码刷新的剩余秒数（与 FieldNode.totpCode 固定 30s 周期一致）。 */
+    private int totpRemaining() {
+        int period = 30;
+        return period - (int) (System.currentTimeMillis() / 1000 % period);
+    }
+
+    /** 列出全部 kind:"totp" 字段（跨所有未删除条目）。 */
+    private List<FieldNode> totpFields() {
+        List<FieldNode> out = new java.util.ArrayList<>();
+        for (TreeNode n : sanctum.objectTree().nodes()) {
+            if (n instanceof EntryNode e && !e.deleted()) {
+                for (FieldNode f : e.fields()) {
+                    if ("totp".equals(f.kind())) {
+                        out.add(f);
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    /** 当前选中是否为 TOTP 虚拟区段内的某个字段（只读聚合视图）。 */
+    private boolean isTotpSelection() {
+        Object sel = currentSelection();
+        return sel instanceof UUID u && totpUuids.contains(u);
+    }
+
+    /** 启动动态码刷新定时器（1s）；已存在则直接启动。 */
+    private void startTotpTimer() {
+        if (totpTimer == null) {
+            totpTimer = new javax.swing.Timer(1000, e -> refreshTotpCodes());
+        }
+        if (!totpTimer.isRunning()) {
+            totpTimer.start();
+        }
+    }
+
+    /** 停止动态码刷新定时器。 */
+    private void stopTotpTimer() {
+        if (totpTimer != null && totpTimer.isRunning()) {
+            totpTimer.stop();
+        }
+    }
+
+    /** 定时器回调：原地刷新中间列表的动态码（不重建模型，避免选中/右侧面板抖动）。 */
+    private void refreshTotpCodes() {
+        if (!totpViewActive) {
+            stopTotpTimer();
+            return;
+        }
+        for (int i = 0; i < totpListOrder.size() && i < entryModel.size(); i++) {
+            UUID id = totpListOrder.get(i);
+            FieldNode f = sanctum.objectTree().field(id);
+            if (f == null) {
+                continue;
+            }
+            String label = totpItemName(f) + "  ·  " + safeTotp(f) + " (" + totpRemaining() + "s)";
+            entryModel.setElementAt(new EntryListItem(id, StoredNodeType.FIELD, label, null), i);
+        }
     }
 
     /** 渲染条目编辑面板（内置字段 + 自定义字段）。 */

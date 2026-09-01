@@ -18,17 +18,12 @@ public enum StoredNodeType {
     GROUP("group", ViewNodeType.PASSWORD),
     ENTRY("entry", ViewNodeType.PASSWORD),
     /**
-     * 预设字段（由系统创建/管理的条目元数据，如 password/url/username/labels/时间）。
-     * 负载字段：name/value/kind/parent。
+     * 字段块（预设与自定义统一）。预设/自定义的语义由字段名是否在
+     * {@link com.flora.sanctum.core.model.EntryFields#PRESET_NAMES} 区分；
+     * 块负载字段：name/value/kind/parent。
+     * 旧版本曾分 {@code predefField} / {@code customField} 两种 type，读端兼容映射到本值。
      */
-    PREDEF_FIELD("predefField", ViewNodeType.PASSWORD),
-    /**
-     * 自定义字段（kind 可为 null）。
-     * 与 {@link #PREDEF_FIELD} 的负载字段完全相同（name/value/kind/parent），但刻意分两种 type：
-     * 预设字段由系统创建/管理（条目元数据），自定义字段由用户创建；按 type 直接过滤对
-     * GC 可达性判定与遍历（仅自定义字段、仅预设字段）更方便，无需依赖 name 是否在预设集合。
-     */
-    CUSTOM_FIELD("customField", ViewNodeType.PASSWORD),
+    FIELD("field", ViewNodeType.PASSWORD),
     /** 仓库级设置项（key/value，存 DATA 根下，不显示为普通对象）。 */
     CONFIG("config", ViewNodeType.SETTINGS),
     ICON("icon", ViewNodeType.ICON),
@@ -54,10 +49,13 @@ public enum StoredNodeType {
         return Optional.ofNullable(view);
     }
 
-    /** 解析存储 type 字符串；未知或 null 返回 null。 */
+    /** 解析存储 type 字符串；未知或 null 返回 null。旧版字段 type（predefField/customField）映射为 FIELD。 */
     public static StoredNodeType fromTag(String s) {
         if (s == null) {
             return null;
+        }
+        if ("predefField".equals(s) || "customField".equals(s)) {
+            return FIELD;
         }
         for (StoredNodeType t : values()) {
             if (t.tag.equals(s)) {

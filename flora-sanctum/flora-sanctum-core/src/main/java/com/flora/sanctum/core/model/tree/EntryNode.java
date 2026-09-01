@@ -10,10 +10,10 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 条目节点：内置预设字段（名称/密码/URL/用户名/标签/创建时间/更新时间）+ 自定义字段。
+ * 条目节点：内置预设字段（名称/密码/URL/用户名/标签/备注）+ 自定义字段。
  * <p>
- * 预设字段以独立块存储（块 type 为 {@code field}，fieldName 固定为预设名，随机 uuid，parent=条目），
- * 自定义字段块 type 为 {@code customField}。
+ * 预设与自定义字段均以独立块存储（统一块 type 为 {@code field}，随机 uuid，parent=条目）；
+ * 预设/自定义语义由字段名是否在 {@link EntryFields#PRESET_NAMES} 区分。
  * 新建/编辑/删除等操作由节点承担（见设计 05）。
  */
 public final class EntryNode extends ObjectNode {
@@ -98,11 +98,11 @@ public final class EntryNode extends ObjectNode {
         return f == null ? null : f.value();
     }
 
-    /** 按预设名在条目直接子节点中定位预设字段块（type=field、parent=本条目且 name 命中）。 */
+    /** 按预设名在条目直接子节点中定位预设字段块（name 命中且非外部密钥字段）。 */
     private FieldNode presetChild(String name) {
         for (UUID u : ctx().childrenOf(uuid())) {
             FieldNode f = tree().field(u);
-            if (f != null && f.type() == StoredNodeType.PREDEF_FIELD && name.equals(f.fieldName())) {
+            if (f != null && !"externalKey".equals(f.kind()) && name.equals(f.fieldName())) {
                 return f;
             }
         }
@@ -170,8 +170,8 @@ public final class EntryNode extends ObjectNode {
 
     /**
      * 统一的字段写入入口（创建或更新一个字段块，并刷新字段自身 updateTime）。
-     * 预设字段（{@link EntryFields#PRESET_NAMES}）写为 PREDEF_FIELD：按字段名复用同名块、
-     * 空值删除块；自定义字段写为 CUSTOM_FIELD：每次新建（随机 uuid）。
+     * 预设字段（{@link EntryFields#PRESET_NAMES}）按字段名复用同名块、空值删除块；
+     * 自定义字段每次新建（随机 uuid）。两类都写为统一的 {@code FIELD} 类型。
      *
      * @return 写入后的字段节点；预设字段空值删除时返回 null
      */
@@ -186,7 +186,7 @@ public final class EntryNode extends ObjectNode {
                 : writeCustomField(name, value, kind, groupId);
     }
 
-    /** 预设字段块：复用同名已有块 uuid；空值删除块；否则写 PREDEF_FIELD。 */
+    /** 预设字段块：复用同名已有块 uuid；空值删除块；否则写 FIELD。 */
     private FieldNode writePresetField(String name, String value, String kind, UUID groupId) {
         FieldNode existing = presetChild(name);
         if (value == null || value.isEmpty()) {
@@ -197,7 +197,7 @@ public final class EntryNode extends ObjectNode {
         }
         UUID pu = existing == null ? UUID.randomUUID() : existing.uuid();
         JsonObject f = new JsonObject();
-        f.put("type", StoredNodeType.PREDEF_FIELD.tag());
+        f.put("type", StoredNodeType.FIELD.tag());
         f.put("parent", uuid().toString());
         f.put("name", name);
         f.put("value", value);
@@ -209,11 +209,11 @@ public final class EntryNode extends ObjectNode {
         return tree().field(pu);
     }
 
-    /** 自定义字段块：每次新建（随机 uuid），写 CUSTOM_FIELD（kind 可选）。 */
+    /** 自定义字段块：每次新建（随机 uuid），写 FIELD（kind 可选）。 */
     private FieldNode writeCustomField(String name, String value, String kind, UUID groupId) {
         UUID fieldUuid = UUID.randomUUID();
         JsonObject f = new JsonObject();
-        f.put("type", StoredNodeType.CUSTOM_FIELD.tag());
+        f.put("type", StoredNodeType.FIELD.tag());
         f.put("parent", uuid().toString());
         f.put("name", name);
         f.put("value", value);
@@ -225,12 +225,12 @@ public final class EntryNode extends ObjectNode {
         return tree().field(fieldUuid);
     }
 
-    /** 直接自定义字段（type=customField；不含预设字段 type=field）。 */
+    /** 直接自定义字段（name 不在预设集合且非外部密钥字段）。 */
     public List<FieldNode> fields() {
         List<FieldNode> out = new ArrayList<>();
         for (UUID u : ctx().childrenOf(uuid())) {
             FieldNode f = tree().field(u);
-            if (f != null && f.type() == StoredNodeType.CUSTOM_FIELD) {
+            if (f != null && !EntryFields.isPreset(f.fieldName()) && !"externalKey".equals(f.kind())) {
                 out.add(f);
             }
         }

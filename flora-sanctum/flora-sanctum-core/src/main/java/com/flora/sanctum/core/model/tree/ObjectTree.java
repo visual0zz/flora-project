@@ -23,7 +23,7 @@ public final class ObjectTree extends DataTree {
     @Override
     protected boolean belongsTo(StoredNodeType type, String kind) {
         return type == StoredNodeType.GROUP || type == StoredNodeType.ENTRY
-                || type == StoredNodeType.PREDEF_FIELD || type == StoredNodeType.CUSTOM_FIELD;
+                || type == StoredNodeType.FIELD;
     }
 
     @Override

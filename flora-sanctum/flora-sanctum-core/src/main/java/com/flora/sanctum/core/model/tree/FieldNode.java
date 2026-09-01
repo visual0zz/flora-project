@@ -22,7 +22,7 @@ public final class FieldNode extends ObjectNode {
     @Override
     public StoredNodeType type() {
         StoredNodeType t = StoredNodeType.fromTag(data() == null ? null : data().getString("type"));
-        return t == null ? StoredNodeType.PREDEF_FIELD : t;
+        return t == null ? StoredNodeType.FIELD : t;
     }
 
     public String fieldName() {

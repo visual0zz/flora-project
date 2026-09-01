@@ -7,7 +7,7 @@ package com.flora.sanctum.core.model;
  * 以此为 userObject。存储类型经 {@link StoredNodeType#view()} 指向其展示归属。
  */
 public enum ViewNodeType {
-    /** 密码库区段（group/entry/field/customField 的展示归属）。 */
+    /** 密码库区段（group/entry/field 的展示归属）。 */
     PASSWORD("密码库"),
     ICON("图标"),
     SSH_KEY("SSH 密钥"),

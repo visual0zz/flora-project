@@ -112,25 +112,11 @@ public final class ObjectTree extends DataTree {
         entry.put("updateTime", now);
         context().write(entryUuid, entry, effectiveParent);
         // 预设字段独立块（password/url/username/labels 有值才写；createTime/updateTime 已在条目内）
-        writePreset(entryUuid, effectiveParent, "password", fields.password());
-        writePreset(entryUuid, effectiveParent, "url", fields.url());
-        writePreset(entryUuid, effectiveParent, "username", fields.username());
-        writePreset(entryUuid, effectiveParent, "labels", EntryFields.labelsToString(fields.labels()));
-        return new EntryNode(entryUuid, this);
-    }
-
-    /** 写预设字段块（随机 uuid，parent 指向条目，与自定义字段结构一致；value 空则不写）。 */
-    private void writePreset(UUID entryUuid, UUID groupId, String name, String value) {
-        if (value == null || value.isEmpty()) {
-            return;
-        }
-        UUID fieldUuid = UUID.randomUUID();
-        JsonObject f = new JsonObject();
-        f.put("type", StoredNodeType.PREDEF_FIELD.tag());
-        f.put("parent", entryUuid.toString());
-        f.put("name", name);
-        f.put("value", value);
-        f.put("updateTime", System.currentTimeMillis());
-        context().write(fieldUuid, f, groupId);
+        EntryNode node = new EntryNode(entryUuid, this);
+        node.writeField("password", fields.password(), null);
+        node.writeField("url", fields.url(), null);
+        node.writeField("username", fields.username(), null);
+        node.writeField("labels", EntryFields.labelsToString(fields.labels()), null);
+        return node;
     }
 }

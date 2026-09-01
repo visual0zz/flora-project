@@ -112,7 +112,7 @@ public final class SanctumJsonImporter implements Importer {
                 String fv = str(fo, "value");
                 String fk = str(fo, "kind");
                 if (fn != null && !fn.isEmpty()) {
-                    e.createField(fn, fv == null ? "" : fv, fk);
+                    e.writeField(fn, fv == null ? "" : fv, fk);
                     fields++;
                 }
             }

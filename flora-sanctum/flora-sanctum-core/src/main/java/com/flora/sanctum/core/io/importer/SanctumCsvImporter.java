@@ -112,7 +112,7 @@ public final class SanctumCsvImporter implements Importer {
                             String fval = str(fo, "value");
                             String fk = str(fo, "kind");
                             if (fn != null && !fn.isEmpty()) {
-                                e.createField(fn, fval == null ? "" : fval, fk);
+                                e.writeField(fn, fval == null ? "" : fval, fk);
                                 fields++;
                             }
                         }

@@ -125,7 +125,7 @@ final class KdbxMapper {
                 kind = "totp";
             }
             try {
-                en.createField(fieldName, kf.value, kind);
+                en.writeField(fieldName, kf.value, kind);
                 fcount++;
             } catch (IllegalArgumentException ex) {
                 warnings.add("条目「" + ke.name + "」字段「" + fieldName + "」跳过：" + ex.getMessage());

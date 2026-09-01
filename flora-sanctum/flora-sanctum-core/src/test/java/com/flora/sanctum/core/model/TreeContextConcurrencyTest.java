@@ -54,7 +54,7 @@ class TreeContextConcurrencyTest {
                             createdEntries.add(entry.uuid());
                         }
                         // 追加自定义字段（走 ctx.write）
-                        FieldNode f = entry.createField("note-" + i, "v", null);
+                        FieldNode f = entry.writeField("note-" + i, "v", null);
                         // 立即读取 childrenOf，验证索引在并发下可用且一致
                         List<UUID> kids = ctx.childrenOf(entry.uuid());
                         assertTrue(kids.contains(f.uuid()), "字段应出现在条目的 childrenOf");

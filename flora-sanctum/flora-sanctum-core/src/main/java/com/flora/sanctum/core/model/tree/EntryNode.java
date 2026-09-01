@@ -128,23 +128,18 @@ public final class EntryNode extends ObjectNode {
         }
         UUID groupId = ctx().parentGroupUuid(entry);
         long now = System.currentTimeMillis();
-        writePreset("password", fields.password(), groupId);
-        writePreset("url", fields.url(), groupId);
-        writePreset("username", fields.username(), groupId);
-        writePreset("labels", EntryFields.labelsToString(fields.labels()), groupId);
-        // 条目自身最后修改时间同步刷新（字段块的 updateTime 已在 writePreset 内刷新）
+        writeField("password", fields.password(), null);
+        writeField("url", fields.url(), null);
+        writeField("username", fields.username(), null);
+        writeField("labels", EntryFields.labelsToString(fields.labels()), null);
+        // 条目自身最后修改时间同步刷新（字段块的 updateTime 已在 writeField 内刷新）
         entry.put("updateTime", now);
         ctx().write(uuid(), entry, groupId);
     }
 
     /** 设置/清除备注（内置预设字段，独立块；value 空则删除块）。 */
     public void setNotes(String notes) {
-        JsonObject entry = data();
-        if (entry == null) {
-            throw new IllegalArgumentException("entry not found");
-        }
-        UUID groupId = ctx().parentGroupUuid(entry);
-        writePreset("notes", notes, groupId);
+        writeField("notes", notes, null);
     }
 
     /** 设置/清除自定义图标引用（iconUuid=null 清除）。 */
@@ -173,23 +168,60 @@ public final class EntryNode extends ObjectNode {
         ctx().write(uuid(), entry, groupId);
     }
 
-    /** 在此条目下新建自定义字段（kind 可为 null；块 type 为 customField）。 */
-    public FieldNode createField(String fieldName, String value, String kind) {
-        if (EntryFields.isPreset(fieldName)) {
-            throw new IllegalArgumentException("预设字段名不可用于自定义字段: " + fieldName);
+    /**
+     * 统一的字段写入入口（创建或更新一个字段块，并刷新字段自身 updateTime）。
+     * 预设字段（{@link EntryFields#PRESET_NAMES}）写为 PREDEF_FIELD：按字段名复用同名块、
+     * 空值删除块；自定义字段写为 CUSTOM_FIELD：每次新建（随机 uuid）。
+     *
+     * @return 写入后的字段节点；预设字段空值删除时返回 null
+     */
+    public FieldNode writeField(String name, String value, String kind) {
+        JsonObject entry = data();
+        if (entry == null) {
+            throw new IllegalArgumentException("entry not found");
         }
-        UUID groupId = ctx().parentGroupUuid(data());
-        UUID fieldUuid = UUID.randomUUID();
-        JsonObject field = new JsonObject();
-        field.put("type", StoredNodeType.CUSTOM_FIELD.tag());
-        field.put("parent", uuid().toString());
-        field.put("name", fieldName);
-        field.put("value", value);
+        UUID groupId = ctx().parentGroupUuid(entry);
+        return EntryFields.isPreset(name)
+                ? writePresetField(name, value, kind, groupId)
+                : writeCustomField(name, value, kind, groupId);
+    }
+
+    /** 预设字段块：复用同名已有块 uuid；空值删除块；否则写 PREDEF_FIELD。 */
+    private FieldNode writePresetField(String name, String value, String kind, UUID groupId) {
+        FieldNode existing = presetChild(name);
+        if (value == null || value.isEmpty()) {
+            if (existing != null) {
+                ctx().delete(existing.uuid());
+            }
+            return null;
+        }
+        UUID pu = existing == null ? UUID.randomUUID() : existing.uuid();
+        JsonObject f = new JsonObject();
+        f.put("type", StoredNodeType.PREDEF_FIELD.tag());
+        f.put("parent", uuid().toString());
+        f.put("name", name);
+        f.put("value", value);
         if (kind != null) {
-            field.put("kind", kind);
+            f.put("kind", kind);
         }
-        field.put("updateTime", System.currentTimeMillis());
-        ctx().write(fieldUuid, field, groupId);
+        f.put("updateTime", System.currentTimeMillis());
+        ctx().write(pu, f, groupId);
+        return tree().field(pu);
+    }
+
+    /** 自定义字段块：每次新建（随机 uuid），写 CUSTOM_FIELD（kind 可选）。 */
+    private FieldNode writeCustomField(String name, String value, String kind, UUID groupId) {
+        UUID fieldUuid = UUID.randomUUID();
+        JsonObject f = new JsonObject();
+        f.put("type", StoredNodeType.CUSTOM_FIELD.tag());
+        f.put("parent", uuid().toString());
+        f.put("name", name);
+        f.put("value", value);
+        if (kind != null) {
+            f.put("kind", kind);
+        }
+        f.put("updateTime", System.currentTimeMillis());
+        ctx().write(fieldUuid, f, groupId);
         return tree().field(fieldUuid);
     }
 
@@ -238,24 +270,5 @@ public final class EntryNode extends ObjectNode {
             }
         }
         return out;
-    }
-
-    /** 写预设字段块（value 空则删除块；复用同名已有块 uuid，否则随机 uuid；parent 指向本条目）。 */
-    void writePreset(String name, String value, UUID groupId) {
-        FieldNode existing = presetChild(name);
-        if (value == null || value.isEmpty()) {
-            if (existing != null) {
-                ctx().delete(existing.uuid());
-            }
-            return;
-        }
-        UUID pu = existing == null ? UUID.randomUUID() : existing.uuid();
-        JsonObject f = new JsonObject();
-        f.put("type", StoredNodeType.PREDEF_FIELD.tag());
-        f.put("parent", uuid().toString());
-        f.put("name", name);
-        f.put("value", value);
-        f.put("updateTime", System.currentTimeMillis());
-        ctx().write(pu, f, groupId);
     }
 }

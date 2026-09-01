@@ -50,7 +50,7 @@ class SanctumFormatTest {
                 List.of("work", "important")));
         EntryNode top = st.createEntry(null, "顶层条目",
                 new EntryFields("toppw", null, "bob", List.of("misc")));
-        FieldNode note = top.createField("memo", "自定义备注", "text");
+        FieldNode note = top.writeField("memo", "自定义备注", "text");
         assertNotNull(note);
 
         // 导出到临时文件

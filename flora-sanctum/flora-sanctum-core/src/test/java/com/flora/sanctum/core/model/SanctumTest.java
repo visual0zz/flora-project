@@ -50,7 +50,7 @@ class SanctumTest {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "条目",
                 new EntryFields("s3cret", null, "alice", List.of()));
-        FieldNode note = entry.createField("memo", "memo", null);
+        FieldNode note = entry.writeField("memo", "memo", null);
 
         note.delete();
         assertNull(s.objectTree().field(note.uuid()));
@@ -171,7 +171,7 @@ class SanctumTest {
         GroupNode b = s.objectTree().createGroup(null, "B");
         GroupNode c = a.createChildGroup("C");
         EntryNode e = c.createEntry("条目", new EntryFields("pw", null, "u", List.of()));
-        e.createField("memo", "v", null);
+        e.writeField("memo", "v", null);
 
         // 把 C（含条目与字段）从 A 移到 B
         s.move(c.uuid(), b.uuid());
@@ -203,7 +203,7 @@ class SanctumTest {
         GroupNode a = s.objectTree().createGroup(null, "A");
         GroupNode b = s.objectTree().createGroup(null, "B");
         EntryNode e = a.createEntry("条目", new EntryFields("pw", null, "u", List.of()));
-        e.createField("memo", "v", null);
+        e.writeField("memo", "v", null);
 
         s.move(e.uuid(), b.uuid());
 
@@ -357,7 +357,7 @@ class SanctumTest {
     void updateFieldKindChangesKind() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "条目", EntryFields.EMPTY);
-        FieldNode field = entry.createField("memo", "memo", null);
+        FieldNode field = entry.writeField("memo", "memo", null);
         assertNull(field.kind());
         field.updateKind("totp");
         assertEquals("totp", s.objectTree().field(field.uuid()).kind());
@@ -380,7 +380,7 @@ class SanctumTest {
         assertEquals("new-password", s.objectTree().entry(entry.uuid()).password());
 
         // 创建并更新自定义字段（预设名 url 不可用于自定义字段）
-        FieldNode custom = entry.createField("website", "https://x", null);
+        FieldNode custom = entry.writeField("website", "https://x", null);
         custom.updateValue("https://updated");
         assertEquals("https://updated", s.objectTree().field(custom.uuid()).value());
 
@@ -591,7 +591,7 @@ class SanctumTest {
         GroupNode child = parent.createChildGroup("子");
         EntryNode e1 = parent.createEntry("条目A", EntryFields.EMPTY);
         EntryNode e2 = child.createEntry("条目B", EntryFields.EMPTY);
-        e1.createField("备注", "x", null);
+        e1.writeField("备注", "x", null);
 
         // 收集子树全部 uuid（组 + 条目 + 全部字段块，含预设字段块）
         List<UUID> descendants = new ArrayList<>();

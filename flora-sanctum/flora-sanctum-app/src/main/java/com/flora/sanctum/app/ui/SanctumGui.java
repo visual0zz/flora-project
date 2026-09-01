@@ -2307,7 +2307,7 @@ public final class SanctumGui {
                     statusLabel.setText("条目不存在");
                     return;
                 }
-                entryNode.createField(fn, valField.getText(), (String) kindCombo.getSelectedItem());
+                entryNode.writeField(fn, valField.getText(), (String) kindCombo.getSelectedItem());
                 renderEntry(entryUuid);
                 statusLabel.setText("字段已添加");
             } catch (Exception ex) {

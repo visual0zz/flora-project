@@ -11,6 +11,7 @@ import com.flora.sanctum.core.model.tree.GroupNode;
 import com.flora.sanctum.core.model.tree.IconNode;
 import com.flora.sanctum.core.model.tree.RemoteNode;
 import com.flora.sanctum.core.model.Sanctum;
+import com.flora.sanctum.core.model.ExternalKeyService;
 import com.flora.sanctum.core.model.Ref;
 import com.flora.sanctum.core.model.tree.SshKeyNode;
 import com.flora.sanctum.core.io.importer.ImportListeners;
@@ -115,6 +116,10 @@ public final class SanctumGui {
     private Path targetVaultRoot;
     /** 垃圾桶视图（每次重建树时刷新；含三类异常节点 uuid 与「原位置」计算）。 */
     private com.flora.sanctum.core.model.TrashView trashView;
+    /** 外部密钥列表（每次重建树时刷新；虚拟只读区段的数据源）。 */
+    private List<com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo> externalKeys = List.of();
+    /** 外部密钥字段 uuid 集合（快速判定某个 uuid 是否属于外部密钥虚拟区段）。 */
+    private java.util.Set<UUID> externalKeyUuids = java.util.Set.of();
 
     /** 应用形态：读系统级配置（~/.flora-sanctum/config.json），页面从历史仓库列表开始。 */
     private SanctumGui() {
@@ -954,6 +959,11 @@ public final class SanctumGui {
             resetAutoLock();
             updateToolbar();
             Object sel = currentSelection();
+            // 选中外部密钥字段 → 右侧只读详情，不刷新条目列表
+            if (sel instanceof UUID u && isExternalKeySelection()) {
+                renderExternalKeyNode(u);
+                return;
+            }
             // 选中垃圾桶节点 → 右侧只读详情，不刷新条目列表
             if (sel instanceof UUID u && isTrashSelection()) {
                 renderTrashNode(u);
@@ -1067,8 +1077,8 @@ public final class SanctumGui {
     /** 根据当前树选择切换工具栏按钮可用性。 */
     private void updateToolbar() {
         ViewNodeType section = sectionOf(currentSelection());
-        // 选中垃圾桶节点 → 只读，禁用新建/删除
-        if (isTrashSelection()) {
+        // 选中垃圾桶 / 外部密钥节点 → 只读，禁用新建/删除
+        if (isTrashSelection() || isExternalKeySelection()) {
             newEntryBtn.setEnabled(false);
             newGroupBtn.setEnabled(false);
             delBtn.setEnabled(false);
@@ -1096,6 +1106,14 @@ public final class SanctumGui {
         groupNodes.clear();
         groupCache = null; // 重置缓存
         trashView = sanctum.trash();
+        // 外部密钥虚拟区段数据源：列出全部 kind:"externalKey" 字段
+        ExternalKeyService ekSvc = new ExternalKeyService(sanctum);
+        externalKeys = ekSvc.list();
+        java.util.Set<UUID> ekSet = new java.util.HashSet<>();
+        for (com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo info : externalKeys) {
+            ekSet.add(info.uuid());
+        }
+        externalKeyUuids = ekSet;
 
         // 四个区段节点（对应展示区段，见 ViewNodeType）
         DefaultMutableTreeNode objectsNode = new DefaultMutableTreeNode("密码库");
@@ -1125,6 +1143,16 @@ public final class SanctumGui {
                     trashNode.add(leaf);
                 }
             }
+        }
+
+        // 外部密钥虚拟根（与数据根平级，只读聚合展示所有 externalKey 字段；见需求）
+        DefaultMutableTreeNode externalKeyNode = new DefaultMutableTreeNode("外部密钥");
+        externalKeyNode.setUserObject(ViewNodeType.EXTERNAL_KEY);
+        treeRoot.add(externalKeyNode);
+        for (com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo info : externalKeys) {
+            DefaultMutableTreeNode leaf = new DefaultMutableTreeNode(info.name());
+            leaf.setUserObject(info.uuid());
+            externalKeyNode.add(leaf);
         }
 
         groupTree.setModel(new DefaultTreeModel(treeRoot));
@@ -1332,6 +1360,12 @@ public final class SanctumGui {
         return false;
     }
 
+    /** 当前选中是否为外部密钥虚拟区段内的某个字段（只读聚合视图）。 */
+    private boolean isExternalKeySelection() {
+        Object sel = currentSelection();
+        return sel instanceof UUID u && externalKeyUuids.contains(u);
+    }
+
     private void addGroupNode(DefaultMutableTreeNode parentNode, UUID id, String name) {
         DefaultMutableTreeNode node = new DefaultMutableTreeNode(
                 name == null || name.isBlank() ? "未命名" : name);
@@ -1440,6 +1474,16 @@ public final class SanctumGui {
                         entryModel.addElement(new EntryListItem(id, typeOf(id), label, iconRefOfNode(id)));
                     }
                 }
+            }
+            return;
+        }
+
+        // 外部密钥区段：列出全部 externalKey 字段，标签含实际存储路径（只读聚合视图）
+        if (ViewNodeType.EXTERNAL_KEY == section) {
+            for (com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo info : externalKeys) {
+                String path = externalKeyStoragePath(info.uuid());
+                String label = info.name() + (path.isEmpty() ? "" : "  ·  " + path);
+                entryModel.addElement(new EntryListItem(info.uuid(), StoredNodeType.FIELD, label, null));
             }
             return;
         }
@@ -1648,6 +1692,7 @@ public final class SanctumGui {
             case SSH_KEY -> "SSH 密钥";
             case REMOTE -> "远程";
             case PASSWORD -> "密码库";
+            case EXTERNAL_KEY -> "外部密钥";
             default -> "设置";
         };
     }
@@ -1664,6 +1709,11 @@ public final class SanctumGui {
             return;
         }
         selectedEntry = u;
+        // 外部密钥字段：右侧展示只读详情（实际存储路径 + 脱敏密钥）
+        if (externalKeyUuids.contains(u)) {
+            renderExternalKeyNode(u);
+            return;
+        }
         // 垃圾桶中的对象：右侧展示只读详情（含所属类型：手动删除/不可达/不可解锁）
         if (trashView != null && trashView.contains(u)) {
             renderTrashNode(u);
@@ -2026,6 +2076,85 @@ public final class SanctumGui {
         }
     }
 
+    /** 外部密钥只读详情：名称 + 描述 + 实际存储路径 + 脱敏密钥（眼睛切换，不可编辑）。 */
+    private void renderExternalKeyNode(UUID uuid) {
+        editPanel.removeAll();
+        com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo info = null;
+        for (com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo i : externalKeys) {
+            if (i.uuid().equals(uuid)) {
+                info = i;
+                break;
+            }
+        }
+        FieldNode field = sanctum.objectTree().field(uuid);
+
+        JLabel title = new JLabel("外部密钥");
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 14f));
+        title.setForeground(new java.awt.Color(70, 90, 150));
+        editPanel.add(title);
+        // 只读提示
+        addInfoLabel("只读聚合视图，编辑请在所属条目的编辑页进行", editPanel);
+
+        editPanel.add(makeInfoRow("名称", info == null ? null : info.name()));
+        editPanel.add(makeInfoRow("描述", info == null ? null : info.description()));
+        editPanel.add(makeInfoRow("存储路径", externalKeyStoragePath(uuid)));
+
+        // 密钥材料：脱敏展示，眼睛切换（与密码一致），不可编辑
+        PasswordField secret = new PasswordField(28);
+        if (field != null) {
+            secret.setText(field.value() == null ? "" : field.value());
+        }
+        secret.setEditable(false);
+        editPanel.add(makeEntryRow("密钥 :", secret, false));
+
+        // 复制密钥按钮（明文进剪贴板，走统一清空计时）
+        JButton copyBtn = new JButton("复制密钥");
+        copyBtn.addActionListener(e -> {
+            if (field == null) {
+                statusLabel.setText("密钥不可读");
+                return;
+            }
+            String val = field.value();
+            if (val == null) {
+                statusLabel.setText("未设置密钥");
+                return;
+            }
+            setClipboard(val);
+            copiedPlaintext = val;
+            startClipboardTimer();
+            statusLabel.setText("已复制");
+        });
+        JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        actionRow.setOpaque(false);
+        actionRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        actionRow.add(copyBtn);
+        editPanel.add(actionRow);
+
+        editPanel.revalidate();
+        editPanel.repaint();
+    }
+
+    /** 外部密钥字段的实际存储路径：字段名沿 field → 所属条目 → 文件夹链回溯。 */
+    private String externalKeyStoragePath(UUID fieldUuid) {
+        FieldNode f = sanctum.objectTree().field(fieldUuid);
+        if (f == null || f.data() == null) {
+            return "";
+        }
+        String entryId = f.data().getString("parent");
+        if (entryId == null) {
+            return "";
+        }
+        EntryNode entry = sanctum.objectTree().entry(UUID.fromString(entryId));
+        if (entry == null) {
+            return "";
+        }
+        String folder = folderPathOf(entry);
+        String entryName = entry.name() == null ? "未命名" : entry.name();
+        String path = folder.isEmpty() ? entryName : folder + "/" + entryName;
+        String fieldName = f.fieldName();
+        return path + " / " + (fieldName == null || fieldName.isBlank() ? "未命名" : fieldName);
+    }
+
     /** 渲染条目编辑面板（内置字段 + 自定义字段）。 */
     private void renderEntry(UUID entryUuid) {
         editPanel.removeAll();
@@ -2070,7 +2199,7 @@ public final class SanctumGui {
         editPanel.add(makeInfoRow("更新时间", formatTime(entryNode.updateTime())));
 
         // 自定义字段区
-        Map<UUID, JTextField> fieldInputs = new LinkedHashMap<>();
+        Map<UUID, JComponent> fieldInputs = new LinkedHashMap<>();
         Map<UUID, JComboBox<String>> kindInputs = new LinkedHashMap<>();
         for (FieldNode field : entryNode.fields()) {
             String fn = field.fieldName();
@@ -2081,7 +2210,8 @@ public final class SanctumGui {
             row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
             JLabel fLabel = new JLabel((fn == null ? "" : fn) + " :");
             fLabel.setPreferredSize(new Dimension(110, 24));
-            JTextField fValue = makeEntryField(val);
+            // 机密类字段脱敏显示（externalKey/password/totp），与密码输入控件一致（眼睛切换、可编辑）
+            JComponent fValue = isMaskedKind(kind) ? maskedField(val) : makeEntryField(val);
             row.add(fLabel, BorderLayout.WEST);
             row.add(fValue, BorderLayout.CENTER);
             // EAST：kind 下拉 + 删除按钮
@@ -2177,6 +2307,33 @@ public final class SanctumGui {
         JTextField f = new JTextField(value == null ? "" : value);
         f.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         return f;
+    }
+
+    /** 机密类字段（externalKey/password/totp）：脱敏输入控件（眼睛切换，可编辑）。 */
+    private static boolean isMaskedKind(String kind) {
+        if (kind == null) {
+            return false;
+        }
+        FieldKind k = FieldKind.fromTag(kind);
+        return k == FieldKind.EXTERNAL_KEY || k == FieldKind.PASSWORD || k == FieldKind.TOTP;
+    }
+
+    /** 生成脱敏字段（默认遮蔽，眼睛切换显示，可编辑）。 */
+    private static JComponent maskedField(String value) {
+        PasswordField pf = new PasswordField(20);
+        pf.setText(value);
+        return pf;
+    }
+
+    /** 从 JTextField / PasswordField 等文本型组件读取当前文本。 */
+    private static String textOf(JComponent c) {
+        if (c instanceof JTextField t) {
+            return t.getText();
+        }
+        if (c instanceof PasswordField p) {
+            return p.getText();
+        }
+        return "";
     }
 
     /** 工具栏图标按钮（纯 SVG 图标 + tooltip，去边框/底色）。 */
@@ -2364,15 +2521,15 @@ public final class SanctumGui {
     }
 
     /** 保存按钮：逐个提交所有字段的值与 kind，任一失败则记录并提示。 */
-    private void saveFieldInputs(Map<UUID, JTextField> inputs, Map<UUID, JComboBox<String>> kindInputs,
+    private void saveFieldInputs(Map<UUID, JComponent> inputs, Map<UUID, JComboBox<String>> kindInputs,
                                  UUID entryUuid) {
         resetAutoLock();
         int failed = 0;
-        for (Map.Entry<UUID, JTextField> e : inputs.entrySet()) {
+        for (Map.Entry<UUID, JComponent> e : inputs.entrySet()) {
             try {
                 FieldNode field = sanctum.objectTree().field(e.getKey());
                 if (field != null) {
-                    field.updateValue(e.getValue().getText());
+                    field.updateValue(textOf(e.getValue()));
                 }
             } catch (Exception ex) {
                 failed++;

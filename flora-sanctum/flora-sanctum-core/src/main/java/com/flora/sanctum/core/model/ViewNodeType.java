@@ -20,7 +20,12 @@ public enum ViewNodeType {
      */
     GLOBAL("全局配置"),
     /** 垃圾桶虚拟根（与数据根平级，见设计 idea20260826-sanctum-trash）。 */
-    TRASH("垃圾桶");
+    TRASH("垃圾桶"),
+    /**
+     * 外部密钥虚拟根（与数据根平级，只读聚合展示所有 {@code kind:"externalKey"} 字段；
+     * 见需求：主界面展示用虚拟顶层节点，展示实际存储路径 + 脱敏密钥）。
+     */
+    EXTERNAL_KEY("外部密钥");
 
     private final String displayName;
 

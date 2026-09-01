@@ -78,10 +78,10 @@ public final class VaultUnlocker {
     /**
      * 发现并登记根密钥与全部 group DEK（见设计"root DEK"）。
      * 根对象 uuid 由 KEK 单向推导定位（O(1)），根对象直接以 KEK 解密，取出 repoKeyIdSeed 与
-     * （KEK 包裹的）rootDek；rootDek 注册为 {@code groupDek(rootUuid)}，作为顶层子树加密根。
-     * 根级密钥仍即 KEK（dataDek），用于包裹 rootDek 与 root 块本身；登记进 keyId 索引后，
+     * 明文 rootDek；rootDek 注册为 {@code groupDek(rootUuid)}，作为顶层子树加密根。
+     * 根级密钥仍即 KEK（dataDek），用于加密 root 块本身；登记进 keyId 索引后，
      * 后续 cipher 块统一经 keyId 路由（BlockResolver）定位父 DEK 解开，对 type==group 且含 dek 的
-     * 用父 DEK 解出子 DEK 并登记，逐层递归直至无新增。
+     * 取组块内明文子 DEK（外层块已由父 DEK 加密保护）并登记，逐层递归直至无新增。
      * <p>根对象缺失/无法解密/内容不完整（缺 repoKeyIdSeed 或 dek）时抛 {@link VaultUnlockException}。
      */
     private void discoverRootDeks(Vault vault, byte[] kek, List<Block> blocks) {
@@ -103,20 +103,16 @@ public final class VaultUnlocker {
             throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_DECRYPT_FAILED);
         }
         com.flora.root.codec.json.model.JsonObject n = parsePlain(plain);
-        // 根对象以 KEK 加解密；必要内容是仓库级 keyId 派生种子与（KEK 包裹的）rootDek
+        // 根对象以 KEK 加解密；必要内容是仓库级 keyId 派生种子与明文 rootDek
         if (n == null || n.getString("repoKeyIdSeed") == null || n.getString("dek") == null) {
             throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
         }
         vault.addRootObjectUuid(rootUuid);
         vault.setRepoKeyIdSeed(java.util.Base64.getDecoder().decode(n.getString("repoKeyIdSeed")));
-        // dataDek 仍是 KEK（用于包裹 rootDek 与 root 块）；rootDek 解出后注册为 groupDek(rootUuid)，
-        // 顶层对象与顶层分组 DEK 的加密/包裹改由 rootDek 承担
+        // dataDek 仍是 KEK（用于加密 root 块）；rootDek 明文解出后注册为 groupDek(rootUuid)，
+        // 顶层对象与顶层分组 DEK 的加密改由 rootDek 承担
         vault.addRootDek(kek);
-        byte[] wrapped = java.util.Base64.getDecoder().decode(n.getString("dek"));
-        byte[] rootDek = unwrap(vault, kek, wrapped);
-        if (rootDek == null) {
-            throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_DECRYPT_FAILED);
-        }
+        byte[] rootDek = java.util.Base64.getDecoder().decode(n.getString("dek"));
         vault.addGroupDek(rootUuid, rootDek);
         // 逐层发现 group DEK：repoKeyIdSeed 已读出，cipher 块经 keyId 路由定位父 DEK 解开；
         // 父 DEK 必先于子块登记于 KeyIdIndex（树自顶向下展开），故 keyId 路由始终可命中。
@@ -137,12 +133,10 @@ public final class VaultUnlocker {
                     StoredNodeType nt = StoredNodeType.fromTag(gn == null ? null : gn.getString("type"));
                     if (nt == StoredNodeType.GROUP && gn.getString("dek") != null
                             && vault.groupDek(b.uuid()) == null) {
-                        byte[] gwrapped = java.util.Base64.getDecoder().decode(gn.getString("dek"));
-                        byte[] gdek = unwrap(vault, d.dek, gwrapped);
-                        if (gdek != null) {
-                            vault.addGroupDek(b.uuid(), gdek);
-                            any = true;
-                        }
+                        // 组块整体以父 DEK 加密（外层保护），dek 字段直接存明文 base64
+                        byte[] gdek = java.util.Base64.getDecoder().decode(gn.getString("dek"));
+                        vault.addGroupDek(b.uuid(), gdek);
+                        any = true;
                     }
                 } catch (Exception ignore) {
                 }
@@ -164,17 +158,6 @@ public final class VaultUnlocker {
             byte[] encK = com.flora.sanctum.core.crypto.KeyDerivation.encKey(dk);
             com.flora.sanctum.core.crypto.impl.CipherCodec gc = new com.flora.sanctum.core.crypto.impl.CipherCodec(encK, dk, vault.random());
             return gc.decode(b.masked(), b.uuid(), b.timestampText());
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    /** 解包一个内嵌的包裹 DEK（base64 存于分组 JSON 的 dek 字段，无文件路径 → AAD 用 EMBEDDED_UUID）。 */
-    private byte[] unwrap(Vault vault, byte[] parentDek, byte[] wrapped) {
-        try {
-            byte[] encK = com.flora.sanctum.core.crypto.KeyDerivation.encKey(parentDek);
-            com.flora.sanctum.core.crypto.impl.CipherCodec gc = new com.flora.sanctum.core.crypto.impl.CipherCodec(encK, parentDek, vault.random());
-            return gc.decode(wrapped, com.flora.sanctum.core.crypto.impl.CipherCodec.EMBEDDED_UUID, "0");
         } catch (Exception e) {
             return null;
         }

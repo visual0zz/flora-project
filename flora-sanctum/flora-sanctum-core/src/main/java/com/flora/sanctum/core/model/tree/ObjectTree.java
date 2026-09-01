@@ -87,17 +87,12 @@ public final class ObjectTree extends DataTree {
         UUID effectiveParent = parentId != null ? parentId : context().vault().rootObjectUuid();
         byte[] dek = new byte[32];
         context().random().nextBytes(dek);
-        // 父 DEK：顶层取 rootDek（已注册为 groupDek(rootUuid)），否则取父分组 DEK；兜底 KEK
-        byte[] parentDek = context().vault().groupDek(effectiveParent);
-        if (parentDek == null) {
-            parentDek = context().vault().dataDek();
-        }
-        byte[] wrapped = context().wrapDek(dek, parentDek);
+        // 组块整体用父组 DEK（顶层 rootDek）加密（外层保护），dek 字段直接存明文 base64，无需内层包裹
         JsonObject group = new JsonObject();
         group.put("type", StoredNodeType.GROUP.tag());
         group.put("name", name);
         group.put("parent", effectiveParent.toString());
-        group.put("dek", Base64.getEncoder().encodeToString(wrapped));
+        group.put("dek", Base64.getEncoder().encodeToString(dek));
         context().write(groupUuid, group, effectiveParent);
         context().vault().addGroupDek(groupUuid, dek);
         return new GroupNode(groupUuid, this);

@@ -67,9 +67,9 @@ public final class Vault {
     }
 
     /**
-     * 根级密钥（即 KEK）。用于包裹 root 对象的 rootDek、加密 root 对象块本身，
-     * 并作为无独立密钥场景的兜底。注意：顶层对象（parent 指向 root 的组/条目/图标/SSH/远程）
-     * 实际用 {@link #rootDek()} 加密，而非本 KEK（见设计"root DEK"）。
+     * 根级密钥（即 KEK）。用于加密 root 对象块本身，并作为无独立密钥场景的兜底。
+     * 注意：顶层对象（parent 指向 root 的组/条目/图标/SSH/远程）实际用 {@link #rootDek()} 加密，
+     * 而非本 KEK（见设计"root DEK"）。
      */
     public byte[] dataDek() {
         if (dataDek == null) {
@@ -80,8 +80,8 @@ public final class Vault {
 
     /**
      * 根对象的实际子树密钥 rootDek：注册为 {@code groupDek(rootObjectUuid())}。
-     * 顶层对象及其直接子分组 DEK 的加密/包裹都用它；换主密码时 rootDek 值不变，
-     * 仅其被 KEK 包裹的外层重包裹。返回 null 表示尚未解锁登记。
+     * 顶层对象及其直接子分组 DEK 的加密都用它；换主密码时 rootDek 值不变，
+     * 仅根对象块整体改以新 KEK 重加密。返回 null 表示尚未解锁登记。
      */
     public byte[] rootDek() {
         byte[] d = groupDek(rootObjectUuid());

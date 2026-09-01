@@ -67,18 +67,16 @@ public final class VaultCreator {
     }
 
     private void writeRootGroup(java.util.UUID rootUuid, byte[] kek, byte[] repoKeyIdSeed) {
-        // 生成独立 rootDek，用 KEK 包裹存入根对象；顶层对象/顶层分组 DEK 均用 rootDek 加密与包裹
+        // 生成独立 rootDek 明文存入根对象；顶层对象/顶层分组 DEK 均用 rootDek 加密与包裹。
+        // 根对象块整体以 KEK 加密（外层保护），dek 字段直接存明文 base64，无需内层包裹。
         byte[] rootDek = new byte[32];
         random.nextBytes(rootDek);
         try {
-            com.flora.sanctum.core.crypto.impl.CipherCodec codec = new com.flora.sanctum.core.crypto.impl.CipherCodec(
-                    com.flora.sanctum.core.crypto.KeyDerivation.encKey(kek), kek, repoKeyIdSeed, random);
-            byte[] wrapped = codec.encode(com.flora.sanctum.core.crypto.impl.CipherCodec.EMBEDDED_UUID, rootDek, "0");
             com.flora.root.codec.json.model.JsonObject group = new com.flora.root.codec.json.model.JsonObject();
             group.put("type", StoredNodeType.ROOT.tag());
-            // 根对象仍由 KEK 直接加解密；仅承载仓库级 keyId 派生种子与（KEK 包裹的）rootDek
+            // 根对象仍由 KEK 直接加解密；仅承载仓库级 keyId 派生种子与明文 rootDek
             group.put("repoKeyIdSeed", Base64.getEncoder().encodeToString(repoKeyIdSeed));
-            group.put("dek", Base64.getEncoder().encodeToString(wrapped));
+            group.put("dek", Base64.getEncoder().encodeToString(rootDek));
             writeCipherBlock(rootUuid, group, kek, 1);
         } finally {
             java.util.Arrays.fill(rootDek, (byte) 0);

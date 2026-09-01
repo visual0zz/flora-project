@@ -62,21 +62,17 @@ class VaultUnlockerTest {
         if (!withRoot) {
             return store;
         }
-        // 根对象块：{type:root, repoKeyIdSeed, dek}，直接用 KEK 加密；dek 为 KEK 包裹的随机 rootDek
+        // 根对象块：{type:root, repoKeyIdSeed, dek}，直接用 KEK 加密；dek 为明文随机 rootDek
         byte[] repoSeed = new byte[32];
         rng.nextBytes(repoSeed);
         byte[] rootDek = new byte[32];
         rng.nextBytes(rootDek);
         com.flora.sanctum.core.crypto.impl.CipherCodec rootCodec = new com.flora.sanctum.core.crypto.impl.CipherCodec(
                 com.flora.sanctum.core.crypto.KeyDerivation.encKey(kek), kek, repoSeed, rng);
-        // rootDek 由 KEK 包裹（内嵌块，AAD 用 EMBEDDED_UUID，timestamp=0）
-        byte[] wrappedDek = new com.flora.sanctum.core.crypto.impl.CipherCodec(
-                com.flora.sanctum.core.crypto.KeyDerivation.encKey(kek), kek, repoSeed, rng)
-                .encode(com.flora.sanctum.core.crypto.impl.CipherCodec.EMBEDDED_UUID, rootDek, "0");
         JsonObject root = new JsonObject();
         root.put("type", "root");
         root.put("repoKeyIdSeed", Base64.getEncoder().encodeToString(repoSeed));
-        root.put("dek", Base64.getEncoder().encodeToString(wrappedDek));
+        root.put("dek", Base64.getEncoder().encodeToString(rootDek));
         byte[] rootJson = JsonUtil.toJsonString(root).getBytes(StandardCharsets.UTF_8);
         UUID rootUuid = RootUuid.derive(kek);
         byte[] rootBlock = rootCodec.encode(rootUuid, rootJson, "1");

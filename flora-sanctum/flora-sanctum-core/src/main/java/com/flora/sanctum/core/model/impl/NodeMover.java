@@ -14,8 +14,8 @@ import java.util.UUID;
  * "加密所用 DEK" 与 "新父" 重新一致，否则在旧父 DEK 离开 KeyIdIndex（如旧父被删并 GC）后，
  * relock 再解锁时该子树会落入"不可解锁"。具体重加密范围：
  * <ul>
- *   <li>移动组：仅该组自身对象块需改用新父 DEK 重加密，且其内嵌 dek 字段须同步用新父 DEK 重新包裹；
- *       二者必须一起做，否则组 DEK 无法在新父链下被登记，子树随之不可解锁。子孙（子组/条目/字段）
+ *   <li>移动组：仅该组自身对象块需改用新父 DEK 重加密（其内嵌 dek 字段存明文 DEK，值不变）；
+ *       组块整体用新父 DEK 加密后，组 DEK 即可在新父链下被登记。子孙（子组/条目/字段）
  *       的加密 DEK 基于本组 DEK（或其子组 DEK），移动前后不变，无需重加密。</li>
  *   <li>移动条目：条目块与它的全部字段块都用"所属组 DEK"加密，移动后该 DEK 变了，
  *       须把条目块 + 所有字段块都重加密到新组 DEK 之下（字段 parent 仍指向条目）。</li>
@@ -53,18 +53,13 @@ public final class NodeMover {
         if (newParent != null && typeOf(newParent) != StoredNodeType.GROUP) {
             throw new IllegalArgumentException("组的父必须是组或根");
         }
-        byte[] newParentDek = ctx.dekFor(newParent);
-        if (newParentDek == null) {
-            throw new IllegalStateException("新父 DEK 尚未就绪（未解锁或已锁定）");
-        }
         byte[] rawDek = vault.groupDek(groupUuid);
         if (rawDek == null) {
             throw new IllegalStateException("组 DEK 尚未就绪（未解锁或已锁定）");
         }
-        // 用新父 DEK 重新包裹本组 DEK，并同步把组对象块改用新父 DEK 重加密
-        byte[] rewrapped = ctx.wrapDek(rawDek, newParentDek);
+        // 组块整体改用新父 DEK 重加密（外层保护）；dek 字段直接存明文 base64，无需重新包裹
         g.put("parent", parentStr(newParent));
-        g.put("dek", Base64.getEncoder().encodeToString(rewrapped));
+        g.put("dek", Base64.getEncoder().encodeToString(rawDek));
         ctx.write(groupUuid, g, newParent);
         // 子孙（子组/条目/字段）加密 DEK 基于本组 DEK，移动前后不变，无需重加密
     }

@@ -231,17 +231,6 @@ public final class TreeContext {
         return vault.dataDek();
     }
 
-    /**
-     * 用父 DEK 包裹一个 DEK（AES-GCM-SIV，nonce 随机；内部信封无块时间戳，timestamp=0）。
-     * 包裹结果内嵌于分组 JSON、没有文件路径，故 AAD 的 uuid 用 {@link CipherCodec#EMBEDDED_UUID}
-     * （密文变体由 12 字节随机 nonce 保证，不依赖 uuid 随机）。
-     */
-    public byte[] wrapDek(byte[] dek, byte[] parentDek) {
-        byte[] encKey = KeyDerivation.encKey(parentDek);
-        CipherCodec codec = new CipherCodec(encKey, parentDek, vault.repoKeyIdSeed(), vault.random());
-        return codec.encode(CipherCodec.EMBEDDED_UUID, dek, "0");
-    }
-
     /** 计算本次写入的时间戳（仓库时间戳规则：max(会话锚点+单调偏移, 全库当前最大块时间戳)）。 */
     public long nextTimestamp() {
         long maxExisting = 1;

@@ -5,10 +5,11 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 条目内置预设字段（password / url / username / labels / createTime / updateTime）。
+ * 条目内置预设字段（password / url / username / labels / notes）。
  * <p>
  * 预设字段以独立块存储（块 type 为 {@code field}，fieldName 固定为预设名），
- * 不放在 entry 负载 JSON 内。labels 不可变（{@link List#copyOf}）。
+ * 不放在 entry 负载 JSON 内；createTime 与 updateTime 例外：直接存条目 JSON 内。
+ * labels 不可变（{@link List#copyOf}）。
  *
  * @param password 口令（必填语义）
  * @param url     服务 URL
@@ -22,7 +23,7 @@ public final class EntryFields {
 
     /** 预设字段名集合（独立块存储，GUI 固定显示不可删除）。 */
     public static final Set<String> PRESET_NAMES = Set.of(
-            "password", "url", "username", "labels", "notes", "createTime", "updateTime");
+            "password", "url", "username", "labels", "notes");
 
     private final String password;
     private final String url;

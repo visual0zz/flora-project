@@ -403,7 +403,8 @@ class SanctumTest {
 
         long ct = entry.createTime();
         assertTrue(ct >= before && ct <= after);
-        assertEquals(ct, entry.updateTime());
+        // updateTime = max(条目, 全部字段)，字段块写入可能晚 1ms，故 >=
+        assertTrue(entry.updateTime() >= ct);
 
         // 更新内置字段，updateTime 应改变
         entry.updateBuiltins(new EntryFields("p@ss2", "https://example.com", "alice", List.of()));

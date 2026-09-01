@@ -63,16 +63,30 @@ public final class EntryNode extends ObjectNode {
         return d == null ? null : Ref.parse(d.get("iconRef"), "icon");
     }
 
-    /** 创建时间（本地毫秒，只读）。 */
+    /** 创建时间（本地毫秒，只读；存于条目 JSON 内）。 */
     public Long createTime() {
-        String v = presetValue("createTime");
-        return v == null ? null : Long.parseLong(v);
+        JsonObject d = data();
+        return d == null ? null : d.getLong("createTime");
     }
 
-    /** 更新时间（本地毫秒，只读）。 */
+    /**
+     * 更新时间（本地毫秒，只读）：取条目自身与全部字段（预设 + 自定义）的 updateTime 最大值。
+     * 任何对象块（条目/字段）被重写时都会刷新自己的 updateTime，故该值反映"条目任一部分最后被改"。
+     */
     public Long updateTime() {
-        String v = presetValue("updateTime");
-        return v == null ? null : Long.parseLong(v);
+        JsonObject d = data();
+        Long max = d == null ? null : d.getLong("updateTime");
+        for (FieldNode f : childrenFields()) {
+            JsonObject fd = f.data();
+            if (fd == null) {
+                continue;
+            }
+            Long t = fd.getLong("updateTime");
+            if (t != null && (max == null || t > max)) {
+                max = t;
+            }
+        }
+        return max;
     }
 
     /**
@@ -102,10 +116,11 @@ public final class EntryNode extends ObjectNode {
         }
         UUID groupId = ctx().parentGroupUuid(entry);
         entry.put("name", newName);
+        entry.put("updateTime", System.currentTimeMillis());
         ctx().write(uuid(), entry, groupId);
     }
 
-    /** 更新内置预设字段（password/url/username/labels）+ updateTime，均写为独立块。 */
+    /** 更新内置预设字段（password/url/username/labels）+ 条目/字段 updateTime。 */
     public void updateBuiltins(EntryFields fields) {
         JsonObject entry = data();
         if (entry == null) {
@@ -117,7 +132,9 @@ public final class EntryNode extends ObjectNode {
         writePreset("url", fields.url(), groupId);
         writePreset("username", fields.username(), groupId);
         writePreset("labels", EntryFields.labelsToString(fields.labels()), groupId);
-        writePreset("updateTime", String.valueOf(now), groupId);
+        // 条目自身最后修改时间同步刷新（字段块的 updateTime 已在 writePreset 内刷新）
+        entry.put("updateTime", now);
+        ctx().write(uuid(), entry, groupId);
     }
 
     /** 设置/清除备注（内置预设字段，独立块；value 空则删除块）。 */
@@ -152,6 +169,7 @@ public final class EntryNode extends ObjectNode {
         } else {
             entry.put("iconRef", ref.toJson());
         }
+        entry.put("updateTime", System.currentTimeMillis());
         ctx().write(uuid(), entry, groupId);
     }
 
@@ -170,6 +188,7 @@ public final class EntryNode extends ObjectNode {
         if (kind != null) {
             field.put("kind", kind);
         }
+        field.put("updateTime", System.currentTimeMillis());
         ctx().write(fieldUuid, field, groupId);
         return tree().field(fieldUuid);
     }
@@ -236,6 +255,7 @@ public final class EntryNode extends ObjectNode {
         f.put("parent", uuid().toString());
         f.put("name", name);
         f.put("value", value);
+        f.put("updateTime", System.currentTimeMillis());
         ctx().write(pu, f, groupId);
     }
 }

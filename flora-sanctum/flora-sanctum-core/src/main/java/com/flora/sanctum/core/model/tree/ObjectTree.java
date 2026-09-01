@@ -107,10 +107,11 @@ public final class ObjectTree extends DataTree {
         entry.put("type", StoredNodeType.ENTRY.tag());
         entry.put("name", name);
         entry.put("parent", effectiveParent.toString());
+        // createTime/updateTime 直接存条目 JSON 内（不再单独成块）
+        entry.put("createTime", now);
+        entry.put("updateTime", now);
         context().write(entryUuid, entry, effectiveParent);
-        // 预设字段独立块（createTime/updateTime 必写；其余有值才写）
-        writePreset(entryUuid, effectiveParent, "createTime", String.valueOf(now));
-        writePreset(entryUuid, effectiveParent, "updateTime", String.valueOf(now));
+        // 预设字段独立块（password/url/username/labels 有值才写；createTime/updateTime 已在条目内）
         writePreset(entryUuid, effectiveParent, "password", fields.password());
         writePreset(entryUuid, effectiveParent, "url", fields.url());
         writePreset(entryUuid, effectiveParent, "username", fields.username());
@@ -129,6 +130,7 @@ public final class ObjectTree extends DataTree {
         f.put("parent", entryUuid.toString());
         f.put("name", name);
         f.put("value", value);
+        f.put("updateTime", System.currentTimeMillis());
         context().write(fieldUuid, f, groupId);
     }
 }

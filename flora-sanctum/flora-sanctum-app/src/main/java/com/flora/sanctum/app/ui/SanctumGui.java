@@ -903,7 +903,9 @@ public final class SanctumGui {
             } catch (com.flora.sanctum.core.model.vault.VaultUnlockException ex) {
                 // 解锁失败分阶段报告（魔数/结构、manifest MAC、根对象缺失/解密等），给针对性提示
                 failMsg[0] = ex.getMessage();
-            } catch (Exception ex) {
+            } catch (Throwable ex) {
+                // 捕获 Throwable（含 StackOverflowError 等 Error）：后台任务里的 Error 若只被
+                // catch(Exception) 漏掉，会被 CompletableFuture 静默丢弃，导致解锁页"看似无响应"。
                 failMsg[0] = "解锁失败：" + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
             } finally {
                 java.util.Arrays.fill(pwCopy, (char) 0);
@@ -920,7 +922,15 @@ public final class SanctumGui {
                     error.setText(msg);
                     return;
                 }
-                onUnlocked(root, s);
+                try {
+                    onUnlocked(root, s);
+                } catch (Throwable ex) {
+                    // 解锁成功后进入主界面的刷新（rebuildGroupTree/refreshEntryList/渲染器）若抛异常，
+                    // 原本会被 Swing 的 EDT 默认异常处理器静默吞掉（仅打印 stderr），界面"什么都没发生"。
+                    // 这里显式捕获并显示，让用户看到真实原因而非卡在解锁页。
+                    ex.printStackTrace();
+                    error.setText("进入主界面失败：" + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+                }
             });
         });
     }
@@ -1227,7 +1237,7 @@ public final class SanctumGui {
             if (g.deleted()) {
                 continue;
             }
-            addGroupNode(objectsNode, g.uuid(), g.name());
+            addGroupNode(objectsNode, g.uuid(), g.name(), new java.util.HashSet<>());
         }
 
         // 垃圾桶虚拟根（与数据根平级，无对应存储；见设计 idea20260826-sanctum-trash）
@@ -1343,6 +1353,25 @@ public final class SanctumGui {
         }
         try {
             return UUID.fromString(ref);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * 解析存储中的 uuid 字符串（兼容带连字符规范形态与无连字符 hex 形态，后者为块 parent 等字段的实际存储格式）。
+     * 非法返回 null，避免 {@link UUID#fromString} 仅认规范形态而对无连字符 hex 抛 {@link IllegalArgumentException}，
+     * 否则会在解锁后刷新（rebuildGroupTree/totpItemName 等）或选中条目时静默崩溃。
+     */
+    private static UUID parseUuid(String s) {
+        if (s == null) {
+            return null;
+        }
+        try {
+            String t = s.indexOf('-') >= 0 ? s
+                    : s.substring(0, 8) + "-" + s.substring(8, 12) + "-"
+                    + s.substring(12, 16) + "-" + s.substring(16, 20) + "-" + s.substring(20);
+            return UUID.fromString(t);
         } catch (IllegalArgumentException ex) {
             return null;
         }
@@ -1485,7 +1514,13 @@ public final class SanctumGui {
         return sel instanceof UUID u && externalKeyUuids.contains(u);
     }
 
-    private void addGroupNode(DefaultMutableTreeNode parentNode, UUID id, String name) {
+    private void addGroupNode(DefaultMutableTreeNode parentNode, UUID id, String name,
+                              java.util.Set<UUID> visited) {
+        // 环检测：导入数据若因源结构异常（自父/互父）形成环，递归会无限展开导致 StackOverflowError。
+        // 该 Error 不会被常规 catch(Exception) 捕获、且发生在 EDT 会被静默吞掉，故此处显式截断。
+        if (id == null || !visited.add(id)) {
+            return;
+        }
         DefaultMutableTreeNode node = new DefaultMutableTreeNode(
                 name == null || name.isBlank() ? "未命名" : name);
         node.setUserObject(id);
@@ -1497,7 +1532,7 @@ public final class SanctumGui {
                 if (child.deleted()) {
                     continue;
                 }
-                addGroupNode(node, child.uuid(), child.name());
+                addGroupNode(node, child.uuid(), child.name(), visited);
             }
         }
     }
@@ -2308,7 +2343,7 @@ public final class SanctumGui {
         if (entryId == null) {
             return "";
         }
-        EntryNode entry = sanctum.objectTree().entry(UUID.fromString(entryId));
+        EntryNode entry = sanctum.objectTree().entry(parseUuid(entryId));
         if (entry == null) {
             return "";
         }
@@ -2332,7 +2367,7 @@ public final class SanctumGui {
             seed = f.value() == null ? "" : f.value();
             String pid = f.data().getString("parent");
             if (pid != null) {
-                EntryNode e = sanctum.objectTree().entry(UUID.fromString(pid));
+                EntryNode e = sanctum.objectTree().entry(parseUuid(pid));
                 if (e != null) {
                     entryName = e.name() == null ? "未命名" : e.name();
                     path = fieldStoragePath(uuid);
@@ -2391,7 +2426,7 @@ public final class SanctumGui {
         String pid = f.data() == null ? null : f.data().getString("parent");
         String entryName = "?";
         if (pid != null) {
-            EntryNode e = sanctum.objectTree().entry(UUID.fromString(pid));
+            EntryNode e = sanctum.objectTree().entry(parseUuid(pid));
             if (e != null) {
                 entryName = e.name() == null ? "未命名" : e.name();
             }
@@ -2797,7 +2832,7 @@ public final class SanctumGui {
             return null;
         }
         String p = entry.parentRef();
-        return isTopLevel(p) ? null : UUID.fromString(p);
+        return isTopLevel(p) ? null : parseUuid(p);
     }
 
     /** parent 是否为顶层（根对象 uuid / null）。 */

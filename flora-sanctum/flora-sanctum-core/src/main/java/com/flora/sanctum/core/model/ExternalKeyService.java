@@ -108,7 +108,7 @@ public final class ExternalKeyService {
         UUID fieldUuid = UUID.randomUUID();
         JsonObject field = new JsonObject();
         field.put("type", StoredNodeType.FIELD.tag());
-        field.put("parent", entryUuid.toString());
+        field.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(entryUuid));
         field.put("name", fieldName);
         field.put("kind", "externalKey");
         field.put("value", Base64.getEncoder().encodeToString(keyMaterial));

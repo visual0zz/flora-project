@@ -95,12 +95,12 @@ public final class TreeContext {
         if (parent == null || !isUuid(parent)) {
             return null;
         }
-        return UUID.fromString(parent);
+        return com.flora.sanctum.core.util.UuidHex.fromHex(parent);
     }
 
     private static boolean isUuid(String s) {
         try {
-            UUID.fromString(s);
+            com.flora.sanctum.core.util.UuidHex.fromHex(s);
             return true;
         } catch (IllegalArgumentException e) {
             return false;

@@ -56,7 +56,7 @@ public abstract class DataTree {
     /** 顶层节点（parent 为仓库根对象 uuid）。 */
     public List<TreeNode> roots() {
         UUID rootUuid = ctx.vault().rootObjectUuid();
-        String root = rootUuid == null ? null : rootUuid.toString();
+        String root = rootUuid == null ? null : com.flora.sanctum.core.util.UuidHex.toHex(rootUuid);
         List<TreeNode> out = new ArrayList<>();
         for (TreeNode n : nodes()) {
             if (root != null && root.equals(n.parentRef())) {

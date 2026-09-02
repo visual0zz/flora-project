@@ -55,7 +55,7 @@ public final class SshKeyTree extends DataTree {
         UUID keyUuid = UUID.randomUUID();
         JsonObject key = new JsonObject();
         key.put("type", StoredNodeType.SSH_KEY.tag());
-        key.put("parent", context().vault().rootObjectUuid().toString());
+        key.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(context().vault().rootObjectUuid()));
         key.put("name", name);
         key.put("value", privateKeyPem);
         byte[] dek = context().vault().rootDek();

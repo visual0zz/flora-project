@@ -82,7 +82,7 @@ public final class NodeMover {
             throw new IllegalArgumentException("条目不存在：" + entryUuid);
         }
         UUID oldParentGroup = ctx.parentGroupUuid(e);
-        e.put("parent", newParentGroup.toString());
+        e.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(newParentGroup));
         ctx.write(entryUuid, e, newParentGroup);
         // 字段块随条目改归属到新组 DEK 之下重加密（field.parent 仍指向条目，不变）
         for (UUID f : ctx.childrenOf(entryUuid)) {
@@ -107,7 +107,7 @@ public final class NodeMover {
     }
 
     private String parentStr(UUID newParent) {
-        return newParent == null ? vault.rootObjectUuid().toString() : newParent.toString();
+        return com.flora.sanctum.core.util.UuidHex.toHex(newParent == null ? vault.rootObjectUuid() : newParent);
     }
 
     private StoredNodeType typeOf(UUID uuid) {

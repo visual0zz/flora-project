@@ -81,7 +81,7 @@ public final class FieldNode extends ObjectNode {
         if (entryId == null) {
             return null;
         }
-        JsonObject entry = ctx().read(UUID.fromString(entryId));
+        JsonObject entry = ctx().read(com.flora.sanctum.core.util.UuidHex.fromHex(entryId));
         return ctx().parentGroupUuid(entry);
     }
 }

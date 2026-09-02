@@ -107,7 +107,7 @@ public final class TrashView {
             if (!isUuid(cur)) {
                 break;
             }
-            UUID id = UUID.fromString(cur);
+            UUID id = com.flora.sanctum.core.util.UuidHex.fromHex(cur);
             JsonObject d = ctx.read(id);
             if (d == null) {
                 parts.add(0, "未知(" + cur.substring(0, Math.min(8, cur.length())) + ")");
@@ -125,7 +125,7 @@ public final class TrashView {
 
     private static boolean isUuid(String s) {
         try {
-            UUID.fromString(s);
+            com.flora.sanctum.core.util.UuidHex.fromHex(s);
             return true;
         } catch (IllegalArgumentException e) {
             return false;

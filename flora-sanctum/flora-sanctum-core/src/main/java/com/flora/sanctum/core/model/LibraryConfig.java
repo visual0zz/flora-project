@@ -48,7 +48,7 @@ public final class LibraryConfig {
         }
         JsonObject c = new JsonObject();
         c.put("type", StoredNodeType.CONFIG.tag());
-        c.put("parent", ctx.vault().rootObjectUuid().toString());
+        c.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(ctx.vault().rootObjectUuid()));
         c.put("key", key);
         c.put("value", value);
         ctx.writeWithDek(UUID.randomUUID(), c, dek);

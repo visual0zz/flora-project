@@ -198,7 +198,7 @@ public final class EntryNode extends ObjectNode {
         UUID pu = existing == null ? UUID.randomUUID() : existing.uuid();
         JsonObject f = new JsonObject();
         f.put("type", StoredNodeType.FIELD.tag());
-        f.put("parent", uuid().toString());
+        f.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(uuid()));
         f.put("name", name);
         f.put("value", value);
         if (kind != null) {
@@ -214,7 +214,7 @@ public final class EntryNode extends ObjectNode {
         UUID fieldUuid = UUID.randomUUID();
         JsonObject f = new JsonObject();
         f.put("type", StoredNodeType.FIELD.tag());
-        f.put("parent", uuid().toString());
+        f.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(uuid()));
         f.put("name", name);
         f.put("value", value);
         if (kind != null) {

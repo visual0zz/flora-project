@@ -94,7 +94,7 @@ public final class ObjectTree extends DataTree {
         JsonObject group = new JsonObject();
         group.put("type", StoredNodeType.GROUP.tag());
         group.put("name", name);
-        group.put("parent", effectiveParent.toString());
+        group.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(effectiveParent));
         group.put("dek1", Base64.getEncoder().encodeToString(dek1));
         group.put("dek2", Base64.getEncoder().encodeToString(dek2));
         group.remove("dek");
@@ -113,7 +113,7 @@ public final class ObjectTree extends DataTree {
         JsonObject entry = new JsonObject();
         entry.put("type", StoredNodeType.ENTRY.tag());
         entry.put("name", name);
-        entry.put("parent", effectiveParent.toString());
+        entry.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(effectiveParent));
         // createTime/updateTime 直接存条目 JSON 内（不再单独成块）
         entry.put("createTime", now);
         entry.put("updateTime", now);

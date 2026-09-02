@@ -38,7 +38,7 @@ public final class TrashClassifier {
         Vault vault = ctx.vault();
         // 根对象 uuid 由 KEK 单向推导并登记在 vault 上（不记入 manifest）
         java.util.UUID rootUuid = vault.rootObjectUuid();
-        String root = rootUuid == null ? null : rootUuid.toString();
+        String root = rootUuid == null ? null : com.flora.sanctum.core.util.UuidHex.toHex(rootUuid);
 
         // 可达集（复用 GarbageCollector 思想，仅判不删）
         Set<UUID> reachable = new HashSet<>();
@@ -61,7 +61,7 @@ public final class TrashClassifier {
                 }
                 String parent = n.getString("parent");
                 boolean byParent = parent != null && isUuid(parent)
-                        && reachable.contains(UUID.fromString(parent));
+                        && reachable.contains(com.flora.sanctum.core.util.UuidHex.fromHex(parent));
                 Set<UUID> refs = RefScan.referencedBlocks(n);
                 boolean byRef = !refs.isEmpty() && reachable.containsAll(refs);
                 if (byParent || byRef) {
@@ -95,7 +95,7 @@ public final class TrashClassifier {
             // 不可达：parent 不为根对象且指向缺失 uuid
             String parent = d.getString("parent");
             if (parent != null && !parent.equals(root)
-                    && (!isUuid(parent) || !reachable.contains(UUID.fromString(parent)))) {
+                    && (!isUuid(parent) || !reachable.contains(com.flora.sanctum.core.util.UuidHex.fromHex(parent)))) {
                 unreachable.add(uuid);
             }
         }
@@ -108,7 +108,7 @@ public final class TrashClassifier {
         String p = d.getString("parent");
         Set<String> seen = new HashSet<>();
         while (p != null && isUuid(p) && seen.add(p)) {
-            UUID pid = UUID.fromString(p);
+            UUID pid = com.flora.sanctum.core.util.UuidHex.fromHex(p);
             JsonObject parent = ctx.read(pid);
             if (parent == null) {
                 return null;
@@ -136,7 +136,7 @@ public final class TrashClassifier {
 
     private static boolean isUuid(String s) {
         try {
-            UUID.fromString(s);
+            com.flora.sanctum.core.util.UuidHex.fromHex(s);
             return true;
         } catch (IllegalArgumentException e) {
             return false;

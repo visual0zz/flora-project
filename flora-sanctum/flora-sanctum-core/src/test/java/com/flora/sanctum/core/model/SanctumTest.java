@@ -185,7 +185,7 @@ class SanctumTest {
         s2.unlock(pw);
         GroupNode c2 = s2.objectTree().group(c.uuid());
         assertNotNull(c2);
-        assertEquals(b.uuid(), UUID.fromString(c2.parentRef()));
+        assertEquals(b.uuid(), com.flora.sanctum.core.util.UuidHex.fromHex(c2.parentRef()));
         EntryNode e2 = c2.entries().get(0);
         assertEquals("pw", e2.password());
         assertEquals("u", e2.username());
@@ -212,7 +212,7 @@ class SanctumTest {
         s2.unlock(pw);
         EntryNode e2 = s2.objectTree().entry(e.uuid());
         assertNotNull(e2);
-        assertEquals(b.uuid(), UUID.fromString(e2.parentRef()));
+        assertEquals(b.uuid(), com.flora.sanctum.core.util.UuidHex.fromHex(e2.parentRef()));
         assertEquals("pw", e2.password());
         assertEquals(1, e2.fields().size());
         assertEquals("v", e2.fields().get(0).value());
@@ -315,7 +315,7 @@ class SanctumTest {
         GroupNode group = s.objectTree().createGroup(null, "社交");
         EntryNode entry = s.objectTree().createEntry(null, "顶层条目",
                 new EntryFields("x", null, null, List.of()));
-        String root = s.rootObjectUuid().toString();
+        String root = com.flora.sanctum.core.util.UuidHex.toHex(s.rootObjectUuid());
         assertEquals(root, group.parentRef());
         assertEquals(root, entry.parentRef());
 
@@ -328,16 +328,16 @@ class SanctumTest {
         assertEquals(root, ssh.parentRef());
 
         // 根对象 uuid 由 KEK 单向推导（不记入 manifest），登记在 vault 上
-        assertEquals(root, s.vault().rootObjectUuid().toString());
+        assertEquals(root, com.flora.sanctum.core.util.UuidHex.toHex(s.vault().rootObjectUuid()));
 
         s.close();
         Sanctum s2 = Sanctum.open(dir);
         s2.unlock("pw".toCharArray());
-        String root2 = s2.rootObjectUuid().toString();
+        String root2 = com.flora.sanctum.core.util.UuidHex.toHex(s2.rootObjectUuid());
         assertEquals(root2, s2.objectTree().group(group.uuid()).parentRef());
         assertEquals(root2, s2.objectTree().entry(entry.uuid()).parentRef());
         assertEquals(root2, s2.remoteTree().remote("origin").parentRef());
-        assertEquals(root2, s2.vault().rootObjectUuid().toString());
+        assertEquals(root2, com.flora.sanctum.core.util.UuidHex.toHex(s2.vault().rootObjectUuid()));
     }
 
     @Test

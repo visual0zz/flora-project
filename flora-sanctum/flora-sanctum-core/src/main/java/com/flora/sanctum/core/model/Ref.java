@@ -39,7 +39,7 @@ public final class Ref {
 
     /** node 引用（id 为被引用节点 uuid）。 */
     public static Ref node(String kind, UUID uuid) {
-        return new Ref("node:" + kind, uuid.toString());
+        return new Ref("node:" + kind, com.flora.sanctum.core.util.UuidHex.toHex(uuid));
     }
 
     /** 仓库内图标节点引用（node:icon）。 */
@@ -132,7 +132,7 @@ public final class Ref {
         if (!"node".equals(scheme)) {
             throw new IllegalStateException("ref is not a node ref: " + type);
         }
-        return UUID.fromString(id);
+        return com.flora.sanctum.core.util.UuidHex.fromHex(id);
     }
 
     @Override

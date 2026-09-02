@@ -56,7 +56,7 @@ public final class GarbageCollector {
                 }
                 String parent = n.getString("parent");
                 boolean byParent = parent != null && isUuid(parent)
-                        && reachable.contains(UUID.fromString(parent));
+                        && reachable.contains(com.flora.sanctum.core.util.UuidHex.fromHex(parent));
                 Set<UUID> refs = RefScan.referencedBlocks(n);
                 boolean byRef = !refs.isEmpty() && reachable.containsAll(refs);
                 if (byParent || byRef) {
@@ -90,7 +90,7 @@ public final class GarbageCollector {
 
     private static boolean isUuid(String s) {
         try {
-            UUID.fromString(s);
+            com.flora.sanctum.core.util.UuidHex.fromHex(s);
             return true;
         } catch (IllegalArgumentException e) {
             return false;

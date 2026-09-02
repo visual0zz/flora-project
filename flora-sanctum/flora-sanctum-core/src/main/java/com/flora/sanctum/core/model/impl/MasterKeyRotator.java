@@ -107,7 +107,7 @@ public final class MasterKeyRotator {
      * 自然跳过滤过。用 writeWithDek 重写以避免触发组密钥轮换（换密码期间 KEK 尚未完全切换）。
      */
     private void migrateRootLevelBlocks(UUID oldRootUuid, UUID newRootUuid) {
-        String oldRootStr = oldRootUuid.toString();
+        String oldRootStr = com.flora.sanctum.core.util.UuidHex.toHex(oldRootUuid);
         byte[] rootDek = vault().rootDek();
         for (Block b : new ArrayList<>(ctx.store().scan())) {
             if (!b.isCipher()) {
@@ -127,7 +127,7 @@ public final class MasterKeyRotator {
             if (parent == null || !oldRootStr.equals(parent)) {
                 continue; // 非顶层块
             }
-            n.put("parent", newRootUuid.toString());
+            n.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(newRootUuid));
             // dek1/dek2 字段（如顶层 group）存明文 DEK，值不变，无需重写；以活跃 rootDek 重写
             ctx.writeWithDek(b.uuid(), n, rootDek);
         }

@@ -67,7 +67,7 @@ public final class RemoteTree extends DataTree {
         UUID remoteUuid = UUID.randomUUID();
         JsonObject remote = new JsonObject();
         remote.put("type", StoredNodeType.REMOTE.tag());
-        remote.put("parent", context().vault().rootObjectUuid().toString());
+        remote.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(context().vault().rootObjectUuid()));
         remote.put("name", name);
         remote.put("url", url);
         if (keyRef != null) {

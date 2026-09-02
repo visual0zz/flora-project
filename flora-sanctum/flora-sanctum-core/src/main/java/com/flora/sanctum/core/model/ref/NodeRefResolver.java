@@ -32,7 +32,7 @@ public final class NodeRefResolver implements RefResolver {
     public Set<UUID> referencedBlocks(Ref ref) {
         // id 必须为被引用节点 uuid；遗留的名字引用（非 uuid）无法定位块，返回空集，不影响 GC 健壮性
         try {
-            return Set.of(UUID.fromString(ref.id()));
+            return Set.of(com.flora.sanctum.core.util.UuidHex.fromHex(ref.id()));
         } catch (IllegalArgumentException e) {
             return Set.of();
         }

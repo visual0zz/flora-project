@@ -107,8 +107,13 @@ public final class SanctumGui {
     private JLabel statusLabel;
     private UUID selectedEntry;
     private String copiedPlaintext;
-    private java.util.Timer autoLockTimer;
     private java.util.Timer clipboardTimer;
+    /** 单线程后台任务执行器：串行执行导入/导出/同步，空闲轮询自动锁定。 */
+    private com.flora.sanctum.app.BackgroundExecutor executor;
+    /** 后台任务进行中转圈图标（复用 SpinnerIcon），默认隐藏。 */
+    private SpinnerIcon taskSpinner;
+    private JLabel taskSpinnerLabel;
+    private javax.swing.Timer taskSpinnerTimer;
     private String unlockedVaultPath;
     /** 独立仓库形态（lib/ + edit 脚本判定）：无历史仓库列表页。 */
     private boolean standalone;
@@ -167,6 +172,7 @@ public final class SanctumGui {
 
     /** 统一启动编排：HTTP 服务 + 托盘 + 自动锁定编排在此收敛（原 run）。 */
     private void bootstrap() {
+        initBackgroundExecutor();
         // 主题存于全局配置文件（未解锁亦可读取）→ 启动时直接应用全局主题
         applyTheme(config.theme());
         try {
@@ -204,15 +210,75 @@ public final class SanctumGui {
         if (httpServer != null) {
             httpServer.stop();
         }
+        if (executor != null) {
+            executor.shutdown();
+        }
         stopTimers();
         System.exit(0);
     }
 
-    private void stopTimers() {
-        if (autoLockTimer != null) {
-            autoLockTimer.cancel();
-            autoLockTimer = null;
+    /**
+     * 初始化单线程后台执行器：导入/导出/同步串行执行，空闲按最后活跃时间轮询锁定。
+     * 回调在 EDT 上触发（{@link BackgroundExecutor} 内部已包 {@code invokeLater}）。
+     */
+    private void initBackgroundExecutor() {
+        this.executor = new com.flora.sanctum.app.BackgroundExecutor(
+                () -> (sanctum != null && sanctum.isUnlocked())
+                        ? sanctum.config().lockTimeoutSeconds() * 1000L : Long.MAX_VALUE,
+                () -> sanctum != null && sanctum.isUnlocked(),
+                this::lock,
+                new com.flora.sanctum.app.BackgroundExecutor.Listener() {
+                    @Override
+                    public void onStart(String name) {
+                        if (statusLabel != null) {
+                            statusLabel.setText("正在" + name + "…");
+                        }
+                        startTaskSpinner();
+                    }
+
+                    @Override
+                    public void onEnd(String name) {
+                        stopTaskSpinner();
+                    }
+
+                    @Override
+                    public void onFailure(String name, Throwable t) {
+                        stopTaskSpinner();
+                        if (statusLabel != null) {
+                            statusLabel.setText(name + "失败");
+                        }
+                    }
+                });
+    }
+
+    /** 显示后台任务转圈（EDT）。 */
+    private void startTaskSpinner() {
+        if (taskSpinnerLabel == null) {
+            return;
         }
+        taskSpinnerLabel.setVisible(true);
+        if (taskSpinnerTimer == null) {
+            taskSpinnerTimer = new javax.swing.Timer(50, e -> {
+                taskSpinner.angle += 24;
+                taskSpinnerLabel.repaint();
+            });
+        }
+        if (!taskSpinnerTimer.isRunning()) {
+            taskSpinnerTimer.start();
+        }
+    }
+
+    /** 隐藏后台任务转圈（EDT）。 */
+    private void stopTaskSpinner() {
+        if (taskSpinnerTimer != null && taskSpinnerTimer.isRunning()) {
+            taskSpinnerTimer.stop();
+        }
+        if (taskSpinnerLabel != null) {
+            taskSpinnerLabel.setVisible(false);
+        }
+    }
+
+    private void stopTimers() {
         if (clipboardTimer != null) {
             clipboardTimer.cancel();
             clipboardTimer = null;
@@ -593,17 +659,33 @@ public final class SanctumGui {
             JOptionPane.showMessageDialog(frame, "远程地址与本地目录不能为空", "错误", JOptionPane.ERROR_MESSAGE);
             return;
         }
-        try {
-            com.flora.sanctum.app.bootstrap.RepoImporter.Result result =
-                    com.flora.sanctum.app.bootstrap.RepoImporter.importRemote(url, Path.of(local));
-            if (result.vaultRoot != null) {
-                showUnlockPage(result.vaultRoot);
+        final String repoUrl = url;
+        final String repoLocal = local;
+        executor.submit(new com.flora.sanctum.app.BackgroundExecutor.Task() {
+            @Override
+            public String name() {
+                return "导入仓库";
             }
-        } catch (IllegalArgumentException e) {
-            JOptionPane.showMessageDialog(frame, e.getMessage(), "导入失败", JOptionPane.ERROR_MESSAGE);
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(frame, "导入失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
-        }
+
+            @Override
+            public void run() throws Exception {
+                try {
+                    com.flora.sanctum.app.bootstrap.RepoImporter.Result result =
+                            com.flora.sanctum.app.bootstrap.RepoImporter.importRemote(repoUrl, Path.of(repoLocal));
+                    javax.swing.SwingUtilities.invokeLater(() -> {
+                        if (result.vaultRoot != null) {
+                            showUnlockPage(result.vaultRoot);
+                        }
+                    });
+                } catch (IllegalArgumentException e) {
+                    javax.swing.SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame,
+                            e.getMessage(), "导入失败", JOptionPane.ERROR_MESSAGE));
+                } catch (Exception e) {
+                    javax.swing.SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame,
+                            "导入失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE));
+                }
+            }
+        });
     }
 
     private void doOpenVault() {
@@ -853,34 +935,23 @@ public final class SanctumGui {
         }
         applyTheme(config.theme()); // 解锁后应用全局主题（存全局配置文件）
         showEditPage();
-        startAutoLockTimer();
+        executor.markActive();
     }
 
-    // ================= 自动锁定 =================
+    // ================= 自动锁定（由 BackgroundExecutor 空闲轮询触发） =================
 
-    private void startAutoLockTimer() {
-        if (autoLockTimer != null) {
-            autoLockTimer.cancel();
-        }
-        autoLockTimer = new java.util.Timer(true);
-        autoLockTimer.schedule(new java.util.TimerTask() {
-            @Override
-            public void run() {
-                SwingUtilities.invokeLater(SanctumGui.this::lock);
-            }
-        }, sanctum.config().lockTimeoutSeconds() * 1000L);
-    }
-
+    /** 界面活动：刷新后台线程的最后活跃时间，避免空闲误锁。 */
     private void resetAutoLock() {
-        if (sanctum != null && sanctum.isUnlocked()) {
-            startAutoLockTimer();
+        if (executor != null) {
+            executor.markActive();
         }
     }
 
     private void lock() {
-        if (sanctum != null) {
-            sanctum.close();
+        if (sanctum == null) {
+            return; // 已锁定：幂等，避免轮询窗口内重复触发
         }
+        sanctum.close();
         current.set(null);
         unlockedVaultPath = null;
         stopTimers();
@@ -911,6 +982,9 @@ public final class SanctumGui {
         JButton exportBtn = iconButton(SvgIcon.get(UiIcon.EXPORT, 29), "导出");
         exportBtn.addActionListener(e -> doExportWithDialog());
         statusLabel = new JLabel();
+        taskSpinner = new SpinnerIcon(18);
+        taskSpinnerLabel = new JLabel(taskSpinner);
+        taskSpinnerLabel.setVisible(false);
         syncBtn.setVisible(isFullyManaged());
 
         JTextField searchField = new JTextField(14);
@@ -935,6 +1009,7 @@ public final class SanctumGui {
         top.add(searchField);
         top.add(clearSearch);
         top.add(statusLabel);
+        top.add(taskSpinnerLabel);
         // 按钮栏与下方内容之间加 1px 分割线
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
@@ -3161,44 +3236,54 @@ public final class SanctumGui {
         }
     }
 
-    /** 后台执行导入并刷新 UI；主密码在 finally 中清零。 */
+    /** 后台执行导入并刷新 UI；主密码在 finally 中清零。提交到单线程执行器，与导出/同步串行。 */
     private void runImport(java.nio.file.Path file,
                            com.flora.sanctum.core.io.importer.Importer imp,
                            char[] password, java.nio.file.Path keyFile) {
-        statusLabel.setText("正在导入 " + file.getFileName() + " …");
         final char[] pw = password;
-        new Thread(() -> {
-            try {
-                com.flora.sanctum.core.io.importer.ImportContext ctx =
-                        com.flora.sanctum.core.io.importer.ImportContext.builder(sanctum.objectTree())
-                                .password(pw)
-                                .keyFile(keyFile)
-                                .iconTree(sanctum.iconTree())
-                                .listener(ImportListeners.logging(LoggerFactory.getLogger(SanctumGui.class)))
-                                .build();
-                com.flora.sanctum.core.io.importer.ImportResult result = imp.importFile(file, ctx);
-                javax.swing.SwingUtilities.invokeLater(() -> {
-                    modelBus.markDirty();
-                    modelBus.refresh();
-                    statusLabel.setText("导入完成：" + result);
-                    javax.swing.JOptionPane.showMessageDialog(frame,
-                            "导入完成：\n" + result, "导入", javax.swing.JOptionPane.INFORMATION_MESSAGE);
-                });
-            } catch (Exception ex) {
-                Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                String msg = cause instanceof com.flora.sanctum.core.io.importer.ImportException
-                        ? cause.getMessage() : cause.toString();
-                javax.swing.SwingUtilities.invokeLater(() -> {
-                    statusLabel.setText("导入失败");
-                    javax.swing.JOptionPane.showMessageDialog(frame,
-                            "导入失败：" + msg, "导入错误", javax.swing.JOptionPane.ERROR_MESSAGE);
-                });
-            } finally {
-                if (pw != null) {
-                    java.util.Arrays.fill(pw, '\0');
+        executor.submit(new com.flora.sanctum.app.BackgroundExecutor.Task() {
+            @Override
+            public String name() {
+                return "导入";
+            }
+
+            @Override
+            public void run() throws Exception {
+                if (sanctum == null || !sanctum.isUnlocked()) {
+                    return; // 排队期间状态已变，放弃
+                }
+                try {
+                    com.flora.sanctum.core.io.importer.ImportContext ctx =
+                            com.flora.sanctum.core.io.importer.ImportContext.builder(sanctum.objectTree())
+                                    .password(pw)
+                                    .keyFile(keyFile)
+                                    .iconTree(sanctum.iconTree())
+                                    .listener(ImportListeners.logging(LoggerFactory.getLogger(SanctumGui.class)))
+                                    .build();
+                    com.flora.sanctum.core.io.importer.ImportResult result = imp.importFile(file, ctx);
+                    javax.swing.SwingUtilities.invokeLater(() -> {
+                        modelBus.markDirty();
+                        modelBus.refresh();
+                        statusLabel.setText("导入完成：" + result);
+                        javax.swing.JOptionPane.showMessageDialog(frame,
+                                "导入完成：\n" + result, "导入", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                    });
+                } catch (Exception ex) {
+                    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                    String msg = cause instanceof com.flora.sanctum.core.io.importer.ImportException
+                            ? cause.getMessage() : cause.toString();
+                    javax.swing.SwingUtilities.invokeLater(() -> {
+                        statusLabel.setText("导入失败");
+                        javax.swing.JOptionPane.showMessageDialog(frame,
+                                "导入失败：" + msg, "导入错误", javax.swing.JOptionPane.ERROR_MESSAGE);
+                    });
+                } finally {
+                    if (pw != null) {
+                        java.util.Arrays.fill(pw, '\0');
+                    }
                 }
             }
-        }, "import").start();
+        });
     }
 
     /** 导出入口：先选格式，再选保存文件，最后写盘。 */
@@ -3235,18 +3320,37 @@ public final class SanctumGui {
                     "不支持的导出格式：" + fmt, "导出", javax.swing.JOptionPane.WARNING_MESSAGE);
             return;
         }
-        try {
-            exporter.get().exportTo(file, sanctum.objectTree());
-            statusLabel.setText("已导出：" + file.getFileName());
-            javax.swing.JOptionPane.showMessageDialog(frame,
-                    "已导出到：\n" + file, "导出", javax.swing.JOptionPane.INFORMATION_MESSAGE);
-        } catch (Exception ex) {
-            String msg = ex instanceof com.flora.sanctum.core.io.exporter.ExportException
-                    ? ex.getMessage() : ex.toString();
-            statusLabel.setText("导出失败");
-            javax.swing.JOptionPane.showMessageDialog(frame,
-                    "导出失败：" + msg, "导出错误", javax.swing.JOptionPane.ERROR_MESSAGE);
-        }
+        final java.nio.file.Path out = file;
+        final com.flora.sanctum.core.io.exporter.Exporter exp = exporter.get();
+        executor.submit(new com.flora.sanctum.app.BackgroundExecutor.Task() {
+            @Override
+            public String name() {
+                return "导出";
+            }
+
+            @Override
+            public void run() throws Exception {
+                if (sanctum == null || !sanctum.isUnlocked()) {
+                    return; // 排队期间状态已变，放弃
+                }
+                try {
+                    exp.exportTo(out, sanctum.objectTree());
+                    javax.swing.SwingUtilities.invokeLater(() -> {
+                        statusLabel.setText("已导出：" + out.getFileName());
+                        javax.swing.JOptionPane.showMessageDialog(frame,
+                                "已导出到：\n" + out, "导出", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                    });
+                } catch (Exception ex) {
+                    String msg = ex instanceof com.flora.sanctum.core.io.exporter.ExportException
+                            ? ex.getMessage() : ex.toString();
+                    javax.swing.SwingUtilities.invokeLater(() -> {
+                        statusLabel.setText("导出失败");
+                        javax.swing.JOptionPane.showMessageDialog(frame,
+                                "导出失败：" + msg, "导出错误", javax.swing.JOptionPane.ERROR_MESSAGE);
+                    });
+                }
+            }
+        });
     }
 
     /** 格式选择弹窗：列出可选格式，返回所选格式名（取消返回 null）。 */
@@ -3371,22 +3475,34 @@ public final class SanctumGui {
         if (sanctum == null || syncService == null) {
             return;
         }
-        try {
-            if (!syncService.isFullyManaged()) {
-                statusLabel.setText("非完全托管，跳过同步");
-                return;
+        executor.submit(new com.flora.sanctum.app.BackgroundExecutor.Task() {
+            @Override
+            public String name() {
+                return "同步";
             }
-            // 关闭→同步→重新打开（同步后块内容已变，必须重建会话）
-            sanctum.close();
-            syncService.sync();
-            sanctum = Sanctum.open(sanctum.root());
-            current.set(sanctum);
-            modelBus.markDirty();
-            modelBus.refresh();
-            statusLabel.setText("已同步");
-        } catch (Exception e) {
-            statusLabel.setText("同步失败");
-        }
+
+            @Override
+            public void run() throws Exception {
+                if (sanctum == null || !sanctum.isUnlocked()) {
+                    return; // 排队期间状态已变，放弃
+                }
+                if (!syncService.isFullyManaged()) {
+                    javax.swing.SwingUtilities.invokeLater(
+                            () -> statusLabel.setText("非完全托管，跳过同步"));
+                    return;
+                }
+                // 关闭→同步→重新打开（同步后块内容已变，必须重建会话）
+                sanctum.close();
+                syncService.sync();
+                sanctum = Sanctum.open(sanctum.root());
+                current.set(sanctum);
+                javax.swing.SwingUtilities.invokeLater(() -> {
+                    modelBus.markDirty();
+                    modelBus.refresh();
+                    statusLabel.setText("已同步");
+                });
+            }
+        });
     }
 
     // ================= 设置 =================

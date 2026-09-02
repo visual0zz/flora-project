@@ -167,9 +167,9 @@ public final class CipherCodec {
         return r;
     }
 
-    /** deflate 压缩明文（RFC 1951 原始流）。 */
+    /** deflate 压缩明文（RFC 1951 原始流，nowrap：无 zlib 头/尾，因整段随后被 AEAD 加密，完整性已由 GCM-SIV 保证）。 */
     private static byte[] deflate(byte[] in) {
-        java.util.zip.Deflater def = new java.util.zip.Deflater();
+        java.util.zip.Deflater def = new java.util.zip.Deflater(java.util.zip.Deflater.DEFAULT_COMPRESSION, true);
         def.setInput(in);
         def.finish();
         byte[] buf = new byte[8192];
@@ -182,9 +182,9 @@ public final class CipherCodec {
         return out.toByteArray();
     }
 
-    /** inflate 解压（对应 deflate）。 */
+    /** inflate 解压（对应 deflate，nowrap 须与压缩端一致）。 */
     private static byte[] inflate(byte[] in) {
-        java.util.zip.Inflater inf = new java.util.zip.Inflater();
+        java.util.zip.Inflater inf = new java.util.zip.Inflater(true);
         inf.setInput(in);
         byte[] buf = new byte[8192];
         java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();

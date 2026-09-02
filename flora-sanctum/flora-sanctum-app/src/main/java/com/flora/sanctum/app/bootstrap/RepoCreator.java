@@ -1,6 +1,8 @@
 package com.flora.sanctum.app.bootstrap;
 
 import com.flora.root.codec.json.model.JsonObject;
+import com.flora.root.runtime.log.Logger;
+import com.flora.root.runtime.log.LoggerFactory;
 
 import java.io.IOException;
 import java.lang.module.ModuleReference;
@@ -27,11 +29,14 @@ import java.util.jar.JarFile;
  */
 public final class RepoCreator {
 
+    private static final Logger LOG = LoggerFactory.getLogger(RepoCreator.class);
+
     private RepoCreator() {
     }
 
     /** 新建普通仓库：目标目录直接作为 vault 根。返回该目录。 */
     public static Path createNormal(Path dir) throws IOException {
+        LOG.info("Creating normal repository at {}", dir);
         Files.createDirectories(dir);
         return dir;
     }
@@ -45,10 +50,12 @@ public final class RepoCreator {
      * @param appConfig 应用级配置（复制为仓库级，不含密钥）
      */
     public static Path createStandalone(Path dir, JsonObject appConfig) throws IOException {
+        LOG.info("Creating standalone repository at {}", dir);
         Files.createDirectories(dir);
         copyLib(dir);
         writeScripts(dir);
         VaultDetector.writeRepoConfig(dir, appConfig);
+        LOG.info("Standalone repository created at {}", dir);
         return dir;
     }
 
@@ -57,6 +64,7 @@ public final class RepoCreator {
      * 数据块不动（普通/独立仓库数据布局一致，无 data 层）。返回仓库根。
      */
     public static Path upgradeToStandalone(Path repoRoot, JsonObject appConfig) throws IOException {
+        LOG.info("Upgrading repository to standalone: {}", repoRoot);
         if (VaultDetector.isStandaloneRepo(repoRoot)) {
             throw new IOException("已是独立仓库");
         }
@@ -66,6 +74,7 @@ public final class RepoCreator {
         copyLib(repoRoot);
         writeScripts(repoRoot);
         VaultDetector.writeRepoConfig(repoRoot, appConfig);
+        LOG.info("Repository upgraded to standalone: {}", repoRoot);
         return repoRoot;
     }
 
@@ -74,10 +83,12 @@ public final class RepoCreator {
      * 数据块不动。返回仓库根。
      */
     public static Path downgradeToNormal(Path repoRoot) throws IOException {
+        LOG.info("Downgrading repository to normal: {}", repoRoot);
         deleteIfExists(repoRoot.resolve("lib"));
         deleteIfExists(repoRoot.resolve("edit"));
         deleteIfExists(repoRoot.resolve("edit.bat"));
         deleteIfExists(repoRoot.resolve("config.json"));
+        LOG.info("Repository downgraded to normal: {}", repoRoot);
         return repoRoot;
     }
 
@@ -213,7 +224,8 @@ public final class RepoCreator {
                     Files.copy(jf.getInputStream(en), lib.resolve(fname));
                 }
             }
-        } catch (IOException ignore) {
+        } catch (IOException e) {
+            LOG.warn("Failed to extract fat-jar libs into {}: {}", lib, e.getMessage());
         }
     }
 

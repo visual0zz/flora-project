@@ -2,6 +2,8 @@ package com.flora.sanctum.app.bootstrap;
 
 import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
+import com.flora.root.runtime.log.Logger;
+import com.flora.root.runtime.log.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,6 +24,8 @@ import java.util.stream.Stream;
  * （存储"使用习惯"内容，非机密）。
  */
 public final class VaultDetector {
+
+    private static final Logger LOG = LoggerFactory.getLogger(VaultDetector.class);
 
     public enum Type {
         /** 普通仓库：目录即数据根（两层目录 + md 块）。 */
@@ -70,6 +74,7 @@ public final class VaultDetector {
         if (hasBlockFiles(dir)) {
             return Type.NORMAL;
         }
+        LOG.debug("No vault structure detected at {}", dir);
         return Type.NOT_A_VAULT;
     }
 
@@ -147,6 +152,7 @@ public final class VaultDetector {
         try {
             return JsonUtil.parseObject(Files.readString(cfg));
         } catch (Exception e) {
+            LOG.warn("Failed to read repo config {}, returning empty: {}", cfg, e.getMessage());
             return new JsonObject();
         }
     }
@@ -154,10 +160,12 @@ public final class VaultDetector {
     /** 写入独立仓库 config.json（不含密钥等加密信息）。 */
     public static void writeRepoConfig(Path dir, JsonObject appConfig) {
         Path cfg = dir.resolve(REPO_CONFIG);
+        LOG.info("Writing repo config to {}", cfg);
         try {
             Files.createDirectories(dir);
             Files.writeString(cfg, JsonUtil.toJsonString(appConfig));
         } catch (Exception e) {
+            LOG.error("Cannot write repo config: {}", cfg, e);
             throw new IllegalStateException("cannot write repo config: " + cfg, e);
         }
     }

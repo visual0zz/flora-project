@@ -5,6 +5,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.flora.root.runtime.log.Logger;
+import com.flora.root.runtime.log.LoggerFactory;
+
 /**
  * 导入仓库（见设计"形态与启动"）。
  * <p>
@@ -17,6 +20,8 @@ import java.util.List;
  * </ul>
  */
 public final class RepoImporter {
+
+    private static final Logger LOG = LoggerFactory.getLogger(RepoImporter.class);
 
     /** 导入结果：分类 + 可用 vault 根（非仓库为 null）。 */
     public static final class Result {
@@ -42,24 +47,31 @@ public final class RepoImporter {
      * @return 分类结果；非仓库 / 克隆失败抛异常
      */
     public static Result importRemote(String remote, Path local) throws Exception {
+        LOG.info("Importing remote repository {} into {}", remote, local);
         clone(remote, local);
-        if (VaultDetector.detect(local) == VaultDetector.Type.NOT_A_VAULT) {
+        VaultDetector.Type type = VaultDetector.detect(local);
+        if (type == VaultDetector.Type.NOT_A_VAULT) {
             // 空目录 → 建基本结构（普通仓库）
             if (isEmpty(local)) {
                 VaultDetector.Type t = VaultDetector.Type.NORMAL;
+                LOG.info("Cloned repo is empty, treating as new normal repository: {}", local);
                 return new Result(t, local, local);
             }
+            LOG.warn("Cloned repository is not a flora-sanctum vault: {}", local);
             throw new IllegalArgumentException("not a flora-sanctum repository: " + local);
         }
         Path vaultRoot = VaultDetector.vaultRoot(local);
-        return new Result(VaultDetector.detect(local), local, vaultRoot);
+        LOG.info("Imported repository classified as {} at {}", type, vaultRoot);
+        return new Result(type, local, vaultRoot);
     }
 
     private static void clone(String remote, Path local) throws Exception {
+        LOG.info("Cloning {} into {}", remote, local);
         if (local.getParent() != null) {
             Files.createDirectories(local.getParent());
         }
         runIn(local.getParent(), "clone", remote, local.getFileName().toString());
+        LOG.info("Clone finished: {}", local);
     }
 
     private static boolean isEmpty(Path dir) {

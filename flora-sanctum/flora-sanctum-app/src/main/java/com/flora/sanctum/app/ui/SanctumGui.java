@@ -17,6 +17,7 @@ import com.flora.sanctum.core.model.tree.SshKeyNode;
 import com.flora.sanctum.core.io.importer.ImportListeners;
 import com.flora.sanctum.core.model.tree.TreeNode;
 import com.flora.root.codec.json.model.JsonObject;
+import com.flora.root.runtime.log.Logger;
 import com.flora.root.runtime.log.LoggerFactory;
 
 import javax.swing.BorderFactory;
@@ -85,6 +86,8 @@ import java.util.UUID;
  * UI 只调用 core 公开 API（见设计 07），不解密、不碰 Git。
  */
 public final class SanctumGui {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SanctumGui.class);
 
     private final java.util.concurrent.atomic.AtomicReference<Sanctum> current =
             new java.util.concurrent.atomic.AtomicReference<>();
@@ -172,6 +175,7 @@ public final class SanctumGui {
 
     /** 统一启动编排：HTTP 服务 + 托盘 + 自动锁定编排在此收敛（原 run）。 */
     private void bootstrap() {
+        LOG.info("Bootstrapping GUI (standalone={})", standalone);
         initBackgroundExecutor();
         // 主题存于全局配置文件（未解锁亦可读取）→ 启动时直接应用全局主题
         applyTheme(config.theme());
@@ -179,6 +183,7 @@ public final class SanctumGui {
             httpServer = new com.flora.sanctum.app.server.SanctumHttpServer(current::get, 0);
             httpServer.start();
         } catch (IOException e) {
+            LOG.error("Cannot start HTTP server", e);
             throw new IllegalStateException("cannot start HTTP server", e);
         }
         SwingUtilities.invokeLater(() -> {
@@ -196,8 +201,10 @@ public final class SanctumGui {
                 }
             });
             if (standalone) {
+                LOG.info("Showing unlock page for {}", targetVaultRoot);
                 showUnlockPage(targetVaultRoot);
             } else {
+                LOG.info("Showing history page");
                 showHistoryPage();
             }
             frame.setSize(560, 440);
@@ -244,6 +251,7 @@ public final class SanctumGui {
                     @Override
                     public void onFailure(String name, Throwable t) {
                         stopTaskSpinner();
+                        LOG.error("Background task failed: {}", name, t);
                         if (statusLabel != null) {
                             statusLabel.setText(name + "失败");
                         }
@@ -376,6 +384,7 @@ public final class SanctumGui {
     }
 
     private void showEditPage() {
+        LOG.info("Showing edit page (main UI)");
         frame.setContentPane(buildMainPanel());
         applyWindowSize("ui.window.main", 960, 640);
         frame.revalidate();
@@ -576,11 +585,13 @@ public final class SanctumGui {
     private void doNewVault() {
         NewVaultDialog dlg = new NewVaultDialog(frame, req -> {
             try {
+                LOG.info("Creating new vault at {} (standalone={})", req.target(), req.standalone());
                 Path root = com.flora.sanctum.app.bootstrap.RepoCreator.createNormal(req.target());
                 char[] pw = req.password();
                 int[] kdf = req.kdf();
                 createAndUnlockVault(root, pw, kdf, req.standalone());
             } catch (Exception ex) {
+                LOG.error("Failed to create new vault", ex);
                 JOptionPane.showMessageDialog(frame, "创建失败：" + ex.getMessage(), "错误",
                         JOptionPane.ERROR_MESSAGE);
             }
@@ -614,6 +625,7 @@ public final class SanctumGui {
                     char[] copy = pw.clone();
                     java.util.Arrays.fill(pw, (char) 0);
                     try {
+                        LOG.info("Creating and unlocking vault at {}", root);
                         Sanctum s = kdf == null
                                 ? Sanctum.createAndUnlock(root, copy)
                                 : Sanctum.createAndUnlock(root, copy, kdf[0], kdf[1], kdf[2]);
@@ -628,6 +640,7 @@ public final class SanctumGui {
                                         "独立仓库形态写入失败（lib/ 与启动脚本）：" + ex.getMessage(), ex);
                             }
                         }
+                        LOG.info("Vault created and unlocked at {}", root);
                         return s;
                     } finally {
                         java.util.Arrays.fill(copy, (char) 0);
@@ -638,6 +651,7 @@ public final class SanctumGui {
             progress.dispose();
             if (ex != null) {
                 Throwable cause = (ex instanceof java.util.concurrent.CompletionException) ? ex.getCause() : ex;
+                LOG.error("Failed to create and unlock vault at {}", root, cause);
                 JOptionPane.showMessageDialog(frame, "创建失败：" + (cause == null ? "未知错误" : cause.getMessage()),
                         "错误", JOptionPane.ERROR_MESSAGE);
                 showHistoryPage();
@@ -679,17 +693,21 @@ public final class SanctumGui {
             @Override
             public void run() throws Exception {
                 try {
+                    LOG.info("Importing remote vault from {}", repoUrl);
                     com.flora.sanctum.app.bootstrap.RepoImporter.Result result =
                             com.flora.sanctum.app.bootstrap.RepoImporter.importRemote(repoUrl, Path.of(repoLocal));
+                    LOG.info("Remote vault imported as {} -> {}", result.type, result.vaultRoot);
                     javax.swing.SwingUtilities.invokeLater(() -> {
                         if (result.vaultRoot != null) {
                             showUnlockPage(result.vaultRoot);
                         }
                     });
                 } catch (IllegalArgumentException e) {
+                    LOG.warn("Remote vault import rejected: {}", e.getMessage());
                     javax.swing.SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame,
                             e.getMessage(), "导入失败", JOptionPane.ERROR_MESSAGE));
                 } catch (Exception e) {
+                    LOG.error("Remote vault import failed for {}", repoUrl, e);
                     javax.swing.SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame,
                             "导入失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE));
                 }
@@ -702,12 +720,15 @@ public final class SanctumGui {
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         if (chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
             Path dir = chooser.getSelectedFile().toPath();
-            if (com.flora.sanctum.app.bootstrap.VaultDetector.detect(dir)
-                    == com.flora.sanctum.app.bootstrap.VaultDetector.Type.NOT_A_VAULT) {
+            com.flora.sanctum.app.bootstrap.VaultDetector.Type t =
+                    com.flora.sanctum.app.bootstrap.VaultDetector.detect(dir);
+            if (t == com.flora.sanctum.app.bootstrap.VaultDetector.Type.NOT_A_VAULT) {
+                LOG.warn("Open rejected: {} is not a flora-sanctum vault", dir);
                 JOptionPane.showMessageDialog(frame, "该目录不是 flora-sanctum 仓库", "打开失败",
                         JOptionPane.ERROR_MESSAGE);
                 return;
             }
+            LOG.info("Opening vault {} (type={})", dir, t);
             openForUnlock(dir);
         }
     }
@@ -718,6 +739,7 @@ public final class SanctumGui {
                     java.nio.file.Files.readString(
                             Path.of(System.getProperty("user.home"), ".flora-sanctum", "config.json")));
         } catch (Exception e) {
+            LOG.warn("Failed to load app config, using defaults: {}", e.getMessage());
             return new JsonObject();
         }
     }
@@ -889,6 +911,7 @@ public final class SanctumGui {
         unlockBtn.setEnabled(false);
         pwField.setEnabled(false);
         // 后台线程解锁（Argon2 派生耗时长，避免阻塞 EDT 导致转圈不转）
+        LOG.info("Unlocking vault at {}", root);
         java.util.concurrent.CompletableFuture.runAsync(() -> {
             final Sanctum[] result = new Sanctum[1];
             final String[] failMsg = new String[1];
@@ -919,6 +942,7 @@ public final class SanctumGui {
                 unlockBtn.setEnabled(true);
                 pwField.setEnabled(true);
                 if (msg != null) {
+                    LOG.warn("Unlock failed for {}: {}", root, msg);
                     error.setText(msg);
                     return;
                 }
@@ -928,6 +952,7 @@ public final class SanctumGui {
                     // 解锁成功后进入主界面的刷新（rebuildGroupTree/refreshEntryList/渲染器）若抛异常，
                     // 原本会被 Swing 的 EDT 默认异常处理器静默吞掉（仅打印 stderr），界面"什么都没发生"。
                     // 这里显式捕获并显示，让用户看到真实原因而非卡在解锁页。
+                    LOG.error("Entering main UI failed for {}", root, ex);
                     ex.printStackTrace();
                     error.setText("进入主界面失败：" + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
                 }
@@ -940,6 +965,7 @@ public final class SanctumGui {
      * 打开已存在仓库（解锁页）与新建后直接解锁共用同一逻辑。
      */
     private void onUnlocked(Path root, Sanctum s) {
+        LOG.info("Vault unlocked: {}", root);
         sanctum = s;
         unlockedVaultPath = root.toAbsolutePath().toString();
         config.addRecentVault(unlockedVaultPath);
@@ -970,6 +996,7 @@ public final class SanctumGui {
         if (sanctum == null) {
             return; // 已锁定：幂等，避免轮询窗口内重复触发
         }
+        LOG.info("Locking vault{}", unlockedVaultPath != null ? " " + unlockedVaultPath : "");
         sanctum.close();
         current.set(null);
         unlockedVaultPath = null;
@@ -986,6 +1013,7 @@ public final class SanctumGui {
     // ================= 主界面 =================
 
     private JPanel buildMainPanel() {
+        LOG.info("Building main panel");
         // 中间区域用暖纸底色（openhanako Warm Paper）；工具栏略深，左右卡片更白
         JPanel root = new UiTheme.PaperPanel(new BorderLayout());
 
@@ -1215,6 +1243,7 @@ public final class SanctumGui {
     /** 树节点类型：普通文件夹（UUID userObject）或区段节点（ViewNodeType userObject，对应树分类）。 */
 
     private void rebuildGroupTree() {
+        LOG.debug("Rebuilding group tree");
         treeRoot = new DefaultMutableTreeNode("全部");
         groupNodes.clear();
         groupCache = null; // 重置缓存
@@ -1289,6 +1318,8 @@ public final class SanctumGui {
         for (int r = 0; r < groupTree.getRowCount(); r++) {
             groupTree.expandRow(r);
         }
+        LOG.debug("Group tree rebuilt: objects={}, trash, externalKeys={}, totp={}",
+                groupNodes.size(), externalKeys.size(), totpFieldsCache.size());
     }
 
     /** 取节点的图标引用（条目/文件夹），无则返回 null；用于垃圾桶列表中对象的图标展示。 */
@@ -1565,6 +1596,7 @@ public final class SanctumGui {
      * 都应先 {@code modelBus.markDirty()}，再由本次刷新统一完成，避免散落的配对调用漏掉一边。
      */
     private void refreshAll() {
+        LOG.debug("Refreshing all (tree + entry list)");
         rebuildGroupTree();
         refreshEntryList(currentSearchQuery());
         updateToolbar();
@@ -1576,6 +1608,8 @@ public final class SanctumGui {
         Object sel = currentSelection();
         ViewNodeType section = sectionOf(sel);
         UUID groupId = section == null ? groupIdOf(sel) : null;
+        LOG.debug("Refreshing entry list (section={}, group={}, query='{}')",
+                section, groupId, q);
         // 进入 TOTP 视图且非搜索时才启动动态码定时器；其它任何情形（含搜索）一律停止
         if (section != ViewNodeType.TOTP || !q.isEmpty()) {
             totpViewActive = false;
@@ -3297,6 +3331,7 @@ public final class SanctumGui {
                     return; // 排队期间状态已变，放弃
                 }
                 try {
+                    LOG.info("Importing file {} into unlocked vault", file);
                     com.flora.sanctum.core.io.importer.ImportContext ctx =
                             com.flora.sanctum.core.io.importer.ImportContext.builder(sanctum.objectTree())
                                     .password(pw)
@@ -3305,6 +3340,7 @@ public final class SanctumGui {
                                     .listener(ImportListeners.logging(LoggerFactory.getLogger(SanctumGui.class)))
                                     .build();
                     com.flora.sanctum.core.io.importer.ImportResult result = imp.importFile(file, ctx);
+                    LOG.info("Import completed: {}", result);
                     javax.swing.SwingUtilities.invokeLater(() -> {
                         modelBus.markDirty();
                         modelBus.refresh();
@@ -3316,6 +3352,7 @@ public final class SanctumGui {
                     Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
                     String msg = cause instanceof com.flora.sanctum.core.io.importer.ImportException
                             ? cause.getMessage() : cause.toString();
+                    LOG.error("Import failed for {}", file, cause);
                     javax.swing.SwingUtilities.invokeLater(() -> {
                         statusLabel.setText("导入失败");
                         javax.swing.JOptionPane.showMessageDialog(frame,
@@ -3378,7 +3415,9 @@ public final class SanctumGui {
                     return; // 排队期间状态已变，放弃
                 }
                 try {
+                    LOG.info("Exporting vault to {}", out);
                     exp.exportTo(out, sanctum.objectTree());
+                    LOG.info("Export completed: {}", out);
                     javax.swing.SwingUtilities.invokeLater(() -> {
                         statusLabel.setText("已导出：" + out.getFileName());
                         javax.swing.JOptionPane.showMessageDialog(frame,
@@ -3387,6 +3426,7 @@ public final class SanctumGui {
                 } catch (Exception ex) {
                     String msg = ex instanceof com.flora.sanctum.core.io.exporter.ExportException
                             ? ex.getMessage() : ex.toString();
+                    LOG.error("Export failed for {}", out, ex);
                     javax.swing.SwingUtilities.invokeLater(() -> {
                         statusLabel.setText("导出失败");
                         javax.swing.JOptionPane.showMessageDialog(frame,
@@ -3476,6 +3516,7 @@ public final class SanctumGui {
                 if (type == StoredNodeType.SSH_KEY && !detachKeyRefs(entryUuid)) {
                     return;
                 }
+                LOG.info("Deleting node {} (type={})", entryUuid, type);
                 resetAutoLock();
                 TreeNode node = sanctum.findNode(entryUuid);
                 if (node != null) {
@@ -3495,6 +3536,7 @@ public final class SanctumGui {
         if (node != null && node != treeRoot && node.getUserObject() instanceof UUID groupId) {
             int ok = JOptionPane.showConfirmDialog(frame, "删除该文件夹及其内容（移入垃圾桶，可恢复）?", "确认", JOptionPane.YES_NO_OPTION);
             if (ok == JOptionPane.YES_OPTION) {
+                LOG.info("Deleting group {}", groupId);
                 GroupNode g = sanctum.objectTree().group(groupId);
                 if (g != null) {
                     g.markDeleted();
@@ -3531,15 +3573,18 @@ public final class SanctumGui {
                     return; // 排队期间状态已变，放弃
                 }
                 if (!syncService.isFullyManaged()) {
+                    LOG.info("Sync skipped: vault is not fully managed");
                     javax.swing.SwingUtilities.invokeLater(
                             () -> statusLabel.setText("非完全托管，跳过同步"));
                     return;
                 }
                 // 关闭→同步→重新打开（同步后块内容已变，必须重建会话）
+                LOG.info("Sync: closing vault, running git sync, reopening");
                 sanctum.close();
                 syncService.sync();
                 sanctum = Sanctum.open(sanctum.root());
                 current.set(sanctum);
+                LOG.info("Sync finished, vault reopened");
                 javax.swing.SwingUtilities.invokeLater(() -> {
                     modelBus.markDirty();
                     modelBus.refresh();

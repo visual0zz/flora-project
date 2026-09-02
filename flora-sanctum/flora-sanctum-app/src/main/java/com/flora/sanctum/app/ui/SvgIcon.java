@@ -18,6 +18,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.flora.root.runtime.log.Logger;
+import com.flora.root.runtime.log.LoggerFactory;
+
 /**
  * 加载并缓存 SVG 矢量图标，渲染为 Swing {@link ImageIcon}。
  * <p>
@@ -26,6 +29,8 @@ import java.util.Map;
  * 本类只负责渲染。</p>
  */
 public final class SvgIcon {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SvgIcon.class);
 
     private SvgIcon() {
     }
@@ -58,6 +63,7 @@ public final class SvgIcon {
             SVGDocument doc = new SVGLoader().load(in, URI.create("memory://icon"), LoaderContext.createDefault());
             return render(doc, size);
         } catch (Exception e) {
+            LOG.warn("Failed to render custom SVG icon ({} bytes): {}", data.length, e.getMessage());
             return null;
         }
     }
@@ -84,6 +90,7 @@ public final class SvgIcon {
                     ? BuiltinIcons.url(name.substring("library/".length()))
                     : SvgIcon.class.getResource("/icons/" + name + ".svg");
             if (resUrl == null) {
+                LOG.warn("Icon resource not found: {}", name);
                 return null;
             }
             try (InputStream in = resUrl.openStream()) {
@@ -91,6 +98,7 @@ public final class SvgIcon {
                 return render(doc, size);
             }
         } catch (IOException | java.net.URISyntaxException e) {
+            LOG.warn("Failed to load icon {}: {}", name, e.getMessage());
             return null;
         }
     }

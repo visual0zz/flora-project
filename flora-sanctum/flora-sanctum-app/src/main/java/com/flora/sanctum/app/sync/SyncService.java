@@ -6,6 +6,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.flora.root.runtime.log.Logger;
+import com.flora.root.runtime.log.LoggerFactory;
+
 /**
  * Git 同步封装（见设计 06"Git 同步"），基于本地 git 命令（ProcessBuilder），无 jgit 依赖。
  * <p>
@@ -18,6 +21,8 @@ import java.util.List;
  * SSH 私钥经 {@link #setSshCommand} 指定（{@code GIT_SSH_COMMAND} 注入，临时进程级，不写全局配置）。
  */
 public final class SyncService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SyncService.class);
 
     private final Path root;
     private String sshCommand;
@@ -39,6 +44,7 @@ public final class SyncService {
     /** 初始化 git 仓库（若缺）。 */
     public void initIfNeeded() throws Exception {
         if (!isGitRepo()) {
+            LOG.info("Initializing git repository at {}", root);
             execToString("init");
         }
     }
@@ -87,15 +93,18 @@ public final class SyncService {
 
     /** pull --rebase + push 到 origin。冲突按时间戳自动解决（见设计 06）。 */
     public void sync() throws Exception {
+        LOG.info("Starting sync for {}", root);
         initIfNeeded();
         commit("sanctum sync");
         execToString("fetch", "origin");
         String rebase = execToString("rebase", "origin");
         if (rebase.contains("CONFLICT")) {
+            LOG.warn("Rebase conflict detected for {}, resolving by timestamp", root);
             resolveConflicts();
             execToString("rebase", "--continue");
         }
         execToString("push", "origin", "HEAD");
+        LOG.info("Sync finished for {}", root);
     }
 
     /** 克隆远程仓库到本地目录（用于从远端恢复库）。 */
@@ -186,9 +195,10 @@ public final class SyncService {
         byte[] out = p.getInputStream().readAllBytes();
         int exit = p.waitFor();
         if (exit != 0) {
-            throw new java.io.IOException(
-                    "git " + String.join(" ", args) + " failed (exit " + exit + "): "
-                            + new String(out, StandardCharsets.UTF_8));
+            String msg = "git " + String.join(" ", args) + " failed (exit " + exit + "): "
+                    + new String(out, StandardCharsets.UTF_8);
+            LOG.error("Git command failed in {}: {}", root, msg);
+            throw new java.io.IOException(msg);
         }
         return out;
     }

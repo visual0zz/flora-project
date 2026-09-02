@@ -6,6 +6,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
 
+import com.flora.root.runtime.log.Logger;
+import com.flora.root.runtime.log.LoggerFactory;
+
 /**
  * 单线程后台任务执行器：串行执行导入 / 导出 / 远程同步等任务，空闲时按最后活跃时间
  * 轮询自动锁定（见设计文档 idea*-sanctum-backend-thread）。
@@ -18,6 +21,8 @@ import java.util.function.LongSupplier;
  * 锁定时由后台线程经 {@link SwingUtilities#invokeLater} 切回 EDT 执行，避免在非 EDT 触碰 UI。</p>
  */
 public final class BackgroundExecutor {
+
+    private static final Logger LOG = LoggerFactory.getLogger(BackgroundExecutor.class);
 
     /** 一个后台任务：带名称（用于 UI 报告）与执行体。 */
     public interface Task {
@@ -93,6 +98,7 @@ public final class BackgroundExecutor {
             if (unlocked.getAsBoolean()) {
                 long idle = nowMillis() - lastActivityMillis.get();
                 if (idle > idleTimeoutMillis.getAsLong()) {
+                    LOG.info("Idle timeout ({}ms) reached, triggering auto-lock", idle);
                     SwingUtilities.invokeLater(lockNow);
                     markActive(); // 锁定后刷新，避免解锁前这一窗口内反复触发
                     continue;
@@ -109,13 +115,16 @@ public final class BackgroundExecutor {
     }
 
     private void runTask(Task task) {
+        LOG.info("Task started: {}", task.name());
         try {
             SwingUtilities.invokeLater(() -> listener.onStart(task.name()));
             task.run();
         } catch (Throwable t) {
+            LOG.error("Task failed: {}", task.name(), t);
             SwingUtilities.invokeLater(() -> listener.onFailure(task.name(), t));
             return;
         }
+        LOG.info("Task finished: {}", task.name());
         SwingUtilities.invokeLater(() -> listener.onEnd(task.name()));
         markActive(); // 任务结束续命：从完成时刻起重算空闲阈值（细节2 甲）
     }

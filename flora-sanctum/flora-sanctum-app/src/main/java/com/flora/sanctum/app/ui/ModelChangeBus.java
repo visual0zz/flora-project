@@ -1,5 +1,8 @@
 package com.flora.sanctum.app.ui;
 
+import com.flora.root.runtime.log.Logger;
+import com.flora.root.runtime.log.LoggerFactory;
+
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
@@ -12,12 +15,15 @@ import java.util.function.Consumer;
  */
 final class ModelChangeBus {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ModelChangeBus.class);
+
     private final CopyOnWriteArrayList<Runnable> listeners = new CopyOnWriteArrayList<>();
     private boolean dirty;
 
     /** 注册刷新监听（重建树 + 列表）。 */
     void subscribe(Runnable listener) {
         listeners.add(listener);
+        LOG.debug("ModelChangeBus subscribed, listener count={}", listeners.size());
     }
 
     /** 标记模型已变更（一次操作可多次调用，仅触发一次刷新）。 */
@@ -34,6 +40,7 @@ final class ModelChangeBus {
             return;
         }
         dirty = false;
+        LOG.debug("ModelChangeBus refresh triggered, listeners={}", listeners.size());
         for (Runnable l : listeners) {
             l.run();
         }

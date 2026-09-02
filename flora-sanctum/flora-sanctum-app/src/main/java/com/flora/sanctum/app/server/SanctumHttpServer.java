@@ -4,6 +4,9 @@ import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.codec.json.model.JsonArray;
 
+import com.flora.root.runtime.log.Logger;
+import com.flora.root.runtime.log.LoggerFactory;
+
 import com.flora.sanctum.core.model.ExternalKeyService;
 import com.flora.sanctum.core.model.Sanctum;
 import com.sun.net.httpserver.HttpExchange;
@@ -24,6 +27,8 @@ import java.util.concurrent.Executors;
  * 跟随应用启动；锁定时所有端点返回 {@code locked} 错误，不泄露任何密钥能力。
  */
 public final class SanctumHttpServer {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SanctumHttpServer.class);
 
     private final java.util.function.Supplier<Sanctum> sanctumSupplier;
     private final HttpServer server;
@@ -49,9 +54,11 @@ public final class SanctumHttpServer {
 
     public void start() {
         server.start();
+        LOG.info("HTTP server started on 127.0.0.1:{}", port());
     }
 
     public void stop() {
+        LOG.info("Stopping HTTP server");
         server.stop(0);
         executor.shutdown();
     }
@@ -63,9 +70,11 @@ public final class SanctumHttpServer {
 
     private void handleList(HttpExchange ex) throws IOException {
         requirePost(ex);
+        LOG.debug("Handling /keys/list");
         JsonObject resp = new JsonObject();
         Sanctum s = sanctumSupplier.get();
         if (s == null || !s.isUnlocked()) {
+            LOG.debug("/keys/list rejected: vault locked");
             error(ex, "locked", "vault is locked");
             return;
         }
@@ -85,8 +94,10 @@ public final class SanctumHttpServer {
 
     private void handleEncrypt(HttpExchange ex) throws IOException {
         requirePost(ex);
+        LOG.debug("Handling /crypt/encrypt");
         Sanctum s = sanctumSupplier.get();
         if (s == null || !s.isUnlocked()) {
+            LOG.debug("/crypt/encrypt rejected: vault locked");
             error(ex, "locked", "vault is locked");
             return;
         }
@@ -106,14 +117,17 @@ public final class SanctumHttpServer {
             resp.put("ciphertextB64", Base64.getEncoder().encodeToString(cipher));
             respond(ex, 200, JsonUtil.toJsonString(resp));
         } catch (Exception e) {
+            LOG.warn("/crypt/encrypt failed for uuid {}: {}", uuidStr, e.getMessage());
             error(ex, "encrypt_failed", e.getMessage());
         }
     }
 
     private void handleDecrypt(HttpExchange ex) throws IOException {
         requirePost(ex);
+        LOG.debug("Handling /crypt/decrypt");
         Sanctum s = sanctumSupplier.get();
         if (s == null || !s.isUnlocked()) {
+            LOG.debug("/crypt/decrypt rejected: vault locked");
             error(ex, "locked", "vault is locked");
             return;
         }
@@ -130,6 +144,7 @@ public final class SanctumHttpServer {
             resp.put("plaintextB64", Base64.getEncoder().encodeToString(data));
             respond(ex, 200, JsonUtil.toJsonString(resp));
         } catch (Exception e) {
+            LOG.warn("/crypt/decrypt failed: {}", e.getMessage());
             error(ex, "decrypt_failed", "decryption failed");
         }
     }

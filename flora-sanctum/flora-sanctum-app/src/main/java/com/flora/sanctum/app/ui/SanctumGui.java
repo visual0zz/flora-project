@@ -3032,15 +3032,16 @@ public final class SanctumGui {
             String format = extOf(name);
             if ("svg".equalsIgnoreCase(format)) {
                 // SVG 文本直接存原始内容
-                sanctum.iconTree().createIcon(name, data, "svg");
+                sanctum.iconTree().findOrCreate(name, data, "svg");
             } else {
                 javax.imageio.ImageIO.read(file.toFile()); // 校验确为可读图片
-                sanctum.iconTree().createIcon(name, data, format);
+                sanctum.iconTree().findOrCreate(name, data, format);
             }
             modelBus.markDirty();
             modelBus.refresh();
             statusLabel.setText("已导入图片 " + name);
         } catch (Exception ex) {
+            LOG.error("Failed to import image as icon: {}", file, ex);
             statusLabel.setText("图片导入失败");
         }
     }

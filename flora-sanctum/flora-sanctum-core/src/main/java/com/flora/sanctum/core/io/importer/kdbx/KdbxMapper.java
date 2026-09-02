@@ -165,7 +165,8 @@ final class KdbxMapper {
             Ref ref = null;
             if (data != null && data.length > 0) {
                 String name = "kp-" + customIconUuid.substring(0, Math.min(8, customIconUuid.length()));
-                IconNode node = iconTree.createIcon(name, data, formatOf(data));
+                // 按内容去重：重复导入同一份文件（或库内已有相同字节的图标）时复用，不产生副本
+                IconNode node = iconTree.findOrCreate(name, data, formatOf(data));
                 ref = Ref.nodeIcon(node.uuid());
             } else if (missingIconUuids.add(customIconUuid)) {
                 String shortId = customIconUuid.substring(0, Math.min(8, customIconUuid.length()));

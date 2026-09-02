@@ -184,6 +184,45 @@ class KdbxIconImportTest {
         assertNull(node.iconRef(), "缺少字节时不应设置 iconRef");
     }
 
+    /**
+     * 跨导入去重：同一份字节（即便 KeePass UUID 不同）在库内只应存一份。
+     * 重复导入同一份文件不应产生图标副本——图标字节会随条目数量成倍放大仓库体积。
+     */
+    @Test
+    void reImportReusesIdenticalIconBytes(@TempDir Path dir) throws Exception {
+        Sanctum sanctum = Sanctum.createAndUnlock(dir.resolve("vault-dedup"),
+                "pw".toCharArray(), 8192, 2, 1);
+        var tree = sanctum.objectTree();
+        IconTree iconTree = sanctum.iconTree();
+
+        String otherUuid = "fedcba9876543210fedcba9876543210";
+        KdbxDocument doc = buildDoc(CUSTOM_UUID, otherUuid); // 两个不同 UUID，但字节相同
+
+        KdbxMapper.map(doc, ImportContext.builder(tree).iconTree(iconTree).build());
+        int afterFirst = iconTree.icons().size();
+
+        KdbxMapper.map(buildDoc(CUSTOM_UUID, otherUuid),
+                ImportContext.builder(tree).iconTree(iconTree).build());
+        int afterSecond = iconTree.icons().size();
+
+        assertTrue(afterFirst >= 1, "首次导入应写入图标");
+        assertEquals(afterFirst, afterSecond, "重复导入相同字节的图标不应新增副本");
+    }
+
+    /** 两个条目各自引用不同 UUID 的自定义图标，但两个 UUID 对应同一份字节。 */
+    private static KdbxDocument buildDoc(String uuidA, String uuidB) {
+        KdbxDocument.KdbxGroup root = new KdbxDocument.KdbxGroup();
+        root.name = "Root";
+        for (String uuid : new String[]{uuidA, uuidB}) {
+            KdbxDocument.KdbxEntry e = new KdbxDocument.KdbxEntry();
+            e.name = "E-" + uuid.substring(0, 4);
+            e.customIconUuid = uuid;
+            e.fields.put("Password", new KdbxDocument.KdbxField("p", true));
+            root.entries.add(e);
+        }
+        return new KdbxDocument(root, Map.of(uuidA, PNG_1X1, uuidB, PNG_1X1));
+    }
+
     @Test
     void notesFieldBecomesBuiltinPreset() throws Exception {
         Sanctum sanctum = Sanctum.createAndUnlock(

@@ -1,5 +1,14 @@
 # Sanctum 节点类型与内部 JSON 字段总览（2026-08-28）
 
+> ⚠️ **本文已过时**——本快照捕捉于 2026-08-28，部分内容已被后续重构推翻。存储 / 字段格式以 **04-存储设计.md**、**05-密码库适配器.md** 为准；加密设计以 **02-加密设计.md** 为准。
+>
+> 与现行实现的主要差异（非穷举）：
+> - 信封头已不含对象 uuid（uuid 改由存储路径承载）；块内时间戳编码由 base58 改为 base64，且不再额外异或混淆。
+> - 字段块统一为 `type=field`（随机 uuid + parent=条目），预设 / 自定义语义仅由 `name` 是否在 `PRESET_NAMES` 区分；旧版 `predefField` / `customField` type 仅作读端兼容别名。本文仍以 `predefField` / `customField` 两种 type 描述，已不准确。
+> - 预设字段名为 `password / url / username / labels / notes`；`createTime` / `updateTime` **不是字段块**，而是内联在条目 JSON 内（只读）。本文误将其列为预设字段块。
+> - 根对象与每个 group 均持 `dek1 / dek2` 双 DEK（明文 base64），非单一 `dek`；本文描述为单 DEK + 包裹，已过时。
+> - manifest 字段为 `crypto`（算法套件）而非 `cryptoVersion`，且已无 `updateTimestamp` 字段。
+
 本文档统计 `flora-sanctum-core` 当前所有**存储节点类型**（`StoredNodeType`），
 逐个说明其结构、功能、加密路由与**块内 JSON 字段**。
 阅读对象：需要理解仓库磁盘结构的开发者（GC、同步、备份、格式兼容均依赖此）。

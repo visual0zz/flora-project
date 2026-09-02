@@ -167,9 +167,10 @@ public final class CipherCodec {
         return r;
     }
 
-    /** deflate 压缩明文（RFC 1951 原始流，nowrap：无 zlib 头/尾，因整段随后被 AEAD 加密，完整性已由 GCM-SIV 保证）。 */
+    /** deflate 压缩明文（RFC 1951 原始流，nowrap：无 zlib 头/尾，因整段随后被 AEAD 加密，完整性已由 GCM-SIV 保证）。
+     *  级别取 L1（BEST_SPEED）：小块 JSON 的压缩率与 L6 几乎相同，大块也仅多 ~10 字节，但压缩更快。 */
     private static byte[] deflate(byte[] in) {
-        java.util.zip.Deflater def = new java.util.zip.Deflater(java.util.zip.Deflater.DEFAULT_COMPRESSION, true);
+        java.util.zip.Deflater def = new java.util.zip.Deflater(java.util.zip.Deflater.BEST_SPEED, true);
         def.setInput(in);
         def.finish();
         byte[] buf = new byte[8192];

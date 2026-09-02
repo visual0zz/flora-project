@@ -39,10 +39,21 @@ final class KdbxMapper {
     private final Map<String, Ref> customIconRefs = new HashMap<>();
     /** 内置图标 iconId → 本轮稳定映射的 Sanctum 内置图标引用。 */
     private final Map<Integer, Ref> builtinIconRefs = new HashMap<>();
+    /** 已告警过的缺失自定义图标 UUID（避免引用同一图标的每个条目都重复告警）。 */
+    private final java.util.Set<String> missingIconUuids = new java.util.LinkedHashSet<>();
 
     private KdbxMapper(ImportContext ctx) {
         this.importContext = ctx;
         this.listener = ctx.listener();
+    }
+
+    /**
+     * 记录一条非致命告警：既计入结果统计，也即时推送给监听器
+     * （应用侧经 {@code ImportListeners.logging(...)} 落到日志文件，避免只看到告警条数而不见内容）。
+     */
+    private void warn(String message) {
+        warnings.add(message);
+        listener.onWarning(message);
     }
 
     static ImportResult map(KdbxDocument doc, ImportContext ctx) {
@@ -115,7 +126,7 @@ final class KdbxMapper {
                 try {
                     en.setNotes(kf.value);
                 } catch (Exception ex) {
-                    warnings.add("条目「" + ke.name + "」备注跳过：" + ex.getMessage());
+                    warn("条目「" + ke.name + "」备注跳过：" + ex.getMessage());
                 }
                 continue;
             }
@@ -128,7 +139,7 @@ final class KdbxMapper {
                 en.writeField(fieldName, kf.value, kind);
                 fcount++;
             } catch (IllegalArgumentException ex) {
-                warnings.add("条目「" + ke.name + "」字段「" + fieldName + "」跳过：" + ex.getMessage());
+                warn("条目「" + ke.name + "」字段「" + fieldName + "」跳过：" + ex.getMessage());
             }
         }
         return fcount;
@@ -156,6 +167,10 @@ final class KdbxMapper {
                 String name = "kp-" + customIconUuid.substring(0, Math.min(8, customIconUuid.length()));
                 IconNode node = iconTree.createIcon(name, data, formatOf(data));
                 ref = Ref.nodeIcon(node.uuid());
+            } else if (missingIconUuids.add(customIconUuid)) {
+                String shortId = customIconUuid.substring(0, Math.min(8, customIconUuid.length()));
+                warn("自定义图标缺失：CustomIconUUID " + shortId
+                        + "… 在文件的 Meta/CustomIcons 中找不到对应图标数据，引用它的条目/分组不会设置图标");
             }
             customIconRefs.put(customIconUuid, ref);
             return ref;

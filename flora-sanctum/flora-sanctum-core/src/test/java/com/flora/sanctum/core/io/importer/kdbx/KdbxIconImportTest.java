@@ -1,6 +1,7 @@
 package com.flora.sanctum.core.io.importer.kdbx;
 
 import com.flora.sanctum.core.io.importer.ImportContext;
+import com.flora.sanctum.core.io.importer.ImportListener;
 import com.flora.sanctum.core.io.importer.ImportResult;
 import com.flora.sanctum.core.icon.BuiltinIcons;
 import com.flora.sanctum.core.model.Ref;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.nio.file.Path;
 import java.util.List;
@@ -133,6 +135,53 @@ class KdbxIconImportTest {
 
         // 无图标引用
         assertNull(e0Node.iconRef(), "无图标引用的条目 iconRef 应为 null");
+    }
+
+    /**
+     * 条目引用了 CustomIconUUID 但文件里没有对应字节时，必须告警而非静默丢弃：
+     * 否则用户看到的现象就是「设置里没有自定义图标、条目也没图标」，却完全查不到原因。
+     */
+    @Test
+    void warnsWhenCustomIconBytesMissing(@TempDir Path dir) throws Exception {
+        Sanctum sanctum = Sanctum.createAndUnlock(dir.resolve("vault-missing-icon"),
+                "pw".toCharArray(), 8192, 2, 1);
+        var tree = sanctum.objectTree();
+        IconTree iconTree = sanctum.iconTree();
+
+        KdbxDocument.KdbxGroup root = new KdbxDocument.KdbxGroup();
+        root.name = "Root";
+        KdbxDocument.KdbxEntry e = new KdbxDocument.KdbxEntry();
+        e.name = "MissingIcon";
+        e.customIconUuid = CUSTOM_UUID; // 引用了图标，但 customIcons 为空
+        e.fields.put("Password", new KdbxDocument.KdbxField("p", true));
+        root.entries.add(e);
+
+        List<String> pushed = new ArrayList<>();
+        ImportContext ctx = ImportContext.builder(tree)
+                .iconTree(iconTree)
+                .listener(new ImportListener() {
+                    @Override
+                    public void onProgress(int done, int total, String stage) {
+                    }
+
+                    @Override
+                    public void onWarning(String message) {
+                        pushed.add(message);
+                    }
+                })
+                .build();
+        ImportResult result = KdbxMapper.map(new KdbxDocument(root, Map.of()), ctx);
+
+        assertTrue(pushed.stream().anyMatch(w -> w.contains("自定义图标缺失")),
+                "图标缺失应推送到监听器（应用侧会落日志），而不是静默丢弃");
+        assertTrue(result.warnings.stream().anyMatch(w -> w.contains("自定义图标缺失")),
+                "图标缺失应计入导入结果的告警");
+
+        EntryNode node = tree.rootGroups().stream()
+                .filter(g -> "Root".equals(g.name())).findFirst().orElseThrow()
+                .entries().stream()
+                .filter(en -> "MissingIcon".equals(en.name())).findFirst().orElseThrow();
+        assertNull(node.iconRef(), "缺少字节时不应设置 iconRef");
     }
 
     @Test

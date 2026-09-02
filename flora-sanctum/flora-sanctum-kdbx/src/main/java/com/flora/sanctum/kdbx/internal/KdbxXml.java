@@ -170,7 +170,7 @@ public final class KdbxXml {
                 continue;
             }
             try {
-                byte[] data = Base64.getDecoder().decode(dataEl.getTextContent().trim());
+                byte[] data = decodeBase64(dataEl.getTextContent());
                 map.put(uuid, data);
             } catch (Exception ignored) {
             }
@@ -197,13 +197,23 @@ public final class KdbxXml {
         }
     }
 
+    /**
+     * 解码 XML 里的 base64 文本。
+     * <p>KeePass/KeePassXC 会把图标 {@code <Data>} 的 base64 按 MIME 习惯折行（每 64/76 字符插换行），
+     * 并常带缩进空白；Java 的基本解码器遇到换行会抛异常，导致整份文件的自定义图标被静默丢弃，
+     * 故统一用 MIME 解码器（忽略 base64 字母表之外的字符，如换行/空格）。</p>
+     */
+    private static byte[] decodeBase64(String text) {
+        return Base64.getMimeDecoder().decode(text);
+    }
+
     /** 将 KeePass 的 base64 UUID 文本解码为 32 位 hex 串。 */
     private static String uuidFromBase64(String b64) {
         if (b64 == null || b64.isBlank()) {
             return null;
         }
         try {
-            byte[] b = Base64.getDecoder().decode(b64.trim());
+            byte[] b = decodeBase64(b64);
             StringBuilder sb = new StringBuilder();
             for (byte x : b) {
                 sb.append(String.format("%02x", x));
@@ -243,7 +253,7 @@ public final class KdbxXml {
             return null;
         }
         try {
-            byte[] b = Base64.getDecoder().decode(t.trim());
+            byte[] b = decodeBase64(t);
             StringBuilder sb = new StringBuilder();
             for (byte x : b) {
                 sb.append(String.format("%02x", x));

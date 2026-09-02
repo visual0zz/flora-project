@@ -65,6 +65,53 @@ class KdbxXmlTest {
                 "条目应经 <CustomIconUUID> 引用该自定义图标");
     }
 
+    /**
+     * KeePass/KeePassXC 把图标 {@code <Data>} 的 base64 按 MIME 习惯折行（每 64/76 字符插换行）。
+     * Java 的 {@link Base64#getDecoder()} 拒绝换行符，若直接 decode 会抛异常并被静默吞掉，
+     * 结果整份文件的自定义图标全部丢失（图标库为空、条目无图标，且无任何报错）。
+     */
+    @Test
+    void parseCustomIconsToleratesWrappedBase64() throws Exception {
+        byte[] uuid16 = hexToBytes(CUSTOM_UUID);
+        String uuidB64 = Base64.getEncoder().encodeToString(uuid16);
+        // 模拟真实文件：base64 每 64 字符插一个换行（含首尾缩进/换行等空白）
+        String pngB64Wrapped = "\n  " + wrap(Base64.getEncoder().encodeToString(PNG_1X1), 64) + "\n";
+        String xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                + "<KeePassFile><Meta><CustomIcons>"
+                + "<CustomIcon UUID=\"" + uuidB64 + "\"><Data>" + pngB64Wrapped + "</Data></CustomIcon>"
+                + "</CustomIcons></Meta>"
+                + "<Root><Group><UUID>" + Base64.getEncoder().encodeToString(new byte[16]) + "</UUID>"
+                + "<Name>Root</Name>"
+                + "<Entry><UUID>" + Base64.getEncoder().encodeToString(new byte[16]) + "</UUID>"
+                + "<CustomIconUUID>" + uuidB64 + "</CustomIconUUID>"
+                + "<String><Key>Title</Key><Value>t</Value></String>"
+                + "<String><Key>Password</Key><Value>p</Value></String>"
+                + "</Entry></Group></Root></KeePassFile>";
+        byte[] innerHeader = {
+                0x01, 0x04, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00
+        };
+        byte[] inner = concat(innerHeader, xml.getBytes(StandardCharsets.UTF_8));
+
+        KdbxDocument doc = KdbxXml.parse(inner);
+
+        assertTrue(doc.customIcons.containsKey(CUSTOM_UUID),
+                "折行 base64 的自定义图标也应被解析（不应静默丢弃）");
+        assertArrayEquals(PNG_1X1, doc.customIcons.get(CUSTOM_UUID), "折行 base64 解码后字节应一致");
+    }
+
+    /** 把字符串按 width 折行（模拟 base64 MIME 折行）。 */
+    private static String wrap(String s, int width) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i += width) {
+            if (i > 0) {
+                sb.append('\n');
+            }
+            sb.append(s, i, Math.min(i + width, s.length()));
+        }
+        return sb.toString();
+    }
+
     private static byte[] hexToBytes(String hex) {
         byte[] out = new byte[hex.length() / 2];
         for (int i = 0; i < out.length; i++) {

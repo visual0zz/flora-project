@@ -4,6 +4,7 @@ import com.flora.sanctum.core.model.vault.*;
 import com.flora.sanctum.core.model.impl.*;
 
 import com.flora.sanctum.core.store.ObjectStore;
+import com.flora.sanctum.core.store.VaultProbe;
 import com.flora.sanctum.core.store.impl.MarkdownObjectStore;
 
 import java.nio.file.Path;
@@ -50,7 +51,7 @@ public final class Sanctum implements AutoCloseable {
      */
     public static Sanctum createAndUnlock(Path root, char[] masterPassword,
                                           int memoryKiB, int iterations, int parallelism) {
-        List<String> markers = MarkdownObjectStore.vaultMarkers(root);
+        List<String> markers = VaultProbe.markers(root);
         if (!markers.isEmpty()) {
             throw new IllegalArgumentException("目标目录已疑似存在 Sanctum 仓库，检测到特征目录："
                     + String.join("、", markers) + "（" + root

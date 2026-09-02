@@ -17,14 +17,13 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.io.IOException;
-import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+
+import com.flora.sanctum.core.store.VaultProbe;
 
 /**
  * 新建仓库对话框（模仿 IDEA 新建项目向导）：统一设置仓库名与位置，实时展示最终路径，
@@ -221,7 +220,7 @@ final class NewVaultDialog extends JDialog {
                 errorLabel.setText("目标路径已存在且不是目录：" + target);
                 return;
             }
-            List<String> markers = detectVaultMarkers(target);
+            List<String> markers = VaultProbe.markers(target);
             if (!markers.isEmpty()) {
                 errorLabel.setText("目标目录已存在且疑似已有 Sanctum 仓库，检测到特征目录："
                         + String.join("、", markers)
@@ -262,32 +261,6 @@ final class NewVaultDialog extends JDialog {
             return null;
         }
         return location.resolve(name);
-    }
-
-    /**
-     * 探测目录内部是否含有 Sanctum 仓库的特征目录：单字符（十六进制）分片目录与 {@code lib/}。
-     * 命中即返回这些目录名列表（用于拒绝新建时报告具体原因）；不含则返回空列表。
-     * <p>注：core 内部 {@code MarkdownObjectStore.vaultMarkers} 是同一逻辑的权威实现；
-     * 此处因 impl 包未导出而无法复用，保留 UI 层独立探测（UI 预检 + core 守卫双重保险）。</p>
-     */
-    private static List<String> detectVaultMarkers(Path dir) {
-        List<String> markers = new ArrayList<>();
-        try (DirectoryStream<Path> ds = Files.newDirectoryStream(dir)) {
-            for (Path child : ds) {
-                if (!Files.isDirectory(child)) {
-                    continue;
-                }
-                String name = child.getFileName().toString();
-                if ("lib".equalsIgnoreCase(name)) {
-                    markers.add("lib/");
-                } else if (name.length() == 1 && name.matches("[0-9a-fA-F]")) {
-                    markers.add(name + "/");
-                }
-            }
-        } catch (IOException ignore) {
-            // 无法列举则视为无特征目录
-        }
-        return markers;
     }
 
     private static Path parsePath(String s) {

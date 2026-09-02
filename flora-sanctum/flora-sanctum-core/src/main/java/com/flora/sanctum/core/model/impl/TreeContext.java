@@ -39,6 +39,12 @@ public final class TreeContext {
      */
     private final Map<UUID, UUID> parentOf = new LinkedHashMap<>();
     private final Map<UUID, List<UUID>> childrenByParent = new LinkedHashMap<>();
+    /**
+     * 全库块时间戳上限的缓存（解锁时由 scanAll 全量扫描初始化，之后仅增）。
+     * 取代 nextTimestamp 每次写都 store.scan() 全库扫描，把导入复杂度从 O(B²) 降到 O(B)。
+     * 所有读写均在该 ReentrantLock 内，故无可见性问题。
+     */
+    private long cachedMaxTs = 1;
     /** 守护内存图、两张索引与底层 store 的一致性：write/delete 整段（含时间戳 scan+落盘）原子。 */
     private final ReentrantLock lock = new ReentrantLock();
 
@@ -64,6 +70,14 @@ public final class TreeContext {
                 // 无法解析的块跳过
             }
         }
+        // 初始化时间戳上限缓存：覆盖全部块（含 manifest/root/数据块），与解锁时 baseTimestamp 同源。
+        long max = 1;
+        for (Block b : blocks.values()) {
+            if (b.timestamp() > max) {
+                max = b.timestamp();
+            }
+        }
+        cachedMaxTs = max;
     }
 
     /**
@@ -193,13 +207,17 @@ public final class TreeContext {
             byte[] json = JsonUtil.toJsonString(payload).getBytes(StandardCharsets.UTF_8);
             byte[] encKey = KeyDerivation.encKey(dek);
             CipherCodec codec = new CipherCodec(encKey, dek, vault.repoKeyIdSeed(), vault.random());
-            // 时间戳 scan + 落盘在锁内原子完成：避免并发写读到相同 max 时间戳产生碰撞或交错落盘。
+            // 时间戳取齐 + 落盘在锁内原子完成：避免并发写读到相同 max 时间戳产生碰撞或交错落盘。
             long ts = nextTimestamp();
             String tsText = Long.toString(ts);
             Block written = store.put(uuid, json, new CipherCodecAdapter(codec, uuid), tsText);
             objects.put(uuid, payload);
             blocks.put(uuid, written);
             indexObject(uuid, payload);
+            // 维护时间戳上限缓存（仅增），避免每次写都全库 scan。
+            if (ts > cachedMaxTs) {
+                cachedMaxTs = ts;
+            }
         } finally {
             lock.unlock();
         }
@@ -243,15 +261,36 @@ public final class TreeContext {
         return vault.dataDek();
     }
 
-    /** 计算本次写入的时间戳（仓库时间戳规则：max(会话锚点+单调偏移, 全库当前最大块时间戳)）。 */
+    /**
+     * 计算本次写入的时间戳（仓库时间戳规则：max(会话锚点+单调偏移, 全库当前最大块时间戳)）。
+     * <p>全库最大块时间戳取自缓存 {@link #cachedMaxTs}（写时仅增维护），不再每次 store.scan() 全库。
+     * 该缓存在 scanAll 全量初始化、writeCipherBlock/delete 路径维护，并经 {@link #noteTimestamp} 覆盖
+     * 绕过 writeCipherBlock 的直接落盘（如 manifest 改写），故此处读到的上限与全扫一致。</p>
+     */
     public long nextTimestamp() {
-        long maxExisting = 1;
-        for (Block b : store.scan()) {
-            if (b.timestamp() > maxExisting) {
-                maxExisting = b.timestamp();
-            }
+        long maxExisting;
+        lock.lock();
+        try {
+            maxExisting = cachedMaxTs;
+        } finally {
+            lock.unlock();
         }
         return vault.clock().timestampCappedAt(maxExisting);
+    }
+
+    /**
+     * 回写时间戳上限：供直接经 store.put 落盘（绕过 writeCipherBlock，如主密码轮换改写 manifest）
+     * 的写入使用，使其时间戳被缓存感知，保持 {@link #nextTimestamp} 权威。
+     */
+    void noteTimestamp(long ts) {
+        lock.lock();
+        try {
+            if (ts > cachedMaxTs) {
+                cachedMaxTs = ts;
+            }
+        } finally {
+            lock.unlock();
+        }
     }
 
     /** 按 parent 列出直接子对象 uuid（O(1) 索引查表，返回快照副本）。 */

@@ -60,8 +60,11 @@ public final class MasterKeyRotator {
             Manifest updated = new Manifest(m.version(), m.crypto(), m.kdf(),
                     m.salt(), memoryKiB, iterations, parallelism);
             byte[] macKey = updated.manifestMacKey(newKek);
-            new ManifestStore(ctx.store(), ctx.random()).write(updated, macKey,
-                    Long.toString(ctx.nextTimestamp()));
+            // manifest 经 ManifestStore 直接 store.put 落盘（绕过 writeCipherBlock），需回写时间戳上限，
+            // 否则缓存会低于该块时间戳，后续写入可能复用同一时间戳。
+            long manifestTs = ctx.nextTimestamp();
+            new ManifestStore(ctx.store(), ctx.random()).write(updated, macKey, Long.toString(manifestTs));
+            ctx.noteTimestamp(manifestTs);
             vault.replaceManifest(updated);
             vault.replaceKek(newKek);
             // 根级密钥仍即 KEK（用于加密 root 块）；rootDek 对值不变，重挂到新根 uuid

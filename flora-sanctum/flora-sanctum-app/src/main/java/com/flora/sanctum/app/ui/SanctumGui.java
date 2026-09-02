@@ -576,13 +576,10 @@ public final class SanctumGui {
     private void doNewVault() {
         NewVaultDialog dlg = new NewVaultDialog(frame, req -> {
             try {
-                Path root = req.standalone()
-                        ? com.flora.sanctum.app.bootstrap.RepoCreator.createStandalone(
-                                req.target(), configForStandalone())
-                        : com.flora.sanctum.app.bootstrap.RepoCreator.createNormal(req.target());
+                Path root = com.flora.sanctum.app.bootstrap.RepoCreator.createNormal(req.target());
                 char[] pw = req.password();
                 int[] kdf = req.kdf();
-                createAndUnlockVault(root, pw, kdf);
+                createAndUnlockVault(root, pw, kdf, req.standalone());
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(frame, "创建失败：" + ex.getMessage(), "错误",
                         JOptionPane.ERROR_MESSAGE);
@@ -595,7 +592,7 @@ public final class SanctumGui {
      * 新建链路：仓库目录已就绪后，直接用「新建仓库」页设定的主密码创建并解锁。
      * Argon2 派生耗时，放后台线程执行；期间模态进度框显示转圈，成功直达编辑页，失败回历史列表。
      */
-    private void createAndUnlockVault(Path root, char[] pw, int[] kdf) {
+    private void createAndUnlockVault(Path root, char[] pw, int[] kdf, boolean standalone) {
         JDialog progress = new JDialog(frame, "正在创建仓库", ModalityType.APPLICATION_MODAL);
         JPanel pp = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 14));
         pp.setOpaque(false);
@@ -617,9 +614,21 @@ public final class SanctumGui {
                     char[] copy = pw.clone();
                     java.util.Arrays.fill(pw, (char) 0);
                     try {
-                        return kdf == null
+                        Sanctum s = kdf == null
                                 ? Sanctum.createAndUnlock(root, copy)
                                 : Sanctum.createAndUnlock(root, copy, kdf[0], kdf[1], kdf[2]);
+                        // 独立仓库形态（lib/ + edit 脚本 + config.json）必须在解锁之后写入，
+                        // 否则 VaultProbe 守卫会把自己刚写的 lib/ 误判为“已是仓库”而拒绝。
+                        if (standalone) {
+                            try {
+                                com.flora.sanctum.app.bootstrap.RepoCreator.createStandalone(
+                                        root, configForStandalone());
+                            } catch (IOException ex) {
+                                throw new java.io.UncheckedIOException(
+                                        "独立仓库形态写入失败（lib/ 与启动脚本）：" + ex.getMessage(), ex);
+                            }
+                        }
+                        return s;
                     } finally {
                         java.util.Arrays.fill(copy, (char) 0);
                     }

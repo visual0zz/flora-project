@@ -21,8 +21,8 @@ import java.util.UUID;
  * 外部密钥加解密服务（见设计 02"外部密钥 = 字段 kind"）。
  * <p>
  * 外部密钥 = 某条目下 {@code kind:"externalKey"} 的字段，value 即密钥材料（base64）。
- * - {@code encrypt(data, fieldUuid)}：用该字段密钥加密，返回标准密文块（信封原始字节）base58。
- * - {@code decrypt(cipherBase58)}：不传 uuid，靠密文头 keyId 在 externalKey 密钥索引中定位候选，
+ * - {@code encrypt(data, fieldUuid)}：用该字段密钥加密，返回标准密文块（信封原始字节）。
+ * - {@code decrypt(cipherB64)}：不传 uuid，靠密文头 keyId 在 externalKey 密钥索引中定位候选，
  *   再以 GCM-SIV tag 试解密确证（与系统块同一 keyId 定位机制，见设计 02"可定位"）。
  * - {@code list()}：列出 externalKey 字段的 uuid + 描述。
  * <p>
@@ -67,13 +67,14 @@ public final class ExternalKeyService {
         return codec.encode(CipherCodec.EMBEDDED_UUID, data, "0");
     }
 
-    /** 解密：从密文头 (nonce, keyId) 恢复 dekId 定位候选，再 tag 试解确证（与系统块同一机制）。 */
-    public byte[] decrypt(String cipherBase58) {
+    /** 解密：从密文头 (nonce, keyId) 恢复 dekId 定位候选，再 tag 试解确证（与系统块同一机制）。
+     *  {@code cipherB64} 为密文块字节的 base64（external 传输形态）。 */
+    public byte[] decrypt(String cipherB64) {
         final byte[] block;
         try {
-            block = com.flora.root.codec.Base58.decode(cipherBase58);
+            block = Base64.getDecoder().decode(cipherB64);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("invalid base58");
+            throw new IllegalArgumentException("invalid base64");
         }
         int nonceOff = BlockFormat.MAGIC_LEN + 2;
         int keyIdOff = nonceOff + BlockFormat.NONCE_LEN;

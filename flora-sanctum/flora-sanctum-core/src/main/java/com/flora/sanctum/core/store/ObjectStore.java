@@ -4,7 +4,7 @@ package com.flora.sanctum.core.store;
  * 存储引擎接口（内部，不对外暴露；见设计 04）。
  * <p>
  * 底层为"库根文件夹里的 markdown 块集合"（见设计 04b）：一文件一块，
- * {@code {第1字符}/{第2字符}/{剩余30字符}.md}（两层单字母分片），内容单行 {@code timestamp:base58}。
+ * {@code {第1字符}/{第2字符}/{剩余30字符}.md}（两层单字母分片），内容单行 {@code timestamp:base64}。
  * 编解码由调用方注入 Codec（明文或密文）；存储层不感知密码学。
  */
 public interface ObjectStore {
@@ -24,7 +24,7 @@ public interface ObjectStore {
      * @param blockUuid 对象 UUID（由块文件路径承载，不在块内存储）
      * @param data      待写入字节（明文或 codec 加密后的密文，取决于 codec）
      * @param codec     编解码器（null 视为裸明文写入）
-     * @param timestamp 块级时间戳（规范 ASCII 十进制字符串，落盘为 {@code timestamp:base58} 前缀，且作为 codec 的 AAD）
+     * @param timestamp 块级时间戳（规范 ASCII 十进制字符串，落盘为 {@code timestamp:base64} 前缀，且作为 codec 的 AAD）
      * @return 写入后的块（物理位置、时间戳、字节），供上层回写内存缓存
      */
     Block put(java.util.UUID blockUuid, byte[] data, Codec codec, String timestamp);

@@ -3,13 +3,13 @@ import com.flora.sanctum.core.model.tree.*;
 import com.flora.sanctum.core.model.vault.*;
 import com.flora.sanctum.core.model.impl.*;
 
-import com.flora.root.codec.Base58;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.UUID;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -27,9 +27,9 @@ class ExternalKeyServiceTest {
         UUID keyField = svc.createExternalKey(entry, "mykey", "secret-key-material".getBytes(StandardCharsets.UTF_8), "for app A");
 
         byte[] cipherBlock = svc.encrypt("hello world".getBytes(StandardCharsets.UTF_8), keyField);
-        String cipherBase58 = Base58.encode(cipherBlock);
+        String cipherB64 = Base64.getEncoder().encodeToString(cipherBlock);
 
-        byte[] plain = svc.decrypt(cipherBase58);
+        byte[] plain = svc.decrypt(cipherB64);
         assertArrayEquals("hello world".getBytes(StandardCharsets.UTF_8), plain);
     }
 
@@ -54,8 +54,8 @@ class ExternalKeyServiceTest {
         svc.createExternalKey(entry, "b", "material-B".getBytes(), "B");
 
         byte[] cipher = svc.encrypt("data".getBytes(), keyA);
-        String c58 = Base58.encode(cipher);
+        String cipherB64 = Base64.getEncoder().encodeToString(cipher);
         // 解密候选域包含 A 和 B，A 能解开
-        assertArrayEquals("data".getBytes(), svc.decrypt(c58));
+        assertArrayEquals("data".getBytes(), svc.decrypt(cipherB64));
     }
 }

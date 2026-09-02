@@ -13,7 +13,7 @@ import java.util.List;
  * init（缺）→ commit 全部改动 → 对 origin fetch+pull --rebase+冲突自动解决 → push。
  * <p>
  * 冲突仲裁（见设计 06）：冲突发生在同一文件被两端同时修改时。按块时间戳（落盘
- * {@code timestamp:base58} 冒号前数字）大者 wins；被覆盖方复制到 {@code .conflict} 供核查。
+ * {@code timestamp:base64} 冒号前数字）大者 wins；被覆盖方复制到 {@code .conflict} 供核查。
  * <p>
  * SSH 私钥经 {@link #setSshCommand} 指定（{@code GIT_SSH_COMMAND} 注入，临时进程级，不写全局配置）。
  */
@@ -145,7 +145,7 @@ public final class SyncService {
         execToString("add", "--", path);
     }
 
-    /** 从块内容解析时间戳：落盘格式 {@code timestamp:base58}，时间戳为冒号前数字（见设计 04b）。 */
+    /** 从块内容解析时间戳：落盘格式 {@code timestamp:base64}，时间戳为冒号前数字（见设计 04b）。 */
     private static long tsOf(byte[] block) {
         if (block == null) {
             return 0;

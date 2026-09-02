@@ -22,7 +22,7 @@ import java.util.UUID;
  * GCM-SIV tag 全量认证。文件块的 uuid 取自块文件路径（内容即与存放位置绑定，被移动到别的路径认证失败），
  * 无文件路径的内嵌块用 {@link #EMBEDDED_UUID}。
  * 明文负载先 deflate 压缩再加密（降低冗余与长度暴露）。
- * 时间戳不存于负载 JSON，由块前缀 {@code timestamp:base58} 提供，解码时经参数传入（原文）以重建 AAD。
+ * 时间戳不存于负载 JSON，由块前缀 {@code timestamp:base64} 提供，解码时经参数传入（原文）以重建 AAD。
  * 落盘字节为信封原始字节（无额外异或混淆）。
  */
 public final class CipherCodec {

@@ -103,7 +103,7 @@ public final class SanctumHttpServer {
             byte[] cipher = new ExternalKeyService(s).encrypt(data, uuid);
             JsonObject resp = new JsonObject();
             resp.put("ok", true);
-            resp.put("ciphertextB58", com.flora.root.codec.Base58.encode(cipher));
+            resp.put("ciphertextB64", Base64.getEncoder().encodeToString(cipher));
             respond(ex, 200, JsonUtil.toJsonString(resp));
         } catch (Exception e) {
             error(ex, "encrypt_failed", e.getMessage());
@@ -118,9 +118,9 @@ public final class SanctumHttpServer {
             return;
         }
         JsonObject req = readJson(ex);
-        String cipher = req.getString("ciphertextB58");
+        String cipher = req.getString("ciphertextB64");
         if (cipher == null) {
-            error(ex, "bad_request", "ciphertextB58 required");
+            error(ex, "bad_request", "ciphertextB64 required");
             return;
         }
         try {

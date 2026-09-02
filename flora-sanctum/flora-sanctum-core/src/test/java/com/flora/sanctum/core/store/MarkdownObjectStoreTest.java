@@ -63,10 +63,10 @@ class MarkdownObjectStoreTest {
         List<Block> blocks = store.scan();
         assertEquals(1, blocks.size());
         assertEquals(uuid, blocks.get(0).uuid());
-        // 文件内容恰为一行 timestamp:base58
+        // 文件内容恰为一行 timestamp:base64
         String content = java.nio.file.Files.readString(file).trim();
         assertEquals(1, content.lines().count());
-        assertTrue(content.matches("\\d+:[1-9A-HJ-NP-Za-km-z]+"));
+        assertTrue(content.matches("\\d+:[A-Za-z0-9+/=]+"));
     }
 
     @Test
@@ -167,7 +167,7 @@ class MarkdownObjectStoreTest {
         Path file = expectedFile(uuid);
         String content = java.nio.file.Files.readString(file).trim();
         assertEquals(1, content.lines().count());
-        assertTrue(content.matches("\\d+:[1-9A-HJ-NP-Za-km-z]+"));
+        assertTrue(content.matches("\\d+:[A-Za-z0-9+/=]+"));
         assertArrayEquals("v2-updated".getBytes(), store.get(uuid, new CipherCodecAdapter(codec, uuid)));
         try (var stream = java.nio.file.Files.walk(dir)) {
             assertTrue(stream.noneMatch(p -> p.getFileName().toString().endsWith(".tmp")),

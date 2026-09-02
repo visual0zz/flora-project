@@ -1,6 +1,5 @@
 package com.flora.sanctum.core.store.impl;
 
-import com.flora.root.codec.Base58;
 import com.flora.sanctum.core.store.Block;
 import com.flora.sanctum.core.store.BlockHeader;
 import com.flora.sanctum.core.store.Codec;
@@ -13,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -22,7 +22,7 @@ import java.util.stream.Stream;
  * <p>
  * 布局：{@code root/{a}/{b}/{rest}.md}，其中 {@code a}、{@code b} 分别是 uuid 无连字符 hex
  * 的第 1、第 2 个字符（两层单字母目录分片），{@code rest} 是剩余 30 字符。
- * 每个文件恰好一个块，内容为单行 {@code timestamp:base58}，正文与密文不交错。
+ * 每个文件恰好一个块，内容为单行 {@code timestamp:base64}，正文与密文不交错。
  * <p>
  * 块的 uuid 不写入信封头，只由该文件路径承载（见 {@link #uuidOf}）；因此路径即对象身份，
  * 块被移动到别处即无法定位、且即便分片路径合法也会因 AAD 不一致而解密失败。
@@ -90,7 +90,7 @@ public final class MarkdownObjectStore implements ObjectStore {
                 return null;
             }
             String timestamp = content.substring(0, colon);
-            byte[] block = Base58.decode(content.substring(colon + 1));
+            byte[] block = Base64.getDecoder().decode(content.substring(colon + 1));
             if (codec == null) {
                 return block;
             }
@@ -108,7 +108,7 @@ public final class MarkdownObjectStore implements ObjectStore {
         Path tmp = file.resolveSibling(file.getFileName().toString() + ".tmp");
         try {
             Files.createDirectories(file.getParent());
-            Files.writeString(tmp, timestamp + ":" + Base58.encode(toWrite) + "\n", StandardCharsets.UTF_8);
+            Files.writeString(tmp, timestamp + ":" + Base64.getEncoder().encodeToString(toWrite) + "\n", StandardCharsets.UTF_8);
             try {
                 Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             } catch (AtomicMoveNotSupportedException e) {
@@ -160,7 +160,7 @@ public final class MarkdownObjectStore implements ObjectStore {
         return blocks;
     }
 
-    /** 解析单行 {@code timestamp:base58} 文件为一个块；损坏/不可识别则跳过。 */
+    /** 解析单行 {@code timestamp:base64} 文件为一个块；损坏/不可识别则跳过。 */
     private void scanFile(Path file, List<Block> out) {
         try {
             String content = Files.readString(file, StandardCharsets.UTF_8).trim();
@@ -173,7 +173,7 @@ public final class MarkdownObjectStore implements ObjectStore {
             if (candidate.length() < 12) {
                 return;
             }
-            byte[] bytes = Base58.decode(candidate);
+            byte[] bytes = Base64.getDecoder().decode(candidate);
             if (!BlockHeader.isBlock(bytes)) {
                 return;
             }

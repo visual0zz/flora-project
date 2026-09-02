@@ -57,9 +57,9 @@ class SanctumHttpServerTest {
             String encResp = post("http://127.0.0.1:" + port + "/crypt/encrypt", encReq);
             JsonObject enc = JsonUtil.parseObject(encResp);
             assertTrue(enc.getBool("ok"));
-            String cipher = enc.getString("ciphertextB58");
+            String cipher = enc.getString("ciphertextB64");
 
-            String decReq = "{\"ciphertextB58\":\"" + cipher + "\"}";
+            String decReq = "{\"ciphertextB64\":\"" + cipher + "\"}";
             String decResp = post("http://127.0.0.1:" + port + "/crypt/decrypt", decReq);
             JsonObject dec = JsonUtil.parseObject(decResp);
             assertTrue(dec.getBool("ok"));

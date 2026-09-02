@@ -6,8 +6,8 @@ import java.util.UUID;
 /**
  * 一个数据块（见设计 04b"块自描述"）。
  * <p>
- * 块 = base58 串，解码后是标准信封字节（无额外异或混淆）。存储层记录块的物理位置
- * （文件 + 行号）与块级时间戳（落盘为 {@code timestamp:base58} 前缀）以支持定位与冲突仲裁。
+ * 块 = base64 串，解码后是标准信封字节（无额外异或混淆）。存储层记录块的物理位置
+ * （文件 + 行号）与块级时间戳（落盘为 {@code timestamp:base64} 前缀）以支持定位与冲突仲裁。
  * {@code masked}/{@code unmasked} 为同一信封原始字节（两者等价）。
  * <p>
  * 对象 uuid 不写入信封头，由块文件路径承载并反推（见 {@link #uuid()}）。
@@ -40,7 +40,7 @@ public final class Block {
         return line;
     }
 
-    /** 块级时间戳数值（落盘 {@code timestamp:base58} 前缀解析），用于冲突仲裁与时钟锚点。 */
+    /** 块级时间戳数值（落盘 {@code timestamp:base64} 前缀解析），用于冲突仲裁与时钟锚点。 */
     public long timestamp() {
         return timestamp;
     }

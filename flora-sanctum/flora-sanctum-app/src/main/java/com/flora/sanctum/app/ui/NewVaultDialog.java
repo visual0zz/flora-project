@@ -267,6 +267,8 @@ final class NewVaultDialog extends JDialog {
     /**
      * 探测目录内部是否含有 Sanctum 仓库的特征目录：单字符（十六进制）分片目录与 {@code lib/}。
      * 命中即返回这些目录名列表（用于拒绝新建时报告具体原因）；不含则返回空列表。
+     * <p>注：core 内部 {@code MarkdownObjectStore.vaultMarkers} 是同一逻辑的权威实现；
+     * 此处因 impl 包未导出而无法复用，保留 UI 层独立探测（UI 预检 + core 守卫双重保险）。</p>
      */
     private static List<String> detectVaultMarkers(Path dir) {
         List<String> markers = new ArrayList<>();

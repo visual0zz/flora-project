@@ -50,6 +50,12 @@ public final class Sanctum implements AutoCloseable {
      */
     public static Sanctum createAndUnlock(Path root, char[] masterPassword,
                                           int memoryKiB, int iterations, int parallelism) {
+        List<String> markers = MarkdownObjectStore.vaultMarkers(root);
+        if (!markers.isEmpty()) {
+            throw new IllegalArgumentException("目标目录已疑似存在 Sanctum 仓库，检测到特征目录："
+                    + String.join("、", markers) + "（" + root
+                    + "）。如需访问已有仓库请使用『打开』，不要用『新建』。");
+        }
         Sanctum s = new Sanctum(root);
         new VaultCreator(s.store).create(masterPassword, memoryKiB, iterations, parallelism);
         s.unlock(masterPassword);

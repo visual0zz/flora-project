@@ -11,7 +11,7 @@ package com.flora.sanctum.core.crypto.impl;
 public final class Involution {
 
     /** 块宽度（= keyId/dekId 宽度，64 位）。 */
-    public static final int FEISTEL_BLOCK_BYTES = 8;
+    public static final int FEISTEL_BLOCK_BYTES = 4;
     private static final int HALF = FEISTEL_BLOCK_BYTES / 2;
     private static final int ROUNDS = 7;
 

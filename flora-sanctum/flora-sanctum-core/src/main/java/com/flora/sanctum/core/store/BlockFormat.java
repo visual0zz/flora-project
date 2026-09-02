@@ -8,7 +8,7 @@ package com.flora.sanctum.core.store;
  * <ul>
  *   <li><b>明文块</b>（仅 manifest）：头 = magic(6)+version(1)+flags(1)，
  *       payload 从 {@link #PLAINTEXT_HEADER_LEN} 开始，尾附 MAC（见 {@link com.flora.sanctum.core.model.impl.ManifestStore}）。</li>
- *   <li><b>密文块</b>：头 = magic(6)+version(1)+flags(1)+nonce(12)+keyId(8)，
+ *   <li><b>密文块</b>：头 = magic(6)+version(1)+flags(1)+nonce(12)+keyId(4)，
  *       nonce 置于 keyId 前（解析时先读 nonce 作 keyId 派生的 seed）。内部存储与外部加密数据
  *       用同一格式（见设计"keyId 防关联"）。</li>
  * </ul>
@@ -35,9 +35,9 @@ public final class BlockFormat {
     /** nonce 长度（96 位随机；亦作为 keyId 派生 seed）。 */
     public static final int NONCE_LEN = 12;
     /** keyId 长度（64 位）。 */
-    public static final int KEYID_LEN = 8;
+    public static final int KEYID_LEN = 4;
 
-    /** 密文块头长度：magic(6)+version(1)+flags(1)+nonce(12)+keyId(8) = 28。 */
+    /** 密文块头长度：magic(6)+version(1)+flags(1)+nonce(12)+keyId(4) = 24。 */
     public static final int HEADER_LEN = MAGIC_LEN + 1 + 1 + NONCE_LEN + KEYID_LEN;
 
     /** 格式版本（第一代；明文与密文块统一，块类型由 flags 区分）。 */

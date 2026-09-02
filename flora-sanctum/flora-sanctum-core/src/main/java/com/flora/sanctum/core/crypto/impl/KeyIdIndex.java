@@ -11,7 +11,7 @@ import java.util.Map;
 /**
  * keyId 索引（见设计"keyId 防关联"）。
  * <p>
- * 键为内部标识 {@code dekId = SHA256(DEK)[0:8]}（每 DEK 1 条，碰撞概率可忽略），
+ * 键为内部标识 {@code dekId = SHA256(DEK)[0:4]}（每 DEK 1 条，碰撞概率可忽略），
  * 值为 DEK 副本。读取某块时，用 {@link KeyIdDeriver#resolveDekId} 从密文头 (nonce, keyId)
  * 恢复 dekId 后查表，得候选 DEK 集合（通常 1 个），再以 GCM-SIV tag 试解确证。
  * <p>
@@ -31,7 +31,7 @@ public final class KeyIdIndex {
     /** 按 dekId 查候选 DEK 列表（可能多个，需试解确证）。 */
     public synchronized List<byte[]> lookup(byte[] dekId) {
         if (dekId.length != Involution.FEISTEL_BLOCK_BYTES) {
-            throw new IllegalArgumentException("dekId must be 8 bytes");
+            throw new IllegalArgumentException("dekId must be " + Involution.FEISTEL_BLOCK_BYTES + " bytes");
         }
         List<byte[]> deks = entries.get(new ByteKey(dekId));
         if (deks == null) {

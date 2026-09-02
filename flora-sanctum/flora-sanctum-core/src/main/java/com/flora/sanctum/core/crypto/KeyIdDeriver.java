@@ -6,7 +6,7 @@ import com.flora.sanctum.core.crypto.impl.Involution;
  * keyId 派生（见设计"keyId 防关联"）。
  * <p>
  * <pre>
- * dekId = SHA-256(keyMaterial)[0:8]                     // 内部标识（索引键）
+ * dekId = SHA-256(keyMaterial)[0:4]                     // 内部标识（索引键，4 字节）
  * keyId = f(repoKeyIdSeed ‖ nonce, dekId)               // 镜像 Feistel 对合，可逆
  * 恢复：dekId = f(repoKeyIdSeed ‖ nonce, keyId)
  * </pre>

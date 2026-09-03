@@ -182,6 +182,14 @@ public final class Sanctum implements AutoCloseable {
         new NodeMover(context, vault).move(node, newParent);
     }
 
+    /**
+     * 改变节点归属并定位顺序（小数索引）：beforeUuid=null 追加到新父末尾；
+     * 否则插入到 beforeUuid 之前（同父内即纯重排，仅改写被移动节点一块）。
+     */
+    public void moveTo(UUID node, UUID newParent, UUID beforeUuid) {
+        new NodeMover(context, vault).moveTo(node, newParent, beforeUuid);
+    }
+
     /** 还原手动删除的节点：撤销 deleted 标记，节点凭 parent 字段回到原位置。 */
     public void restore(UUID uuid) {
         TreeNode n = findNode(uuid);

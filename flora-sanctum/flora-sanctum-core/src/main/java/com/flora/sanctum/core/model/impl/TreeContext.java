@@ -70,6 +70,18 @@ public final class TreeContext {
                 // 无法解析的块跳过
             }
         }
+        // 为缺 orderBits 的旧库/导入节点按当前（扫描）顺序赋序：保证展示顺序稳定，
+        // 且可被小数索引接管。仅改内存对象图（objects），不强制落盘，首次被编辑时随块写入。
+        for (List<UUID> sibs : childrenByParent.values()) {
+            double o = 0.0;
+            for (UUID u : sibs) {
+                JsonObject obj = objects.get(u);
+                if (obj != null && obj.getLong("orderBits") == null) {
+                    obj.put("orderBits", Double.doubleToLongBits(o));
+                }
+                o += FractionalIndex.D;
+            }
+        }
         // 初始化时间戳上限缓存：覆盖全部块（含 manifest/root/数据块），与解锁时 baseTimestamp 同源。
         long max = 1;
         for (Block b : blocks.values()) {
@@ -293,12 +305,43 @@ public final class TreeContext {
         }
     }
 
-    /** 按 parent 列出直接子对象 uuid（O(1) 索引查表，返回快照副本）。 */
+    /** 按 parent 列出直接子对象 uuid（O(1) 索引查表，按 order 升序返回快照副本）。 */
     public List<UUID> childrenOf(UUID parent) {
         lock.lock();
         try {
             List<UUID> siblings = childrenByParent.get(parent);
-            return siblings == null ? List.of() : List.copyOf(siblings);
+            if (siblings == null) {
+                return List.of();
+            }
+            List<UUID> sorted = new ArrayList<>(siblings);
+            sorted.sort((a, b) -> Double.compare(orderOf(a), orderOf(b)));
+            return List.copyOf(sorted);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** 节点的排序键 order（来自块内 orderBits；缺失按 0）。 */
+    public double orderOf(UUID uuid) {
+        lock.lock();
+        try {
+            JsonObject o = objects.get(uuid);
+            Long bits = o == null ? null : o.getLong("orderBits");
+            return bits == null ? 0.0 : Double.longBitsToDouble(bits);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** parent 下当前最大 order（无子返回 0），供新建/追加时取 max + D。 */
+    public double maxOrderUnder(UUID parent) {
+        lock.lock();
+        try {
+            double max = 0.0;
+            for (UUID c : childrenOf(parent)) {
+                max = Math.max(max, orderOf(c));
+            }
+            return max;
         } finally {
             lock.unlock();
         }

@@ -1368,11 +1368,26 @@ public final class SanctumGui {
      * 对条目不合法（条目必须属于组），此时 Sanctum.move 会抛清晰异常并由下方 catch 提示，
      * 不可在此提前以 null 守卫把整类操作静默吞掉（否则拖到密码库看起来「落不上」）。</p> */
     private void performMove(UUID dragged, UUID targetGroup) {
+        performMove(dragged, targetGroup, null);
+    }
+
+    /**
+     * 执行归属变更：委托 core 的 NodeMover（经 Sanctum.move / Sanctum.moveTo），失败给出状态提示。
+     * <p>targetGroup 为 null 表示移到顶层（左树落到「密码库」区段），对组合法（NodeMover 会写入根对象）；
+     * 对条目不合法（条目必须属于组），此时 Sanctum.move 会抛清晰异常并由下方 catch 提示，
+     * 不可在此提前以 null 守卫把整类操作静默吞掉（否则拖到密码库看起来「落不上」）。</p>
+     * <p>beforeUuid 非 null 表示「插到该兄弟之前」（小数索引相对排序）；为 null 则追加到目标父末尾。</p>
+     */
+    private void performMove(UUID dragged, UUID targetGroup, UUID beforeUuid) {
         if (dragged == null) {
             return;
         }
         try {
-            sanctum.move(dragged, targetGroup);
+            if (beforeUuid == null) {
+                sanctum.move(dragged, targetGroup);
+            } else {
+                sanctum.moveTo(dragged, targetGroup, beforeUuid);
+            }
             refreshAll();
             statusLabel.setText("已调整归属");
         } catch (Exception ex) {
@@ -1486,13 +1501,15 @@ public final class SanctumGui {
             JList.DropLocation loc = (JList.DropLocation) support.getDropLocation();
             int idx = loc == null ? -1 : loc.getIndex();
             UUID targetGroup = null;
+            UUID beforeUuid = null;
             if (idx >= 0 && idx < entryModel.size()) {
                 EntryListItem item = entryModel.getElementAt(idx);
                 if (item.type() == StoredNodeType.GROUP) {
-                    targetGroup = item.uuid();
+                    targetGroup = item.uuid(); // 落到组行：进该组末尾
                 } else if (item.type() == StoredNodeType.ENTRY) {
                     EntryNode en = sanctum.objectTree().entry(item.uuid());
                     targetGroup = en == null ? null : uuidOf(en.parentRef());
+                    beforeUuid = item.uuid(); // 落到条目上：插到它之前（跨组则同时改父）
                 }
             } else {
                 // 拖到空白处：落在当前选中的文件夹（若当前区段是某组）
@@ -1504,7 +1521,7 @@ public final class SanctumGui {
             if (targetGroup == null) {
                 return false;
             }
-            performMove(dragged, targetGroup);
+            performMove(dragged, targetGroup, beforeUuid);
             return true;
         }
     }

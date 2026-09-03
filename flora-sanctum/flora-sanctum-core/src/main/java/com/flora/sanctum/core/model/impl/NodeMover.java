@@ -4,7 +4,9 @@ import com.flora.sanctum.core.model.StoredNodeType;
 import com.flora.sanctum.core.model.vault.Vault;
 import com.flora.root.codec.json.model.JsonObject;
 
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -32,19 +34,29 @@ public final class NodeMover {
         this.vault = vault;
     }
 
-    /** 改变节点归属（按节点类型分派到组/条目搬运）。 */
+    /** 改变节点归属（按节点类型分派到组/条目搬运）。beforeUuid=null 时为追加末尾（原 move 语义）。 */
     public void move(UUID node, UUID newParent) {
+        moveTo(node, newParent, null);
+    }
+
+    /**
+     * 改变节点归属并定位顺序（小数索引）。
+     * <p>beforeUuid=null → 追加到新父末尾（initialOrder = max + D）；
+     * 否则插入到 beforeUuid 之前（取前驱与 beforeUuid 的中点；间隙耗尽则整段重排后重算）。
+     * 同父内纯重排只改写被移动那一个块的 order，数据修改范围最小。</p>
+     */
+    public void moveTo(UUID node, UUID newParent, UUID beforeUuid) {
         StoredNodeType type = typeOf(node);
         if (type == StoredNodeType.GROUP) {
-            moveGroup(node, newParent);
+            moveGroup(node, newParent, beforeUuid);
         } else if (type == StoredNodeType.ENTRY) {
-            moveEntry(node, newParent);
+            moveEntry(node, newParent, beforeUuid);
         } else {
             throw new IllegalArgumentException("仅支持移动组或条目，实际类型：" + type);
         }
     }
 
-    private void moveGroup(UUID groupUuid, UUID newParent) {
+    private void moveGroup(UUID groupUuid, UUID newParent, UUID beforeUuid) {
         checkNoCycle(groupUuid, newParent);
         UUID oldParent = ctx.parentUuidOf(groupUuid);
         JsonObject g = ctx.read(groupUuid);
@@ -62,6 +74,7 @@ public final class NodeMover {
         g.put("parent", parentStr(newParent));
         g.put("dek1", Base64.getEncoder().encodeToString(keys.dek1()));
         g.put("dek2", Base64.getEncoder().encodeToString(keys.dek2()));
+        g.put("orderBits", Double.doubleToLongBits(computeOrder(newParent, beforeUuid, groupUuid)));
         g.remove("dek");
         ctx.write(groupUuid, g, newParent);
         // 旧父失去本组这一子节点，其退役 dek1 使用数可能下降 → 尝试轮换
@@ -70,12 +83,14 @@ public final class NodeMover {
         }
     }
 
-    private void moveEntry(UUID entryUuid, UUID newParentGroup) {
+    private void moveEntry(UUID entryUuid, UUID newParentGroup, UUID beforeUuid) {
         if (newParentGroup == null) {
             throw new IllegalArgumentException("条目必须移动到某个组内");
         }
-        if (typeOf(newParentGroup) != StoredNodeType.GROUP) {
-            throw new IllegalArgumentException("条目只能移动到组内");
+        StoredNodeType parentType = typeOf(newParentGroup);
+        // 允许落到组内，或落到密码库根（顶层条目 parent 即根对象，加密走 rootDek）
+        if (parentType != StoredNodeType.GROUP && parentType != StoredNodeType.ROOT) {
+            throw new IllegalArgumentException("条目只能移动到组内或密码库根");
         }
         JsonObject e = ctx.read(entryUuid);
         if (e == null) {
@@ -83,6 +98,7 @@ public final class NodeMover {
         }
         UUID oldParentGroup = ctx.parentGroupUuid(e);
         e.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(newParentGroup));
+        e.put("orderBits", Double.doubleToLongBits(computeOrder(newParentGroup, beforeUuid, entryUuid)));
         ctx.write(entryUuid, e, newParentGroup);
         // 字段块随条目改归属到新组 DEK 之下重加密（field.parent 仍指向条目，不变）
         for (UUID f : ctx.childrenOf(entryUuid)) {
@@ -95,6 +111,34 @@ public final class NodeMover {
         if (oldParentGroup != null) {
             ctx.maybeRotateGroupKeys(oldParentGroup);
         }
+    }
+
+    /** 计算被移动节点在新父下的 order：beforeUuid=null 追加末尾；否则取前驱与 beforeUuid 中点，
+     *  间隙耗尽则整段重排后重算。自身若已在目标父下，重排前先排除。 */
+    private double computeOrder(UUID newParent, UUID beforeUuid, UUID self) {
+        if (beforeUuid == null) {
+            return FractionalIndex.initialOrder(ctx.maxOrderUnder(newParent));
+        }
+        if (beforeUuid.equals(self)) {
+            return ctx.orderOf(self); // 拖到自身之前：保持原位
+        }
+        List<UUID> sibs = new ArrayList<>(ctx.childrenOf(newParent));
+        sibs.remove(self);
+        sibs.sort((a, b) -> Double.compare(ctx.orderOf(a), ctx.orderOf(b)));
+        int idx = sibs.indexOf(beforeUuid);
+        if (idx < 0) {
+            return FractionalIndex.initialOrder(ctx.maxOrderUnder(newParent));
+        }
+        double nextOrder = ctx.orderOf(beforeUuid);
+        double prevOrder = (idx == 0) ? 0.0 : ctx.orderOf(sibs.get(idx - 1));
+        double mid = FractionalIndex.between(prevOrder, nextOrder);
+        if (FractionalIndex.collapsed(prevOrder, nextOrder)) {
+            FractionalIndex.rebalance(ctx, newParent, sibs);
+            prevOrder = idx * FractionalIndex.D;
+            nextOrder = (idx + 1) * FractionalIndex.D;
+            mid = FractionalIndex.between(prevOrder, nextOrder);
+        }
+        return mid;
     }
 
     /** 环检测：newParent 不能是 moved 自身或其后代（沿父链向上会经过 moved 即冲突）。 */

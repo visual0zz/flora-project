@@ -53,13 +53,16 @@ public abstract class DataTree {
         return out;
     }
 
-    /** 顶层节点（parent 为仓库根对象 uuid）。 */
+    /** 顶层节点（parent 为仓库根对象 uuid），按 order 升序。 */
     public List<TreeNode> roots() {
         UUID rootUuid = ctx.vault().rootObjectUuid();
-        String root = rootUuid == null ? null : com.flora.sanctum.core.util.UuidHex.toHex(rootUuid);
+        if (rootUuid == null) {
+            return new ArrayList<>();
+        }
         List<TreeNode> out = new ArrayList<>();
-        for (TreeNode n : nodes()) {
-            if (root != null && root.equals(n.parentRef())) {
+        for (UUID u : ctx.childrenOf(rootUuid)) {
+            TreeNode n = find(u);
+            if (n != null) {
                 out.add(n);
             }
         }

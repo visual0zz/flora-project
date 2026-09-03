@@ -177,12 +177,15 @@ public final class KdbxXml {
         Map<String, byte[]> map = new LinkedHashMap<>();
         int index = 0;
         for (Element iconEl : childElements(ci)) {
-            if (!"CustomIcon".equals(iconEl.getTagName())) {
+            // KeePass 2.x 规范使用 <CustomIcon>；KeePassXC 实际写出 <Icon>，两者都是
+            // 「CustomIcons 下的单个图标」元素，须同等识别，否则 KeePassXC 导出的图标会被整批丢弃。
+            String tag = iconEl.getTagName();
+            if (!"CustomIcon".equals(tag) && !"Icon".equals(tag)) {
                 continue;
             }
             index++;
             // KeePass 2.x 把图标 UUID 放在 <CustomIcon> 的 UUID 属性（base64）上；
-            // 个别导出工具可能写作子元素 <UUID>，此处两者都兼容。
+            // KeePassXC 写作子元素 <UUID>（base64），此处两者都兼容。
             String uuid = uuidFromBase64(iconEl.getAttribute("UUID").trim());
             if (uuid == null) {
                 uuid = uuidText(iconEl);

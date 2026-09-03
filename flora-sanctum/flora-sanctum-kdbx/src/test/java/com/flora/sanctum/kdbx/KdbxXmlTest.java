@@ -69,6 +69,43 @@ class KdbxXmlTest {
     }
 
     /**
+     * 回归：KeePassXC 把自定义图标写成 {@code <Icon>}（而非 KeePass 2.x 规范的 {@code <CustomIcon>}），
+     * 且 UUID 以子元素 {@code <UUID>} 给出。早期实现只认 {@code <CustomIcon>}，导致 KeePassXC 导出的
+     * 图标整批被丢弃、导入后「自定义图标缺失」告警刷屏。此处验证 {@code <Icon>} 也能被提取并正确引用。
+     */
+    @Test
+    void parseCustomIconsReadsKeePassXcIconElement() throws Exception {
+        byte[] uuid16 = hexToBytes(CUSTOM_UUID);
+        String uuidB64 = Base64.getEncoder().encodeToString(uuid16);
+        String pngB64 = Base64.getEncoder().encodeToString(PNG_1X1);
+        // KeePassXC 实际格式：<Icon> 包裹 <UUID>（子元素）与 <Data>
+        String xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                + "<KeePassFile><Meta><CustomIcons>"
+                + "<Icon><UUID>" + uuidB64 + "</UUID><Data>" + pngB64 + "</Data></Icon>"
+                + "</CustomIcons></Meta>"
+                + "<Root><Group><UUID>" + Base64.getEncoder().encodeToString(new byte[16]) + "</UUID>"
+                + "<Name>Root</Name>"
+                + "<Entry><UUID>" + Base64.getEncoder().encodeToString(new byte[16]) + "</UUID>"
+                + "<CustomIconUUID>" + uuidB64 + "</CustomIconUUID>"
+                + "<String><Key>Title</Key><Value>t</Value></String>"
+                + "<String><Key>Password</Key><Value>p</Value></String>"
+                + "</Entry></Group></Root></KeePassFile>";
+        byte[] innerHeader = {
+                0x01, 0x04, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00
+        };
+        byte[] inner = concat(innerHeader, xml.getBytes(StandardCharsets.UTF_8));
+
+        KdbxDocument doc = KdbxXml.parse(inner);
+
+        assertFalse(doc.customIcons.isEmpty(), "KeePassXC 的 <Icon> 也应被解析");
+        assertTrue(doc.customIcons.containsKey(CUSTOM_UUID), "应以 hex uuid 为 key");
+        assertArrayEquals(PNG_1X1, doc.customIcons.get(CUSTOM_UUID), "图标字节应原样提取");
+        assertEquals(CUSTOM_UUID, doc.root.entries.get(0).customIconUuid,
+                "条目经 <CustomIconUUID> 引用应解析成功");
+    }
+
+    /**
      * KeePass/KeePassXC 把图标 {@code <Data>} 的 base64 按 MIME 习惯折行（每 64/76 字符插换行）。
      * Java 的 {@link Base64#getDecoder()} 拒绝换行符，若直接 decode 会抛异常并被静默吞掉，
      * 结果整份文件的自定义图标全部丢失（图标库为空、条目无图标，且无任何报错）。

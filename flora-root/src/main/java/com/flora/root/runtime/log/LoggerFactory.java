@@ -6,6 +6,7 @@ import com.flora.root.runtime.log.spi.Masker;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 
 /**
@@ -80,6 +81,17 @@ public final class LoggerFactory {
      */
     public static Logger getRootLogger() {
         return LOGGER_MAP.get("root");
+    }
+
+    /**
+     * 获取静默（no-op）日志器：所有方法均为空实现，不产生任何输出。
+     * <p>用于「调用方未注入真实日志器」的默认路径（例如独立复用的解析器/工具），
+     * 避免在无日志配置环境下报错或产生噪音；需要输出时由调用方显式传入真实日志器。</p>
+     *
+     * @return 单例静默日志器，不会为 null
+     */
+    public static Logger noOp() {
+        return NO_OP;
     }
 
 
@@ -175,4 +187,46 @@ public final class LoggerFactory {
             ((LoggerImpl) logger).setMasker(defaultMasker);
         }
     }
+
+    /** 静默日志器单例：所有方法空实现。 */
+    private static final Logger NO_OP = new Logger() {
+        @Override public String getName() { return "noop"; }
+
+        @Override public boolean isTraceEnabled() { return false; }
+        @Override public boolean isDebugEnabled() { return false; }
+        @Override public boolean isInfoEnabled() { return false; }
+        @Override public boolean isWarnEnabled() { return false; }
+        @Override public boolean isErrorEnabled() { return false; }
+        @Override public boolean isFatalEnabled() { return false; }
+
+        @Override public void trace(String msg) {}
+        @Override public void trace(String format, Object... args) {}
+        @Override public void trace(String msg, Throwable t) {}
+        @Override public void trace(Supplier<String> message) {}
+
+        @Override public void debug(String msg) {}
+        @Override public void debug(String format, Object... args) {}
+        @Override public void debug(String msg, Throwable t) {}
+        @Override public void debug(Supplier<String> message) {}
+
+        @Override public void info(String msg) {}
+        @Override public void info(String format, Object... args) {}
+        @Override public void info(String msg, Throwable t) {}
+        @Override public void info(Supplier<String> message) {}
+
+        @Override public void warn(String msg) {}
+        @Override public void warn(String format, Object... args) {}
+        @Override public void warn(String msg, Throwable t) {}
+        @Override public void warn(Supplier<String> message) {}
+
+        @Override public void error(String msg) {}
+        @Override public void error(String format, Object... args) {}
+        @Override public void error(String msg, Throwable t) {}
+        @Override public void error(Supplier<String> message) {}
+
+        @Override public void fatal(String msg) {}
+        @Override public void fatal(String format, Object... args) {}
+        @Override public void fatal(String msg, Throwable t) {}
+        @Override public void fatal(Supplier<String> message) {}
+    };
 }

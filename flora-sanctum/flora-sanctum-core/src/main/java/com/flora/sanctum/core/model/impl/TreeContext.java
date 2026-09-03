@@ -70,14 +70,19 @@ public final class TreeContext {
                 // 无法解析的块跳过
             }
         }
-        // 为缺 orderBits 的旧库/导入节点按当前（扫描）顺序赋序：保证展示顺序稳定，
+        // 为缺 order 的旧库/导入节点按当前（扫描）顺序赋序：保证展示顺序稳定，
         // 且可被小数索引接管。仅改内存对象图（objects），不强制落盘，首次被编辑时随块写入。
         for (List<UUID> sibs : childrenByParent.values()) {
-            double o = 0.0;
+            long o = FractionalIndex.D;
             for (UUID u : sibs) {
                 JsonObject obj = objects.get(u);
-                if (obj != null && obj.getLong("orderBits") == null) {
-                    obj.put("orderBits", Double.doubleToLongBits(o));
+                if (obj == null) {
+                    continue;
+                }
+                if (obj.getLong("order") == null) {
+                    // 旧版 orderBits 存的是 double 位模式（语义不同且量级巨大），丢弃后按当前顺序重赋
+                    obj.remove("orderBits");
+                    obj.put("order", o);
                 }
                 o += FractionalIndex.D;
             }
@@ -314,34 +319,76 @@ public final class TreeContext {
                 return List.of();
             }
             List<UUID> sorted = new ArrayList<>(siblings);
-            sorted.sort((a, b) -> Double.compare(orderOf(a), orderOf(b)));
+            sorted.sort((a, b) -> Long.compare(orderOf(a), orderOf(b)));
             return List.copyOf(sorted);
         } finally {
             lock.unlock();
         }
     }
 
-    /** 节点的排序键 order（来自块内 orderBits；缺失按 0）。 */
-    public double orderOf(UUID uuid) {
+    /** 节点的排序键 order（块内 {@code order} 字段，long 整数；缺失按 0）。 */
+    public long orderOf(UUID uuid) {
         lock.lock();
         try {
             JsonObject o = objects.get(uuid);
-            Long bits = o == null ? null : o.getLong("orderBits");
-            return bits == null ? 0.0 : Double.longBitsToDouble(bits);
+            Long v = o == null ? null : o.getLong("order");
+            return v == null ? 0L : v;
         } finally {
             lock.unlock();
         }
     }
 
     /** parent 下当前最大 order（无子返回 0），供新建/追加时取 max + D。 */
-    public double maxOrderUnder(UUID parent) {
+    public long maxOrderUnder(UUID parent) {
         lock.lock();
         try {
-            double max = 0.0;
+            long max = 0L;
             for (UUID c : childrenOf(parent)) {
                 max = Math.max(max, orderOf(c));
             }
             return max;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * 取「追加到 parent 末尾」的 order：max + D。若将溢出 long 则先对该子列表整段重排
+     * （重排后 order 回到 {(i+1)*D}，量级骤降）再取。
+     */
+    public long appendOrder(UUID parent) {
+        lock.lock();
+        try {
+            long max = maxOrderUnder(parent);
+            if (FractionalIndex.appendOverflow(max)) {
+                reassignOrders(parent);
+                max = maxOrderUnder(parent);
+            }
+            return FractionalIndex.initialOrder(max);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * 对 parent 下子列表按当前 order 全局重排，赋 order = (i+1)*D 并落盘。
+     * 仅在间隙耗尽（{@link FractionalIndex#collapsed}）或追加将溢出时调用，
+     * 是唯一会发生多块改写的路径；日常插入只改被移动节点一块。
+     */
+    public void reassignOrders(UUID parent) {
+        lock.lock();
+        try {
+            List<UUID> sibs = new ArrayList<>(childrenByParent.getOrDefault(parent, List.of()));
+            sibs.sort((a, b) -> Long.compare(orderOf(a), orderOf(b)));
+            for (int i = 0; i < sibs.size(); i++) {
+                UUID u = sibs.get(i);
+                JsonObject obj = objects.get(u);
+                if (obj == null) {
+                    continue;
+                }
+                obj.put("order", (i + 1L) * FractionalIndex.D);
+                write(u, obj, parent);
+            }
         } finally {
             lock.unlock();
         }

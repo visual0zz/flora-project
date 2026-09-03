@@ -74,7 +74,7 @@ public final class NodeMover {
         g.put("parent", parentStr(newParent));
         g.put("dek1", Base64.getEncoder().encodeToString(keys.dek1()));
         g.put("dek2", Base64.getEncoder().encodeToString(keys.dek2()));
-        g.put("orderBits", Double.doubleToLongBits(computeOrder(newParent, beforeUuid, groupUuid)));
+        g.put("order", computeOrder(newParent, beforeUuid, groupUuid));
         g.remove("dek");
         ctx.write(groupUuid, g, newParent);
         // 旧父失去本组这一子节点，其退役 dek1 使用数可能下降 → 尝试轮换
@@ -98,7 +98,7 @@ public final class NodeMover {
         }
         UUID oldParentGroup = ctx.parentGroupUuid(e);
         e.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(newParentGroup));
-        e.put("orderBits", Double.doubleToLongBits(computeOrder(newParentGroup, beforeUuid, entryUuid)));
+        e.put("order", computeOrder(newParentGroup, beforeUuid, entryUuid));
         ctx.write(entryUuid, e, newParentGroup);
         // 字段块随条目改归属到新组 DEK 之下重加密（field.parent 仍指向条目，不变）
         for (UUID f : ctx.childrenOf(entryUuid)) {
@@ -113,32 +113,34 @@ public final class NodeMover {
         }
     }
 
-    /** 计算被移动节点在新父下的 order：beforeUuid=null 追加末尾；否则取前驱与 beforeUuid 中点，
-     *  间隙耗尽则整段重排后重算。自身若已在目标父下，重排前先排除。 */
-    private double computeOrder(UUID newParent, UUID beforeUuid, UUID self) {
+    /**
+     * 计算被移动节点在新父下的 order：beforeUuid=null 追加末尾（溢出则先重排）；
+     * 否则取前驱与 beforeUuid 中点，间隙耗尽则整段重排后重算。
+     * 自身若已在目标父下，重排前先排除。
+     */
+    private long computeOrder(UUID newParent, UUID beforeUuid, UUID self) {
         if (beforeUuid == null) {
-            return FractionalIndex.initialOrder(ctx.maxOrderUnder(newParent));
+            return ctx.appendOrder(newParent);
         }
         if (beforeUuid.equals(self)) {
             return ctx.orderOf(self); // 拖到自身之前：保持原位
         }
         List<UUID> sibs = new ArrayList<>(ctx.childrenOf(newParent));
         sibs.remove(self);
-        sibs.sort((a, b) -> Double.compare(ctx.orderOf(a), ctx.orderOf(b)));
+        sibs.sort((a, b) -> Long.compare(ctx.orderOf(a), ctx.orderOf(b)));
         int idx = sibs.indexOf(beforeUuid);
         if (idx < 0) {
-            return FractionalIndex.initialOrder(ctx.maxOrderUnder(newParent));
+            return ctx.appendOrder(newParent);
         }
-        double nextOrder = ctx.orderOf(beforeUuid);
-        double prevOrder = (idx == 0) ? 0.0 : ctx.orderOf(sibs.get(idx - 1));
-        double mid = FractionalIndex.between(prevOrder, nextOrder);
+        long nextOrder = ctx.orderOf(beforeUuid);
+        long prevOrder = (idx == 0) ? 0L : ctx.orderOf(sibs.get(idx - 1));
         if (FractionalIndex.collapsed(prevOrder, nextOrder)) {
-            FractionalIndex.rebalance(ctx, newParent, sibs);
+            ctx.reassignOrders(newParent);
+            // 重排后子列表 order 为 {(i+1)*D}，beforeUuid 位于 idx，故前后邻居即 idx*D 与 (idx+1)*D
             prevOrder = idx * FractionalIndex.D;
-            nextOrder = (idx + 1) * FractionalIndex.D;
-            mid = FractionalIndex.between(prevOrder, nextOrder);
+            nextOrder = (idx + 1L) * FractionalIndex.D;
         }
-        return mid;
+        return FractionalIndex.between(prevOrder, nextOrder);
     }
 
     /** 环检测：newParent 不能是 moved 自身或其后代（沿父链向上会经过 moved 即冲突）。 */

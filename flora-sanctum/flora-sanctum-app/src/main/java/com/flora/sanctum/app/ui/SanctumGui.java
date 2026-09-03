@@ -1363,9 +1363,12 @@ public final class SanctumGui {
         return null;
     }
 
-    /** 执行归属变更：委托 core 的 NodeMover（经 Sanctum.move），失败给出状态提示。 */
+    /** 执行归属变更：委托 core 的 NodeMover（经 Sanctum.move），失败给出状态提示。
+     * <p>targetGroup 为 null 表示移到顶层（左树落到「密码库」区段），对组合法（NodeMover 会写入根对象）；
+     * 对条目不合法（条目必须属于组），此时 Sanctum.move 会抛清晰异常并由下方 catch 提示，
+     * 不可在此提前以 null 守卫把整类操作静默吞掉（否则拖到密码库看起来「落不上」）。</p> */
     private void performMove(UUID dragged, UUID targetGroup) {
-        if (dragged == null || targetGroup == null) {
+        if (dragged == null) {
             return;
         }
         try {

@@ -1,6 +1,8 @@
 package com.flora.sanctum.kdbx.internal;
 
 import com.flora.root.crypto.Argon2Kdf;
+import com.flora.root.runtime.log.Logger;
+import com.flora.root.runtime.log.LoggerFactory;
 import com.flora.sanctum.kdbx.KdbxDocument;
 import com.flora.sanctum.kdbx.KdbxReadException;
 import com.flora.sanctum.kdbx.KdbxReadException.Stage;
@@ -47,6 +49,7 @@ public final class KdbxParser {
     private final byte[] data;
     private final char[] password;
     private final byte[] keyFileBytes;
+    private final Logger log;
     private byte[] masterSeed;
 
     /** 解析过程中逐步得到的上下文，用于丰富异常信息（均非敏感）。 */
@@ -55,14 +58,28 @@ public final class KdbxParser {
     private String kdfUuidHex;
 
     private KdbxParser(byte[] data, char[] password, byte[] keyFileBytes) {
+        this(data, password, keyFileBytes, LoggerFactory.noOp());
+    }
+
+    private KdbxParser(byte[] data, char[] password, byte[] keyFileBytes, Logger log) {
         this.data = data;
         this.password = password;
         this.keyFileBytes = keyFileBytes;
+        this.log = log;
     }
 
-    /** 解析并解密为内存模型。 */
+    /** 解析并解密为内存模型（默认静默日志）。 */
     public static KdbxDocument parse(byte[] data, char[] password, byte[] keyFileBytes) throws KdbxReadException {
-        return new KdbxParser(data, password, keyFileBytes).parse();
+        return parse(data, password, keyFileBytes, LoggerFactory.noOp());
+    }
+
+    /**
+     * 解析并解密为内存模型。
+     *
+     * @param log 外部注入的日志器（用于记录解析期诊断，如自定义图标解码失败）；不配置路径，仅记录
+     */
+    public static KdbxDocument parse(byte[] data, char[] password, byte[] keyFileBytes, Logger log) throws KdbxReadException {
+        return new KdbxParser(data, password, keyFileBytes, log).parse();
     }
 
     private KdbxReadException fail(Stage stage, String message) {
@@ -210,7 +227,7 @@ public final class KdbxParser {
             }
             byte[] plaintext = decryptPayload(payloadStart, finalKey, base, cipherId, encryptionIV);
             byte[] inner = decompress(plaintext, compression);
-            return KdbxXml.parse(inner); // KDBX4：TLV 内层头 + XML
+            return KdbxXml.parse(inner, log); // KDBX4：TLV 内层头 + XML
         }
 
         // KDBX2/3：头部结束处即为单一加密载荷（AES-CBC，无逐块 HMAC、无文件级头哈希块）。
@@ -245,7 +262,7 @@ public final class KdbxParser {
         byte[] xmlBytes = decodeHashedBlocks(blockData);
         byte[] xml = decompress(xmlBytes, compression);
         KdbxStreamCipher stream = new KdbxStreamCipher(innerRandomStreamId, protectedStreamKey);
-        return KdbxXml.parseInner(xml, stream); // KDBX2/3：内层流来自外层头，无 TLV 内层头
+        return KdbxXml.parseInner(xml, stream, log); // KDBX2/3：内层流来自外层头，无 TLV 内层头
     }
 
     private byte[] decryptPayload(int start, byte[] finalKey, byte[] base,

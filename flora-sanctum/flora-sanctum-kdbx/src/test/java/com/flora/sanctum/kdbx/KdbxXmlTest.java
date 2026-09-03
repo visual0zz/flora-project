@@ -1,11 +1,14 @@
 package com.flora.sanctum.kdbx;
 
 import com.flora.sanctum.kdbx.internal.KdbxXml;
+import com.flora.root.runtime.log.Logger;
 
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -125,5 +128,105 @@ class KdbxXmlTest {
         System.arraycopy(a, 0, out, 0, a.length);
         System.arraycopy(b, 0, out, a.length, b.length);
         return out;
+    }
+
+    /**
+     * 诊断打点回归：残缺的 {@code <CustomIcon>}（如缺少 {@code <Data>} 子元素）被跳过时，
+     * 必须经由注入的日志器记录告警，而不是像早期实现那样静默吞掉
+     * （否则导入后「自定义图标缺失」会让人无从查起）。合法图标仍应正常保留。
+     */
+    @Test
+    void parseCustomIconsLogsMalformedIcon() throws Exception {
+        byte[] uuid16 = hexToBytes(CUSTOM_UUID);
+        String uuidB64 = Base64.getEncoder().encodeToString(uuid16);
+        String pngB64 = Base64.getEncoder().encodeToString(PNG_1X1);
+        // 一个合法图标 + 一个缺少 <Data> 的残缺图标（真实文件偶发损坏时会出现）
+        String xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                + "<KeePassFile><Meta><CustomIcons>"
+                + "<CustomIcon UUID=\"" + uuidB64 + "\"><Data>" + pngB64 + "</Data></CustomIcon>"
+                + "<CustomIcon UUID=\"" + uuidB64 + "\"></CustomIcon>"
+                + "</CustomIcons></Meta>"
+                + "<Root><Group><UUID>" + Base64.getEncoder().encodeToString(new byte[16]) + "</UUID>"
+                + "<Name>Root</Name>"
+                + "<Entry><UUID>" + Base64.getEncoder().encodeToString(new byte[16]) + "</UUID>"
+                + "<CustomIconUUID>" + uuidB64 + "</CustomIconUUID>"
+                + "<String><Key>Title</Key><Value>t</Value></String>"
+                + "<String><Key>Password</Key><Value>p</Value></String>"
+                + "</Entry></Group></Root></KeePassFile>";
+        byte[] innerHeader = {
+                0x01, 0x04, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00
+        };
+        byte[] inner = concat(innerHeader, xml.getBytes(StandardCharsets.UTF_8));
+
+        CapturingLogger log = new CapturingLogger();
+        KdbxDocument doc = KdbxXml.parse(inner, log);
+
+        // 合法图标保留，残缺图标丢弃
+        assertEquals(1, doc.customIcons.size(), "残缺图标不应进入 customIcons");
+        assertTrue(doc.customIcons.containsKey(CUSTOM_UUID), "合法图标应被保留");
+        // 且必须留下可检索的日志（本次诊断打点的核心目的）
+        assertTrue(log.warnings.stream().anyMatch(w -> w.contains("解析跳过") && w.contains(CUSTOM_UUID)),
+                "残缺图标应经注入的日志器记录告警（含图标 UUID 与「解析跳过」），便于定位");
+    }
+
+    /** 仅记录 warn/info 的轻量 Logger 实现，供测试断言诊断日志内容。 */
+    private static final class CapturingLogger implements Logger {
+        final List<String> warnings = new CopyOnWriteArrayList<>();
+        final List<String> infos = new CopyOnWriteArrayList<>();
+
+        private static String fmt(String format, Object... args) {
+            if (args == null || args.length == 0) {
+                return format;
+            }
+            StringBuilder sb = new StringBuilder(format);
+            for (Object a : args) {
+                int i = sb.indexOf("{}");
+                if (i < 0) {
+                    sb.append(' ').append(a);
+                } else {
+                    sb.replace(i, i + 2, String.valueOf(a));
+                }
+            }
+            return sb.toString();
+        }
+
+        @Override public String getName() { return "capturing"; }
+        @Override public boolean isTraceEnabled() { return false; }
+        @Override public boolean isDebugEnabled() { return false; }
+        @Override public boolean isInfoEnabled() { return true; }
+        @Override public boolean isWarnEnabled() { return true; }
+        @Override public boolean isErrorEnabled() { return true; }
+        @Override public boolean isFatalEnabled() { return true; }
+
+        @Override public void trace(String msg) {}
+        @Override public void trace(String format, Object... args) {}
+        @Override public void trace(String msg, Throwable t) {}
+        @Override public void trace(java.util.function.Supplier<String> m) {}
+
+        @Override public void debug(String msg) {}
+        @Override public void debug(String format, Object... args) {}
+        @Override public void debug(String msg, Throwable t) {}
+        @Override public void debug(java.util.function.Supplier<String> m) {}
+
+        @Override public void info(String msg) { infos.add(msg); }
+        @Override public void info(String format, Object... args) { infos.add(fmt(format, args)); }
+        @Override public void info(String msg, Throwable t) { infos.add(msg); }
+        @Override public void info(java.util.function.Supplier<String> m) { infos.add(m.get()); }
+
+        @Override public void warn(String msg) { warnings.add(msg); }
+        @Override public void warn(String format, Object... args) { warnings.add(fmt(format, args)); }
+        @Override public void warn(String msg, Throwable t) { warnings.add(msg); }
+        @Override public void warn(java.util.function.Supplier<String> m) { warnings.add(m.get()); }
+
+        @Override public void error(String msg) {}
+        @Override public void error(String format, Object... args) {}
+        @Override public void error(String msg, Throwable t) {}
+        @Override public void error(java.util.function.Supplier<String> m) {}
+
+        @Override public void fatal(String msg) {}
+        @Override public void fatal(String format, Object... args) {}
+        @Override public void fatal(String msg, Throwable t) {}
+        @Override public void fatal(java.util.function.Supplier<String> m) {}
     }
 }

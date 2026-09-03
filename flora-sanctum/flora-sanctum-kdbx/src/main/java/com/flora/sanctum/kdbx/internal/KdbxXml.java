@@ -12,6 +12,8 @@ import org.w3c.dom.NodeList;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import com.flora.root.runtime.log.Logger;
+import com.flora.root.runtime.log.LoggerFactory;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -33,6 +35,11 @@ public final class KdbxXml {
     }
 
     public static KdbxDocument parse(byte[] inner) throws KdbxReadException {
+        return parse(inner, LoggerFactory.noOp());
+    }
+
+    /** 同 {@link #parse(byte[], Logger)}，额外经由外部注入的日志器记录解析期诊断。 */
+    public static KdbxDocument parse(byte[] inner, Logger log) throws KdbxReadException {
         int p = 0;
         int innerStreamId = 1;            // 默认 Salsa20
         byte[] innerKey = new byte[32];
@@ -62,21 +69,30 @@ public final class KdbxXml {
         System.arraycopy(inner, p, xmlBytes, 0, xmlBytes.length);
 
         KdbxStreamCipher stream = new KdbxStreamCipher(innerStreamId, innerKey);
-        return parseXml(xmlBytes, stream);
+        return parseXml(xmlBytes, stream, log);
     }
 
     /** KDBX2/3 入口：内层随机流算法与密钥来自外层头部字段（无 TLV 内层头），直接解析 XML。 */
     public static KdbxDocument parseInner(byte[] xmlBytes, KdbxStreamCipher stream) throws KdbxReadException {
-        return parseXml(xmlBytes, stream);
+        return parseInner(xmlBytes, stream, LoggerFactory.noOp());
+    }
+
+    /** KDBX2/3 入口（带注入日志器）。 */
+    public static KdbxDocument parseInner(byte[] xmlBytes, KdbxStreamCipher stream, Logger log) throws KdbxReadException {
+        return parseXml(xmlBytes, stream, log);
     }
 
     static KdbxDocument parseXml(byte[] xmlBytes, KdbxStreamCipher stream) throws KdbxReadException {
+        return parseXml(xmlBytes, stream, LoggerFactory.noOp());
+    }
+
+    static KdbxDocument parseXml(byte[] xmlBytes, KdbxStreamCipher stream, Logger log) throws KdbxReadException {
         try {
             DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
             f.setNamespaceAware(false);
             Document doc = f.newDocumentBuilder().parse(new ByteArrayInputStream(xmlBytes));
             Element root = doc.getDocumentElement();
-            Map<String, byte[]> customIcons = parseCustomIcons(root);
+            Map<String, byte[]> customIcons = parseCustomIcons(root, log);
             Element rootGroup = firstChild(root, "Root");
             if (rootGroup == null) {
                 throw new KdbxReadException(Stage.XML, "KDBX 缺少 <Root>");
@@ -144,8 +160,12 @@ public final class KdbxXml {
         return e;
     }
 
-    /** 解析文档级自定义图标（Meta/CustomIcons）：UUID hex → 原始图像字节。不消耗内层密钥流。 */
-    private static Map<String, byte[]> parseCustomIcons(Element root) {
+    /**
+     * 解析文档级自定义图标（Meta/CustomIcons）：UUID hex → 原始图像字节。不消耗内层密钥流。
+     * <p>解析期诊断经 {@code log} 记录（外部注入，不配置路径）：图标总数、UUID 解析失败、
+     * 缺 {@code <Data>}、或 {@code <Data>} base64 解码失败（这类静默丢弃正是导入后「自定义图标缺失」告警的来源）。</p>
+     */
+    private static Map<String, byte[]> parseCustomIcons(Element root, Logger log) {
         Element meta = firstChild(root, "Meta");
         if (meta == null) {
             return Map.of();
@@ -155,10 +175,12 @@ public final class KdbxXml {
             return Map.of();
         }
         Map<String, byte[]> map = new LinkedHashMap<>();
+        int index = 0;
         for (Element iconEl : childElements(ci)) {
             if (!"CustomIcon".equals(iconEl.getTagName())) {
                 continue;
             }
+            index++;
             // KeePass 2.x 把图标 UUID 放在 <CustomIcon> 的 UUID 属性（base64）上；
             // 个别导出工具可能写作子元素 <UUID>，此处两者都兼容。
             String uuid = uuidFromBase64(iconEl.getAttribute("UUID").trim());
@@ -167,13 +189,21 @@ public final class KdbxXml {
             }
             Element dataEl = firstChild(iconEl, "Data");
             if (uuid == null || dataEl == null) {
+                String reason = uuid == null ? "缺少可用的 UUID" : "缺少 <Data> 子元素";
+                log.warn("自定义图标解析跳过：第 {} 个 CustomIcon {}（UUID={}）",
+                        index, reason, uuid == null ? "未知" : uuid);
                 continue;
             }
             try {
                 byte[] data = decodeBase64(dataEl.getTextContent());
                 map.put(uuid, data);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.warn("自定义图标 <Data> 解码失败（将不会被导入，条目引用它会触发「自定义图标缺失」告警）："
+                        + " UUID={}, 原因={}", uuid, e.getMessage());
             }
+        }
+        if (index > 0) {
+            log.info("解析到 {} 个自定义图标（Meta/CustomIcons），其中 {} 个成功解码", index, map.size());
         }
         return map;
     }

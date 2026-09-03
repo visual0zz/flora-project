@@ -257,4 +257,61 @@ class KdbxIconImportTest {
         assertTrue(node.fields().stream().anyMatch(f -> "CustomKey".equals(f.fieldName())),
                 "其它自定义字段应保留");
     }
+
+    /**
+     * 诊断打点：导入应产出图标统计摘要（onInfo），且 ImportResult 携带可定位的图标诊断字段；
+     * 「自定义图标缺失」告警应带完整 UUID（而非截断），便于直接在源文件里检索。
+     */
+    @Test
+    void emitsIconDiagnosisSummary(@TempDir Path dir) throws Exception {
+        Sanctum sanctum = Sanctum.createAndUnlock(dir.resolve("vault-diag"),
+                "pw".toCharArray(), 8192, 2, 1);
+        var tree = sanctum.objectTree();
+        IconTree iconTree = sanctum.iconTree();
+
+        String missingUuid = "fedcba9876543210fedcba9876543210";
+        KdbxDocument.KdbxGroup root = new KdbxDocument.KdbxGroup();
+        root.name = "Root";
+
+        // 引用了存在字节的图标（应成功解析）
+        KdbxDocument.KdbxEntry e1 = new KdbxDocument.KdbxEntry();
+        e1.name = "HasIcon";
+        e1.customIconUuid = CUSTOM_UUID;
+        e1.fields.put("Password", new KdbxDocument.KdbxField("p", true));
+        root.entries.add(e1);
+
+        // 引用了缺失字节的图标（应告警且计入缺失统计）
+        KdbxDocument.KdbxEntry e2 = new KdbxDocument.KdbxEntry();
+        e2.name = "NoBytes";
+        e2.customIconUuid = missingUuid;
+        e2.fields.put("Password", new KdbxDocument.KdbxField("p", true));
+        root.entries.add(e2);
+
+        List<String> infos = new ArrayList<>();
+        List<String> warns = new ArrayList<>();
+        ImportContext ctx = ImportContext.builder(tree)
+                .iconTree(iconTree)
+                .listener(new ImportListener() {
+                    @Override public void onProgress(int done, int total, String stage) {}
+                    @Override public void onWarning(String message) { warns.add(message); }
+                    @Override public void onInfo(String message) { infos.add(message); }
+                })
+                .build();
+        ImportResult result = KdbxMapper.map(new KdbxDocument(root, Map.of(CUSTOM_UUID, PNG_1X1)), ctx);
+
+        // 统计摘要应被记录
+        assertTrue(infos.stream().anyMatch(s -> s.contains("KDBX 导入图标统计") && s.contains("缺失 1 个")),
+                "应产出图标统计摘要 onInfo，含缺失数量");
+        // ImportResult 携带诊断字段
+        assertEquals(1, result.customIconsInFile, "文件含 1 个自定义图标");
+        assertEquals(2, result.customIconsReferenced, "被引用 2 个不同 UUID");
+        assertEquals(1, result.customIconsResolved, "成功解析 1 个");
+        assertEquals(1, result.customIconsMissing, "缺失 1 个");
+        assertTrue(result.missingIconUuids.contains(missingUuid), "缺失 UUID 列表应含完整 UUID");
+
+        // 缺失告警带完整 UUID（可在源文件检索），而非截断
+        assertTrue(warns.stream().anyMatch(w ->
+                        w.contains("自定义图标缺失") && w.contains(missingUuid) && !w.contains("…")),
+                "缺失告警应含完整 UUID，便于定位");
+    }
 }

@@ -33,13 +33,15 @@ final class KdbxMapper {
     private int entries;
     private int fields;
 
-    /** 文档级自定义图标字节（仅当 ctx 提供了 iconTree 时使用）。 */
+    /** 文档级自定义图标字节（来自 KDBX 的 Meta/CustomIcons，无论是否启用图标映射都填充用于统计）。 */
     private Map<String, byte[]> customIcons = Map.of();
+    /** 文件 Meta/CustomIcons 中解析到的自定义图标数量（用于导入统计）。 */
+    private int customIconsInFile;
     /** iconTree 非 null 时启用图标映射：自定义图标 UUID → 已建好的引用（去重）。 */
     private final Map<String, Ref> customIconRefs = new HashMap<>();
     /** 内置图标 iconId → 本轮稳定映射的 Sanctum 内置图标引用。 */
     private final Map<Integer, Ref> builtinIconRefs = new HashMap<>();
-    /** 已告警过的缺失自定义图标 UUID（避免引用同一图标的每个条目都重复告警）。 */
+    /** 已告警过的缺失自定义图标 UUID（避免引用同一图标的每个条目都重复告警），保持首次出现顺序。 */
     private final java.util.Set<String> missingIconUuids = new java.util.LinkedHashSet<>();
 
     private KdbxMapper(ImportContext ctx) {
@@ -61,9 +63,8 @@ final class KdbxMapper {
     }
 
     private ImportResult doMap(KdbxDocument doc) {
-        if (importContext.iconTree() != null) {
-            this.customIcons = doc.customIcons;
-        }
+        this.customIcons = doc.customIcons;
+        this.customIconsInFile = doc.customIcons.size();
         GroupNode top;
         if (importContext.targetGroup() != null) {
             top = importContext.targetGroup();
@@ -72,6 +73,8 @@ final class KdbxMapper {
             groups++;
         }
         int totalEntries = doc.countEntries();
+        listener.onInfo("开始映射 KDBX 文档：根分组=" + top.name()
+                + "，预计条目=" + totalEntries + "，文件含自定义图标=" + customIconsInFile);
         int done = 0;
         for (KdbxDocument.KdbxGroup g : doc.root.groups) {
             groups += mapGroup(top, g);
@@ -84,12 +87,27 @@ final class KdbxMapper {
             }
         }
         listener.onProgress(totalEntries, totalEntries, "导入完成");
-        return new ImportResult(groups, entries, fields, warnings);
+
+        int referenced = customIconRefs.size();
+        int resolved = 0;
+        for (Ref r : customIconRefs.values()) {
+            if (r != null) {
+                resolved++;
+            }
+        }
+        int missing = missingIconUuids.size();
+        if (referenced > 0 || customIconsInFile > 0) {
+            String detail = missing > 0 ? "；缺失 UUID：" + String.join(", ", missingIconUuids) : "";
+            listener.onInfo("KDBX 导入图标统计：文件含 " + customIconsInFile + " 个自定义图标；被引用 "
+                    + referenced + " 个（成功解析 " + resolved + " 个，缺失 " + missing + " 个）" + detail);
+        }
+        return new ImportResult(groups, entries, fields, warnings,
+                customIconsInFile, referenced, resolved, missing, new ArrayList<>(missingIconUuids));
     }
 
     private int mapGroup(GroupNode parent, KdbxDocument.KdbxGroup kg) {
         GroupNode g = parent.createChildGroup(firstNonEmpty(kg.name, "分组"));
-        Ref icon = resolveIcon(kg.iconId, kg.customIconUuid);
+        Ref icon = resolveIcon(kg.iconId, kg.customIconUuid, kg.name);
         if (icon != null) {
             g.setIcon(icon);
         }
@@ -110,7 +128,7 @@ final class KdbxMapper {
         String url = fieldValue(ke, "URL");
         EntryFields ef = new EntryFields(pw, url, user, List.of());
         EntryNode en = parent.createEntry(firstNonEmpty(ke.name, "未命名"), ef);
-        Ref icon = resolveIcon(ke.iconId, ke.customIconUuid);
+        Ref icon = resolveIcon(ke.iconId, ke.customIconUuid, ke.name);
         if (icon != null) {
             en.setIcon(icon);
         }
@@ -151,7 +169,7 @@ final class KdbxMapper {
      * 内置图标（IconID）→ 本轮内按 iconId 稳定地随机选一个 Sanctum 内置图标（builtin 引用）；
      * 两者皆无 / 未提供 iconTree → null（不设置图标）。
      */
-    private Ref resolveIcon(Integer iconId, String customIconUuid) {
+    private Ref resolveIcon(Integer iconId, String customIconUuid, String ownerName) {
         IconTree iconTree = importContext.iconTree();
         if (iconTree == null) {
             return null;
@@ -169,9 +187,9 @@ final class KdbxMapper {
                 IconNode node = iconTree.findOrCreate(name, data, formatOf(data));
                 ref = Ref.nodeIcon(node.uuid());
             } else if (missingIconUuids.add(customIconUuid)) {
-                String shortId = customIconUuid.substring(0, Math.min(8, customIconUuid.length()));
-                warn("自定义图标缺失：CustomIconUUID " + shortId
-                        + "… 在文件的 Meta/CustomIcons 中找不到对应图标数据，引用它的条目/分组不会设置图标");
+                String where = ownerName == null || ownerName.isEmpty() ? "某条目/分组" : "「" + ownerName + "」";
+                warn("自定义图标缺失：CustomIconUUID " + customIconUuid
+                        + " 在文件 Meta/CustomIcons 中找不到对应图像数据，引用它的 " + where + " 不会设置图标");
             }
             customIconRefs.put(customIconUuid, ref);
             return ref;

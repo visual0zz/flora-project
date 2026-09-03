@@ -7,6 +7,7 @@ import com.flora.sanctum.core.io.importer.Importer;
 import com.flora.sanctum.kdbx.KdbxDocument;
 import com.flora.sanctum.kdbx.KdbxReader;
 import com.flora.sanctum.kdbx.KdbxReadException;
+import com.flora.root.runtime.log.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -48,7 +49,10 @@ public final class KdbxImporter implements Importer {
             }
         }
         try {
-            KdbxDocument doc = KdbxReader.read(data, ctx.password(), keyFileBytes);
+            // 解析期诊断（如自定义图标解码失败）经由 LoggerFactory 提供的日志器记录；
+            // 该日志器的落点由应用侧 LogSetup 决定（文件/XDG 等），本导入器不配置路径。
+            KdbxDocument doc = KdbxReader.read(data, ctx.password(), keyFileBytes,
+                    LoggerFactory.getLogger(KdbxImporter.class));
             return KdbxMapper.map(doc, ctx);
         } catch (KdbxReadException e) {
             throw new ImportException("KDBX 读取失败: " + e.getMessage(), e);

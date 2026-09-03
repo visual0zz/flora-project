@@ -33,6 +33,11 @@ public final class ImportListeners {
             public void onWarning(String message) {
                 System.out.println("[import:warn] " + message);
             }
+
+            @Override
+            public void onInfo(String message) {
+                System.out.println("[import:info] " + message);
+            }
         };
     }
 
@@ -52,6 +57,11 @@ public final class ImportListeners {
             @Override
             public void onWarning(String message) {
                 logger.warn("[import:warn] {}", message);
+            }
+
+            @Override
+            public void onInfo(String message) {
+                logger.info("[import:info] {}", message);
             }
         };
     }

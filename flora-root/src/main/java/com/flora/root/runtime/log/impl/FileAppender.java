@@ -184,8 +184,12 @@ public class FileAppender implements Appender {
                 throw new IllegalStateException("File path not set");
             }
             Files.createDirectories(filePath.getParent());
-            writer = new BufferedWriter(new OutputStreamWriter(
-                    Files.newOutputStream(filePath, append ? StandardOpenOption.APPEND : StandardOpenOption.CREATE)));
+            // APPEND 不会创建不存在的文件，必须显式带上 CREATE，否则首次写入会因
+            // NoSuchFileException 失败（日志被静默吞掉，磁盘上始终没有日志文件）。
+            StandardOpenOption[] options = append
+                    ? new StandardOpenOption[]{StandardOpenOption.CREATE, StandardOpenOption.APPEND}
+                    : new StandardOpenOption[]{StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING};
+            writer = new BufferedWriter(new OutputStreamWriter(Files.newOutputStream(filePath, options)));
         }
     }
 }

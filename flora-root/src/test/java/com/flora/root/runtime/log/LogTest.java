@@ -230,6 +230,31 @@ class LogTest {
     }
 
     /**
+     * 回归：追加模式（append=true）下目标文件不存在时必须自动创建，
+     * 否则会抛 NoSuchFileException 且日志被静默吞掉（磁盘上始终没有日志文件）。
+     * 直接落真实文件系统以复现该场景（内存 VFS 不会暴露此问题）。
+     */
+    @Test
+    void testFileAppenderAppendCreatesMissingFile() throws IOException {
+        ((LoggerImpl) LoggerFactory.getRootLogger()).setLevel(Level.INFO);
+        Path tmp = Files.createTempFile("sanctum-logtest", ".log");
+        Files.delete(tmp); // 确保起始不存在，复现首次写入场景
+        try {
+            FileAppender appender = new FileAppender(tmp);
+            appender.setLayout(new Layout("%msg%n"));
+            ((LoggerImpl) LoggerFactory.getRootLogger()).addAppender(appender);
+            Logger log = LoggerFactory.getLogger("appendCreateTest");
+            log.info("first line to missing file");
+            appender.close();
+            assertTrue(Files.exists(tmp), "追加模式下缺失的文件应被自动创建");
+            String content = Files.readString(tmp);
+            assertTrue(content.contains("first line to missing file"), content);
+        } finally {
+            Files.deleteIfExists(tmp);
+        }
+    }
+
+    /**
      * 同一日志器上两个 appender 指向相同文件应被拒绝（配置期去重）。
      */
     @Test

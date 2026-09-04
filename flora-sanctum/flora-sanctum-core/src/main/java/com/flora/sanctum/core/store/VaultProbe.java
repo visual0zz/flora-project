@@ -14,8 +14,7 @@ import java.util.List;
  * 仅做轻量目录探测，不解析块内容；无法列举时视为无特征目录。
  * <p>
  * 本类是「目录是否已是仓库」判据的唯一来源：新建（{@code Sanctum.createAndUnlock}）
- * 与 GUI 预检共用，避免逻辑重复与判据漂移。打开流程的形态识别由
- * {@code app.bootstrap.VaultDetector} 负责（关注 standalone/normal 形态），与此处不复用。
+ * 与 GUI 预检共用，避免逻辑重复与判据漂移。
  */
 public final class VaultProbe {
 

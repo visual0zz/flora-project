@@ -202,6 +202,8 @@ final class SettingsModel {
                 return null;
             } catch (NumberFormatException e) {
                 return "自动锁定须为整数秒";
+            } catch (IllegalArgumentException e) {
+                return "自动锁定须为非负整数秒";
             }
         }
     }
@@ -240,6 +242,8 @@ final class SettingsModel {
                 return null;
             } catch (NumberFormatException e) {
                 return "剪贴板清空须为整数秒";
+            } catch (IllegalArgumentException e) {
+                return "剪贴板清空须为非负整数秒";
             }
         }
     }

@@ -68,6 +68,9 @@ public final class LibraryConfig {
     }
 
     public void setLockTimeoutSeconds(int seconds) {
+        if (seconds < 0) {
+            throw new IllegalArgumentException("lockTimeoutSeconds must be non-negative");
+        }
         setConfig("lockTimeoutSeconds", String.valueOf(seconds));
     }
 
@@ -76,6 +79,9 @@ public final class LibraryConfig {
     }
 
     public void setClipboardClearSeconds(int seconds) {
+        if (seconds < 0) {
+            throw new IllegalArgumentException("clipboardClearSeconds must be non-negative");
+        }
         setConfig("clipboardClearSeconds", String.valueOf(seconds));
     }
 

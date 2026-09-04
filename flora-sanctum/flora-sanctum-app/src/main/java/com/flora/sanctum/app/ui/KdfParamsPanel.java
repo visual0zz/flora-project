@@ -75,13 +75,19 @@ final class KdfParamsPanel extends JPanel {
 
     /**
      * 解析三项参数为 {@code {memoryKiB, iterations, parallelism}}。
-     * 任一为空或非法（非正整数）时返回 {@code null}，表示回退默认档。
+     * 任一为空或非法（非正整数/不满足 Argon2 约束）时返回 {@code null}，表示回退默认档；
+     * 约束由 core 的 {@link Argon2KDF#validate} 定义。
      */
     int[] resolve() {
         Integer m = parse(memoryField.getText());
         Integer i = parse(iterationsField.getText());
         Integer p = parse(parallelismField.getText());
         if (m == null || i == null || p == null) {
+            return null;
+        }
+        try {
+            Argon2KDF.validate(m, i, p);
+        } catch (IllegalArgumentException e) {
             return null;
         }
         return new int[]{m, i, p};

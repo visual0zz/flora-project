@@ -26,13 +26,21 @@ public final class Argon2KDF {
     }
 
     public Argon2KDF(byte[] salt, int memoryKiB, int iterations, int parallelism) {
-        if (memoryKiB < 8 * parallelism) {
-            throw new IllegalArgumentException("memory too small for parallelism");
-        }
+        validate(memoryKiB, iterations, parallelism);
         this.salt = salt.clone();
         this.memoryKiB = memoryKiB;
         this.iterations = iterations;
         this.parallelism = parallelism;
+    }
+
+    /** 校验 Argon2 参数是否合法（各项须为正，且 memoryKiB >= 8*parallelism）；非法抛 IllegalArgumentException。 */
+    public static void validate(int memoryKiB, int iterations, int parallelism) {
+        if (memoryKiB <= 0 || iterations <= 0 || parallelism <= 0) {
+            throw new IllegalArgumentException("Argon2 params must be positive");
+        }
+        if (memoryKiB < 8 * parallelism) {
+            throw new IllegalArgumentException("memory too small for parallelism");
+        }
     }
 
     public int memoryKiB() {

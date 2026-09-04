@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * 探测目录是否已是 Sanctum 仓库（见设计 04"存储布局"）。
@@ -48,5 +49,24 @@ public final class VaultProbe {
     /** 目录是否疑似已有 Sanctum 仓库（含任一特征目录）。 */
     public static boolean isVault(Path dir) {
         return !markers(dir).isEmpty();
+    }
+
+    /** 目录下是否含有 Sanctum 数据块文件（任意 {@code *.md} 块）；无法列举时视为无。 */
+    public static boolean hasDataBlocks(Path dir) {
+        if (dir == null || !Files.isDirectory(dir)) {
+            return false;
+        }
+        try (Stream<Path> walk = Files.walk(dir)) {
+            return walk.anyMatch(VaultProbe::isDataBlock);
+        } catch (IOException ignore) {
+            return false;
+        }
+    }
+
+    /** 单个文件是否为 Sanctum 数据块（块文件扩展名见 {@link BlockFormat#BLOCK_EXTENSION}；仅认常规文件）。 */
+    public static boolean isDataBlock(Path file) {
+        return file != null
+                && Files.isRegularFile(file)
+                && file.getFileName().toString().endsWith(BlockFormat.BLOCK_EXTENSION);
     }
 }

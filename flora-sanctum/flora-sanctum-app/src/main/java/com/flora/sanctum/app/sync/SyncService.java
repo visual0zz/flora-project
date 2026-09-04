@@ -8,6 +8,7 @@ import java.util.List;
 
 import com.flora.root.runtime.log.Logger;
 import com.flora.root.runtime.log.LoggerFactory;
+import com.flora.sanctum.core.store.VaultProbe;
 
 /**
  * Git 同步封装（见设计 06"Git 同步"），基于本地 git 命令（ProcessBuilder），无 jgit 依赖。
@@ -68,8 +69,7 @@ public final class SyncService {
                 if (p.startsWith(root.resolve("lib"))) {
                     continue;
                 }
-                String name = p.getFileName().toString();
-                if (!name.endsWith(".md")) {
+                if (!VaultProbe.isDataBlock(p)) {
                     return false;
                 }
             }

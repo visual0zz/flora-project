@@ -4,10 +4,10 @@ import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.runtime.log.Logger;
 import com.flora.root.runtime.log.LoggerFactory;
+import com.flora.sanctum.core.store.VaultProbe;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.stream.Stream;
 
 /**
  * 仓库形态识别与仓库级配置（见设计"形态与启动"）。
@@ -89,13 +89,9 @@ public final class VaultDetector {
         return null;
     }
 
-    /** 目录下是否存在数据块文件（两层目录内的任意 *.md）。 */
+    /** 目录下是否存在数据块文件（两层目录内的任意 *.md）；判据委托 core 的 {@link VaultProbe}。 */
     public static boolean hasBlockFiles(Path dir) {
-        try (Stream<Path> walk = Files.walk(dir)) {
-            return walk.anyMatch(p -> p.getFileName().toString().endsWith(".md"));
-        } catch (Exception e) {
-            return false;
-        }
+        return VaultProbe.hasDataBlocks(dir);
     }
 
     /**

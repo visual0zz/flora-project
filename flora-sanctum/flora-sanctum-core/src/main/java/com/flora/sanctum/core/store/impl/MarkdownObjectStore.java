@@ -1,6 +1,7 @@
 package com.flora.sanctum.core.store.impl;
 
 import com.flora.sanctum.core.store.Block;
+import com.flora.sanctum.core.store.BlockFormat;
 import com.flora.sanctum.core.store.BlockHeader;
 import com.flora.sanctum.core.store.Codec;
 import com.flora.sanctum.core.store.ObjectStore;
@@ -52,7 +53,7 @@ public final class MarkdownObjectStore implements ObjectStore {
     /** 块文件路径：{@code root/{第1字符}/{第2字符}/{后30字符}.md}。 */
     Path fileOf(UUID uuid) {
         String hex = hexOf(uuid);
-        return root.resolve(hex.substring(0, 1)).resolve(hex.substring(1, 2)).resolve(hex.substring(2) + ".md");
+        return root.resolve(hex.substring(0, 1)).resolve(hex.substring(1, 2)).resolve(hex.substring(2) + BlockFormat.BLOCK_EXTENSION);
     }
 
     /**
@@ -64,7 +65,7 @@ public final class MarkdownObjectStore implements ObjectStore {
     public static UUID uuidOf(Path file) {
         String name = file.getFileName().toString();
         Path parent = file.getParent();
-        if (!name.endsWith(".md") || parent == null || parent.getParent() == null) {
+        if (!name.endsWith(BlockFormat.BLOCK_EXTENSION) || parent == null || parent.getParent() == null) {
             throw new IllegalArgumentException("not a block file: " + file);
         }
         String hex = parent.getParent().getFileName().toString()
@@ -152,7 +153,7 @@ public final class MarkdownObjectStore implements ObjectStore {
         }
         try (Stream<Path> files = Files.walk(root)) {
             files.filter(Files::isRegularFile)
-                    .filter(p -> p.getFileName().toString().endsWith(".md"))
+                    .filter(p -> p.getFileName().toString().endsWith(BlockFormat.BLOCK_EXTENSION))
                     .forEach(p -> scanFile(p, blocks));
         } catch (IOException e) {
             throw new IllegalStateException("scan failed", e);

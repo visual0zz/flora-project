@@ -44,4 +44,7 @@ public final class BlockFormat {
     public static final byte VERSION_1 = 1;
     public static final byte FLAG_CIPHER = 0x01;
     public static final byte FLAG_PLAINTEXT = 0x02;
+
+    /** 块文件在磁盘上的扩展名（存储布局，非信封字节格式）；块文件名即对象 uuid 的无连字符 hex。 */
+    public static final String BLOCK_EXTENSION = ".md";
 }

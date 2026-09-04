@@ -8,6 +8,7 @@ import java.util.function.LongSupplier;
 
 import com.flora.root.runtime.log.Logger;
 import com.flora.root.runtime.log.LoggerFactory;
+import com.flora.sanctum.app.util.Concurrency;
 
 /**
  * 单线程后台任务执行器：串行执行导入 / 导出 / 远程同步等任务，空闲时按最后活跃时间
@@ -61,9 +62,7 @@ public final class BackgroundExecutor {
         this.unlocked = unlocked;
         this.lockNow = lockNow;
         this.listener = listener;
-        this.worker = new Thread(this::loop, "sanctum-background");
-        this.worker.setDaemon(true);
-        this.worker.start();
+        this.worker = Concurrency.start("sanctum-background", this::loop);
     }
 
     /** 提交任务；提交本身视为一次活跃，刷新时间戳。 */

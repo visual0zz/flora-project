@@ -9,6 +9,7 @@ import com.flora.root.runtime.log.LoggerFactory;
 
 import com.flora.sanctum.core.model.ExternalKeyService;
 import com.flora.sanctum.core.model.Sanctum;
+import com.flora.sanctum.app.util.Concurrency;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -41,7 +42,7 @@ public final class SanctumHttpServer {
     public SanctumHttpServer(java.util.function.Supplier<Sanctum> sanctumSupplier, int port) throws IOException {
         this.sanctumSupplier = sanctumSupplier;
         this.server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
-        this.executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        this.executor = Concurrency.newFixedThreadPool(2, "sanctum-http");
         this.server.setExecutor(executor);
         registerRoutes();
     }

@@ -1,6 +1,7 @@
 package com.flora.sanctum.app.ui;
 
 import com.flora.sanctum.app.config.UserConfig;
+import com.flora.sanctum.app.util.Concurrency;
 import com.flora.sanctum.core.model.StoredNodeType;
 import com.flora.sanctum.core.model.ViewNodeType;
 import com.flora.sanctum.core.model.tree.DataTree;
@@ -111,7 +112,7 @@ public final class SanctumGui {
     private JLabel statusLabel;
     private UUID selectedEntry;
     private String copiedPlaintext;
-    private java.util.Timer clipboardTimer;
+    private java.util.concurrent.ScheduledFuture<?> clipboardTimerFuture;
     /** 单线程后台任务执行器：串行执行导入/导出/同步，空闲轮询自动锁定。 */
     private com.flora.sanctum.app.BackgroundExecutor executor;
     /** 后台任务进行中转圈图标（复用 SpinnerIcon），默认隐藏。 */
@@ -288,9 +289,9 @@ public final class SanctumGui {
     }
 
     private void stopTimers() {
-        if (clipboardTimer != null) {
-            clipboardTimer.cancel();
-            clipboardTimer = null;
+        if (clipboardTimerFuture != null) {
+            clipboardTimerFuture.cancel(false);
+            clipboardTimerFuture = null;
         }
     }
 
@@ -2964,19 +2965,15 @@ public final class SanctumGui {
     }
 
     private void startClipboardTimer() {
-        if (clipboardTimer != null) {
-            clipboardTimer.cancel();
+        if (clipboardTimerFuture != null) {
+            clipboardTimerFuture.cancel(false);
         }
-        clipboardTimer = new java.util.Timer(true);
-        clipboardTimer.schedule(new java.util.TimerTask() {
-            @Override
-            public void run() {
-                if (copiedPlaintext != null) {
-                    setClipboard("");
-                    copiedPlaintext = null;
-                }
+        clipboardTimerFuture = Concurrency.schedule("sanctum-clipboard-clear", () -> {
+            if (copiedPlaintext != null) {
+                setClipboard("");
+                copiedPlaintext = null;
             }
-        }, sanctum.config().clipboardClearSeconds() * 1000L);
+        }, sanctum.config().clipboardClearSeconds() * 1000L, java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 
     // ================= 图标 / SSH / 远程 =================
@@ -3583,13 +3580,8 @@ public final class SanctumGui {
         toast.setLocation(x, y);
         toast.setAlwaysOnTop(true);
         toast.setVisible(true);
-        java.util.Timer t = new java.util.Timer(true);
-        t.schedule(new java.util.TimerTask() {
-            @Override
-            public void run() {
-                SwingUtilities.invokeLater(toast::dispose);
-            }
-        }, 1800);
+        Concurrency.schedule("sanctum-toast", () -> SwingUtilities.invokeLater(toast::dispose),
+                1800, java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 
     /** 仓库/应用设置页（独立页面，非对话框）。 */

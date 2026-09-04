@@ -1,5 +1,7 @@
 package com.flora.sanctum.core.io.importer;
 
+import com.flora.root.runtime.log.Logger;
+import com.flora.root.runtime.log.LoggerFactory;
 import com.flora.sanctum.core.model.tree.GroupNode;
 import com.flora.sanctum.core.model.tree.IconTree;
 import com.flora.sanctum.core.model.tree.ObjectTree;
@@ -19,6 +21,7 @@ public final class ImportContext {
     private final ImportListener listener;
     private final GroupNode targetGroup;
     private final IconTree iconTree;
+    private final Logger logger;
 
     private ImportContext(Builder b) {
         this.tree = Objects.requireNonNull(b.tree, "tree");
@@ -27,6 +30,7 @@ public final class ImportContext {
         this.listener = b.listener == null ? ImportListeners.noop() : b.listener;
         this.targetGroup = b.targetGroup;
         this.iconTree = b.iconTree;
+        this.logger = b.logger == null ? LoggerFactory.noOp() : b.logger;
     }
 
     public ObjectTree tree() {
@@ -52,6 +56,11 @@ public final class ImportContext {
         return listener;
     }
 
+    /** 日志器（解析诊断用；未注入时为空操作，不落任何输出）。 */
+    public Logger logger() {
+        return logger;
+    }
+
     /** 导入目标分组；null 表示由导入器自建顶层分组。 */
     public GroupNode targetGroup() {
         return targetGroup;
@@ -75,6 +84,7 @@ public final class ImportContext {
         private ImportListener listener;
         private GroupNode targetGroup;
         private IconTree iconTree;
+        private Logger logger;
 
         private Builder(ObjectTree tree) {
             this.tree = tree;
@@ -103,6 +113,12 @@ public final class ImportContext {
         /** 图标树（用于导入时复制自定义图标 / 引用内置图标）。可为 null。 */
         public Builder iconTree(IconTree iconTree) {
             this.iconTree = iconTree;
+            return this;
+        }
+
+        /** 日志器（解析诊断用）。可不传，默认空操作。 */
+        public Builder logger(Logger logger) {
+            this.logger = logger;
             return this;
         }
 

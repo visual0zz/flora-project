@@ -11,7 +11,7 @@ import java.io.PrintStream;
 /**
  * 控制台日志附加器，将日志输出到标准输出流或标准错误流。
  * <p>
- * ERROR 级别的日志输出到 System.err，其他级别输出到 System.out。
+ * ERROR 及以上（含 FATAL）级别的日志输出到 System.err，其他级别输出到 System.out。
  */
 public class ConsoleAppender implements Appender {
 
@@ -55,7 +55,7 @@ public class ConsoleAppender implements Appender {
     /**
      * 追加日志事件到控制台。
      * <p>
-     * 检查阈值级别后，ERROR 级别输出到 System.err，其他级别输出到 System.out。
+     * 检查阈值级别后，ERROR 及以上（含 FATAL）级别输出到 System.err，其他级别输出到 System.out。
      *
      * @param event 日志事件
      */
@@ -64,7 +64,7 @@ public class ConsoleAppender implements Appender {
         if (!threshold.isEnabled(event.getLevel())) {
             return;
         }
-        PrintStream out = event.getLevel() == Level.ERROR ? System.err : System.out;
+        PrintStream out = event.getLevel().toInt() >= Level.ERROR.toInt() ? System.err : System.out;
         out.print(layout.format(event));
     }
 }

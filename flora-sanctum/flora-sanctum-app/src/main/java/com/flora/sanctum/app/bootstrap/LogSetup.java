@@ -29,34 +29,37 @@ public final class LogSetup {
 
     private static final String APP_NAME = "sanctum";
 
+    private static final String FILE_PATTERN = "%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger - %msg%n";
+
     private LogSetup() {
     }
 
     /**
      * 安装日志系统。应在应用启动的最早期调用（GUI 启动之前）。
-     * 目录创建失败时退化为当前工作目录下的日志文件，不阻断启动。
+     * 目录创建失败时退化为仅输出到标准输出的日志（不写文件），不阻断启动。
      */
     public static void install() {
         Path stateDir = resolveStateDir();
-        try {
-            Files.createDirectories(stateDir);
-        } catch (IOException e) {
-            System.err.println("Failed to create log directory " + stateDir + ": " + e.getMessage());
-        }
         Path logFile = stateDir.resolve(APP_NAME + ".log");
+        boolean dirOk = createLogDir(stateDir);
 
-        LogConfig.configure(c -> c
-                .rootLevel(Level.INFO)
-                .rollingFile(rc -> rc
+        LogConfig.configure(c -> {
+            c.rootLevel(Level.INFO);
+            if (dirOk) {
+                c.rollingFile(rc -> rc
                         .file(logFile.toString())
-                        .pattern("%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger - %msg%n")
+                        .pattern(FILE_PATTERN)
                         .datePattern("yyyy-MM-dd")
                         .filePattern(APP_NAME + "-%d{yyyy-MM-dd}.%i.log")
                         .maxSize(10L * 1024 * 1024)
-                        .maxHistory(10)));
+                        .maxHistory(10));
+            } else {
+                c.console(cc -> cc.pattern(FILE_PATTERN));
+            }
+        });
 
         installUncaughtExceptionHandler();
-        LOG.info("Logging initialized, file={}", logFile);
+        LOG.info("Logging initialized, target={}", dirOk ? logFile : "stdout");
     }
 
     /**
@@ -72,6 +75,20 @@ public final class LogSetup {
             base = Path.of(Objects.requireNonNullElse(home, "."), ".local", "state");
         }
         return base.resolve(APP_NAME);
+    }
+
+    /**
+     * 创建日志目录；失败仅告警并返回 false（调用方据此退化为标准输出日志），不抛异常阻断启动。
+     */
+    private static boolean createLogDir(Path stateDir) {
+        try {
+            Files.createDirectories(stateDir);
+            return true;
+        } catch (IOException e) {
+            System.err.println("Failed to create log directory " + stateDir + ": " + e.getMessage()
+                    + "; falling back to stdout logging.");
+            return false;
+        }
     }
 
     private static void installUncaughtExceptionHandler() {

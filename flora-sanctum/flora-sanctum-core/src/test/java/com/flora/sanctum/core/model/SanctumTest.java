@@ -511,8 +511,8 @@ class SanctumTest {
         assertEquals(TrashView.TrashKind.MANUAL, trash.kindOf(group.uuid()));
         assertFalse(trash.contains(entry.uuid()));
 
-        // 原位置沿 parent 链计算
-        assertTrue(trash.originalPath(group.uuid()).endsWith("社交"));
+        // 原位置沿 parent 链计算（core 返回中性路径段，末段为组名）
+        assertTrue(trash.originalPathSegments(group.uuid()).getLast().equals("社交"));
 
         // 撤销删除
         group.restore();

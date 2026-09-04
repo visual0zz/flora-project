@@ -1279,7 +1279,7 @@ public final class SanctumGui {
             for (com.flora.sanctum.core.model.TrashView.TrashKind k
                     : com.flora.sanctum.core.model.TrashView.TrashKind.values()) {
                 for (UUID id : trashUuids(k)) {
-                    String suffix = "  ·  [" + k.label() + "]";
+                    String suffix = "  ·  [" + trashKindLabel(k) + "]";
                     DefaultMutableTreeNode leaf = new DefaultMutableTreeNode(nodeName(id) + suffix);
                     leaf.setUserObject(id);
                     trashNode.add(leaf);
@@ -1683,7 +1683,7 @@ public final class SanctumGui {
                 for (com.flora.sanctum.core.model.TrashView.TrashKind k
                         : com.flora.sanctum.core.model.TrashView.TrashKind.values()) {
                     for (UUID id : trashUuids(k)) {
-                        String label = nodeName(id) + "  ·  [" + k.label() + "]";
+                        String label = nodeName(id) + "  ·  [" + trashKindLabel(k) + "]";
                         entryModel.addElement(new EntryListItem(id, typeOf(id), label, iconRefOfNode(id)));
                     }
                 }
@@ -1937,6 +1937,15 @@ public final class SanctumGui {
             case EXTERNAL_KEY -> "外部密钥";
             case TOTP -> "动态码";
             default -> "设置";
+        };
+    }
+
+    /** 垃圾桶类别展示名（中文文案在 app 侧，core 的 TrashKind 仅作分类）。 */
+    private static String trashKindLabel(com.flora.sanctum.core.model.TrashView.TrashKind k) {
+        return switch (k) {
+            case MANUAL -> "手动删除";
+            case UNREACHABLE -> "不可达";
+            case UNLOCKABLE -> "不可解锁";
         };
     }
 
@@ -2243,12 +2252,12 @@ public final class SanctumGui {
         }
         com.flora.sanctum.core.model.TrashView.TrashKind kind = trashView.kindOf(uuid);
         // 类型标签
-        JLabel typeTag = new JLabel("垃圾桶 · " + (kind == null ? "未知" : kind.label()));
+        JLabel typeTag = new JLabel("垃圾桶 · " + (kind == null ? "未知" : trashKindLabel(kind)));
         typeTag.setFont(typeTag.getFont().deriveFont(Font.BOLD, 14f));
         typeTag.setForeground(new java.awt.Color(150, 90, 40));
         editPanel.add(typeTag);
         // 原位置（临时计算）
-        editPanel.add(makeInfoRow("原位置", trashView.originalPath(uuid)));
+        editPanel.add(makeInfoRow("原位置", "密码库/" + String.join("/", trashView.originalPathSegments(uuid))));
 
         StoredNodeType type = typeOf(uuid);
         TreeNode node = sanctum.findNode(uuid);

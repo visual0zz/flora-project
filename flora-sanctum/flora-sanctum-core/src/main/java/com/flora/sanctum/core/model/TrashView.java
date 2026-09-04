@@ -5,10 +5,8 @@ import com.flora.sanctum.core.model.impl.TreeContext;
 import com.flora.root.codec.json.model.JsonObject;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -68,39 +66,20 @@ public final class TrashView {
         return null;
     }
 
-    /** 三类垃圾桶类别。 */
+    /** 三类垃圾桶类别（展示名由 app 侧提供，core 仅作分类）。 */
     public enum TrashKind {
-        MANUAL("手动删除"),
-        UNREACHABLE("不可达"),
-        UNLOCKABLE("不可解锁");
-
-        private final String label;
-
-        TrashKind(String label) {
-            this.label = label;
-        }
-
-        /** 中文展示名。 */
-        public String label() {
-            return label;
-        }
+        MANUAL,
+        UNREACHABLE,
+        UNLOCKABLE
     }
 
     /**
-     * 临时计算「原位置」路径：沿 parent 链回溯至根对象，拼出 "密码库/..." 形式。
-     * 链路中存在未知节点时以 "未知(uuid前8位)" 占位；无法回溯返回空串。
+     * 临时计算「原位置」路径段（从根对象到该节点，根在前）。不持久化、不含任何展示前缀；
+     * 链路中名称缺失或空白的节点以其 uuid 前 8 位作中性占位。展示前缀（如 "密码库/"）与兜底
+     * 文案由 app 侧负责拼接。
      */
-    public String originalPath(UUID uuid) {
-        Map<String, String> names = new HashMap<>();
-        for (Map.Entry<UUID, JsonObject> e : ctx.objects().entrySet()) {
-            JsonObject d = e.getValue();
-            if (d == null) {
-                continue;
-            }
-            String name = d.getString("name");
-            names.put(e.getKey().toString(), name == null || name.isBlank() ? "未命名" : name);
-        }
-        List<String> parts = new ArrayList<>();
+    public List<String> originalPathSegments(UUID uuid) {
+        List<String> segments = new ArrayList<>();
         String cur = uuid.toString();
         Set<String> seen = new HashSet<>();
         while (cur != null && !cur.equals(root) && seen.add(cur)) {
@@ -110,17 +89,15 @@ public final class TrashView {
             UUID id = com.flora.sanctum.core.util.UuidHex.fromHex(cur);
             JsonObject d = ctx.read(id);
             if (d == null) {
-                parts.add(0, "未知(" + cur.substring(0, Math.min(8, cur.length())) + ")");
+                segments.add(0, cur.substring(0, Math.min(8, cur.length())));
                 break;
             }
             String name = d.getString("name");
-            parts.add(0, name == null || name.isBlank() ? "未命名" : name);
+            segments.add(0, name == null || name.isBlank()
+                    ? cur.substring(0, Math.min(8, cur.length())) : name);
             cur = d.getString("parent");
         }
-        if (parts.isEmpty()) {
-            return "";
-        }
-        return "密码库/" + String.join("/", parts);
+        return segments;
     }
 
     private static boolean isUuid(String s) {

@@ -33,4 +33,13 @@ public final class UuidHex {
         return UUID.fromString(s.substring(0, 8) + "-" + s.substring(8, 12) + "-"
                 + s.substring(12, 16) + "-" + s.substring(16, 20) + "-" + s.substring(20));
     }
+
+    /** 同 {@link #fromHex} 但非法/空输入返回 null（UI 静默降级用）。 */
+    public static UUID fromHexOrNull(String s) {
+        try {
+            return fromHex(s);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
 }

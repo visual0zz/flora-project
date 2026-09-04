@@ -2,6 +2,7 @@ package com.flora.sanctum.core.model.tree;
 import com.flora.sanctum.core.model.*;
 import com.flora.sanctum.core.model.impl.*;
 import com.flora.sanctum.core.model.vault.*;
+import com.flora.sanctum.core.util.UuidHex;
 
 import com.flora.root.codec.json.model.JsonObject;
 
@@ -79,6 +80,47 @@ public final class ObjectTree extends DataTree {
             }
         }
         return out;
+    }
+
+    /** 父对象 uuid；顶层（parent 指向仓库根对象）或无法解析时返回 null。 */
+    public UUID parentOf(UUID uuid) {
+        ObjectNode n = find(uuid);
+        if (n == null) {
+            return null;
+        }
+        String p = n.parentRef();
+        if (p == null) {
+            return null;
+        }
+        UUID root = context().vault().rootObjectUuid();
+        UUID pid;
+        try {
+            pid = UuidHex.fromHex(p);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+        return root != null && root.equals(pid) ? null : pid;
+    }
+
+    /** 是否顶层（parent 指向仓库根对象）。 */
+    public boolean isTopLevel(UUID uuid) {
+        return parentOf(uuid) == null;
+    }
+
+    /** 节点所属文件夹路径（祖先组名，自顶向下，不含节点自身）；顶层返回空列表。 */
+    public List<String> pathOf(UUID uuid) {
+        List<String> names = new ArrayList<>();
+        UUID cur = parentOf(uuid);
+        while (cur != null) {
+            GroupNode g = group(cur);
+            if (g == null) {
+                break;
+            }
+            String nm = g.name();
+            names.add(0, nm == null || nm.isBlank() ? "未命名" : nm);
+            cur = parentOf(cur);
+        }
+        return names;
     }
 
     /** 新建组（parentId=null 为顶层，parent 记根对象 uuid，用 rootDek 加密）。 */

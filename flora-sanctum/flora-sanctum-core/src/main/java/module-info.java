@@ -8,6 +8,8 @@
 module com.flora.sanctum.core {
     // 加密、密钥派生、块信封（纯 JDK + 自研实现）——内部实现（impl）不导出
     exports com.flora.sanctum.core.crypto;
+    // UUID 32 位 hex 形态工具（存储/路径统一编码，供 app 解析 parent 等字段）
+    exports com.flora.sanctum.core.util;
     // 纯字节存储引擎（不负责加密，Codec 由外部注入）——内部实现（impl）不导出
     exports com.flora.sanctum.core.store;
     // 数据模型与树（元数据/配置/数据树/节点）

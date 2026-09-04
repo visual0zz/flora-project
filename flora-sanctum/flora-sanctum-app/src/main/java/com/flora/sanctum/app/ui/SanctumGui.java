@@ -16,6 +16,7 @@ import com.flora.sanctum.core.model.Ref;
 import com.flora.sanctum.core.model.tree.SshKeyNode;
 import com.flora.sanctum.core.io.importer.ImportListeners;
 import com.flora.sanctum.core.model.tree.TreeNode;
+import com.flora.sanctum.core.util.UuidHex;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.runtime.log.Logger;
 import com.flora.root.runtime.log.LoggerFactory;
@@ -1407,25 +1408,6 @@ public final class SanctumGui {
         }
     }
 
-    /**
-     * 解析存储中的 uuid 字符串（兼容带连字符规范形态与无连字符 hex 形态，后者为块 parent 等字段的实际存储格式）。
-     * 非法返回 null，避免 {@link UUID#fromString} 仅认规范形态而对无连字符 hex 抛 {@link IllegalArgumentException}，
-     * 否则会在解锁后刷新（rebuildGroupTree/totpItemName 等）或选中条目时静默崩溃。
-     */
-    private static UUID parseUuid(String s) {
-        if (s == null) {
-            return null;
-        }
-        try {
-            String t = s.indexOf('-') >= 0 ? s
-                    : s.substring(0, 8) + "-" + s.substring(8, 12) + "-"
-                    + s.substring(12, 16) + "-" + s.substring(16, 20) + "-" + s.substring(20);
-            return UUID.fromString(t);
-        } catch (IllegalArgumentException ex) {
-            return null;
-        }
-    }
-
     /** 左树拖拽：拖出组/条目，拖入文件夹（或根「密码库」区段）即改归属。 */
     private final class TreeDragHandler extends TransferHandler {
         @Override
@@ -1588,15 +1570,15 @@ public final class SanctumGui {
         }
     }
 
-    private Map<UUID, String[]> groupCache;
+    private Map<UUID, String> groupCache;
 
-    /** group → {parent, name}（来自 ObjectTree）。 */
-    private Map<UUID, String[]> groupsById() {
+    /** group uuid → 显示名（来自 ObjectTree，渲染缓存）。 */
+    private Map<UUID, String> groupsById() {
         if (groupCache == null) {
             groupCache = new LinkedHashMap<>();
             for (TreeNode n : sanctum.objectTree().nodes()) {
                 if (n instanceof GroupNode g && !n.deleted()) {
-                    groupCache.put(g.uuid(), new String[]{g.parentRef(), g.name()});
+                    groupCache.put(g.uuid(), g.name());
                 }
             }
         }
@@ -1864,27 +1846,7 @@ public final class SanctumGui {
 
     /** 条目所属文件夹路径（如"社交/工作"），顶层返回空串。 */
     private String folderPathOf(EntryNode e) {
-        String parent = e.parentRef();
-        if (isTopLevel(parent)) {
-            return "";
-        }
-        List<String> names = new ArrayList<>();
-        String cur = parent;
-        while (cur != null && !isTopLevel(cur)) {
-            UUID id;
-            try {
-                id = UUID.fromString(cur);
-            } catch (IllegalArgumentException ex) {
-                break;
-            }
-            String[] info = groupsById().get(id);
-            if (info == null) {
-                break;
-            }
-            names.add(0, info[1] == null || info[1].isBlank() ? "未命名" : info[1]);
-            cur = info[0];
-        }
-        return String.join("/", names);
+        return String.join("/", sanctum.objectTree().pathOf(e.uuid()));
     }
 
     /** 当前树选中节点（null=未选）。 */
@@ -2406,7 +2368,7 @@ public final class SanctumGui {
         if (entryId == null) {
             return "";
         }
-        EntryNode entry = sanctum.objectTree().entry(parseUuid(entryId));
+        EntryNode entry = sanctum.objectTree().entry(UuidHex.fromHexOrNull(entryId));
         if (entry == null) {
             return "";
         }
@@ -2430,7 +2392,7 @@ public final class SanctumGui {
             seed = f.value() == null ? "" : f.value();
             String pid = f.data().getString("parent");
             if (pid != null) {
-                EntryNode e = sanctum.objectTree().entry(parseUuid(pid));
+                EntryNode e = sanctum.objectTree().entry(UuidHex.fromHexOrNull(pid));
                 if (e != null) {
                     entryName = e.name() == null ? "未命名" : e.name();
                     path = fieldStoragePath(uuid);
@@ -2489,7 +2451,7 @@ public final class SanctumGui {
         String pid = f.data() == null ? null : f.data().getString("parent");
         String entryName = "?";
         if (pid != null) {
-            EntryNode e = sanctum.objectTree().entry(parseUuid(pid));
+            EntryNode e = sanctum.objectTree().entry(UuidHex.fromHexOrNull(pid));
             if (e != null) {
                 entryName = e.name() == null ? "未命名" : e.name();
             }
@@ -2890,21 +2852,7 @@ public final class SanctumGui {
 
     /** 由条目推导其所属组 uuid（顶层条目 parent 为根对象 uuid 返回 null）。 */
     private UUID groupIdOf(UUID entryUuid) {
-        EntryNode entry = sanctum.objectTree().entry(entryUuid);
-        if (entry == null) {
-            return null;
-        }
-        String p = entry.parentRef();
-        return isTopLevel(p) ? null : parseUuid(p);
-    }
-
-    /** parent 是否为顶层（根对象 uuid / null）。 */
-    private boolean isTopLevel(String parent) {
-        if (parent == null) {
-            return true;
-        }
-        UUID rootUuid = sanctum.rootObjectUuid();
-        return rootUuid != null && rootUuid.toString().equals(parent);
+        return sanctum.objectTree().parentOf(entryUuid);
     }
 
     /** kind 下拉选项：预定义 FieldKind tag + 库内未预定义的 kind（向后兼容，未知 kind 可继续选择）。 */
@@ -4057,8 +4005,7 @@ public final class SanctumGui {
                         setText(sectionDisplayName(tag));
                     }
                 } else if (uo instanceof UUID uuid) {
-                    String[] info = groupsById().get(uuid);
-                    String name = info == null ? null : info[1];
+                    String name = groupsById().get(uuid);
                     if (name == null || name.isBlank()) {
                         // 垃圾桶中的非组节点（条目等）直接取节点已存文本
                         name = nodeName(uuid);

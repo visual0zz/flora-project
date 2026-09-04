@@ -7,7 +7,6 @@ import com.flora.root.runtime.log.impl.RollingFileAppender;
 import com.flora.root.runtime.log.spi.Appender;
 import com.flora.root.runtime.log.spi.Layout;
 import com.flora.root.runtime.log.spi.Masker;
-import com.flora.root.runtime.log.spi.RollingPolicy;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -25,7 +24,7 @@ import java.util.function.Consumer;
  *     .rollingFile(rc -&gt; rc
  *         .file("/var/log/app.log")
  *         .pattern("%d %highlight{%level} %logger - %msg%n")
- *         .rolling(RollingPolicy.SIZE_BASED, "yyyy-MM-dd")
+ *         .datePattern("yyyy-MM-dd")
  *         .filePattern("app-%d{yyyy-MM-dd}.%i.log")
  *         .maxSize(20 * 1024 * 1024)
  *         .maxHistory(7))
@@ -105,6 +104,10 @@ public final class LogConfig {
 
     /**
      * 添加滚动文件输出附加器。
+     * <p>
+     * 滚动由配置自然组合（复合触发），而非选择单一策略：{@code filePattern} 含 {@code %d} 即按日期分区（时间触发），
+     * {@code maxSize > 0} 即按尺寸上限滚动（尺寸触发）；二者可同时生效（日期+尺寸复合）。
+     * {@code maxHistory} 为跨所有日期的全局保留上限。
      *
      * @param consumer 滚动文件配置函数
      * @return 当前 LogConfig 实例（流式 API）
@@ -117,7 +120,6 @@ public final class LogConfig {
         appender.setName(c.name != null ? c.name : "rollingFile");
         if (c.pattern != null) appender.setLayout(new Layout(c.pattern));
         if (c.threshold != null) appender.setThreshold(c.threshold);
-        if (c.policy != null) appender.policy(c.policy);
         if (c.datePattern != null) appender.datePattern(c.datePattern);
         if (c.filePattern != null) appender.filePattern(c.filePattern);
         if (c.maxSize > 0) appender.maxSize(c.maxSize);
@@ -217,7 +219,6 @@ public final class LogConfig {
         String file;
         String pattern;
         Level threshold;
-        RollingPolicy policy;
         String datePattern;
         String filePattern;
         long maxSize;
@@ -227,9 +228,7 @@ public final class LogConfig {
         public RollingConfig file(String file) { this.file = file; return this; }
         public RollingConfig pattern(String pattern) { this.pattern = pattern; return this; }
         public RollingConfig threshold(Level threshold) { this.threshold = threshold; return this; }
-        public RollingConfig rolling(RollingPolicy policy, String datePattern) {
-            this.policy = policy; this.datePattern = datePattern; return this;
-        }
+        public RollingConfig datePattern(String datePattern) { this.datePattern = datePattern; return this; }
         public RollingConfig filePattern(String filePattern) { this.filePattern = filePattern; return this; }
         public RollingConfig maxSize(long maxSize) { this.maxSize = maxSize; return this; }
         public RollingConfig maxHistory(int maxHistory) { this.maxHistory = maxHistory; return this; }

@@ -79,6 +79,34 @@ public final class LibraryConfig {
         setConfig("clipboardClearSeconds", String.valueOf(seconds));
     }
 
+    /** 导出当前配置为 JSON（theme/lockTimeoutSeconds/clipboardClearSeconds）。 */
+    public JsonObject toJson() {
+        JsonObject cfg = new JsonObject();
+        cfg.put("theme", theme());
+        cfg.put("lockTimeoutSeconds", lockTimeoutSeconds());
+        cfg.put("clipboardClearSeconds", clipboardClearSeconds());
+        return cfg;
+    }
+
+    /** 从 JSON 应用配置（仅识别已知键，未知键忽略；缺失键保持默认值/现状）。 */
+    public void fromJson(JsonObject src) {
+        if (src == null) {
+            return;
+        }
+        String theme = src.getString("theme");
+        if (theme != null) {
+            setTheme(theme);
+        }
+        Integer lock = src.getInt("lockTimeoutSeconds");
+        if (lock != null) {
+            setLockTimeoutSeconds(lock);
+        }
+        Integer clip = src.getInt("clipboardClearSeconds");
+        if (clip != null) {
+            setClipboardClearSeconds(clip);
+        }
+    }
+
     private int intConfig(String key, int def) {
         String v = getConfig(key);
         if (v == null) {

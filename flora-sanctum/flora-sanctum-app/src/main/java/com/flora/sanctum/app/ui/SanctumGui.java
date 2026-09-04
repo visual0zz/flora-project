@@ -3900,12 +3900,7 @@ public final class SanctumGui {
     /** 复制给仓库级 config.json 的配置：优先当前仓库 LibraryConfig，否则应用级配置。 */
     private JsonObject configForStandalone() {
         if (sanctum != null && sanctum.isUnlocked()) {
-            com.flora.sanctum.core.model.LibraryConfig lc = sanctum.config();
-            JsonObject cfg = new JsonObject();
-            cfg.put("theme", lc.theme());
-            cfg.put("lockTimeoutSeconds", lc.lockTimeoutSeconds());
-            cfg.put("clipboardClearSeconds", lc.clipboardClearSeconds());
-            return cfg;
+            return sanctum.config().toJson();
         }
         return loadAppConfig();
     }

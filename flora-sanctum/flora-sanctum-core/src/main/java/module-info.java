@@ -16,8 +16,6 @@ module com.flora.sanctum.core {
     exports com.flora.sanctum.core.model.tree;
     // 解锁与密钥状态
     exports com.flora.sanctum.core.model.vault;
-    // 用户配置目录（~/.flora-sanctum）
-    exports com.flora.sanctum.core.config;
     // 数据格式服务（导入/导出：KDBX / Sanctum CSV·JSON）
     exports com.flora.sanctum.core.io.importer;
     exports com.flora.sanctum.core.io.exporter;

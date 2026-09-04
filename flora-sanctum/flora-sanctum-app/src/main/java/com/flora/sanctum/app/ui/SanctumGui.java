@@ -1,6 +1,6 @@
 package com.flora.sanctum.app.ui;
 
-import com.flora.sanctum.core.config.UserConfig;
+import com.flora.sanctum.app.config.UserConfig;
 import com.flora.sanctum.core.model.StoredNodeType;
 import com.flora.sanctum.core.model.ViewNodeType;
 import com.flora.sanctum.core.model.tree.DataTree;
@@ -3358,7 +3358,8 @@ public final class SanctumGui {
                                     .password(pw)
                                     .keyFile(keyFile)
                                     .iconTree(sanctum.iconTree())
-                                    .listener(ImportListeners.logging(LoggerFactory.getLogger(SanctumGui.class)))
+                                    .listener(ImportListeners.logging(LOG))
+                                    .logger(LOG)
                                     .build();
                     com.flora.sanctum.core.io.importer.ImportResult result = imp.importFile(file, ctx);
                     LOG.info("Import completed: {}", result);

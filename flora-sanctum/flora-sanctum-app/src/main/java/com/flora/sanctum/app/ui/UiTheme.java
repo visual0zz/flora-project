@@ -16,7 +16,7 @@ import java.util.Random;
  *   <li>{@code stupid}：所有位置颜色在应用主题时随机生成（每次应用都不同，仅供娱乐）。
  * </ul>
  * 配色为可变静态字段：UI 组件在绘制时读取（如 {@link PaperPanel}），切换方案后重绘即生效；
- * 方案名存于全局配置文件（见 {@code UserConfig#theme()}）。
+ * 方案名存于全局配置文件（见 {@code com.flora.sanctum.app.config.UserConfig#theme()}）。
  */
 public final class UiTheme {
 

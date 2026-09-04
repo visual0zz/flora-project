@@ -2477,19 +2477,9 @@ public final class SanctumGui {
         return period - (int) (System.currentTimeMillis() / 1000 % period);
     }
 
-    /** 列出全部 kind:"totp" 字段（跨所有未删除条目）。 */
+    /** 列出全部 kind:"totp" 字段（跨所有未删除条目）；聚合逻辑下沉到 core 的 {@link TotpView}。 */
     private List<FieldNode> totpFields() {
-        List<FieldNode> out = new java.util.ArrayList<>();
-        for (TreeNode n : sanctum.objectTree().nodes()) {
-            if (n instanceof EntryNode e && !e.deleted()) {
-                for (FieldNode f : e.fields()) {
-                    if ("totp".equals(f.kind())) {
-                        out.add(f);
-                    }
-                }
-            }
-        }
-        return out;
+        return sanctum.totp().fields();
     }
 
     /** 当前选中是否为 TOTP 虚拟区段内的某个字段（只读聚合视图）。 */

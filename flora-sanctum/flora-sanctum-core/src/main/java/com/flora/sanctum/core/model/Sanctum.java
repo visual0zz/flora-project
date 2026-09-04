@@ -177,6 +177,11 @@ public final class Sanctum implements AutoCloseable {
         return new TrashClassifier(context).classify();
     }
 
+    /** TOTP 虚拟区段视图：聚合全部未删除条目下 kind:"totp" 的字段（只读）。 */
+    public TotpView totp() {
+        return TotpView.of(objectTree());
+    }
+
     /** 改变节点归属（组/条目移动到新父之下；委托 NodeMover，含 DEK 重路由与环检测）。 */
     public void move(UUID node, UUID newParent) {
         new NodeMover(context, vault).move(node, newParent);

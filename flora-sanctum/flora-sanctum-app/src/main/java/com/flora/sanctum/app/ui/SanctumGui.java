@@ -736,9 +736,7 @@ public final class SanctumGui {
 
     private static JsonObject loadAppConfig() {
         try {
-            return com.flora.root.codec.JsonUtil.parseObject(
-                    java.nio.file.Files.readString(
-                            Path.of(System.getProperty("user.home"), ".flora-sanctum", "config.json")));
+            return new UserConfig().raw();
         } catch (Exception e) {
             LOG.warn("Failed to load app config, using defaults: {}", e.getMessage());
             return new JsonObject();

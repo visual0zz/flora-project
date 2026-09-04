@@ -71,7 +71,7 @@ public final class FieldNode extends ObjectNode {
 
     private void touchAndWrite(JsonObject field) {
         // 字段被更新时刷新自身 updateTime（条目的 updateTime() 取 max 会自动反映）
-        field.put("updateTime", System.currentTimeMillis());
+        field.put("updateTime", ctx().nextTimestamp());
         ctx().write(uuid(), field, groupIdOf(field));
     }
 

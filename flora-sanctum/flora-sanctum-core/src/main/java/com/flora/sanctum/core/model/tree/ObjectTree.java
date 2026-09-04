@@ -153,7 +153,7 @@ public final class ObjectTree extends DataTree {
     public EntryNode createEntry(UUID groupId, String name, EntryFields fields) {
         UUID entryUuid = UUID.randomUUID();
         UUID effectiveParent = groupId != null ? groupId : context().vault().rootObjectUuid();
-        long now = System.currentTimeMillis();
+        long now = context().nextTimestamp();
         JsonObject entry = new JsonObject();
         entry.put("type", StoredNodeType.ENTRY.tag());
         entry.put("name", name);

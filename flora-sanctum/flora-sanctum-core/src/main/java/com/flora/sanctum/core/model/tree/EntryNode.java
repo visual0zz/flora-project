@@ -116,7 +116,7 @@ public final class EntryNode extends ObjectNode {
         }
         UUID groupId = ctx().parentGroupUuid(entry);
         entry.put("name", newName);
-        entry.put("updateTime", System.currentTimeMillis());
+        entry.put("updateTime", ctx().nextTimestamp());
         ctx().write(uuid(), entry, groupId);
     }
 
@@ -127,7 +127,7 @@ public final class EntryNode extends ObjectNode {
             throw new IllegalArgumentException("entry not found");
         }
         UUID groupId = ctx().parentGroupUuid(entry);
-        long now = System.currentTimeMillis();
+        long now = ctx().nextTimestamp();
         writeField("password", fields.password(), null);
         writeField("url", fields.url(), null);
         writeField("username", fields.username(), null);
@@ -164,7 +164,7 @@ public final class EntryNode extends ObjectNode {
         } else {
             entry.put("iconRef", ref.toJson());
         }
-        entry.put("updateTime", System.currentTimeMillis());
+        entry.put("updateTime", ctx().nextTimestamp());
         ctx().write(uuid(), entry, groupId);
     }
 
@@ -204,7 +204,7 @@ public final class EntryNode extends ObjectNode {
         if (kind != null) {
             f.put("kind", kind);
         }
-        f.put("updateTime", System.currentTimeMillis());
+        f.put("updateTime", ctx().nextTimestamp());
         ctx().write(pu, f, groupId);
         return tree().field(pu);
     }
@@ -220,7 +220,7 @@ public final class EntryNode extends ObjectNode {
         if (kind != null) {
             f.put("kind", kind);
         }
-        f.put("updateTime", System.currentTimeMillis());
+        f.put("updateTime", ctx().nextTimestamp());
         ctx().write(fieldUuid, f, groupId);
         return tree().field(fieldUuid);
     }

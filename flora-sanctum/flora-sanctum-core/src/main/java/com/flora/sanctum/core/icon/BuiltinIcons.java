@@ -1,13 +1,20 @@
 package com.flora.sanctum.core.icon;
 
+import java.io.IOException;
 import java.lang.module.ModuleReference;
 import java.lang.module.ResolvedModule;
+import java.net.JarURLConnection;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.stream.Stream;
 
 /**
  * 内置图标库（数据层资源，位于 core 模块 resources/icons/library/*.svg）。
@@ -22,20 +29,12 @@ public final class BuiltinIcons {
     /** 图标库资源根目录（classpath 下的 /icons/library/）。 */
     private static final String LIBRARY_PREFIX = "icons/library/";
 
-    private static volatile List<String> CACHED_NAMES;
+    // 类加载时扫描一次，结果不可变（库不应持有可清空的全局可变缓存）。
+    private static final List<String> NAMES = Collections.unmodifiableList(scan());
 
-    /** 列出图标库中所有内置图标的名称（不含扩展名），按字母序返回（缓存）。 */
+    /** 列出图标库中所有内置图标的名称（不含扩展名），按字母序返回（不可变，类加载时扫描一次）。 */
     public static List<String> names() {
-        List<String> cached = CACHED_NAMES;
-        if (cached == null) {
-            synchronized (BuiltinIcons.class) {
-                cached = CACHED_NAMES;
-                if (cached == null) {
-                    CACHED_NAMES = cached = scan();
-                }
-            }
-        }
-        return cached;
+        return NAMES;
     }
 
     /** 取某个内置图标的资源 URL（用于渲染读取字节）；不存在返回 null。 */
@@ -43,16 +42,21 @@ public final class BuiltinIcons {
         return BuiltinIcons.class.getResource("/" + LIBRARY_PREFIX + name + ".svg");
     }
 
+    // 不感知打包形态：命名模块用 ModuleReader 枚举（JDK 屏蔽 jar/解压目录差异），
+    // 未命名模块用类加载器的标准 URL 枚举（file:/jar: 由 JDK 处理）。
     private static List<String> scan() {
+        List<String> names = new ArrayList<>();
         Module module = BuiltinIcons.class.getModule();
         if (module != null && module.isNamed()) {
-            return scanFromModule(module);
+            collectFromModule(module, names);
+        } else {
+            collectFromClasspath(names);
         }
-        return scanFromClasspath();
+        Collections.sort(names);
+        return names;
     }
 
-    private static List<String> scanFromModule(Module module) {
-        List<String> names = new ArrayList<>();
+    private static void collectFromModule(Module module, List<String> names) {
         try {
             ModuleReference ref = module.getLayer().configuration()
                     .findModule(module.getName()).map(ResolvedModule::reference).orElseThrow();
@@ -65,28 +69,30 @@ public final class BuiltinIcons {
             }
         } catch (Exception ignored) {
         }
-        Collections.sort(names);
-        return names;
     }
 
-    private static List<String> scanFromClasspath() {
-        List<String> names = new ArrayList<>();
-        URL dir = BuiltinIcons.class.getResource("/" + LIBRARY_PREFIX);
-        if (dir != null) {
-            switch (dir.getProtocol()) {
-                case "file" -> scanDirectory(dir, names);
-                case "jar" -> scanJar(dir, names);
-                default -> { }
-            }
-        }
-        Collections.sort(names);
-        return names;
-    }
-
-    private static void scanDirectory(URL dir, List<String> names) {
+    private static void collectFromClasspath(List<String> names) {
         try {
-            java.nio.file.Path root = java.nio.file.Paths.get(dir.toURI());
-            try (java.util.stream.Stream<java.nio.file.Path> stream = java.nio.file.Files.list(root)) {
+            Enumeration<URL> resources = BuiltinIcons.class.getClassLoader().getResources(LIBRARY_PREFIX);
+            while (resources.hasMoreElements()) {
+                collectFromUrl(resources.nextElement(), names);
+            }
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static void collectFromUrl(URL url, List<String> names) {
+        switch (url.getProtocol()) {
+            case "file" -> collectFromDirectory(url, names);
+            case "jar" -> collectFromJar(url, names);
+            default -> { }
+        }
+    }
+
+    private static void collectFromDirectory(URL url, List<String> names) {
+        try {
+            Path root = Paths.get(url.toURI());
+            try (Stream<Path> stream = Files.list(root)) {
                 stream.filter(p -> p.getFileName().toString().endsWith(".svg"))
                         .forEach(p -> names.add(nameOf(LIBRARY_PREFIX + p.getFileName())));
             }
@@ -94,18 +100,17 @@ public final class BuiltinIcons {
         }
     }
 
-    private static void scanJar(URL dir, List<String> names) {
-        String spec = dir.toString();
-        int bang = spec.indexOf("!/");
-        if (bang < 0) {
-            return;
-        }
-        String jarPath = spec.substring("jar:file:".length(), bang);
-        try (JarFile jar = new JarFile(jarPath)) {
-            for (var entry = jar.entries(); entry.hasMoreElements();) {
-                String path = entry.nextElement().getName();
-                if (path.startsWith(LIBRARY_PREFIX) && path.endsWith(".svg")) {
-                    names.add(nameOf(path));
+    // 用标准 JarURLConnection 取 jar 文件，避免手写 "jar:file:" 字符串切分。
+    private static void collectFromJar(URL url, List<String> names) {
+        try {
+            JarURLConnection conn = (JarURLConnection) url.openConnection();
+            try (JarFile jar = conn.getJarFile()) {
+                Enumeration<JarEntry> entries = jar.entries();
+                while (entries.hasMoreElements()) {
+                    String path = entries.nextElement().getName();
+                    if (path.startsWith(LIBRARY_PREFIX) && path.endsWith(".svg")) {
+                        names.add(nameOf(path));
+                    }
                 }
             }
         } catch (Exception ignored) {

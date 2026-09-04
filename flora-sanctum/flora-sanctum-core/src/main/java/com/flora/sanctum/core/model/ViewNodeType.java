@@ -8,38 +8,27 @@ package com.flora.sanctum.core.model;
  */
 public enum ViewNodeType {
     /** 密码库区段（group/entry/field 的展示归属）。 */
-    PASSWORD("密码库"),
-    ICON("图标"),
-    SSH_KEY("SSH 密钥"),
-    REMOTE("远程"),
+    PASSWORD,
+    ICON,
+    SSH_KEY,
+    REMOTE,
     /** 仓库配置区段（自动锁定/剪贴板清空等，存仓库内加密 config 节点）。 */
-    SETTINGS("仓库配置"),
+    SETTINGS,
     /**
      * 全局配置区段（界面主题等，存全局配置文件：应用级 ~/.flora-sanctum/config.json
      * 或独立仓库级 config.json）。
      */
-    GLOBAL("全局配置"),
+    GLOBAL,
     /** 垃圾桶虚拟根（与数据根平级，见设计 idea20260826-sanctum-trash）。 */
-    TRASH("垃圾桶"),
+    TRASH,
     /**
      * 外部密钥虚拟根（与数据根平级，只读聚合展示所有 {@code kind:"externalKey"} 字段；
      * 见需求：主界面展示用虚拟顶层节点，展示实际存储路径 + 脱敏密钥）。
      */
-    EXTERNAL_KEY("外部密钥"),
+    EXTERNAL_KEY,
     /**
      * 动态码虚拟根（与数据根平级，只读聚合展示所有 {@code kind:"totp"} 字段；
      * 中间条目列表动态刷新每条的动态码，选中后右侧只读展示所属条目路径等信息）。
      */
-    TOTP("动态码");
-
-    private final String displayName;
-
-    ViewNodeType(String displayName) {
-        this.displayName = displayName;
-    }
-
-    /** 区段展示名。 */
-    public String displayName() {
-        return displayName;
-    }
+    TOTP;
 }

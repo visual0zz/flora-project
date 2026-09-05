@@ -34,9 +34,9 @@ else
   exit 1
 fi
 
-APP="flora-sanctum/flora-sanctum-app/target/flora-sanctum-app-0.1.jar"
+APP=$(ls flora-sanctum/flora-sanctum-app/target/flora-sanctum-app-*.jar 2>/dev/null | head -1)
 LIB="flora-sanctum/flora-sanctum-app/target/lib"
-if [ ! -f "$APP" ] || [ ! -d "$LIB" ]; then
+if [ -z "$APP" ] || [ ! -d "$LIB" ]; then
   printf '%b\n' "${RED}    \xe2\x9c\x97 jar or lib not found under target/${NC}"
   exit 1
 fi
@@ -76,10 +76,11 @@ if %errorlevel% neq 0 (
 )
 echo %ESC%[32m    OK: flora-sanctum-app packaged%ESC%[0m
 
-set "APP=flora-sanctum\flora-sanctum-app\target\flora-sanctum-app-0.1.jar"
+set "APP="
+for %%f in (flora-sanctum\flora-sanctum-app\target\flora-sanctum-app-*.jar) do set "APP=%%f"
 set "LIB=flora-sanctum\flora-sanctum-app\target\lib"
-if not exist "%APP%" (
-  echo %ESC%[31m    FAILED: jar not found: %APP%%ESC%[0m
+if "%APP%"=="" (
+  echo %ESC%[31m    FAILED: jar not found under target\%ESC%[0m
   exit /b 1
 )
 if not exist "%LIB%" (

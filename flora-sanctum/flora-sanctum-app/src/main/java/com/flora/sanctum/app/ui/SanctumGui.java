@@ -60,6 +60,9 @@ import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Dialog.ModalityType;
+import java.awt.Image;
+import java.io.InputStream;
+import javax.imageio.ImageIO;
 import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.LayoutManager;
@@ -190,6 +193,7 @@ public final class SanctumGui {
         }
         SwingUtilities.invokeLater(() -> {
             frame = new JFrame("flora-sanctum");
+            loadAppIcon(frame);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             applyMacTitleBar();
             installTray();
@@ -327,6 +331,21 @@ public final class SanctumGui {
     /** macOS：标题栏颜色由系统默认（避免 draggableWindowBackground 劫持 JSplitPane divider 拖动）。 */
     private void applyMacTitleBar() {
         // 故意为空：保留 macOS 系统标题栏（含红黄绿按钮 + 拖动）不被自定义行为劫持
+    }
+
+    /** 加载窗口图标；资源缺失或损坏时静默退回 Swing 默认图标。 */
+    private void loadAppIcon(JFrame target) {
+        try (InputStream in = SanctumGui.class.getResourceAsStream("/app-icon.png")) {
+            if (in == null) {
+                return;
+            }
+            Image icon = ImageIO.read(in);
+            if (icon != null) {
+                target.setIconImage(icon);
+            }
+        } catch (Exception ignored) {
+            // 图标不可用时不阻塞启动
+        }
     }
 
     private static boolean isMac() {

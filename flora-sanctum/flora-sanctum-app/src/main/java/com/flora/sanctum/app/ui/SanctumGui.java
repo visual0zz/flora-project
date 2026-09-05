@@ -1309,17 +1309,12 @@ public final class SanctumGui {
             }
         }
 
-        // 外部密钥虚拟根（与数据根平级，只读聚合展示所有 externalKey 字段；见需求）
+        // 外部密钥虚拟根（与数据根平级，只读聚合；左栏只显示区段节点，内容点击后在中间栏列出）
         DefaultMutableTreeNode externalKeyNode = new DefaultMutableTreeNode("外部密钥");
         externalKeyNode.setUserObject(ViewNodeType.EXTERNAL_KEY);
         treeRoot.add(externalKeyNode);
-        for (com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo info : externalKeys) {
-            DefaultMutableTreeNode leaf = new DefaultMutableTreeNode(info.name());
-            leaf.setUserObject(info.uuid());
-            externalKeyNode.add(leaf);
-        }
 
-        // 动态码虚拟根（与数据根平级，只读聚合展示所有 totp 字段，中间列表动态刷新动态码）
+        // 动态码虚拟根（与数据根平级，只读聚合；左栏只显示区段节点，内容点击后在中间栏列出并每秒刷新动态码）
         totpFieldsCache = totpFields();
         java.util.Set<UUID> tSet = new java.util.HashSet<>();
         for (FieldNode tf : totpFieldsCache) {
@@ -1329,11 +1324,6 @@ public final class SanctumGui {
         DefaultMutableTreeNode totpNode = new DefaultMutableTreeNode("动态码");
         totpNode.setUserObject(ViewNodeType.TOTP);
         treeRoot.add(totpNode);
-        for (FieldNode tf : totpFieldsCache) {
-            DefaultMutableTreeNode leaf = new DefaultMutableTreeNode(totpItemName(tf));
-            leaf.setUserObject(tf.uuid());
-            totpNode.add(leaf);
-        }
 
         groupTree.setModel(new DefaultTreeModel(treeRoot));
         // 根隐藏，密码库区段展开

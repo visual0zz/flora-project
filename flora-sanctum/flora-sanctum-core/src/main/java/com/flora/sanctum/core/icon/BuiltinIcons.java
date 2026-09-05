@@ -20,7 +20,7 @@ import java.util.jar.JarFile;
 import java.util.stream.Stream;
 
 /**
- * 内置图标库（数据层资源，位于 core 模块 resources/icons/library/*.svg）。
+ * 内置图标库（数据层资源，位于 core 模块 resources/icon/library/*.svg）。
  * <p>提供图标的名字列表与资源 URL，供渲染（app 的 SvgIcon）与数据导入（KDBX 内置图标映射）复用，
  * 扫描逻辑在 core 实现，渲染（jsvg）由 app 负责，保持 core 对 app 无依赖。</p>
  */
@@ -29,8 +29,8 @@ public final class BuiltinIcons {
     private BuiltinIcons() {
     }
 
-    /** 图标库资源根目录（classpath 下的 /icons/library/）。 */
-    private static final String LIBRARY_PREFIX = "icons/library/";
+    /** 图标库资源根目录（classpath 下的 /icon/library/）。 */
+    private static final String LIBRARY_PREFIX = "icon/library/";
 
     // 类加载时扫描一次，结果不可变（库不应持有可清空的全局可变缓存）。
     private static final List<String> NAMES = Collections.unmodifiableList(scan());

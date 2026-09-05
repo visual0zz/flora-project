@@ -11,17 +11,17 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * 校验 {@link UiIcon} 枚举与 {@code /icons/button/}、{@code /icons/item/} 两目录的 SVG 文件
+ * 校验 {@link UiIcon} 枚举与 {@code /icon/button/}、{@code /icon/item/} 两目录的 SVG 文件
  * 并集一一对应（一个不多一个不少）。
  * <p>新增/删除图标但忘记同步枚举（或反之）时，本测试失败——在测试阶段即暴露，而非运行时静默空白。</p>
  */
 class UiIconTest {
 
-    /** 扫描 classpath 下 /icons/button/ 与 /icons/item/ 两目录的 svg 文件名并集（不含扩展名）。 */
+    /** 扫描 classpath 下 /icon/button/ 与 /icon/item/ 两目录的 svg 文件名并集（不含扩展名）。 */
     private static Set<String> files() {
         try {
             Set<String> all = new java.util.HashSet<>();
-            for (String dir : new String[]{"/icons/button/", "/icons/item/"}) {
+            for (String dir : new String[]{"/icon/button/", "/icon/item/"}) {
                 var url = SvgIcon.class.getResource(dir);
                 if (url == null) {
                     continue;
@@ -34,7 +34,7 @@ class UiIconTest {
             }
             return all;
         } catch (Exception e) {
-            throw new IllegalStateException("扫描 /icons/button/ 或 /icons/item/ 失败", e);
+            throw new IllegalStateException("扫描 /icon/button/ 或 /icon/item/ 失败", e);
         }
     }
 

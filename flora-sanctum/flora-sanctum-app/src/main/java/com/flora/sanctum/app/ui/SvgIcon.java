@@ -39,13 +39,13 @@ public final class SvgIcon {
 
     /**
      * 列出图标库中所有内置图标的名称（不含扩展名），按字母序返回。
-     * 委托 core 的 {@link BuiltinIcons}（资源位于 core 模块 /icons/library/*.svg）。
+     * 委托 core 的 {@link BuiltinIcons}（资源位于 core 模块 /icon/library/*.svg）。
      */
     public static List<String> libraryIcons() {
         return BuiltinIcons.names();
     }
 
-    /** 取一个已渲染的 SVG 图标（资源位于 /icons/&lt;name&gt;.svg）。 */
+    /** 取一个已渲染的 SVG 图标（资源位于 /icon/&lt;name&gt;.svg）。 */
     public static Icon get(String name, int size) {
         String key = name + "@" + size;
         return CACHE.computeIfAbsent(key, k -> load(name, size));
@@ -84,11 +84,11 @@ public final class SvgIcon {
 
     private static Icon load(String name, int size) {
         try {
-            // 内置图标库资源在 core 模块（/icons/library/<name>.svg）；
-            // 操作/类型图标资源在 app 模块（/icons/button/<name>.svg、/icons/item/<name>.svg）。
+            // 内置图标库资源在 core 模块（/icon/library/<name>.svg）；
+            // 操作/类型图标资源在 app 模块（/icon/button/<name>.svg、/icon/item/<name>.svg）。
             URL resUrl = name.startsWith("library/")
                     ? BuiltinIcons.url(name.substring("library/".length()))
-                    : SvgIcon.class.getResource("/icons/" + name + ".svg");
+                    : SvgIcon.class.getResource("/icon/" + name + ".svg");
             if (resUrl == null) {
                 LOG.warn("Icon resource not found: {}", name);
                 return null;

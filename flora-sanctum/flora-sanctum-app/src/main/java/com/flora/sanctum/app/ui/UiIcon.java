@@ -1,7 +1,7 @@
 package com.flora.sanctum.app.ui;
 
 /**
- * ui 图标注册表：枚举成员与 {@code /icons/button/} 或 {@code /icons/item/} 下的 SVG 文件一一对应。
+ * ui 图标注册表：枚举成员与 {@code /icon/button/} 或 {@code /icon/item/} 下的 SVG 文件一一对应。
  * <p>
  * 约束：新增/删除图标必须同步改本枚举——{@code UiIconTest} 会扫描这两个资源目录
  * 断言"枚举与文件一个不多一个不少"。代码引用图标一律走 {@code SvgIcon.get(UiIcon, size)}，

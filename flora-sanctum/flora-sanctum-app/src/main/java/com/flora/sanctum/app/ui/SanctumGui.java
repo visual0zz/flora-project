@@ -335,10 +335,10 @@ public final class SanctumGui {
 
     /**
      * 加载窗口图标；资源缺失或损坏时静默退回 Swing 默认图标。
-     * 图标必须放在 {@code icons/} 子目录下：命名模块无法读取资源根目录（默认包）的文件。
+     * 图标必须放在 {@code icon/} 子目录下：命名模块无法读取资源根目录（默认包）的文件。
      */
     private void loadAppIcon(JFrame target) {
-        try (InputStream in = SanctumGui.class.getResourceAsStream("/icons/app-icon.png")) {
+        try (InputStream in = SanctumGui.class.getResourceAsStream("/icon/logo/512x512.png")) {
             if (in == null) {
                 return;
             }
@@ -1757,7 +1757,7 @@ public final class SanctumGui {
         return (format == null ? "图标" : "图标 [" + format + "]");
     }
 
-    // ---- 内置图标库（/icons/library/*.svg）与选择 ----
+    // ---- 内置图标库（/icon/library/*.svg）与选择 ----
 
     private static final String BUILTIN_PREFIX = "builtin:";
 

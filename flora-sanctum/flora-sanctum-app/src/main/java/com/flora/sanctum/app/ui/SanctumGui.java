@@ -333,9 +333,12 @@ public final class SanctumGui {
         // 故意为空：保留 macOS 系统标题栏（含红黄绿按钮 + 拖动）不被自定义行为劫持
     }
 
-    /** 加载窗口图标；资源缺失或损坏时静默退回 Swing 默认图标。 */
+    /**
+     * 加载窗口图标；资源缺失或损坏时静默退回 Swing 默认图标。
+     * 图标必须放在 {@code icons/} 子目录下：命名模块无法读取资源根目录（默认包）的文件。
+     */
     private void loadAppIcon(JFrame target) {
-        try (InputStream in = SanctumGui.class.getResourceAsStream("/app-icon.png")) {
+        try (InputStream in = SanctumGui.class.getResourceAsStream("/icons/app-icon.png")) {
             if (in == null) {
                 return;
             }

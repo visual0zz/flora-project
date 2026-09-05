@@ -129,14 +129,19 @@ public final class SanctumGui {
     private Path targetVaultRoot;
     /** 垃圾桶视图（每次重建树时刷新；含三类异常节点 uuid 与「原位置」计算）。 */
     private com.flora.sanctum.core.model.TrashView trashView;
-    /** 外部密钥列表（每次重建树时刷新；虚拟只读区段的数据源）。 */
-    private List<com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo> externalKeys = List.of();
+    /**
+     * 外部密钥列表（虚拟只读区段的数据源）。懒加载 + 记忆化：仅在数据变更后、且 UI 实际
+     * 需要时才全库扫描（见 {@link #ensureVirtualSections()}），避免每次重建都扫全库。
+     */
+    private List<com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo> externalKeysCache;
     /** 外部密钥字段 uuid 集合（快速判定某个 uuid 是否属于外部密钥虚拟区段）。 */
     private java.util.Set<UUID> externalKeyUuids = java.util.Set.of();
-    /** TOTP 虚拟区段数据源：全部 kind:"totp" 字段（重建树时刷新）。 */
-    private List<FieldNode> totpFieldsCache = List.of();
+    /** TOTP 虚拟区段数据源：全部 kind:"totp" 字段。懒加载 + 记忆化（同上）。 */
+    private List<FieldNode> totpFieldsCache;
     /** TOTP 字段 uuid 集合（快速判定某个 uuid 是否属于 TOTP 虚拟区段）。 */
     private java.util.Set<UUID> totpUuids = java.util.Set.of();
+    /** 虚拟区段缓存是否需要重建（数据变更后置 true，下次 ensure 时扫一次）。 */
+    private boolean virtualSectionDirty = true;
     /** TOTP 聚合视图是否激活（区段根或某条 TOTP 被选中），驱动动态码定时器。 */
     private boolean totpViewActive = false;
     /** TOTP 中间列表项顺序（定时器原地刷新展示文本用）。 */
@@ -1270,16 +1275,9 @@ public final class SanctumGui {
         groupNodes.clear();
         groupCache = null; // 重置缓存
         trashView = sanctum.trash();
-        // 外部密钥虚拟区段数据源：列出全部 kind:"externalKey" 字段
-        ExternalKeyService ekSvc = new ExternalKeyService(sanctum);
-        externalKeys = ekSvc.list();
-        java.util.Set<UUID> ekSet = new java.util.HashSet<>();
-        for (com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo info : externalKeys) {
-            ekSet.add(info.uuid());
-        }
-        externalKeyUuids = ekSet;
 
         // 四个区段节点（对应展示区段，见 ViewNodeType）
+        // 注意：外部密钥 / 动态码的数据源改为懒加载（ensureVirtualSections），此处不再全库扫描。
         DefaultMutableTreeNode objectsNode = new DefaultMutableTreeNode("密码库");
         objectsNode.setUserObject(ViewNodeType.PASSWORD);
         treeRoot.add(objectsNode);
@@ -1315,12 +1313,6 @@ public final class SanctumGui {
         treeRoot.add(externalKeyNode);
 
         // 动态码虚拟根（与数据根平级，只读聚合；左栏只显示区段节点，内容点击后在中间栏列出并每秒刷新动态码）
-        totpFieldsCache = totpFields();
-        java.util.Set<UUID> tSet = new java.util.HashSet<>();
-        for (FieldNode tf : totpFieldsCache) {
-            tSet.add(tf.uuid());
-        }
-        totpUuids = tSet;
         DefaultMutableTreeNode totpNode = new DefaultMutableTreeNode("动态码");
         totpNode.setUserObject(ViewNodeType.TOTP);
         treeRoot.add(totpNode);
@@ -1330,8 +1322,7 @@ public final class SanctumGui {
         for (int r = 0; r < groupTree.getRowCount(); r++) {
             groupTree.expandRow(r);
         }
-        LOG.debug("Group tree rebuilt: objects={}, trash, externalKeys={}, totp={}",
-                groupNodes.size(), externalKeys.size(), totpFieldsCache.size());
+        LOG.debug("Group tree rebuilt: objects={}, trash", groupNodes.size());
     }
 
     /** 取节点的图标引用（条目/文件夹），无则返回 null；用于垃圾桶列表中对象的图标展示。 */
@@ -1555,6 +1546,9 @@ public final class SanctumGui {
     /** 当前选中是否为外部密钥虚拟区段内的某个字段（只读聚合视图）。 */
     private boolean isExternalKeySelection() {
         Object sel = currentSelection();
+        if (sel instanceof UUID u && sanctum.findNode(u) instanceof FieldNode) {
+            ensureVirtualSections();
+        }
         return sel instanceof UUID u && externalKeyUuids.contains(u);
     }
 
@@ -1610,9 +1604,38 @@ public final class SanctumGui {
      */
     private void refreshAll() {
         LOG.debug("Refreshing all (tree + entry list)");
+        invalidateVirtualSections();
         rebuildGroupTree();
         refreshEntryList(currentSearchQuery());
         updateToolbar();
+    }
+
+    /** 标记虚拟区段（外部密钥 / 动态码）缓存待重建：数据变更后下次 ensure 时再扫一次全库。 */
+    private void invalidateVirtualSections() {
+        virtualSectionDirty = true;
+    }
+
+    /**
+     * 确保虚拟区段缓存为最新：仅当数据变更（dirty）时才扫描全库（外部密钥 store 全块解密 + TOTP 全节点遍历），
+     * 否则直接复用记忆化结果。调用方若只需判定普通密码库选择，不应触发本方法（见 {@link #sectionOf} 的 FieldNode 守卫）。
+     */
+    private void ensureVirtualSections() {
+        if (!virtualSectionDirty) {
+            return;
+        }
+        externalKeysCache = new ExternalKeyService(sanctum).list();
+        java.util.Set<UUID> ekSet = new java.util.HashSet<>();
+        for (com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo info : externalKeysCache) {
+            ekSet.add(info.uuid());
+        }
+        externalKeyUuids = ekSet;
+        totpFieldsCache = scanTotpFields();
+        java.util.Set<UUID> tSet = new java.util.HashSet<>();
+        for (FieldNode tf : totpFieldsCache) {
+            tSet.add(tf.uuid());
+        }
+        totpUuids = tSet;
+        virtualSectionDirty = false;
     }
 
     private void refreshEntryList(String filter) {
@@ -1686,7 +1709,8 @@ public final class SanctumGui {
 
         // 外部密钥区段：列出全部 externalKey 字段，标签含实际存储路径（只读聚合视图）
         if (ViewNodeType.EXTERNAL_KEY == section) {
-            for (com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo info : externalKeys) {
+            ensureVirtualSections();
+            for (com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo info : externalKeysCache) {
                 String path = externalKeyStoragePath(info.uuid());
                 String label = info.name() + (path.isEmpty() ? "" : "  ·  " + path);
                 entryModel.addElement(new EntryListItem(info.uuid(), StoredNodeType.FIELD, label, null));
@@ -1696,6 +1720,7 @@ public final class SanctumGui {
 
         // 动态码区段：列出全部 totp 字段，标签含所属条目名 + 动态刷新动态码（只读聚合视图）
         if (ViewNodeType.TOTP == section) {
+            ensureVirtualSections();
             totpViewActive = true;
             List<UUID> order = new java.util.ArrayList<>();
             for (FieldNode tf : totpFieldsCache) {
@@ -1885,16 +1910,20 @@ public final class SanctumGui {
         if (sel instanceof ViewNodeType t) {
             return t;
         }
-        // 虚拟区段内的叶子（字段 uuid）归入其所属区段，便于 refreshEntryList 正确识别
+        // 虚拟区段内的叶子（字段 uuid）归入其所属区段，便于 refreshEntryList 正确识别。
+        // 仅当该 uuid 确为字段节点时才确保虚拟区段缓存（懒扫描），避免普通密码库导航被全库扫描。
         if (sel instanceof UUID u) {
-            if (externalKeyUuids.contains(u)) {
-                return ViewNodeType.EXTERNAL_KEY;
-            }
-            if (totpUuids.contains(u)) {
-                return ViewNodeType.TOTP;
-            }
             if (trashView != null && trashView.contains(u)) {
                 return ViewNodeType.TRASH;
+            }
+            if (sanctum.findNode(u) instanceof FieldNode) {
+                ensureVirtualSections();
+                if (externalKeyUuids.contains(u)) {
+                    return ViewNodeType.EXTERNAL_KEY;
+                }
+                if (totpUuids.contains(u)) {
+                    return ViewNodeType.TOTP;
+                }
             }
         }
         return null;
@@ -1934,6 +1963,10 @@ public final class SanctumGui {
             return;
         }
         selectedEntry = u;
+        // 仅当选中确为字段节点时才确保虚拟区段缓存（懒扫描），避免普通条目选择被全库扫描
+        if (sanctum.findNode(u) instanceof FieldNode) {
+            ensureVirtualSections();
+        }
         // 外部密钥字段：右侧展示只读详情（实际存储路径 + 脱敏密钥）
         if (externalKeyUuids.contains(u)) {
             renderExternalKeyNode(u);
@@ -2309,8 +2342,9 @@ public final class SanctumGui {
     /** 外部密钥只读详情：名称 + 描述 + 实际存储路径 + 脱敏密钥（眼睛切换，不可编辑）。 */
     private void renderExternalKeyNode(UUID uuid) {
         editPanel.removeAll();
+        ensureVirtualSections();
         com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo info = null;
-        for (com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo i : externalKeys) {
+        for (com.flora.sanctum.core.model.ExternalKeyService.ExternalKeyInfo i : externalKeysCache) {
             if (i.uuid().equals(uuid)) {
                 info = i;
                 break;
@@ -2488,14 +2522,17 @@ public final class SanctumGui {
         return period - (int) (System.currentTimeMillis() / 1000 % period);
     }
 
-    /** 列出全部 kind:"totp" 字段（跨所有未删除条目）；聚合逻辑下沉到 core 的 {@link TotpView}。 */
-    private List<FieldNode> totpFields() {
+    /** 全库扫描：列出全部 kind:"totp" 字段（跨所有未删除条目）；聚合逻辑下沉到 core 的 {@link TotpView}。 */
+    private List<FieldNode> scanTotpFields() {
         return sanctum.totp().fields();
     }
 
     /** 当前选中是否为 TOTP 虚拟区段内的某个字段（只读聚合视图）。 */
     private boolean isTotpSelection() {
         Object sel = currentSelection();
+        if (sel instanceof UUID u && sanctum.findNode(u) instanceof FieldNode) {
+            ensureVirtualSections();
+        }
         return sel instanceof UUID u && totpUuids.contains(u);
     }
 

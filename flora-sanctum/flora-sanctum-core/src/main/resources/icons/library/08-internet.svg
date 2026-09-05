@@ -1,57 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="24" height="24">
-    <defs>
-        <!-- 外圈紫蓝渐变 -->
-        <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#7B5CFA" />
-            <stop offset="50%" stop-color="#5A3FD9" />
-            <stop offset="100%" stop-color="#3B6FE0" />
-        </linearGradient>
-
-        <!-- 球体内部深蓝渐变 -->
-        <linearGradient id="sphereGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#2E4FB5" />
-            <stop offset="100%" stop-color="#1B2E75" />
-        </linearGradient>
-
-        <!-- 底部阴影模糊 -->
-        <filter id="shadowBlur" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
-            <feOffset dx="0" dy="4" result="offsetblur" />
-            <feComponentTransfer>
-                <feFuncA type="linear" slope="0.35" />
-            </feComponentTransfer>
-            <feMerge>
-                <feMergeNode />
-                <feMergeNode in="SourceGraphic" />
-            </feMerge>
-        </filter>
-
-        <!-- 经纬线发光 -->
-        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="0.6" result="coloredBlur" />
-            <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-            </feMerge>
-        </filter>
-    </defs>
-
     <!-- 底部投影阴影 -->
-    <ellipse cx="100" cy="178" rx="62" ry="8" fill="#3B3B7A" opacity="0.18" />
+    <ellipse cx="100" cy="178" rx="62" ry="8" fill="#000000" opacity="0.1" />
 
-    <!-- 外圈圆环（白边 + 渐变） -->
+    <!-- 外圈圆环 -->
     <circle cx="100" cy="100" r="84" fill="#FFFFFF" />
-    <circle cx="100" cy="100" r="78" fill="url(#ringGradient)" filter="url(#shadowBlur)" />
+    <circle cx="100" cy="100" r="78" fill="#5A3FD9" />
 
     <!-- 内部球体 -->
-    <circle cx="100" cy="100" r="64" fill="url(#sphereGradient)" />
+    <circle cx="100" cy="100" r="64" fill="#1B2E75" />
 
-    <!-- 经纬线（白色） -->
-    <g stroke="#FFFFFF" stroke-width="2.2" fill="none" opacity="0.9" filter="url(#glow)">
-        <!-- 经线（椭圆弧） -->
+    <!-- 经纬线 -->
+    <g stroke="#FFFFFF" stroke-width="2.2" fill="none" opacity="0.9">
         <ellipse cx="100" cy="100" rx="30" ry="56" />
         <ellipse cx="100" cy="100" rx="56" ry="56" />
-        <!-- 纬线：球面均匀纬度，避免拥挤赤道 -->
         <path d="M 47.2 58.1 Q 100 64 152.8 58.1" />
         <path d="M 36.9 79.1 Q 100 84.5 163.1 79.1" />
         <line x1="36" y1="100" x2="164" y2="100" />

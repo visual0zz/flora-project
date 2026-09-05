@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#537D96">
     <!-- 外轮廓一体成型：圆角矩形主体 + 标签页，无任何内部重叠边界，彻底消除右上角断裂 -->
-    <path d="M6 3 a1.5 1.5 0 0 0 -1.5 1.5 v15 A1.5 1.5 0 0 0 6 21 h12 a1.5 1.5 0 0 0 1.5 -1.5 V8 L14.5 3 z"/>
+    <path d="M5 3 a2 2 0 0 0 -2 2 v14 a2 2 0 0 0 2 2 h12 a2 2 0 0 0 2 -2 V8 h-5 a1 1 0 0 1 -1 -1 V3 z M14 3.5 V7 h3.5 z"/>
     <rect fill="#FFFFFF" x="7.5" y="11" width="9" height="1.4" rx="0.7"/>
     <rect fill="#FFFFFF" x="7.5" y="14" width="9" height="1.4" rx="0.7"/>
     <rect fill="#FFFFFF" x="7.5" y="17" width="6" height="1.4" rx="0.7"/>

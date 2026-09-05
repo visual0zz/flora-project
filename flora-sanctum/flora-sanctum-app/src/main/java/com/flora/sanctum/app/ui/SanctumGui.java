@@ -3593,7 +3593,7 @@ public final class SanctumGui {
             JLabel hint = new JLabel("请先打开一个仓库再配置仓库设置", JLabel.CENTER);
             hint.setFont(hint.getFont().deriveFont(Font.PLAIN, 13f));
             box.add(hint, BorderLayout.CENTER);
-            JButton backBtn = new JButton("返回");
+            JButton backBtn = iconButton(SvgIcon.get(UiIcon.GO_BACK, 29), "返回");
             backBtn.addActionListener(e -> backFromSettings());
             JPanel p = new JPanel(new FlowLayout());
             p.setOpaque(false);
@@ -3606,10 +3606,8 @@ public final class SanctumGui {
         JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 6));
         topBar.setOpaque(true);
         topBar.setBackground(UiTheme.PAPER_LIGHT);
-        JButton okBtn = iconButton(SvgIcon.get(UiIcon.SAVE_SETTINGS, 29), "保存设置并返回");
         JButton backBtn = iconButton(SvgIcon.get(UiIcon.GO_BACK, 29), "返回");
         backBtn.addActionListener(e -> backFromSettings());
-        topBar.add(okBtn);
         topBar.add(backBtn);
         // 区段相关"添加"按钮：图标无文字，含义在悬停提示；按左栏选中区段显隐
         actionSep = new JSeparator(JSeparator.VERTICAL);
@@ -3710,12 +3708,6 @@ public final class SanctumGui {
         // 默认选中"全局设置" root（含界面主题）
         settingsTree.setSelectionPath(new javax.swing.tree.TreePath(new Object[]{top, globalNode}));
 
-        okBtn.addActionListener(e -> {
-            if (saveSettingsItems()) {
-                showToast("设置已保存");
-                backFromSettings();
-            }
-        });
         return box;
     }
 
@@ -3829,7 +3821,7 @@ public final class SanctumGui {
         settingsEditPanel.repaint();
     }
 
-    /** 渲染一条键值设置：标题 + 由 {@link SettingsModel.Setting#createControl} 构建的预填控件。 */
+    /** 渲染一条键值设置：标题 + 控件；保存能力下放至条目内部的「保存」文字按钮。 */
     private void renderSetting(SettingsModel.Setting setting) {
         renderedSetting = setting;
         settingsEditPanel.add(new JLabel(setting.label()));
@@ -3837,6 +3829,20 @@ public final class SanctumGui {
         JComponent control = setting.createControl(settingsCtx);
         renderedControl = control;
         settingsEditPanel.add(control);
+        // 纯展示/操作型（如独立运行形态）不提供保存按钮；其余键值设置各自保存
+        if (setting.widget() != SettingsModel.Widget.ACTION) {
+            addSettingsActionBtn("保存", () -> {
+                String err = setting.saveValue(settingsCtx, control);
+                if (err != null) {
+                    showToast(err);
+                    return;
+                }
+                showToast("已保存");
+                if (setting.store() == SettingsModel.SettingStore.USER) {
+                    applyTheme(settingsCtx.user().theme());
+                }
+            });
+        }
     }
 
     /** 把当前普通仓库升级为独立仓库（新增 config.json / lib/ / edit 脚本，数据不动）。 */
@@ -3953,23 +3959,6 @@ public final class SanctumGui {
 
     /** 保存已编辑的设置项到仓库。 */
     /** 保存已渲染的设置项；{@link SettingsModel.Setting#saveValue} 返回非空错误时提示并返回 false（不关闭）。 */
-    private boolean saveSettingsItems() {
-        if (renderedSetting != null && renderedControl != null) {
-            String err = renderedSetting.saveValue(settingsCtx, renderedControl);
-            if (err != null) {
-                showToast(err);
-                return false;
-            }
-            // 主题属 USER 存储，生效即时应用
-            if (renderedSetting.store() == SettingsModel.SettingStore.USER) {
-                applyTheme(settingsCtx.user().theme());
-            }
-        }
-        renderedSetting = null;
-        renderedControl = null;
-        return true;
-    }
-
     /** 在设置右栏追加一个操作按钮。 */
     private void addSettingsActionBtn(String label, Runnable action) {
         JButton b = new JButton(label);

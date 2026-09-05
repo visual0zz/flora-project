@@ -85,7 +85,7 @@ public final class SvgIcon {
     private static Icon load(String name, int size) {
         try {
             // 内置图标库资源在 core 模块（/icons/library/<name>.svg）；
-            // ui 图标资源在 app 模块（/icons/ui/<name>.svg）。
+            // 操作/类型图标资源在 app 模块（/icons/button/<name>.svg、/icons/item/<name>.svg）。
             URL resUrl = name.startsWith("library/")
                     ? BuiltinIcons.url(name.substring("library/".length()))
                     : SvgIcon.class.getResource("/icons/" + name + ".svg");

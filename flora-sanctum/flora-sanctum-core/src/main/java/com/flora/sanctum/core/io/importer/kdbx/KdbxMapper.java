@@ -166,7 +166,7 @@ final class KdbxMapper {
     /**
      * 解析 KeePass 的图标引用为本导入可用的 Sanctum 图标引用：
      * 自定义图标（CustomIconUUID）→ 复制进 iconTree 并建稳定 node 引用（按 UUID 去重）；
-     * 内置图标（IconID）→ 本轮内按 iconId 稳定地随机选一个 Sanctum 内置图标（builtin 引用）；
+     * 内置图标（IconID）→ 按 IconID 精确映射到同编号的 Sanctum 内置图标，编号超出库范围时取模回落；
      * 两者皆无 / 未提供 iconTree → null（不设置图标）。
      */
     private Ref resolveIcon(Integer iconId, String customIconUuid, String ownerName) {
@@ -199,12 +199,9 @@ final class KdbxMapper {
             if (cached != null) {
                 return cached;
             }
-            List<String> libs = BuiltinIcons.names();
-            Ref ref = null;
-            if (!libs.isEmpty()) {
-                int idx = Math.floorMod(iconId, libs.size());
-                ref = Ref.builtinIcon(libs.get(idx));
-            }
+            // 按文件名里的两位 IconID 前缀精确还原 KeePass 图标；编号超出库范围时回退取模
+            String name = BuiltinIcons.nameForIconId(iconId);
+            Ref ref = (name == null) ? null : Ref.builtinIcon(name);
             builtinIconRefs.put(iconId, ref);
             return ref;
         }

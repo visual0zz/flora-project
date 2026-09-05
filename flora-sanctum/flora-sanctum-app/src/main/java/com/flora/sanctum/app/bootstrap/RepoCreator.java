@@ -93,6 +93,33 @@ public final class RepoCreator {
     }
 
     /**
+     * 判断当前进程是否正从该仓库自带的 lib/ 启动（运行时依赖 jar 位于 repoRoot 之下）。
+     * 用于降级/刷新独立仓前的保护：若为真，运行时改动 lib/ 会破坏正在运行的应用，必须禁止。
+     */
+    public static boolean runsFromRepoLib(Path repoRoot) {
+        if (repoRoot == null) {
+            return false;
+        }
+        Path root = repoRoot.toAbsolutePath().normalize();
+        return collectRuntimeJars().stream().anyMatch(j -> isUnder(j, root));
+    }
+
+    /**
+     * 刷新独立仓库内的运行时：用当前应用的运行时 jar 重新复制 {@code lib/} 并覆盖启动脚本，
+     * 使仓库自带的运行时版本与当前应用保持一致（数据块不动）。要求仓库已是独立仓。
+     */
+    public static Path refreshStandaloneRuntime(Path repoRoot) throws IOException {
+        LOG.info("Refreshing standalone runtime: {}", repoRoot);
+        if (!VaultDetector.isStandaloneRepo(repoRoot)) {
+            throw new IOException("不是独立仓库");
+        }
+        copyLib(repoRoot);
+        writeScripts(repoRoot);
+        LOG.info("Standalone runtime refreshed: {}", repoRoot);
+        return repoRoot;
+    }
+
+    /**
      * 复制当前运行进程依赖的全部 jar 到目标仓库的 lib/，使仓库可独立启动。
      * 收集策略（并集、按文件名去重）覆盖各种启动形态：
      * 1) 启动模块层 {@link ModuleLayer#boot()} 中每个已解析模块的真实位置（module-path / IDE 模块启动 / maven 包）；

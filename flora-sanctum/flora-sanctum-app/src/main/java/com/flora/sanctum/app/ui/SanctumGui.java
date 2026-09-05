@@ -3728,8 +3728,12 @@ public final class SanctumGui {
         Path repoRoot = currentRepoRoot();
         boolean standalone = repoRoot != null
                 && com.flora.sanctum.app.bootstrap.VaultDetector.isStandaloneRepo(repoRoot);
+        // 当前进程是否正从该仓库自带的 lib/ 启动（运行时改动 lib/ 会破坏自己）
+        boolean selfLaunched = repoRoot != null
+                && com.flora.sanctum.app.bootstrap.RepoCreator.runsFromRepoLib(repoRoot);
         settingsCtx = new SettingsModel.SettingsContext(config, sanctum.config(), repoRoot, standalone,
-                this::upgradeStandalone, this::downgradeStandalone);
+                selfLaunched, this::upgradeStandalone, this::downgradeStandalone,
+                this::refreshStandaloneRuntime);
         Object sel = settingsTree.getLastSelectedPathComponent();
         if (!(sel instanceof DefaultMutableTreeNode node)
                 || !(node.getUserObject() instanceof SettingsModel.SettingsCategory cat)) {
@@ -3864,6 +3868,14 @@ public final class SanctumGui {
             showToast("请先打开仓库");
             return;
         }
+        // 保护：若当前进程正从该独立仓自带的 lib/ 启动，运行时删除 lib/ 会搞垮正在运行的应用
+        if (com.flora.sanctum.app.bootstrap.RepoCreator.runsFromRepoLib(root)) {
+            JOptionPane.showMessageDialog(frame,
+                    "当前应用正从该独立仓自带的 lib/ 启动，无法在运行时删除它。\n"
+                            + "请关闭本应用，改用其它方式启动后再操作。",
+                    "无法删除独立运行", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
         if (JOptionPane.showConfirmDialog(frame,
                 "删除独立运行？\n将移除 config.json、lib/ 与 edit 脚本，仓库恢复为普通仓库（数据不动）。",
                 "删除独立运行", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) {
@@ -3875,6 +3887,36 @@ public final class SanctumGui {
             showToast("已删除独立运行");
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(frame, "删除失败：" + ex.getMessage(), "错误",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /** 用当前应用的运行时刷新独立仓库内的 lib/ 与启动脚本（数据不动）。 */
+    private void refreshStandaloneRuntime() {
+        Path root = currentRepoRoot();
+        if (root == null) {
+            showToast("请先打开仓库");
+            return;
+        }
+        // 保护：若当前进程正从该独立仓自带的 lib/ 启动，运行时覆盖 lib/ 会搞垮正在运行的应用
+        if (com.flora.sanctum.app.bootstrap.RepoCreator.runsFromRepoLib(root)) {
+            JOptionPane.showMessageDialog(frame,
+                    "当前应用正从该独立仓自带的 lib/ 启动，无法在运行时更新它。\n"
+                            + "请关闭本应用，改用其它方式启动后再操作。",
+                    "无法更新独立运行", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (JOptionPane.showConfirmDialog(frame,
+                "更新独立仓内的运行时版本？\n将用当前应用的运行时 jar 覆盖 lib/ 并刷新启动脚本（数据不动）。",
+                "更新运行时版本", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) {
+            return;
+        }
+        try {
+            com.flora.sanctum.app.bootstrap.RepoCreator.refreshStandaloneRuntime(root);
+            refreshSettingsEntries();
+            showToast("已更新独立仓运行时");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(frame, "更新失败：" + ex.getMessage(), "错误",
                     JOptionPane.ERROR_MESSAGE);
         }
     }

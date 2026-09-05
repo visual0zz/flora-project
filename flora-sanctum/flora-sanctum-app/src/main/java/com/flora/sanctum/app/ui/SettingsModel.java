@@ -36,17 +36,22 @@ final class SettingsModel {
         final LibraryConfig vault;
         final Path repoRoot;
         final boolean standalone;
+        final boolean selfLaunched;
         final Runnable upgradeStandalone;
         final Runnable downgradeStandalone;
+        final Runnable refreshStandaloneRuntime;
 
         SettingsContext(UserConfig user, LibraryConfig vault, Path repoRoot, boolean standalone,
-                        Runnable upgradeStandalone, Runnable downgradeStandalone) {
+                        boolean selfLaunched, Runnable upgradeStandalone,
+                        Runnable downgradeStandalone, Runnable refreshStandaloneRuntime) {
             this.user = user;
             this.vault = vault;
             this.repoRoot = repoRoot;
             this.standalone = standalone;
+            this.selfLaunched = selfLaunched;
             this.upgradeStandalone = upgradeStandalone;
             this.downgradeStandalone = downgradeStandalone;
+            this.refreshStandaloneRuntime = refreshStandaloneRuntime;
         }
 
         UserConfig user() {
@@ -65,12 +70,21 @@ final class SettingsModel {
             return standalone;
         }
 
+        /** 当前进程是否正从该仓库自带的 lib/ 启动（运行时改动 lib/ 会破坏自己）。 */
+        boolean selfLaunched() {
+            return selfLaunched;
+        }
+
         Runnable upgradeStandalone() {
             return upgradeStandalone;
         }
 
         Runnable downgradeStandalone() {
             return downgradeStandalone;
+        }
+
+        Runnable refreshStandaloneRuntime() {
+            return refreshStandaloneRuntime;
         }
     }
 
@@ -278,9 +292,29 @@ final class SettingsModel {
                     : "当前：普通仓库（依赖本应用打开）");
             state.setHorizontalAlignment(SwingConstants.LEFT);
             p.add(state);
-            // 独立运行形态下不提供"删除独立运行"按钮（避免运行中破坏自带 lib/ 与 edit 脚本）
-            if (!ctx.standalone()) {
-                p.add(Box.createVerticalStrut(10));
+            p.add(Box.createVerticalStrut(10));
+            if (ctx.selfLaunched()) {
+                // 当前进程正从该仓库自带的 lib/ 启动：运行时改动 lib/ 会破坏正在运行的应用，
+                // 故不提供删除/更新等自我保护冲突的操作，仅提示。
+                JLabel note = new JLabel(
+                        "<html><body style='width:260px'>当前应用正从该独立仓启动，为避免运行时破坏自身，"
+                                + "此处不提供删除/更新操作。请改用其它方式启动本应用后再操作。</body></html>");
+                note.setHorizontalAlignment(SwingConstants.LEFT);
+                p.add(note);
+            } else if (ctx.standalone()) {
+                // 打开的是独立仓、但本应用并非从它启动：提供删除与更新运行时版本
+                JButton del = new JButton("删除独立运行");
+                del.setHorizontalAlignment(SwingConstants.LEFT);
+                del.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+                del.addActionListener(e -> ctx.downgradeStandalone().run());
+                p.add(del);
+                p.add(Box.createVerticalStrut(6));
+                JButton upd = new JButton("更新运行时版本");
+                upd.setHorizontalAlignment(SwingConstants.LEFT);
+                upd.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+                upd.addActionListener(e -> ctx.refreshStandaloneRuntime().run());
+                p.add(upd);
+            } else {
                 JButton b = new JButton("配置独立运行");
                 b.setHorizontalAlignment(SwingConstants.LEFT);
                 b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));

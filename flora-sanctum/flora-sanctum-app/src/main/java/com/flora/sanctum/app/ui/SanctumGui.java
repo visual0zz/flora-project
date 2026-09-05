@@ -1769,7 +1769,7 @@ public final class SanctumGui {
         }
         if ("node".equals(ref.scheme())) {
             try {
-                IconNode node = sanctum.iconTree().find(UUID.fromString(ref.id()));
+                IconNode node = sanctum.iconTree().find(ref.nodeUuid());
                 if (node != null) {
                     byte[] data = node.iconData();
                     if ("svg".equalsIgnoreCase(node.format())) {

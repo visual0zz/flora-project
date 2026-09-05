@@ -10,10 +10,9 @@
 #   3. Pushes the current branch to every remote listed in
 #      addition/config/remoteRepoList.txt.
 #   4. Additionally pushes every local git tag whose prefix is listed
-#      in addition/config/tagPrefixes.txt. Tags are prefixed per product
-#      to keep multiple version lines separate in one monorepo
-#      (e.g. ramet-idea-plugin-v0.8.2). Pushing a tag is idempotent;
-#      tags already on the remote are skipped.
+#      in addition/config/tagPrefixes.txt (currently none are listed;
+#      the ramet IDEA plugin version now lives in its gradle.properties).
+#      Pushing a tag is idempotent; tags already on the remote are skipped.
 #
 #  Usage (same on every OS):
 #      ./push.cmd                # use the default commit message

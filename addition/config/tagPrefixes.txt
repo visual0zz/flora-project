@@ -2,5 +2,7 @@
 # After pushing the branch, push.cmd also pushes every local tag
 # whose prefix is listed here (one prefix per line).
 # Lines starting with # are comments; blank lines are ignored.
-ramet-idea-plugin-v
+# NOTE: the ramet IDEA plugin no longer uses git tags for versioning
+# (its version lives in plugins/idea-plugins/ramet-language-support/gradle.properties),
+# so no product currently needs a prefix here.
 # ramet-vscode-v   # uncomment when VSCode plugin adopts version automation

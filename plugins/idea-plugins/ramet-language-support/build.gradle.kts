@@ -12,25 +12,10 @@ plugins {
 
 group = "io.gitee.visual0zz"
 
-// ===== 版本号：由 git tag 自动推导（格式 ramet-idea-plugin-vX.Y.Z）=====
-// 仅识别该前缀的 tag，方便仓库内多个产物各自维护独立版本线。
-// 用法：发布前打 tag `git tag ramet-idea-plugin-vX.Y.Z`，构建即采用该版本。
-fun readVersionFromGitTag(): String {
-    val proc = ProcessBuilder("git", "describe", "--tags", "--match", "ramet-idea-plugin-v*", "--abbrev=0")
-        .directory(projectDir)
-        .redirectErrorStream(true)
-        .start()
-    val out = proc.inputStream.bufferedReader().readText().trim()
-    proc.waitFor()
-    return if (out.startsWith("ramet-idea-plugin-v")) {
-        out.removePrefix("ramet-idea-plugin-v")
-    } else {
-        logger.lifecycle("WARN: 未找到 ramet-idea-plugin-v* 格式的 git tag，回退到 0.0.0")
-        "0.0.0"
-    }
-}
-
-val rametVersion = readVersionFromGitTag()
+// ===== 版本号：直接写在 gradle.properties 的 `version` 字段 =====
+// 单一版本来源，发布前改 gradle.properties 里的 version 并同步 CHANGELOG.md。
+// Gradle 会自动把 gradle.properties 中的 `version` 注入 project.version。
+val rametVersion = project.version.toString()
 version = rametVersion
 
 // ===== What's New：从 CHANGELOG.md 提取当前版本段落 =====
@@ -242,8 +227,8 @@ val ideaHome: String? = when {
 
 intellijPlatform {
     pluginConfiguration {
-        // 单一版本来源：从 project.version（由 git tag 推导）注入到构建产物 plugin.xml，
-        // 避免源码 plugin.xml 与 gradle 版本号再次脱节。
+        // 单一版本来源：从 project.version（取自 gradle.properties 的 version 字段）注入
+        // 构建产物 plugin.xml，避免源码 plugin.xml 与 gradle 版本号再次脱节。
         version.set(project.version.toString())
         // 更新说明来自 CHANGELOG.md 的当前版本段落，同步进 IDE 插件管理器。
         changeNotes.set(rametChangeNotes)

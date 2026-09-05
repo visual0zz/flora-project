@@ -8,11 +8,12 @@
 #      script aborts with an error before invoking Gradle (see "Method 1 /
 #      Method 2" below). publishPlugin itself would otherwise fail later with
 #      'token' property must be specified for plugin publishing'.
-#   2) Version comes from a git tag of the form ramet-idea-plugin-vX.Y.Z:
+#   2) Version comes from the `version` field in
+#      plugins/idea-plugins/ramet-language-support/gradle.properties:
 #      - add the matching [X.Y.Z] section to CHANGELOG.md first;
-#      - then run `git tag ramet-idea-plugin-vX.Y.Z`;
-#      - the script derives the version from that tag and injects it into the
-#        plugin bundle; without a matching tag the version stays unchanged.
+#      - then bump the `version` field in that gradle.properties;
+#      - the script builds the plugin with that version and injects it into the
+#        plugin bundle; Marketplace rejects a version not higher than the last.
 #
 #   Method 1 (recommended): set a "user/system level" environment variable
 #       JETBRAINS_MARKETPLACE_TOKEN=<your Marketplace publish token>
@@ -36,9 +37,9 @@
 #     (environment variable first, then ~/.gradle/gradle.properties).
 #
 # Version note:
-#   * The plugin version comes from build.gradle.kts `version`; it must be
+#   * The plugin version comes from gradle.properties `version`; it must be
 #     higher than the last uploaded version on the Marketplace. If the same
-#     version already exists, bump the version first.
+#     version already exists, bump the `version` field first and re-run.
 # ===========================================================================
 cd "$(dirname "$0")/../.." || exit 1
 PLUGIN_DIR="plugins/idea-plugins/ramet-language-support"

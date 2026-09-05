@@ -3906,6 +3906,20 @@ public final class SanctumGui {
                     "无法更新独立运行", JOptionPane.WARNING_MESSAGE);
             return;
         }
+        // 版本校验：目标仓库运行时版本若高于当前应用，跳过升级以免回退
+        var outcome = com.flora.sanctum.app.bootstrap.RepoCreator.precheckRefresh(root);
+        if (outcome == com.flora.sanctum.app.bootstrap.RepoCreator.RefreshOutcome.TARGET_NEWER) {
+            JOptionPane.showMessageDialog(frame,
+                    "目标独立仓库的运行时版本比当前应用更高，跳过升级以避免回退。\n"
+                            + "如需更新，请用更高版本的应用打开该仓库后再操作。",
+                    "无需更新", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        if (outcome == com.flora.sanctum.app.bootstrap.RepoCreator.RefreshOutcome.NOT_STANDALONE) {
+            JOptionPane.showMessageDialog(frame, "该仓库不是独立仓库，无法更新运行时。",
+                    "无法更新独立运行", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
         if (JOptionPane.showConfirmDialog(frame,
                 "更新独立仓内的运行时版本？\n将用当前应用的运行时 jar 覆盖 lib/ 并刷新启动脚本（数据不动）。",
                 "更新运行时版本", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) {

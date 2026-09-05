@@ -119,6 +119,64 @@ public final class RepoCreator {
         return repoRoot;
     }
 
+    /** 升级独立仓库运行时的前置校验结果。 */
+    public enum RefreshOutcome {
+        /** 校验通过，可执行升级。 */
+        OK,
+        /** 不是独立仓库。 */
+        NOT_STANDALONE,
+        /** 目标仓库自带运行时版本高于当前应用，升级会回退，禁止。 */
+        TARGET_NEWER
+    }
+
+    /**
+     * 升级独立仓库运行时前的前置校验：若目标仓库 {@code lib/} 中的应用版本高于当前应用，
+     * 返回 {@link RefreshOutcome#TARGET_NEWER}（避免把运行时回退到旧版）。
+     * 版本取不到（如 IDE 开发态、fat jar）时视为未知，不拦截。
+     */
+    public static RefreshOutcome precheckRefresh(Path repoRoot) {
+        return precheckRefresh(repoRoot, selfAppVersion().orElse(null));
+    }
+
+    /** 可注入 self 版本的重载，便于测试。 */
+    static RefreshOutcome precheckRefresh(Path repoRoot, String selfVersion) {
+        if (!VaultDetector.isStandaloneRepo(repoRoot)) {
+            return RefreshOutcome.NOT_STANDALONE;
+        }
+        Optional<String> target = targetAppVersion(repoRoot);
+        if (selfVersion != null && target.isPresent()
+                && JarVersion.compare(target.get(), selfVersion) > 0) {
+            return RefreshOutcome.TARGET_NEWER;
+        }
+        return RefreshOutcome.OK;
+    }
+
+    /** 当前进程的应用版本：运行时 jar 集合优先，回退到应用自身 jar。 */
+    static Optional<String> selfAppVersion() {
+        Optional<String> fromRuntime = JarVersion.ofBundle(collectRuntimeJars(), "flora-sanctum-app");
+        if (fromRuntime.isPresent()) {
+            return fromRuntime;
+        }
+        return jarOfAppCodeSource().flatMap(JarVersion::ofJar);
+    }
+
+    /** 目标独立仓库 {@code lib/} 中的应用版本。 */
+    static Optional<String> targetAppVersion(Path repoRoot) {
+        Path lib = repoRoot.resolve("lib");
+        if (!Files.isDirectory(lib)) {
+            return Optional.empty();
+        }
+        try (var s = Files.list(lib)) {
+            List<Path> jars = s.filter(p -> p.getFileName() != null
+                            && p.getFileName().toString().endsWith(".jar"))
+                    .toList();
+            return JarVersion.ofBundle(jars, "flora-sanctum-app");
+        } catch (IOException e) {
+            LOG.warn("Failed to list lib for version check {}: {}", lib, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
     /**
      * 复制当前运行进程依赖的全部 jar 到目标仓库的 lib/，使仓库可独立启动。
      * 收集策略（并集、按文件名去重）覆盖各种启动形态：

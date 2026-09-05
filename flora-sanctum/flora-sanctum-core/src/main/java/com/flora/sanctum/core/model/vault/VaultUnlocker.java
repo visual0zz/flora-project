@@ -187,8 +187,8 @@ public final class VaultUnlocker {
         }
     }
 
-    /** 会话时钟锚点 = max(全库最大块时间戳, min(最大+1年, 当前毫秒))（见设计 02"仓库时间戳"）。
-     *  既避免时间回拨导致时钟倒退，又封顶于真实当前时间，防止锚点被 +1 年无限制前移。 */
+    /** 全库块时间戳上限（见设计 02"仓库时间戳"）。仅取已落盘块的最大值，
+     *  具体锚点（与当前时间取大、并封顶）由 {@link WarehouseClock} 在构造时与 startNanos 同源计算。 */
     private static long maxBlockTimestamp(List<Block> blocks) {
         long max = 1;
         for (Block b : blocks) {
@@ -196,9 +196,7 @@ public final class VaultUnlocker {
                 max = b.timestamp();
             }
         }
-        long plusYear = max + 365L * 24 * 3600 * 1000; // +1 年（毫秒）
-        long cappedNow = Math.min(plusYear, System.currentTimeMillis());
-        return Math.max(max, cappedNow);
+        return max;
     }
 
     /**

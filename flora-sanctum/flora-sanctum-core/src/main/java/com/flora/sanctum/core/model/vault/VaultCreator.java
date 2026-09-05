@@ -47,9 +47,12 @@ public final class VaultCreator {
             byte[] macKey = kdf.manifestMacKey(kek);
             // 根对象 uuid 由 KEK 单向推导：不落盘、不记入 manifest，解锁时以同一 KEK 重算定位
             java.util.UUID rootUuid = RootUuid.derive(kek);
-            writeManifestBlock(salt, memoryKiB, iterations, parallelism, macKey);
+            // 初始块统一打真实当前时间戳，避免新建库所有块落在哨兵值 1 上，
+            // 导致解锁时钟锚点被钉在 1971（见 VaultUnlocker.maxBlockTimestamp）。
+            long created = System.currentTimeMillis();
+            writeManifestBlock(salt, memoryKiB, iterations, parallelism, macKey, created);
             // 唯一根对象：data 根（type=root），持 repoKeyIdSeed，直接用 KEK 加密
-            writeRootGroup(rootUuid, kek, seed);
+            writeRootGroup(rootUuid, kek, seed, created);
         } finally {
             if (repoKeyIdSeed != null) {
                 java.util.Arrays.fill(repoKeyIdSeed, (byte) 0);
@@ -61,12 +64,12 @@ public final class VaultCreator {
     }
 
     /** 写 manifest 明文块（随机 uuid，经 ManifestStore 落盘；MAC 覆盖 uuid + 完整信封头 + 时间戳 + 负载）。 */
-    private void writeManifestBlock(byte[] salt, int memKiB, int iterations, int parallelism, byte[] macKey) {
+    private void writeManifestBlock(byte[] salt, int memKiB, int iterations, int parallelism, byte[] macKey, long created) {
         Manifest manifest = new Manifest(1, "gcm-siv-1", "argon2id", salt, memKiB, iterations, parallelism);
-        new com.flora.sanctum.core.model.impl.ManifestStore(store, random).write(manifest, macKey, "1");
+        new com.flora.sanctum.core.model.impl.ManifestStore(store, random).write(manifest, macKey, Long.toString(created));
     }
 
-    private void writeRootGroup(java.util.UUID rootUuid, byte[] kek, byte[] repoKeyIdSeed) {
+    private void writeRootGroup(java.util.UUID rootUuid, byte[] kek, byte[] repoKeyIdSeed, long created) {
         // 生成独立 rootDek 明文存入根对象；顶层对象/顶层分组 DEK 均用 rootDek 加密与包裹。
         // 根对象块整体以 KEK 加密（外层保护），dek1/dek2 字段直接存明文 base64，无需内层包裹。
         // 双 DEK：dek1 退役中、dek2 活跃，供惰性轮换（前向保密，见 GroupKeyRotation 设计）。
@@ -82,7 +85,7 @@ public final class VaultCreator {
             group.put("dek1", Base64.getEncoder().encodeToString(dek1));
             group.put("dek2", Base64.getEncoder().encodeToString(dek2));
             group.remove("dek");
-            writeCipherBlock(rootUuid, group, kek, 1);
+            writeCipherBlock(rootUuid, group, kek, created);
         } finally {
             java.util.Arrays.fill(dek1, (byte) 0);
             java.util.Arrays.fill(dek2, (byte) 0);

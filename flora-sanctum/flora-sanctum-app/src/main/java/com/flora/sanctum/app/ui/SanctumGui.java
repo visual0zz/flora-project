@@ -4193,6 +4193,14 @@ public final class SanctumGui {
                 }
             }
         }
+        // BoxLayout 横向按全体子组件的 alignmentX 聚合出整体对齐：混入默认 0.5 的组件
+        // （如 JTextField）会把 alignmentX=0 的组件整体右推，且占不满行（最大宽度失效）。
+        // 统一为左对齐，保证各行左边缘一致、需占满行的组件真正占满。
+        for (Component c : settingsEditPanel.getComponents()) {
+            if (c instanceof JComponent jc) {
+                jc.setAlignmentX(Component.LEFT_ALIGNMENT);
+            }
+        }
         settingsEditPanel.revalidate();
         settingsEditPanel.repaint();
     }

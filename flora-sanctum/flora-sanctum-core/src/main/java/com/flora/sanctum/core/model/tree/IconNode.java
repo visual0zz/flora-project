@@ -39,4 +39,19 @@ public final class IconNode extends TreeNode {
         JsonObject d = data();
         return d == null ? null : d.getString("format");
     }
+
+    /** 更新图标名称（回写节点负载，使用根 data DEK 加密）。name 为空则移除该字段。 */
+    public void rename(String name) {
+        JsonObject d = data();
+        if (d == null) {
+            throw new IllegalArgumentException("node not found");
+        }
+        UUID groupId = ctx().parentGroupUuid(d);
+        if (name == null || name.isBlank()) {
+            d.remove("name");
+        } else {
+            d.put("name", name);
+        }
+        ctx().write(uuid(), d, groupId);
+    }
 }

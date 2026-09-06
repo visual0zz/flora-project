@@ -1960,9 +1960,11 @@ public final class SanctumGui {
     }
 
     /** 设置页图标详情：缩略图 + 名称。 */
-    private void renderSettingsIcon(Ref ref, JPanel target) {
+    // 返回「保存名称」按钮（仅用户导入图标有），调用方负责将其与「删除图标」同行排布
+    private JButton renderSettingsIcon(Ref ref, JPanel target) {
         target.removeAll();
-        Icon ic = iconById(ref, 48);
+        JButton saveBtn = null;
+        Icon ic = iconById(ref, 250);
         if (ic != null) {
             JLabel pic = new JLabel(ic);
             pic.setHorizontalAlignment(SwingConstants.LEFT);
@@ -1970,8 +1972,42 @@ public final class SanctumGui {
             target.add(javax.swing.Box.createVerticalStrut(6));
         }
         addInfoLabel(ref != null && "builtin".equals(ref.scheme()) ? "内置图标：" + ref.id() : "用户导入图标", target);
+        // 用户导入图标（node scheme）可改名；内置图标无对应节点，不可编辑
+        if (ref != null && "node".equals(ref.scheme())) {
+            IconNode node = sanctum.iconTree().find(ref.nodeUuid());
+            if (node != null) {
+                target.add(javax.swing.Box.createVerticalStrut(10));
+                target.add(new JLabel("名称"));
+                target.add(javax.swing.Box.createVerticalStrut(4));
+                javax.swing.JTextField nameField = new javax.swing.JTextField(
+                        node.name() == null ? "" : node.name(), 24);
+                target.add(nameField);
+                target.add(javax.swing.Box.createVerticalStrut(10));
+                saveBtn = makeActionButton("保存名称", () -> {
+                    try {
+                        node.rename(nameField.getText());
+                        // 就地更新中栏该条目标签，避免整体刷新导致选中跳回首项
+                        for (int i = 0; i < settingsEntryModel.size(); i++) {
+                            Object e = settingsEntryModel.getElementAt(i);
+                            if (e instanceof SettingsModel.ObjectEntry oe
+                                    && oe.id().equals(node.uuid().toString())) {
+                                settingsEntryModel.setElementAt(
+                                        new SettingsModel.ObjectEntry(oe.id(), iconLabel(node), oe.kind()), i);
+                                break;
+                            }
+                        }
+                        showSettingsSelection();
+                        statusLabel.setText("已更新图标名称");
+                    } catch (Exception ex) {
+                        statusLabel.setText("保存失败："
+                                + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+                    }
+                });
+            }
+        }
         target.revalidate();
         target.repaint();
+        return saveBtn;
     }
 
     /** 按图标引用渲染 Icon（内置 SvgIcon / 用户 iconTree 字节），失败返回 null。 */
@@ -3917,7 +3953,7 @@ public final class SanctumGui {
         settingsEntryList.setFixedCellHeight(40);
         settingsEntryList.setOpaque(false);
         settingsEntryList.setBorder(new EmptyBorder(8, 10, 8, 10));
-        settingsEntryList.setCellRenderer(new SettingsEntryRenderer());
+        settingsEntryList.setCellRenderer(new SettingsEntryRenderer(this::iconById));
         settingsEntryList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 showSettingsSelection();
@@ -4038,9 +4074,9 @@ public final class SanctumGui {
             } else if (entry instanceof SettingsModel.ObjectEntry oe) {
                 switch (oe.kind()) {
                     case ICON -> {
-                        renderSettingsIcon(Ref.fromLegacyId(oe.id()), settingsEditPanel);
+                        JButton saveBtn = renderSettingsIcon(Ref.fromLegacyId(oe.id()), settingsEditPanel);
                         if (!isBuiltinIcon(oe.id())) {
-                            addSettingsActionBtn("删除图标", () -> {
+                            Runnable deleteAction = () -> {
                                 try {
                                     IconNode node = sanctum.iconTree().find(UUID.fromString(oe.id()));
                                     if (node != null) {
@@ -4051,7 +4087,19 @@ public final class SanctumGui {
                                 } catch (Exception ex) {
                                     statusLabel.setText("删除失败");
                                 }
-                            });
+                            };
+                            if (saveBtn != null) {
+                                // 一行两按钮：保存名称居左，删除图标居右
+                                JPanel btnRow = new JPanel(new java.awt.BorderLayout(8, 0));
+                                btnRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+                                btnRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+                                btnRow.add(saveBtn, java.awt.BorderLayout.WEST);
+                                btnRow.add(makeActionButton("删除图标", deleteAction), java.awt.BorderLayout.EAST);
+                                settingsEditPanel.add(javax.swing.Box.createVerticalStrut(10));
+                                settingsEditPanel.add(btnRow);
+                            } else {
+                                addSettingsActionBtn("删除图标", deleteAction);
+                            }
                         }
                     }
                     case SSH_KEY -> {
@@ -4208,16 +4256,21 @@ public final class SanctumGui {
     /** 保存已编辑的设置项到仓库。 */
     /** 保存已渲染的设置项；{@link SettingsModel.Setting#saveValue} 返回非空错误时提示并返回 false（不关闭）。 */
     /** 在设置右栏追加一个操作按钮。 */
-    private void addSettingsActionBtn(String label, Runnable action) {
+    /** 构造占满整行、文字靠左的按钮（不自动入面板，便于按需排布）。 */
+    private JButton makeActionButton(String label, Runnable action) {
         JButton b = new JButton(label);
-        // 占满整行、文字靠左（BoxLayout 下需同时设定水平对齐与 alignmentX，否则易居中/贴边）
         b.setHorizontalAlignment(SwingConstants.LEFT);
         b.setAlignmentX(Component.LEFT_ALIGNMENT);
         b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
         b.setMargin(new java.awt.Insets(0, 8, 0, 0));
         b.addActionListener(e -> action.run());
+        return b;
+    }
+
+    /** 在右栏追加一个占满整行、文字靠左的操作按钮（上下保留 10px 间隔）。 */
+    private void addSettingsActionBtn(String label, Runnable action) {
         settingsEditPanel.add(javax.swing.Box.createVerticalStrut(10));
-        settingsEditPanel.add(b);
+        settingsEditPanel.add(makeActionButton(label, action));
     }
 
     /** 按左栏选中的区段显隐顶部栏的"添加"按钮（纯图标，含义在悬停提示）。 */

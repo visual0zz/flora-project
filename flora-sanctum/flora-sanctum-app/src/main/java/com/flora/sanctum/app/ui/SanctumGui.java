@@ -1972,7 +1972,7 @@ public final class SanctumGui {
             renderExternalKeyNode(u);
             return;
         }
-        // TOTP 字段：右侧展示只读详情（所属条目路径 + 动态码 + 脱敏种子）
+        // TOTP 字段：右侧展示只读详情（所属条目路径 + 动态码 + 脱敏 URI）
         if (totpUuids.contains(u)) {
             renderTotpNode(u);
             return;
@@ -2424,17 +2424,17 @@ public final class SanctumGui {
         return path + " / " + (fieldName == null || fieldName.isBlank() ? "未命名" : fieldName);
     }
 
-    /** TOTP 只读详情：所属条目名 + 字段名 + 存储路径 + 当前动态码 + 脱敏种子。 */
+    /** TOTP 只读详情：所属条目名 + 字段名 + 存储路径 + 当前动态码 + 脱敏 URI。 */
     private void renderTotpNode(UUID uuid) {
         editPanel.removeAll();
         FieldNode f = sanctum.objectTree().field(uuid);
         String entryName = "?";
         String fieldName = "?";
         String path = "";
-        String seed = "";
+        String uri = "";
         if (f != null && f.data() != null) {
             fieldName = f.fieldName() == null ? "未命名" : f.fieldName();
-            seed = f.value() == null ? "" : f.value();
+            uri = f.value() == null ? "" : f.value();
             String pid = f.data().getString("parent");
             if (pid != null) {
                 EntryNode e = sanctum.objectTree().entry(UuidHex.fromHexOrNull(pid));
@@ -2462,11 +2462,11 @@ public final class SanctumGui {
         codeLabel.setForeground(new java.awt.Color(40, 110, 60));
         editPanel.add(codeLabel);
 
-        // 种子（脱敏展示，眼睛切换，不可编辑）
+        // TOTP URI（脱敏展示，眼睛切换，不可编辑）
         PasswordField seedField = new PasswordField(28);
-        seedField.setText(seed);
+        seedField.setText(uri);
         seedField.setEditable(false);
-        editPanel.add(makeEntryRow("种子 :", seedField, false));
+        editPanel.add(makeEntryRow("URI :", seedField, false));
 
         // 复制动态码（明文进剪贴板，走统一清空计时）
         JButton copyBtn = new JButton("复制动态码");
@@ -2854,6 +2854,20 @@ public final class SanctumGui {
         JTextField valField = new JTextField(18);
         JComboBox<String> kindCombo = new JComboBox<>(kindOptions().toArray(new String[0]));
         kindCombo.setSelectedItem("text");
+        JLabel hint = new JLabel();
+        hint.setFont(hint.getFont().deriveFont(11f));
+        hint.setForeground(new java.awt.Color(150, 110, 40));
+        // TOTP 字段的值必须是 otpauth:// URI（见设计 02"TOTP"）：选中时给出格式提示
+        kindCombo.addItemListener(e -> {
+            if (e.getStateChange() == java.awt.event.ItemEvent.SELECTED) {
+                Object sel = kindCombo.getSelectedItem();
+                if ("totp".equals(sel)) {
+                    hint.setText("TOTP 类型的值请填 otpauth:// URI，如 otpauth://totp/账号?secret=JBSWY3DPEHPK3PXP&issuer=示例");
+                } else {
+                    hint.setText("");
+                }
+            }
+        });
         JPanel form = new JPanel(new GridLayout(0, 2, 8, 6));
         form.add(new JLabel("字段名:"));
         form.add(nameField);
@@ -2861,6 +2875,8 @@ public final class SanctumGui {
         form.add(valField);
         form.add(new JLabel("类型:"));
         form.add(kindCombo);
+        form.add(new JLabel(""));
+        form.add(hint);
         int ok = JOptionPane.showConfirmDialog(frame, form, "添加字段", JOptionPane.OK_CANCEL_OPTION);
         if (ok == JOptionPane.OK_OPTION) {
             String fn = nameField.getText().trim();

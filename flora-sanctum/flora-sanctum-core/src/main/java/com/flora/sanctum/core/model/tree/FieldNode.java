@@ -59,13 +59,24 @@ public final class FieldNode extends ObjectNode {
         touchAndWrite(field);
     }
 
-    /** 从 kind:totp 字段生成当前验证码（种子为 value，见设计 02"TOTP"）。 */
+    /**
+     * 从 kind:totp 字段生成当前验证码。
+     * value 应为 {@code otpauth://} URI（见设计 02"TOTP"）；裸 base32 种子作为向后兼容路径保留。
+     */
     public String totpCode() {
         JsonObject field = data();
         if (field == null || !"totp".equals(field.getString("kind"))) {
             throw new IllegalArgumentException("not a totp field");
         }
-        byte[] secret = Base32.decode(field.getString("value"));
+        String value = field.getString("value");
+        if (value == null) {
+            throw new IllegalArgumentException("missing totp value");
+        }
+        if (value.toLowerCase(java.util.Locale.ROOT).startsWith("otpauth://")) {
+            return Totp.generateFromUri(value);
+        }
+        // 裸 base32 种子（向后兼容）
+        byte[] secret = Base32.decode(value);
         return Totp.generate(secret, 6, 30);
     }
 

@@ -2839,13 +2839,27 @@ public final class SanctumGui {
             row.setOpaque(false);
             // 行高上限按内容动态设置（多行编辑框在 fitAreaHeight 中调整），避免 BoxLayout 拉伸出空行
             row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-            // WEST：删除按钮（左） + 字段名标签
-            JPanel west = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-            west.setOpaque(false);
-            JButton delField = new JButton("×");
+            // WEST：字段名标签
+            JLabel fLabel = new JLabel((fn == null ? "" : fn) + " :");
+            fLabel.setPreferredSize(new Dimension(84, 24));
+            row.add(fLabel, BorderLayout.WEST);
+            // 机密类字段脱敏显示（externalKey/password/totp）：单行密码控件（眼睛切换）；
+            // 其余字段为多行编辑框，回车换行，高度随内容 1~3 行自适应
+            JComponent fValue = isMaskedKind(kind) ? maskedField(val) : makeMultilineField(val, row);
+            row.add(fValue, BorderLayout.CENTER);
+            // EAST：kind 下拉 + 删除按钮（删除在最右）；用 FlowLayout 包裹，
+            // 二者保持自身高度，不随多行编辑框变高被 BorderLayout 纵向拉伸
+            JComboBox<String> kindCombo = new JComboBox<>(kindOptions().toArray(new String[0]));
+            String curKind = kind == null ? "text" : kind;
+            if (!containsItem(kindCombo, curKind)) {
+                kindCombo.addItem(curKind);
+            }
+            kindCombo.setSelectedItem(curKind);
+            kindCombo.setMaximumSize(new Dimension(120, 24));
+            kindCombo.setPreferredSize(new Dimension(120, 24));
+            JButton delField = new JButton("删除字段");
             delField.setToolTipText("删除字段 " + fn);
-            delField.setMargin(new Insets(0, 0, 0, 0));
-            delField.setPreferredSize(new Dimension(24, 24));
+            delField.setMargin(new Insets(0, 6, 0, 6));
             delField.setForeground(new java.awt.Color(200, 50, 50));
             delField.setFont(delField.getFont().deriveFont(Font.BOLD));
             delField.addActionListener(e -> {
@@ -2858,25 +2872,11 @@ public final class SanctumGui {
                     statusLabel.setText("删除失败");
                 }
             });
-            JLabel fLabel = new JLabel((fn == null ? "" : fn) + " :");
-            fLabel.setPreferredSize(new Dimension(84, 24));
-            west.add(delField);
-            west.add(fLabel);
-            row.add(west, BorderLayout.WEST);
-            // 机密类字段脱敏显示（externalKey/password/totp）：单行密码控件（眼睛切换）；
-            // 其余字段为多行编辑框，回车换行，高度随内容 1~3 行自适应
-            JComponent fValue = isMaskedKind(kind) ? maskedField(val) : makeMultilineField(val, row);
-            row.add(fValue, BorderLayout.CENTER);
-            // EAST：kind 下拉
-            JComboBox<String> kindCombo = new JComboBox<>(kindOptions().toArray(new String[0]));
-            String curKind = kind == null ? "text" : kind;
-            if (!containsItem(kindCombo, curKind)) {
-                kindCombo.addItem(curKind);
-            }
-            kindCombo.setSelectedItem(curKind);
-            kindCombo.setMaximumSize(new Dimension(120, 24));
-            kindCombo.setPreferredSize(new Dimension(120, 24));
-            row.add(kindCombo, BorderLayout.EAST);
+            JPanel east = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+            east.setOpaque(false);
+            east.add(kindCombo);
+            east.add(delField);
+            row.add(east, BorderLayout.EAST);
             // TOTP 字段显示验证码（取自已保存的值，切换 kind 时不会即时刷新）
             JLabel totpLabel = null;
             if ("totp".equals(kind)) {

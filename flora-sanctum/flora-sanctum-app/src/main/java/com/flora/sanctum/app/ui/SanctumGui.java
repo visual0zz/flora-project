@@ -2812,20 +2812,16 @@ public final class SanctumGui {
                 com.flora.sanctum.core.model.EntryFields.labelsToString(entryNode.labels()));
         editPanel.add(makeEntryRow("标签 :", labelsField, false));
 
-        // 备注（内置预设字段，多行）
-        JTextArea notesArea = new JTextArea(entryNode.notes() == null ? "" : entryNode.notes());
-        notesArea.setLineWrap(true);
-        notesArea.setWrapStyleWord(true);
-        JScrollPane notesScroll = new JScrollPane(notesArea);
-        notesScroll.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
+        // 备注（内置预设字段，多行，默认遮蔽，眼睛切换显示）
+        MaskedNotesArea notesArea = new MaskedNotesArea(entryNode.notes());
         JPanel notesRow = new JPanel(new BorderLayout(0, 0));
         notesRow.setOpaque(false);
         notesRow.setBorder(new javax.swing.border.EmptyBorder(0, 0, 8, 0));
         notesRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 98));
         JLabel notesTag = new JLabel("备注 :");
-        notesTag.setPreferredSize(new Dimension(110, 24));
+        notesTag.setPreferredSize(new Dimension(84, 24));
         notesRow.add(notesTag, BorderLayout.WEST);
-        notesRow.add(notesScroll, BorderLayout.CENTER);
+        notesRow.add(notesArea, BorderLayout.CENTER);
         editPanel.add(notesRow);
 
         // 时间信息（只读）
@@ -2841,31 +2837,17 @@ public final class SanctumGui {
             String kind = field.kind();
             JPanel row = new JPanel(new BorderLayout(6, 0));
             row.setOpaque(false);
-            row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
-            JLabel fLabel = new JLabel((fn == null ? "" : fn) + " :");
-            fLabel.setPreferredSize(new Dimension(110, 24));
-            // 机密类字段脱敏显示（externalKey/password/totp），与密码输入控件一致（眼睛切换、可编辑）
-            JComponent fValue = isMaskedKind(kind) ? maskedField(val) : makeEntryField(val);
-            row.add(fLabel, BorderLayout.WEST);
-            row.add(fValue, BorderLayout.CENTER);
-            // EAST：kind 下拉 + 删除按钮
-            JPanel east = new JPanel();
-            east.setOpaque(false);
-            east.setLayout(new BoxLayout(east, BoxLayout.Y_AXIS));
-            east.setMaximumSize(new Dimension(Integer.MAX_VALUE, 52));
-            JComboBox<String> kindCombo = new JComboBox<>(kindOptions().toArray(new String[0]));
-            String curKind = kind == null ? "text" : kind;
-            if (!containsItem(kindCombo, curKind)) {
-                kindCombo.addItem(curKind);
-            }
-            kindCombo.setSelectedItem(curKind);
-            kindCombo.setMaximumSize(new Dimension(120, 24));
-            kindCombo.setPreferredSize(new Dimension(120, 24));
-            east.add(kindCombo);
+            // 行高上限按内容动态设置（多行编辑框在 fitAreaHeight 中调整），避免 BoxLayout 拉伸出空行
+            row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+            // WEST：删除按钮（左） + 字段名标签
+            JPanel west = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+            west.setOpaque(false);
             JButton delField = new JButton("×");
             delField.setToolTipText("删除字段 " + fn);
             delField.setMargin(new Insets(0, 0, 0, 0));
             delField.setPreferredSize(new Dimension(24, 24));
+            delField.setForeground(new java.awt.Color(200, 50, 50));
+            delField.setFont(delField.getFont().deriveFont(Font.BOLD));
             delField.addActionListener(e -> {
                 resetAutoLock();
                 try {
@@ -2876,16 +2858,59 @@ public final class SanctumGui {
                     statusLabel.setText("删除失败");
                 }
             });
-            east.add(delField);
-            row.add(east, BorderLayout.EAST);
-            // TOTP 字段显示验证码
+            JLabel fLabel = new JLabel((fn == null ? "" : fn) + " :");
+            fLabel.setPreferredSize(new Dimension(84, 24));
+            west.add(delField);
+            west.add(fLabel);
+            row.add(west, BorderLayout.WEST);
+            // 机密类字段脱敏显示（externalKey/password/totp）：单行密码控件（眼睛切换）；
+            // 其余字段为多行编辑框，回车换行，高度随内容 1~3 行自适应
+            JComponent fValue = isMaskedKind(kind) ? maskedField(val) : makeMultilineField(val, row);
+            row.add(fValue, BorderLayout.CENTER);
+            // EAST：kind 下拉
+            JComboBox<String> kindCombo = new JComboBox<>(kindOptions().toArray(new String[0]));
+            String curKind = kind == null ? "text" : kind;
+            if (!containsItem(kindCombo, curKind)) {
+                kindCombo.addItem(curKind);
+            }
+            kindCombo.setSelectedItem(curKind);
+            kindCombo.setMaximumSize(new Dimension(120, 24));
+            kindCombo.setPreferredSize(new Dimension(120, 24));
+            row.add(kindCombo, BorderLayout.EAST);
+            // TOTP 字段显示验证码（取自已保存的值，切换 kind 时不会即时刷新）
+            JLabel totpLabel = null;
             if ("totp".equals(kind)) {
                 try {
-                    JLabel totp = new JLabel("  验证码: " + field.totpCode());
-                    row.add(totp, BorderLayout.SOUTH);
+                    totpLabel = new JLabel("  验证码: " + field.totpCode());
+                    row.add(totpLabel, BorderLayout.SOUTH);
                 } catch (Exception ignore) {
                 }
             }
+            JLabel totpRef = totpLabel;
+            // 切换 kind 后立刻按新类型重建取值控件：机密类型→脱敏密码框（眼睛），其余→多行编辑框
+            JComponent[] valueRef = {fValue};
+            kindCombo.addItemListener(e -> {
+                if (e.getStateChange() != java.awt.event.ItemEvent.SELECTED) {
+                    return;
+                }
+                Object sel = kindCombo.getSelectedItem();
+                String newKind = sel == null ? "text" : sel.toString();
+                // 机密类型为单行密码框，行高回到单行上限
+                row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+                JComponent next = isMaskedKind(newKind)
+                        ? maskedField(textOf(valueRef[0]))
+                        : makeMultilineField(textOf(valueRef[0]), row);
+                row.remove(valueRef[0]);
+                row.add(next, BorderLayout.CENTER);
+                valueRef[0] = next;
+                fieldInputs.put(field.uuid(), next);
+                // 不再是 TOTP 时移除旧的验证码标签，避免残留
+                if (!"totp".equals(newKind) && totpRef != null) {
+                    row.remove(totpRef);
+                }
+                row.revalidate();
+                row.repaint();
+            });
             editPanel.add(row);
             fieldInputs.put(field.uuid(), fValue);
             kindInputs.put(field.uuid(), kindCombo);
@@ -2943,6 +2968,55 @@ public final class SanctumGui {
         return f;
     }
 
+    /**
+     * 额外字段多行编辑框：回车换行，高度随内容 1~3 行自适应（单行时紧凑，多行最多三行）。
+     * row 为所在行，其高度上限同步跟随，否则 BoxLayout 会把行拉伸到固定上限。
+     */
+    private static JComponent makeMultilineField(String value, java.awt.Container row) {
+        JTextArea ta = new JTextArea(value == null ? "" : value, 1, 20);
+        ta.setLineWrap(true);
+        ta.setWrapStyleWord(true);
+        JScrollPane sp = new JScrollPane(ta);
+        sp.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
+        fitAreaHeight(ta, sp, row);
+        ta.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                fitAreaHeight(ta, sp, row);
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                fitAreaHeight(ta, sp, row);
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                fitAreaHeight(ta, sp, row);
+            }
+        });
+        return sp;
+    }
+
+    /** 按逻辑行数（回车分隔）把多行编辑框及其所在行高度限制到 1~3 行。 */
+    private static void fitAreaHeight(JTextArea ta, JComponent holder, java.awt.Container row) {
+        int lines = Math.max(1, ta.getLineCount());
+        lines = Math.min(lines, 3);
+        int lineH = ta.getFontMetrics(ta.getFont()).getHeight();
+        int h = lines * lineH + 8;
+        ta.setPreferredSize(new Dimension(ta.getPreferredSize().width, h));
+        ta.setMinimumSize(new Dimension(0, h));
+        holder.setMaximumSize(new Dimension(Integer.MAX_VALUE, h));
+        if (row != null) {
+            row.setMaximumSize(new Dimension(Integer.MAX_VALUE, h + 8));
+            row.revalidate();
+        }
+        java.awt.Container p = holder.getParent();
+        if (p != null) {
+            p.revalidate();
+        }
+    }
+
     /** 机密类字段（externalKey/password/totp）：脱敏输入控件（眼睛切换，可编辑）。 */
     private static boolean isMaskedKind(String kind) {
         if (kind == null) {
@@ -2959,13 +3033,19 @@ public final class SanctumGui {
         return pf;
     }
 
-    /** 从 JTextField / PasswordField 等文本型组件读取当前文本。 */
+    /** 从 JTextField / PasswordField / 多行编辑框（JScrollPane 内 JTextArea）读取当前文本。 */
     private static String textOf(JComponent c) {
         if (c instanceof JTextField t) {
             return t.getText();
         }
+        if (c instanceof JTextArea t) {
+            return t.getText();
+        }
         if (c instanceof PasswordField p) {
             return p.getText();
+        }
+        if (c instanceof JScrollPane sp && sp.getViewport().getView() instanceof JTextArea t) {
+            return t.getText();
         }
         return "";
     }
@@ -3026,7 +3106,7 @@ public final class SanctumGui {
         row.setBorder(pad);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
         JLabel tag = new JLabel(label);
-        tag.setPreferredSize(new Dimension(110, 24));
+        tag.setPreferredSize(new Dimension(84, 24));
         if (required) {
             tag.setForeground(new java.awt.Color(180, 60, 60));
             tag.setFont(tag.getFont().deriveFont(Font.BOLD));
@@ -3043,7 +3123,7 @@ public final class SanctumGui {
         row.setBorder(new javax.swing.border.EmptyBorder(0, 0, 8, 0));
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
         JLabel tag = new JLabel(label);
-        tag.setPreferredSize(new Dimension(110, 24));
+        tag.setPreferredSize(new Dimension(84, 24));
         tag.setFont(tag.getFont().deriveFont(Font.ITALIC));
         JLabel value = new JLabel(text == null ? "" : text);
         value.setForeground(java.awt.Color.GRAY);

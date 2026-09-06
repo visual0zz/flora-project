@@ -50,6 +50,8 @@ import javax.swing.TransferHandler;
 import javax.swing.border.EmptyBorder;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
+import javax.swing.tree.TreeSelectionModel;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -71,6 +73,7 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -1105,6 +1108,8 @@ public final class SanctumGui {
         // 拖拽改归属：左树既是拖源也是放置目标（拖到文件夹或根）
         groupTree.setDragEnabled(true);
         groupTree.setDropMode(javax.swing.DropMode.ON);
+        // 允许多选（Ctrl/⌘ 或 Shift）以便一次拖拽多个节点
+        groupTree.getSelectionModel().setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
         groupTree.setTransferHandler(new TreeDragHandler());
         // 条目列表模型需先于 refreshAll() 就绪：其内部 refreshEntryList 会调用 entryModel.clear()
         entryModel = new DefaultListModel<>();
@@ -1157,8 +1162,8 @@ public final class SanctumGui {
         leftPanel.setBackground(UiTheme.PAPER_LIGHT);
         leftPanel.add(treeScroll, BorderLayout.CENTER);
 
-        // 中：条目列表（子文件夹 + 条目混合）
-        entryList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        // 中：条目列表（子文件夹 + 条目混合）；允许多选以便一次拖拽多个节点
+        entryList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         entryList.setFont(entryList.getFont().deriveFont(Font.PLAIN, 14f));
         entryList.setFixedCellHeight(36);
         entryList.setCellRenderer(new EntryListRenderer());
@@ -1295,15 +1300,10 @@ public final class SanctumGui {
         DefaultMutableTreeNode trashNode = new DefaultMutableTreeNode("垃圾桶");
         trashNode.setUserObject(ViewNodeType.TRASH);
         treeRoot.add(trashNode);
+        // 垃圾桶组节点可展开嵌套（只读）：顶层 trash 节点做树节点，组内部在 trash 的子项递归挂在其下
         if (trashView != null) {
-            for (com.flora.sanctum.core.model.TrashView.TrashKind k
-                    : com.flora.sanctum.core.model.TrashView.TrashKind.values()) {
-                for (UUID id : trashUuids(k)) {
-                    String suffix = "  ·  [" + trashKindLabel(k) + "]";
-                    DefaultMutableTreeNode leaf = new DefaultMutableTreeNode(nodeName(id) + suffix);
-                    leaf.setUserObject(id);
-                    trashNode.add(leaf);
-                }
+            for (UUID id : trashTopLevelIds()) {
+                addTrashNode(trashNode, id, true);
             }
         }
 
@@ -1349,68 +1349,216 @@ public final class SanctumGui {
         };
     }
 
+    /** 垃圾桶顶层节点：父（若有）不在垃圾桶内的 trash uuid（孤儿/不可达根/手动删除的组）。 */
+    private List<UUID> trashTopLevelIds() {
+        if (trashView == null) {
+            return List.of();
+        }
+        List<UUID> all = new java.util.ArrayList<>();
+        for (com.flora.sanctum.core.model.TrashView.TrashKind k
+                : com.flora.sanctum.core.model.TrashView.TrashKind.values()) {
+            all.addAll(trashUuids(k));
+        }
+        List<UUID> top = new java.util.ArrayList<>();
+        for (UUID id : all) {
+            UUID pid = parentOf(id);
+            if (pid == null || !trashView.contains(pid)) {
+                top.add(id);
+            }
+        }
+        return top;
+    }
+
+    /** 父对象 uuid（null 表示顶层/根）；找不到或父为根对象时返回 null。 */
+    private UUID parentOf(UUID id) {
+        TreeNode n = sanctum.findNode(id);
+        if (n == null) {
+            return null;
+        }
+        String ref = n.parentRef();
+        if (ref == null) {
+            return null;
+        }
+        UUID p = com.flora.sanctum.core.util.UuidHex.fromHex(ref);
+        if (p == null) {
+            return null;
+        }
+        UUID root = sanctum.rootObjectUuid();
+        return root != null && p.equals(root) ? null : p;
+    }
+
+    /**
+     * 把垃圾桶节点挂到左树：组节点可展开，其下在垃圾桶内的子项递归挂载；同时登记 groupNodes
+     * 以供双击导航复用（与密码库组一致）。withSuffix 时附加类型后缀（仅顶层节点带，避免子项重复）。
+     */
+    private void addTrashNode(DefaultMutableTreeNode parent, UUID id, boolean withSuffix) {
+        String label = nodeName(id);
+        if (withSuffix) {
+            com.flora.sanctum.core.model.TrashView.TrashKind k = trashView.kindOf(id);
+            label += "  ·  [" + (k == null ? "未知" : trashKindLabel(k)) + "]";
+        }
+        DefaultMutableTreeNode node = new DefaultMutableTreeNode(label);
+        node.setUserObject(id);
+        parent.add(node);
+        TreeNode n = sanctum.findNode(id);
+        if (n instanceof GroupNode g) {
+            groupNodes.put(id, node);
+            for (TreeNode c : g.children()) {
+                if (trashView.contains(c.uuid())) {
+                    addTrashNode(node, c.uuid(), false);
+                }
+            }
+        }
+    }
+
     // ---- 拖拽改归属（左树 / 中间栏） ----
 
-    /** 解析拖拽传输的 uuid（以 stringFlavor 携带）。 */
-    private static UUID parseDragged(TransferHandler.TransferSupport support) {
+    /** 拖拽传输的节点 uuid 列表（自定义本地 flavor，避免与单值 stringFlavor 混淆）。 */
+    private static final DataFlavor NODE_LIST_FLAVOR;
+    static {
         try {
-            if (!support.isDataFlavorSupported(DataFlavor.stringFlavor)) {
+            NODE_LIST_FLAVOR = new DataFlavor(
+                    DataFlavor.javaJVMLocalObjectMimeType + ";class=java.util.ArrayList");
+        } catch (ClassNotFoundException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    /** 构造携带 uuid 列表的 Transferable。 */
+    private static Transferable uuidListTransferable(List<UUID> ids) {
+        java.util.ArrayList<String> data = new java.util.ArrayList<>();
+        for (UUID id : ids) {
+            data.add(id.toString());
+        }
+        return new Transferable() {
+            @Override
+            public DataFlavor[] getTransferDataFlavors() {
+                return new DataFlavor[]{NODE_LIST_FLAVOR};
+            }
+
+            @Override
+            public boolean isDataFlavorSupported(DataFlavor f) {
+                return NODE_LIST_FLAVOR.equals(f);
+            }
+
+            @Override
+            public Object getTransferData(DataFlavor f) throws UnsupportedFlavorException {
+                if (!NODE_LIST_FLAVOR.equals(f)) {
+                    throw new UnsupportedFlavorException(f);
+                }
+                return data;
+            }
+        };
+    }
+
+    /** 从拖拽数据解析 uuid 列表（自定义 flavor）。 */
+    private static List<UUID> parseDraggedList(TransferHandler.TransferSupport support) {
+        try {
+            if (!support.isDataFlavorSupported(NODE_LIST_FLAVOR)) {
                 return null;
             }
-            Object data = support.getTransferable().getTransferData(DataFlavor.stringFlavor);
-            if (data instanceof String s && !s.isBlank()) {
-                return UUID.fromString(s.trim());
+            Object data = support.getTransferable().getTransferData(NODE_LIST_FLAVOR);
+            if (data instanceof java.util.ArrayList<?> list) {
+                List<UUID> ids = new java.util.ArrayList<>();
+                for (Object o : list) {
+                    if (o instanceof String s && !s.isBlank()) {
+                        try {
+                            ids.add(UUID.fromString(s.trim()));
+                        } catch (IllegalArgumentException ignore) {
+                        }
+                    }
+                }
+                return ids;
             }
         } catch (Exception ignore) {
         }
         return null;
     }
 
-    /** 执行归属变更：委托 core 的 NodeMover（经 Sanctum.move），失败给出状态提示。
-     * <p>targetGroup 为 null 表示移到顶层（左树落到「密码库」区段），对组合法（NodeMover 会写入根对象）；
-     * 对条目不合法（条目必须属于组），此时 Sanctum.move 会抛清晰异常并由下方 catch 提示，
-     * 不可在此提前以 null 守卫把整类操作静默吞掉（否则拖到密码库看起来「落不上」）。</p> */
+    /** 兼容单节点调用的便捷重载（委托多节点版本）。 */
     private void performMove(UUID dragged, UUID targetGroup) {
-        performMove(dragged, targetGroup, null);
+        performMove(java.util.List.of(dragged), targetGroup, null);
+    }
+
+    /** 兼容单节点调用的便捷重载（委托多节点版本）。 */
+    private void performMove(UUID dragged, UUID targetGroup, UUID beforeUuid) {
+        performMove(java.util.List.of(dragged), targetGroup, beforeUuid);
     }
 
     /**
-     * 执行归属变更：委托 core 的 NodeMover（经 Sanctum.move / Sanctum.moveTo），失败给出状态提示。
-     * <p>targetGroup 为 null 表示移到顶层（左树落到「密码库」区段），对组合法（NodeMover 会写入根对象）；
-     * 对条目不合法（条目必须属于组），此时 Sanctum.move 会抛清晰异常并由下方 catch 提示，
-     * 不可在此提前以 null 守卫把整类操作静默吞掉（否则拖到密码库看起来「落不上」）。</p>
-     * <p>beforeUuid 非 null 表示「插到该兄弟之前」（小数索引相对排序）；为 null 则追加到目标父末尾。</p>
+     * 执行归属变更（支持一次移动多个节点）：委托 core 的 NodeMover（经 Sanctum.moveTo）。
+     * <p>targetGroup 为 null 表示移到顶层（左树落到「密码库」区段），对组合法；对条目不合法时
+     * Sanctum.moveTo 会抛清晰异常并提示。beforeUuid 非 null 表示「插到该兄弟之前」。</p>
+     * <p>冲突检测：若选择同时包含某组与其内部节点（a 是 b 的祖先），整体拒绝以免产生悬空/循环。</p>
+     * <p>垃圾桶内的节点：先递归还原（restore）再移动，使其整体回到普通库；非垃圾桶节点直接移动。</p>
      */
-    private void performMove(UUID dragged, UUID targetGroup, UUID beforeUuid) {
-        if (dragged == null) {
+    private void performMove(List<UUID> dragged, UUID targetGroup, UUID beforeUuid) {
+        if (dragged == null || dragged.isEmpty()) {
             return;
         }
-        try {
-            if (beforeUuid == null) {
-                sanctum.move(dragged, targetGroup);
-            } else {
-                sanctum.moveTo(dragged, targetGroup, beforeUuid);
+        for (int i = 0; i < dragged.size(); i++) {
+            for (int j = 0; j < dragged.size(); j++) {
+                if (i != j && isAncestor(dragged.get(i), dragged.get(j))) {
+                    statusLabel.setText("无法移动：选择同时包含某组与其内部节点");
+                    return;
+                }
             }
-            refreshAll();
-            statusLabel.setText("已调整归属");
-        } catch (Exception ex) {
-            statusLabel.setText("移动失败："
-                    + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+        }
+        int moved = 0;
+        for (UUID id : dragged) {
+            if (id.equals(targetGroup)) {
+                continue; // 不能移到自身之下
+            }
+            try {
+                if (trashView != null && trashView.contains(id)) {
+                    restoreRecursive(id);
+                }
+                sanctum.moveTo(id, targetGroup, beforeUuid);
+                moved++;
+            } catch (Exception ex) {
+                statusLabel.setText("移动失败："
+                        + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+            }
+        }
+        if (moved > 0) {
+            try {
+                refreshAll();
+                statusLabel.setText("已移动 " + moved + " 个节点");
+            } catch (Exception ex) {
+                // 移动已生效，仅界面刷新失败（如部分构造的 headless 环境下按钮未初始化）；不回滚
+                statusLabel.setText("已移动 " + moved + " 个节点（界面刷新失败："
+                        + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()) + "）");
+            }
         }
     }
 
-    private static UUID uuidOf(String ref) {
-        if (ref == null) {
-            return null;
-        }
-        try {
-            return UUID.fromString(ref);
-        } catch (IllegalArgumentException ex) {
-            return null;
+    /** 还原节点并递归还原其在垃圾桶内的后代，使被移出的组保持完整子树。 */
+    private void restoreRecursive(UUID id) {
+        sanctum.restore(id);
+        TreeNode n = sanctum.findNode(id);
+        if (n instanceof GroupNode g) {
+            for (TreeNode c : g.children()) {
+                if (trashView != null && trashView.contains(c.uuid())) {
+                    restoreRecursive(c.uuid());
+                }
+            }
         }
     }
 
-    /** 左树拖拽：拖出组/条目，拖入文件夹（或根「密码库」区段）即改归属。 */
+    /** 判断 a 是否为 b 的祖先（沿 b 的 parent 链向上，命中 a 即真）。 */
+    private boolean isAncestor(UUID a, UUID b) {
+        UUID cur = b;
+        java.util.Set<UUID> seen = new java.util.HashSet<>();
+        while (cur != null && seen.add(cur)) {
+            if (cur.equals(a)) {
+                return true;
+            }
+            cur = parentOf(cur);
+        }
+        return false;
+    }
+
+    /** 左树拖拽：拖出组/条目（含垃圾桶节点），拖入普通文件夹（或根「密码库」区段）即改归属。 */
     private final class TreeDragHandler extends TransferHandler {
         @Override
         public int getSourceActions(JComponent c) {
@@ -1419,22 +1567,28 @@ public final class SanctumGui {
 
         @Override
         protected Transferable createTransferable(JComponent c) {
-            Object sel = currentSelection();
-            if (sel instanceof UUID u && !isTrashSelection()) {
-                return new StringSelection(u.toString());
+            List<UUID> ids = new java.util.ArrayList<>();
+            TreePath[] paths = groupTree.getSelectionPaths();
+            if (paths != null) {
+                for (TreePath p : paths) {
+                    Object uo = ((DefaultMutableTreeNode) p.getLastPathComponent()).getUserObject();
+                    if (uo instanceof UUID u) {
+                        ids.add(u);
+                    }
+                }
             }
-            return null;
+            return ids.isEmpty() ? null : uuidListTransferable(ids);
         }
 
         @Override
         public boolean canImport(TransferHandler.TransferSupport support) {
-            return support.isDataFlavorSupported(DataFlavor.stringFlavor);
+            return support.isDataFlavorSupported(NODE_LIST_FLAVOR);
         }
 
         @Override
         public boolean importData(TransferHandler.TransferSupport support) {
-            UUID dragged = parseDragged(support);
-            if (dragged == null) {
+            List<UUID> dragged = parseDraggedList(support);
+            if (dragged == null || dragged.isEmpty()) {
                 return false;
             }
             JTree.DropLocation loc = (JTree.DropLocation) support.getDropLocation();
@@ -1444,18 +1598,22 @@ public final class SanctumGui {
             Object uo = ((DefaultMutableTreeNode) loc.getPath().getLastPathComponent()).getUserObject();
             UUID targetGroup;
             if (uo instanceof UUID g) {
+                // 禁止拖入垃圾桶内的组（避免把节点藏进垃圾桶）
+                if (trashView != null && trashView.contains(g)) {
+                    return false;
+                }
                 targetGroup = g;
             } else if (uo instanceof ViewNodeType t && t == ViewNodeType.PASSWORD) {
                 targetGroup = null; // 落到根（顶层）
             } else {
                 return false;
             }
-            performMove(dragged, targetGroup);
+            performMove(dragged, targetGroup, null);
             return true;
         }
     }
 
-    /** 中间栏拖拽：拖出条目/文件夹，拖入文件夹（中间栏或左树）即改归属。 */
+    /** 中间栏拖拽：拖出条目/文件夹（含垃圾桶节点），拖入文件夹（中间栏或左树）即改归属。 */
     private final class ListDragHandler extends TransferHandler {
         @Override
         public int getSourceActions(JComponent c) {
@@ -1464,22 +1622,22 @@ public final class SanctumGui {
 
         @Override
         protected Transferable createTransferable(JComponent c) {
-            UUID u = selectedEntryUuid();
-            if (u == null || (trashView != null && trashView.contains(u))) {
-                return null;
+            List<UUID> ids = new java.util.ArrayList<>();
+            for (EntryListItem item : entryList.getSelectedValuesList()) {
+                ids.add(item.uuid());
             }
-            return new StringSelection(u.toString());
+            return ids.isEmpty() ? null : uuidListTransferable(ids);
         }
 
         @Override
         public boolean canImport(TransferHandler.TransferSupport support) {
-            return support.isDataFlavorSupported(DataFlavor.stringFlavor);
+            return support.isDataFlavorSupported(NODE_LIST_FLAVOR);
         }
 
         @Override
         public boolean importData(TransferHandler.TransferSupport support) {
-            UUID dragged = parseDragged(support);
-            if (dragged == null) {
+            List<UUID> dragged = parseDraggedList(support);
+            if (dragged == null || dragged.isEmpty()) {
                 return false;
             }
             JList.DropLocation loc = (JList.DropLocation) support.getDropLocation();
@@ -1492,7 +1650,9 @@ public final class SanctumGui {
                     targetGroup = item.uuid(); // 落到组行：进该组末尾
                 } else if (item.type() == StoredNodeType.ENTRY) {
                     EntryNode en = sanctum.objectTree().entry(item.uuid());
-                    targetGroup = en == null ? null : uuidOf(en.parentRef());
+                    // parentRef 为 hex，需用 UuidHex 还原（非标准带连字符 UUID）
+                    targetGroup = en == null ? null
+                            : com.flora.sanctum.core.util.UuidHex.fromHex(en.parentRef());
                     beforeUuid = item.uuid(); // 落到条目上：插到它之前（跨组则同时改父）
                 }
             } else {
@@ -1502,7 +1662,7 @@ public final class SanctumGui {
                     targetGroup = cur;
                 }
             }
-            if (targetGroup == null) {
+            if (targetGroup == null || (trashView != null && trashView.contains(targetGroup))) {
                 return false;
             }
             performMove(dragged, targetGroup, beforeUuid);
@@ -1693,15 +1853,34 @@ public final class SanctumGui {
             return;
         }
 
-        // 垃圾桶区段：扁平列出所有类型（手动删除/不可达/不可解锁），标签带类型后缀以便区分
+        // 垃圾桶区段：选中其中某个组时，中间列表列出它的（在垃圾桶内的）子项，可逐层进入（与密码库组一致）；
+        // 选中垃圾桶根或非组叶子时，列出顶层 trash 项（带类型后缀）。
         if (ViewNodeType.TRASH == section) {
-            if (trashView != null) {
-                for (com.flora.sanctum.core.model.TrashView.TrashKind k
-                        : com.flora.sanctum.core.model.TrashView.TrashKind.values()) {
-                    for (UUID id : trashUuids(k)) {
-                        String label = nodeName(id) + "  ·  [" + trashKindLabel(k) + "]";
-                        entryModel.addElement(new EntryListItem(id, typeOf(id), label, iconRefOfNode(id)));
+            Object trashSel = currentSelection();
+            UUID trashGroup = (trashSel instanceof UUID u && trashView != null && trashView.contains(u)
+                    && typeOf(u) == StoredNodeType.GROUP) ? u : null;
+            if (trashGroup != null) {
+                GroupNode g = sanctum.objectTree().group(trashGroup);
+                if (g != null) {
+                    for (TreeNode c : g.children()) {
+                        if (trashView.contains(c.uuid())) {
+                            if (c instanceof GroupNode cg) {
+                                entryModel.addElement(new EntryListItem(cg.uuid(), StoredNodeType.GROUP,
+                                        cg.name(), cg.iconRef()));
+                            } else if (c instanceof EntryNode ce) {
+                                entryModel.addElement(new EntryListItem(ce.uuid(), StoredNodeType.ENTRY,
+                                        ce.name(), ce.iconRef()));
+                            }
+                        }
                     }
+                }
+                return;
+            }
+            if (trashView != null) {
+                for (UUID id : trashTopLevelIds()) {
+                    com.flora.sanctum.core.model.TrashView.TrashKind k = trashView.kindOf(id);
+                    String label = nodeName(id) + "  ·  [" + (k == null ? "未知" : trashKindLabel(k)) + "]";
+                    entryModel.addElement(new EntryListItem(id, typeOf(id), label, iconRefOfNode(id)));
                 }
             }
             return;
@@ -2270,6 +2449,10 @@ public final class SanctumGui {
         if (type == StoredNodeType.GROUP) {
             GroupNode g = (GroupNode) node;
             editPanel.add(makeInfoRow("名称", g == null ? null : g.name()));
+            if (g != null) {
+                long inTrash = g.children().stream().filter(c -> trashView.contains(c.uuid())).count();
+                editPanel.add(makeInfoRow("子项（在垃圾桶内）", String.valueOf(inTrash)));
+            }
         } else if (type == StoredNodeType.ENTRY) {
             EntryNode en = (EntryNode) node;
             if (en == null) {
@@ -4027,8 +4210,11 @@ public final class SanctumGui {
     /** 在设置右栏追加一个操作按钮。 */
     private void addSettingsActionBtn(String label, Runnable action) {
         JButton b = new JButton(label);
+        // 占满整行、文字靠左（BoxLayout 下需同时设定水平对齐与 alignmentX，否则易居中/贴边）
         b.setHorizontalAlignment(SwingConstants.LEFT);
+        b.setAlignmentX(Component.LEFT_ALIGNMENT);
         b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        b.setMargin(new java.awt.Insets(0, 8, 0, 0));
         b.addActionListener(e -> action.run());
         settingsEditPanel.add(javax.swing.Box.createVerticalStrut(10));
         settingsEditPanel.add(b);

@@ -1981,6 +1981,8 @@ public final class SanctumGui {
                 target.add(javax.swing.Box.createVerticalStrut(4));
                 javax.swing.JTextField nameField = new javax.swing.JTextField(
                         node.name() == null ? "" : node.name(), 24);
+                // 限制最大高度，避免 BoxLayout 把单行输入框纵向拉伸
+                nameField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
                 target.add(nameField);
                 target.add(javax.swing.Box.createVerticalStrut(10));
                 saveBtn = makeActionButton("保存名称", () -> {
@@ -2251,8 +2253,7 @@ public final class SanctumGui {
         target.add(nameRow);
         addInfoLabel("私钥已加密存储（不显示明文）", target);
 
-        JButton saveBtn = new JButton("保存");
-        saveBtn.addActionListener(e -> {
+        JButton saveBtn = makeActionButton("保存", () -> {
             String newName = nameField.getText().trim();
             if (newName.isEmpty()) {
                 statusLabel.setText("密钥名称不能为空");
@@ -2333,8 +2334,7 @@ public final class SanctumGui {
         form.add(keyCombo);
         target.add(form);
 
-        JButton saveBtn = new JButton("保存");
-        saveBtn.addActionListener(e -> {
+        JButton saveBtn = makeActionButton("保存", () -> {
             String newName = nameField.getText().trim();
             String url = urlField.getText().trim();
             if (newName.isEmpty() || url.isEmpty()) {

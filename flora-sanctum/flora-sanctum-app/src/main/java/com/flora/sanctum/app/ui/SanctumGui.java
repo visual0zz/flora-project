@@ -615,7 +615,7 @@ public final class SanctumGui {
     // ---- 新建 / 导入 / 打开 ----
 
     private void doNewVault() {
-        NewVaultDialog dlg = new NewVaultDialog(frame, req -> {
+        NewVaultDialog dlg = new NewVaultDialog(frame, executor, req -> {
             try {
                 LOG.info("Creating new vault at {} (standalone={})", req.target(), req.standalone());
                 Path root = com.flora.sanctum.app.bootstrap.RepoCreator.createNormal(req.target());
@@ -4102,7 +4102,7 @@ public final class SanctumGui {
             case VAULT -> {
                 // 复合表单（伪对象条目）：换主密码 + Argon2 参数，右栏整页渲染
                 settingsEntryModel.addElement(new SettingsModel.ObjectEntry(
-                        "master-kdf", "主密码与加密参数", SettingsModel.SettingsCategory.Kind.VAULT));
+                        "master-kdf", "主密码与参数", SettingsModel.SettingsCategory.Kind.VAULT));
                 settingsEntryModel.addElement(
                         new SettingsModel.SettingEntry(SettingsModel.LockTimeoutSetting.INSTANCE));
                 settingsEntryModel.addElement(
@@ -4239,7 +4239,7 @@ public final class SanctumGui {
         if (cur == null) {
             return;
         }
-        settingsEditPanel.add(new JLabel("修改主密码与 Argon2 参数"));
+        settingsEditPanel.add(new JLabel("修改主密码与参数"));
         settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
         settingsEditPanel.add(new MasterKdfPanel(cur.memoryKiB(), cur.iterations(), cur.parallelism(),
                 executor, this::changeMasterPasswordAndReload));

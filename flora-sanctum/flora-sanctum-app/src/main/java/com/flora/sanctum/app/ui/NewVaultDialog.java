@@ -23,6 +23,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.function.Consumer;
 
+import com.flora.sanctum.app.BackgroundExecutor;
 import com.flora.sanctum.core.store.VaultProbe;
 
 /**
@@ -45,7 +46,7 @@ final class NewVaultDialog extends JDialog {
     private final JLabel finalPathLabel = new JLabel();
     private final JPanel advancedPanel = new JPanel();
     private final JCheckBox standaloneCheck = new JCheckBox("独立仓库", false);
-    private final KdfParamsPanel kdfPanel = new KdfParamsPanel();
+    private final KdfParamsPanel kdfPanel;
     private final PasswordField pwField = new PasswordField(20);
     private final PasswordField confirmField = new PasswordField(20);
     private final JLabel strengthLabel = new JLabel("", JLabel.LEFT);
@@ -54,9 +55,10 @@ final class NewVaultDialog extends JDialog {
 
     private final Consumer<Request> onConfirm;
 
-    NewVaultDialog(java.awt.Window owner, Consumer<Request> onConfirm) {
+    NewVaultDialog(java.awt.Window owner, BackgroundExecutor executor, Consumer<Request> onConfirm) {
         super(owner, "新建仓库", ModalityType.APPLICATION_MODAL);
         this.onConfirm = onConfirm;
+        this.kdfPanel = new KdfParamsPanel(executor);
 
         locationField.setText(defaultLocation().toString());
         setLayout(new BorderLayout(0, 0));

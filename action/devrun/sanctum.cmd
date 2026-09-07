@@ -25,9 +25,9 @@ else
   exit 1
 fi
 
-# ---- 2. Package flora-sanctum-app (copies deps to target/lib) ----
-printf '%b\n' "${CYAN}\$ ./mvnw -pl flora-sanctum/flora-sanctum-app package -DskipTests${NC}"
-if ./mvnw -s addition/config/settings.xml -P !osmetes-check -pl flora-sanctum/flora-sanctum-app package -DskipTests; then
+# ---- 2. Package flora-sanctum-app (clean: removes stale version jars left in target/lib) ----
+printf '%b\n' "${CYAN}\$ ./mvnw -pl flora-sanctum/flora-sanctum-app clean package -DskipTests${NC}"
+if ./mvnw -s addition/config/settings.xml -P !osmetes-check -pl flora-sanctum/flora-sanctum-app clean package -DskipTests; then
   printf '%b\n' "${GREEN}    \xe2\x9c\x93 flora-sanctum-app packaged${NC}"
 else
   printf '%b\n' "${RED}    \xe2\x9c\x97 flora-sanctum-app build FAILED${NC}"
@@ -67,9 +67,9 @@ if %errorlevel% neq 0 (
 )
 echo %ESC%[32m    OK: dependencies installed%ESC%[0m
 
-rem ---- 2. Package flora-sanctum-app ----
-echo %ESC%[36m$ mvnw -pl flora-sanctum/flora-sanctum-app package -DskipTests%ESC%[0m
-call mvnw -s addition/config/settings.xml -P !osmetes-check -pl flora-sanctum/flora-sanctum-app package -DskipTests
+rem ---- 2. Package flora-sanctum-app (clean: removes stale version jars left in target/lib) ----
+echo %ESC%[36m$ mvnw -pl flora-sanctum/flora-sanctum-app clean package -DskipTests%ESC%[0m
+call mvnw -s addition/config/settings.xml -P !osmetes-check -pl flora-sanctum/flora-sanctum-app clean package -DskipTests
 if %errorlevel% neq 0 (
   echo %ESC%[31m    FAILED: flora-sanctum-app build%ESC%[0m
   exit /b 1

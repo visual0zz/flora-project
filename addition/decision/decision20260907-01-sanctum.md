@@ -51,3 +51,11 @@
   `renderMasterKdfPanel` 与 `changeMasterPasswordAndReload`。
 - 测试：`Argon2IterationHintTest`（纯算术 3 项）；`SanctumTest.kdfParamsReflectsCurrentManifest`。
 - 行为：换密码/调参后回到主界面（等价一次重新解锁），不留在设置页。
+
+## 决策（补充）：估算逻辑抽为共享探针并接入新建仓库对话框
+
+同一估算能力在「新建仓库」对话框也应可用。将两步实测与后台调度抽为
+`ui/Argon2IterationProbe`（提交至 `BackgroundExecutor`、回调 EDT、含提示文案与实测函数），
+`MasterKdfPanel` 与 `KdfParamsPanel`（新建仓库「高级 → Argon2id」框）都只做参数校验与
+按钮/标签的本地 UI 态，不再各自实现测量算法。`NewVaultDialog` 构造改为注入
+`BackgroundExecutor` 并透传给 `KdfParamsPanel`。

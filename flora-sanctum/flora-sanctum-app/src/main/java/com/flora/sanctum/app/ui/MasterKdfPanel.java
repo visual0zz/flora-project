@@ -7,18 +7,17 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.util.Arrays;
-import java.util.Locale;
 
 /**
  * 设置页「主密码与 Argon2 参数」表单：新主密码/确认 + 内存/迭代/并行度三项，
@@ -34,12 +33,6 @@ final class MasterKdfPanel extends JPanel {
     interface Launcher {
         void launch(char[] password, int memoryKiB, int iterations, int parallelism);
     }
-
-    /**
-     * 单次迭代实测低于该阈值（秒）时计时噪声不可忽略：先按 t1 估出总耗时约 1 秒的迭代数 n0，
-     * 再实测「n0 次迭代」那一档的总耗时，用 {@code T(n0)/n0} 作为更可信的单次耗时。
-     */
-    private static final double REFINE_BELOW_SECONDS = 0.5;
 
     private final Launcher launcher;
     private final BackgroundExecutor executor;
@@ -67,7 +60,7 @@ final class MasterKdfPanel extends JPanel {
         confirmField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
         content.add(fullRow("新主密码：", newPasswordField));
         content.add(Box.createVerticalStrut(6));
-        content.add(fullRow("确认新密码：", confirmField));
+        content.add(fullRow("确认密码：", confirmField));
         content.add(Box.createVerticalStrut(10));
         content.add(buildArgon2Area());
         content.add(Box.createVerticalStrut(10));
@@ -75,18 +68,34 @@ final class MasterKdfPanel extends JPanel {
         errorLabel.setForeground(Color.RED.darker());
         content.add(errorLabel);
 
-        add(content, BorderLayout.NORTH);
-
-        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 2));
-        bottom.setOpaque(false);
+        // 保存按钮：与其他设置项一致的一横条外观（整行、文字靠左）
+        content.add(Box.createVerticalStrut(10));
         JButton saveButton = new JButton("保存");
+        saveButton.setHorizontalAlignment(SwingConstants.LEFT);
+        saveButton.setMargin(new java.awt.Insets(0, 8, 0, 0));
+        saveButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        saveButton.setAlignmentX(Component.LEFT_ALIGNMENT);
         saveButton.addActionListener(e -> save());
-        bottom.add(saveButton);
-        add(bottom, BorderLayout.SOUTH);
+        content.add(saveButton);
+
+        // BoxLayout 交叉轴按全部子件的 alignmentX 聚合出总对齐值：直接子件混用默认值
+        // （Box 间距 0.5、JPanel/JLabel 0.0）会把左对齐的行整体右推。统一为 LEFT 消除偏移
+        // （见 addition/exploration/explore20260906-01-swing-boxlayout-cross-axis-alignment.md）。
+        for (Component c : content.getComponents()) {
+            if (c instanceof JComponent jc) {
+                jc.setAlignmentX(Component.LEFT_ALIGNMENT);
+            }
+        }
+
+        add(content, BorderLayout.NORTH);
 
         memoryField.setText(String.valueOf(currentMemoryKiB));
         iterationsField.setText(String.valueOf(currentIterations));
         parallelismField.setText(String.valueOf(currentParallelism));
+
+        // 面板自身放进设置右栏（Y Box）：占满整行宽、高度取自然值（避免被纵向拉伸）
+        setAlignmentX(Component.LEFT_ALIGNMENT);
+        setMaximumSize(new Dimension(Integer.MAX_VALUE, getPreferredSize().height));
     }
 
     /** Argon2 参数区：内存/迭代/并行度三行 + 迭代行右侧的测试按钮。 */
@@ -105,6 +114,15 @@ final class MasterKdfPanel extends JPanel {
         area.add(Box.createVerticalStrut(6));
         area.add(paramRow("并行度：", parallelismField));
         area.add(Box.createVerticalStrut(8));
+
+        // 同上：区域内直接子件统一 LEFT，使标题框与各行的左边缘对齐且行占满
+        for (Component c : area.getComponents()) {
+            if (c instanceof JComponent jc) {
+                jc.setAlignmentX(Component.LEFT_ALIGNMENT);
+            }
+        }
+        area.setAlignmentX(Component.LEFT_ALIGNMENT);
+        area.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
         iterationsHint.setForeground(Color.GRAY);
         iterationsHint.setText("(点击“测试”估算)");
@@ -141,6 +159,8 @@ final class MasterKdfPanel extends JPanel {
     private static JPanel fullRow(String label, Component c) {
         JPanel row = new JPanel(new BorderLayout(8, 0));
         row.setOpaque(false);
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
         row.add(new JLabel(label), BorderLayout.WEST);
         row.add(c, BorderLayout.CENTER);
         return row;
@@ -189,11 +209,8 @@ final class MasterKdfPanel extends JPanel {
     }
 
     /**
-     * 测试：两步估算「总耗时最接近 1 秒的迭代数」。
-     * 先实测 1 次迭代耗时 t1；若 t1 &lt; 0.5s，按 t1 估出约 1 秒的迭代数 n0 并实测该档总耗时，
-     * 用 T(n0)/n0 折算单次耗时（消除短时计时噪声）；若 t1 ≥ 0.5s 直接采用 t1。
-     * 走 {@link BackgroundExecutor}（单线程串行 + 执行期间不判定自动锁定），
-     * 状态栏/转圈提示由 executor 的 Listener 统一给出。
+     * 测试：两步折算实测单次迭代耗时并给出「总耗时最接近 1 秒」的括号建议。
+     * 算法与后台调度见 {@link Argon2IterationProbe}（BackgroundExecutor 串行执行、回调在 EDT）。
      */
     private void runBenchmark() {
         Integer m = parse(memoryField.getText());
@@ -211,59 +228,20 @@ final class MasterKdfPanel extends JPanel {
         clearError();
         testButton.setEnabled(false);
         iterationsHint.setText("正在测试…");
-        final int memoryKiB = m;
-        final int parallelism = p;
-        executor.submit(new BackgroundExecutor.Task() {
+        Argon2IterationProbe.run(executor, m, p, new Argon2IterationProbe.Listener() {
             @Override
-            public String name() {
-                return "测试 Argon2 耗时";
+            public void onDone(double perIterationSeconds) {
+                testButton.setEnabled(true);
+                iterationsHint.setText(Argon2IterationProbe.hintText(perIterationSeconds));
             }
 
             @Override
-            public void run() {
-                final double per;
-                try {
-                    double t1 = measureSeconds(memoryKiB, parallelism, 1);
-                    if (t1 < REFINE_BELOW_SECONDS) {
-                        // 单次太短、计时噪声大：先估出总耗时约 1 秒的迭代数 n0，
-                        // 再实测该档总耗时，用 T(n0)/n0 折算单次耗时
-                        int n0 = Argon2KDF.suggestIterationsForOneSecond(t1);
-                        per = measureSeconds(memoryKiB, parallelism, n0) / n0;
-                    } else {
-                        per = t1;
-                    }
-                } catch (Exception ex) {
-                    SwingUtilities.invokeLater(() -> {
-                        testButton.setEnabled(true);
-                        iterationsHint.setText("");
-                        setError("测试失败：" + (ex.getMessage() == null
-                                ? ex.getClass().getSimpleName() : ex.getMessage()));
-                    });
-                    return;
-                }
-                SwingUtilities.invokeLater(() -> {
-                    testButton.setEnabled(true);
-                    applyMeasurement(per);
-                });
+            public void onError(String message) {
+                testButton.setEnabled(true);
+                iterationsHint.setText("");
+                setError(message);
             }
         });
-    }
-
-    /** 用最终的单次迭代耗时刷新括号提示（EDT）。 */
-    private void applyMeasurement(double per) {
-        int n = Argon2KDF.suggestIterationsForOneSecond(per);
-        iterationsHint.setText("(" + n + " 次 ≈ "
-                + String.format(Locale.ROOT, "%.2f", n * per) + " 秒)");
-    }
-
-    /** 实测指定迭代数的总耗时（秒）：走与解锁完全相同的 Argon2KDF 派生路径。 */
-    private static double measureSeconds(int memoryKiB, int parallelism, int iterations) {
-        byte[] salt = new byte[16];
-        Argon2KDF kdf = new Argon2KDF(salt, memoryKiB, iterations, parallelism);
-        char[] pwd = {'x'};
-        long start = System.nanoTime();
-        kdf.derive(pwd);
-        return (System.nanoTime() - start) / 1_000_000_000.0;
     }
 
     private static Integer parse(String s) {

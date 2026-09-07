@@ -112,6 +112,19 @@ public final class Sanctum implements AutoCloseable {
         return vault == null ? null : vault.rootObjectUuid();
     }
 
+    /** 当前解锁会话的 Argon2 参数（内存 KiB / 迭代 / 并行度）；未解锁返回 null。 */
+    public KdfParams kdfParams() {
+        if (vault == null) {
+            return null;
+        }
+        Manifest m = vault.manifest();
+        return new KdfParams(m.memoryKiB(), m.iterations(), m.parallelism());
+    }
+
+    /** Argon2 参数快照：设置页预填与保存后展示当前值。 */
+    public record KdfParams(int memoryKiB, int iterations, int parallelism) {
+    }
+
     /** 配置数据（远端配置等）。 */
     public LibraryConfig config() {
         return config;

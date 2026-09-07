@@ -43,6 +43,31 @@ public final class Argon2KDF {
         }
     }
 
+    /**
+     * 估算使总耗时最接近 1 秒的严格整数迭代次数。
+     *
+     * <p>给定实测的单次迭代耗时（秒），在迭代次数必须为正整数的前提下，取使
+     * {@code 迭代次数 × 单次耗时} 最接近 1 秒的次数；等距时取较小者。供设置页
+     * 「测试」按钮把建议以「(n 次 ≈ x.xx 秒)」形式附加在迭代输入右侧，而不改动输入值。</p>
+     *
+     * @param secondsPerIteration 实测单次迭代耗时（秒）
+     * @throws IllegalArgumentException 入参非正或非有限
+     */
+    public static int suggestIterationsForOneSecond(double secondsPerIteration) {
+        if (!(secondsPerIteration > 0.0) || !Double.isFinite(secondsPerIteration)) {
+            throw new IllegalArgumentException("secondsPerIteration must be positive and finite");
+        }
+        long k = (long) Math.floor(1.0 / secondsPerIteration);
+        long n1 = Math.max(1L, k);
+        long n2 = n1 + 1;
+        double d1 = Math.abs(n1 * secondsPerIteration - 1.0);
+        double d2 = Math.abs(n2 * secondsPerIteration - 1.0);
+        // 浮点误差容忍：近似等距时取较小的迭代次数
+        boolean secondCloser = d2 < d1 - 1e-12;
+        long best = secondCloser ? n2 : n1;
+        return (int) Math.min(best, Integer.MAX_VALUE);
+    }
+
     public int memoryKiB() {
         return memoryKiB;
     }

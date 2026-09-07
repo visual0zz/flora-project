@@ -276,6 +276,24 @@ class SanctumTest {
     }
 
     @Test
+    void kdfParamsReflectsCurrentManifest() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
+        Sanctum.KdfParams p = s.kdfParams();
+        assertNotNull(p);
+        assertEquals(8192, p.memoryKiB());
+        assertEquals(2, p.iterations());
+        assertEquals(1, p.parallelism());
+
+        // 轮换后（manifest 已更新、尚未重新解锁）应反映新参数，供设置页保存后展示
+        s.changeMasterPassword("pw2".toCharArray(), 65536, 3, 4);
+        Sanctum.KdfParams q = s.kdfParams();
+        assertEquals(65536, q.memoryKiB());
+        assertEquals(3, q.iterations());
+        assertEquals(4, q.parallelism());
+        s.close();
+    }
+
+    @Test
     void relocatedBlockFailsAuthentication() throws Exception {
         char[] pw = "pw".toCharArray();
         Sanctum s = Sanctum.createAndUnlock(dir, pw, 8192, 2, 1);

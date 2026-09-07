@@ -4100,6 +4100,9 @@ public final class SanctumGui {
             case GLOBAL -> settingsEntryModel.addElement(
                     new SettingsModel.SettingEntry(SettingsModel.ThemeSetting.INSTANCE));
             case VAULT -> {
+                // 复合表单（伪对象条目）：换主密码 + Argon2 参数，右栏整页渲染
+                settingsEntryModel.addElement(new SettingsModel.ObjectEntry(
+                        "master-kdf", "主密码与加密参数", SettingsModel.SettingsCategory.Kind.VAULT));
                 settingsEntryModel.addElement(
                         new SettingsModel.SettingEntry(SettingsModel.LockTimeoutSetting.INSTANCE));
                 settingsEntryModel.addElement(
@@ -4188,8 +4191,9 @@ public final class SanctumGui {
                     case REMOTE -> {
                         renderRemotePanel(UUID.fromString(oe.id()), settingsEditPanel);
                     }
-                    // GLOBAL / VAULT 仅产生 SettingEntry，不会进入此分支
-                    case GLOBAL, VAULT -> { }
+                    // VAULT 的「主密码与加密参数」为复合表单伪对象条目；GLOBAL/其它不产生 ObjectEntry
+                    case VAULT -> renderMasterKdfPanel();
+                    case GLOBAL -> { }
                 }
             }
         }
@@ -4227,6 +4231,81 @@ public final class SanctumGui {
                 }
             });
         }
+    }
+
+    /** 渲染「主密码与 Argon2 参数」复合表单：密码与参数同页展示、一次保存。 */
+    private void renderMasterKdfPanel() {
+        Sanctum.KdfParams cur = sanctum == null ? null : sanctum.kdfParams();
+        if (cur == null) {
+            return;
+        }
+        settingsEditPanel.add(new JLabel("修改主密码与 Argon2 参数"));
+        settingsEditPanel.add(javax.swing.Box.createVerticalStrut(4));
+        settingsEditPanel.add(new MasterKdfPanel(cur.memoryKiB(), cur.iterations(), cur.parallelism(),
+                executor, this::changeMasterPasswordAndReload));
+    }
+
+    /**
+     * 修改主密码与 Argon2 参数（设置页「保存」触发）：
+     * 后台完成密钥轮换并把根对象迁至新 KEK 推导的新路径，再在同一实例内重新解锁
+     * （根 uuid 与磁盘布局已变，必须重建会话使内存树与磁盘一致）。成功回到主界面；
+     * 失败则回到该仓库的解锁页，让用户用任一可用的主密码重新校验。
+     */
+    private void changeMasterPasswordAndReload(char[] password, int memoryKiB,
+                                               int iterations, int parallelism) {
+        resetAutoLock();
+        final Path root = sanctum.root();
+        JDialog progress = new JDialog(frame, "正在修改主密码", ModalityType.APPLICATION_MODAL);
+        JPanel pp = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 14));
+        pp.setOpaque(false);
+        SpinnerIcon spinner = new SpinnerIcon(26);
+        JLabel spinLabel = new JLabel(spinner);
+        javax.swing.Timer timer = new javax.swing.Timer(50, e -> {
+            spinner.angle += 24;
+            spinLabel.repaint();
+        });
+        pp.add(spinLabel);
+        pp.add(new JLabel("正在重新加密并保存…"));
+        progress.setContentPane(pp);
+        progress.setSize(240, 72);
+        progress.setLocationRelativeTo(frame);
+        progress.setUndecorated(true);
+
+        java.util.concurrent.CompletableFuture<Void> fut =
+                java.util.concurrent.CompletableFuture.runAsync(() -> {
+                    char[] copy = password.clone();
+                    java.util.Arrays.fill(password, (char) 0);
+                    try {
+                        LOG.info("Changing master password / Argon2 params at {}", root);
+                        sanctum.changeMasterPassword(copy, memoryKiB, iterations, parallelism);
+                        // 轮换后根对象分片位置改变：重建会话（重新解锁），使内存树/缓存与磁盘一致
+                        sanctum.lock();
+                        sanctum.unlock(copy);
+                        LOG.info("Master password / Argon2 params changed and vault reloaded at {}", root);
+                    } finally {
+                        java.util.Arrays.fill(copy, (char) 0);
+                    }
+                });
+        fut.whenComplete((v, ex) -> SwingUtilities.invokeLater(() -> {
+            timer.stop();
+            progress.dispose();
+            if (ex != null) {
+                Throwable cause = ex instanceof java.util.concurrent.CompletionException ce ? ce.getCause() : ex;
+                LOG.error("Failed to change master password at {}", root, cause);
+                // 磁盘布局可能已部分迁移：回到解锁页让用户用任一可用主密码重新校验
+                lock();
+                JOptionPane.showMessageDialog(frame,
+                        "修改失败：" + (cause == null ? "未知错误" : cause.getMessage()), "错误",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            onUnlocked(root, sanctum);
+            if (statusLabel != null) {
+                statusLabel.setText("主密码与 Argon2 参数已更新");
+            }
+        }));
+        timer.start();
+        progress.setVisible(true);
     }
 
     /** 把当前普通仓库升级为独立仓库（新增 config.json / lib/ / edit 脚本，数据不动）。 */

@@ -32,6 +32,9 @@ import java.util.random.RandomGenerator;
  */
 public final class Automaton {
 
+    /** 乘积构造的状态数上限：防止多个 pattern 组合时状态爆炸。 */
+    private static final int MAX_PRODUCT_STATES = 4096;
+
     private final Dfa dfa;
     private final int[] minLen;
 
@@ -50,15 +53,13 @@ public final class Automaton {
         return minLen[dfa.start()] >= 0;
     }
 
-    /** 指定字符串是否被接受。 */
+    /** 指定字符串是否被接受（按码点逐字符推进，支持增补平面字符）。 */
     public boolean matches(String s) {
         int state = dfa.start();
-        for (int i = 0; i < s.length(); i++) {
+        int i = 0;
+        while (i < s.length()) {
             int cp = s.codePointAt(i);
-            int width = Character.charCount(cp);
-            if (width == 2) {
-                return false; // 超出 BMP 字符不支持
-            }
+            i += Character.charCount(cp);
             Map<CharSet, Integer> out = dfa.transitionsOf(state);
             Integer next = null;
             for (Map.Entry<CharSet, Integer> e : out.entrySet()) {
@@ -135,33 +136,9 @@ public final class Automaton {
         return sb.toString();
     }
 
-    /** 估算典型长度（供上层预算分配参考）。 */
-    public int estimateLength() {
-        if (!isSatisfiable()) {
-            return 0;
-        }
-        // 从起始状态随机游走到接受状态，取路径长度
-        int state = dfa.start();
-        int len = 0;
-        while (!dfa.isAccept(state) || (len == 0 && dfa.isAccept(state))) {
-            if (dfa.isAccept(state)) {
-                break;
-            }
-            Map<CharSet, Integer> out = dfa.transitionsOf(state);
-            List<Map.Entry<CharSet, Integer>> candidates = new ArrayList<>();
-            for (Map.Entry<CharSet, Integer> e : out.entrySet()) {
-                if (minLen[e.getValue()] >= 0) {
-                    candidates.add(e);
-                }
-            }
-            if (candidates.isEmpty()) {
-                break;
-            }
-            int pick = (int) (Math.random() * candidates.size());
-            state = candidates.get(pick).getValue();
-            len++;
-        }
-        return len;
+    /** 该语言中最短串的长度；空语言为 -1。 */
+    public int minLength() {
+        return minLen[dfa.start()];
     }
 
     /** 补集：接受该语言补集的自动机。 */
@@ -198,6 +175,9 @@ public final class Automaton {
         // 补全两 DFA 为完全确定（未覆盖字符 → sink 自环），product 直接取交
         Dfa a = complete(dfa);
         Dfa b = complete(other.dfa);
+        if ((long) a.stateCount() * b.stateCount() > MAX_PRODUCT_STATES) {
+            throw new AutomatonException("正则组合过于复杂，乘积状态超上限 " + MAX_PRODUCT_STATES);
+        }
         int nb = b.stateCount();
         Dfa d = new Dfa();
         for (int sa = 0; sa < a.stateCount(); sa++) {
@@ -224,7 +204,6 @@ public final class Automaton {
                 }
             }
         }
-        d.refineTransitions();
         return new Automaton(d);
     }
 

@@ -424,26 +424,31 @@ class JsonGeneratorTest {
 
     @Test
     void allOfPatternsIntersect() {
-        // 同时满足 ^[a-z]+$ 与 [bc]+：生成结果必须两个 pattern 都匹配
+        // 同时满足 ^[a-z]+$ 与 [bc]+：生成结果必须两个 pattern 都命中
+        // 注意 pattern 的校验语义是 find()（非全匹配），与 JsonSchema 一致
         JsonGenerator gen = JsonGenerator.of(
                 "{\"allOf\":[{\"pattern\":\"^[a-z]+$\"},{\"pattern\":\"[bc]+\"}]}");
+        java.util.regex.Pattern first = java.util.regex.Pattern.compile("^[a-z]+$");
+        java.util.regex.Pattern second = java.util.regex.Pattern.compile("[bc]+");
         for (int i = 0; i < 30; i++) {
             JsonValue value = gen.generate();
             assertInstanceOf(JsonString.class, value);
             String s = ((JsonString) value).value();
-            assertTrue(java.util.regex.Pattern.matches("^[a-z]+$", s),
-                    "应满足 pattern1: " + s);
-            assertTrue(java.util.regex.Pattern.matches("[bc]+", s),
-                    "应满足 pattern2: " + s);
+            assertTrue(first.matcher(s).find(), "应满足 pattern1: " + s);
+            assertTrue(second.matcher(s).find(), "应满足 pattern2: " + s);
         }
     }
 
     @Test
-    void allOfPatternEmptyIntersectionThrows() {
-        // ^a+$ 与 ^b+$ 交集为空 → 生成抛 JsonGenerationException
+    void allOfPatternEmptyIntersectionDegrades() {
+        // ^a+$ 与 ^b+$ 交集为空：正则无法满足，降级为随机串而不是中断整份生成
         JsonGenerator gen = JsonGenerator.of(
                 "{\"allOf\":[{\"pattern\":\"^a+$\"},{\"pattern\":\"^b+$\"}]}");
-        assertThrows(JsonGenerationException.class, gen::generate);
+        for (int i = 0; i < 20; i++) {
+            JsonValue value = gen.generate();
+            assertInstanceOf(JsonString.class, value);
+            assertFalse(((JsonString) value).value().isEmpty(), "降级串不应为空");
+        }
     }
 
     // ── 递归截断满足硬约束 ──

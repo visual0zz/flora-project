@@ -5,9 +5,12 @@ import java.util.Locale;
 
 /**
  * 字段名语义推断与语义化随机字符串生成。
- * <p>按属性名猜测字段含义（camelCase / snake_case / 中文拼音均可分词），
+ * <p>按属性名猜测字段含义（camelCase / snake_case 均可分词），
  * 生成"像样"的值：{@code email} 出邮箱、{@code phone} 出手机号、{@code createdAt} 出日期时间等。
  * 无法识别含义时退化为随机字母数字串。</p>
+ *
+ * <p>与 format 语义重叠的部分（日期/时间/邮箱/URL/域名/IP/UUID）一律委托
+ * {@link FormatGenerator}，避免两套实现漂移。</p>
  *
  * <p><b>本类只负责"猜 + 造"，不负责合规</b>：生成值是否满足 {@code pattern}/
  * {@code minLength}/{@code maxLength} 由调用方判定，不合规可重试，
@@ -17,6 +20,9 @@ public final class SemanticStringGenerator {
 
     /** 语义候选被拒绝的最大次数：超过则放弃语义生成（由调用方改为按正则生成）。 */
     public static final int MAX_REJECTIONS = 5;
+
+    /** 整名包含兜底的最短关键词长度：比这更短的词（no/day/id）只在整词命中时生效。 */
+    private static final int MIN_CONTAINS_KEY = 4;
 
     private static final String[] FIRST_NAMES = {
             "Olivia", "Liam", "Emma", "Noah", "Ava", "Ethan", "Sophia", "Mason",
@@ -47,11 +53,14 @@ public final class SemanticStringGenerator {
     private static final String[] GENDERS = {"male", "female", "other", "unknown"};
     private static final String[] LOCALES = {"zh-CN", "en-US", "en-GB", "ja-JP", "de-DE", "fr-FR"};
     private static final String[] CURRENCIES = {"CNY", "USD", "EUR", "JPY", "GBP", "HKD"};
+    private static final String[] EXTENSIONS = {"txt", "json", "png", "log"};
 
     private final RandomSupport random;
+    private final FormatGenerator formats;
 
     SemanticStringGenerator(RandomSupport random) {
         this.random = random;
+        this.formats = new FormatGenerator(random);
     }
 
     /** 字段含义：推断的语义类别。 */
@@ -114,16 +123,20 @@ public final class SemanticStringGenerator {
 
     /**
      * 推断字段含义；无法识别返回 null。
-     * <p>先按分词精确命中（{@code userName} → [user,name] → USERNAME），
-     * 再按整名包含兜底（{@code userEmailList} 含 email）。</p>
+     * <p>先按分词精确命中（{@code userName} → [user,name] → USERNAME；规则顺序优先，
+     * 故 {@code userEmail} → EMAIL），
+     * 再按整名包含兜底（{@code userEmailList} 含 email）；兜底只考虑
+     * 长度 ≥ {@value #MIN_CONTAINS_KEY} 的关键词，避免 {@code no}/{@code day}
+     * 这类短词误命中。</p>
      */
     public static Kind infer(String fieldName) {
         if (fieldName == null || fieldName.isEmpty()) {
             return null;
         }
         List<String> tokens = tokenize(fieldName);
-        for (String token : tokens) {
-            for (Rule r : RULES) {
+        // 规则优先级优先于分词位置：userEmail 取 EMAIL 而不是 USERNAME
+        for (Rule r : RULES) {
+            for (String token : tokens) {
                 if (r.keys().contains(token)) {
                     return r.kind();
                 }
@@ -132,7 +145,7 @@ public final class SemanticStringGenerator {
         String joined = String.join("", tokens);
         for (Rule r : RULES) {
             for (String key : r.keys()) {
-                if (joined.contains(key)) {
+                if (key.length() >= MIN_CONTAINS_KEY && joined.contains(key)) {
                     return r.kind();
                 }
             }
@@ -174,30 +187,23 @@ public final class SemanticStringGenerator {
                     + random.intBetween(10, 99);
             case NICKNAME -> pick(WORDS) + "_" + pick(WORDS);
             case PASSWORD -> random.randomAscii(random.intBetween(10, 14));
-            case EMAIL -> random.randomAlpha(random.intBetween(5, 8)) + "@"
-                    + random.randomAlpha(random.intBetween(4, 6)) + ".com";
-            case PHONE -> "1" + pick(new String[]{"3", "5", "7", "8", "9"})
-                    + digits(9);
+            case EMAIL -> formats.email();
+            case PHONE -> "1" + pick(new String[]{"3", "5", "7", "8", "9"}) + digits(9);
             case TEL -> "0" + random.intBetween(10, 89) + "-" + digits(8);
-            case URL -> "https://" + random.randomAlpha(random.intBetween(4, 7)) + ".com/"
-                    + random.randomAlpha(random.intBetween(3, 6));
-            case HOSTNAME -> random.randomAlpha(random.intBetween(4, 6)) + "."
-                    + random.randomAlpha(3) + ".com";
-            case IP -> random.intBetween(1, 223) + "." + random.intBetween(0, 255)
-                    + "." + random.intBetween(0, 255) + "." + random.intBetween(1, 254);
-            case UUID -> uuid();
+            case URL -> formats.uri();
+            case HOSTNAME -> formats.hostname();
+            case IP -> formats.ipv4();
+            case UUID -> formats.uuid();
             case ID -> random.randomAlnum(random.intBetween(6, 10));
-            case DATE -> date();
-            case DATETIME -> date() + "T" + time();
-            case TIME -> time();
-            case ADDRESS -> random.intBetween(1, 999) + " " + pick(WORDS)
-                    + " Street, " + pick(CITIES);
+            case DATE -> formats.date();
+            case DATETIME -> formats.dateTime();
+            case TIME -> formats.time();
+            case ADDRESS -> random.intBetween(1, 999) + " " + pick(WORDS) + " Street, " + pick(CITIES);
             case CITY -> pick(CITIES);
             case COUNTRY -> pick(COUNTRIES);
             case COMPANY -> pick(COMPANY_PREFIX) + " " + pick(COMPANY_SUFFIX);
             case TITLE -> capitalize(pick(WORDS)) + " " + pick(WORDS);
-            case DESCRIPTION -> capitalize(pick(WORDS)) + " " + pick(WORDS)
-                    + " " + pick(WORDS) + ".";
+            case DESCRIPTION -> capitalize(pick(WORDS)) + " " + pick(WORDS) + " " + pick(WORDS) + ".";
             case STATUS -> pick(STATUSES);
             case CATEGORY -> pick(CATEGORIES);
             case TAG -> pick(WORDS);
@@ -213,8 +219,7 @@ public final class SemanticStringGenerator {
             case VERSION -> random.intBetween(0, 9) + "." + random.intBetween(0, 20)
                     + "." + random.intBetween(0, 30);
             case PATH -> "/" + random.randomAlpha(random.intBetween(3, 6)) + "/"
-                    + random.randomAlpha(random.intBetween(3, 6)) + "."
-                    + pick(new String[]{"txt", "json", "png", "log"});
+                    + random.randomAlpha(random.intBetween(3, 6)) + "." + pick(EXTENSIONS);
             case PORT -> String.valueOf(random.intBetween(1024, 65535));
         };
     }
@@ -227,31 +232,6 @@ public final class SemanticStringGenerator {
         StringBuilder sb = new StringBuilder(n);
         for (int i = 0; i < n; i++) {
             sb.append(random.intBetween(0, 9));
-        }
-        return sb.toString();
-    }
-
-    private String date() {
-        int year = random.intBetween(1990, 2030);
-        int month = random.intBetween(1, 12);
-        int day = random.intBetween(1, 28);
-        return String.format(Locale.ROOT, "%04d-%02d-%02d", year, month, day);
-    }
-
-    private String time() {
-        return String.format(Locale.ROOT, "%02d:%02d:%02dZ",
-                random.intBetween(0, 23), random.intBetween(0, 59), random.intBetween(0, 59));
-    }
-
-    /** 由注入熵源构造 uuid 文本（不引入独立随机源，保证同种子可复现）。 */
-    private String uuid() {
-        StringBuilder sb = new StringBuilder(36);
-        for (int i = 0; i < 36; i++) {
-            if (i == 8 || i == 13 || i == 18 || i == 23) {
-                sb.append('-');
-            } else {
-                sb.append("0123456789abcdef".charAt(random.intBetween(0, 15)));
-            }
         }
         return sb.toString();
     }

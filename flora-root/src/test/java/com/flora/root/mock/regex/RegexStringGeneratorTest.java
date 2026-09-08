@@ -260,10 +260,21 @@ class RegexStringGeneratorTest {
     }
 
     @Test
-    void estimateLengthReturnsReasonable() {
-        assertTrue(RegexStringGenerator.estimateLength("a{3}") >= 3);
-        assertTrue(RegexStringGenerator.estimateLength("[a-z]*") >= 1);
-        assertTrue(RegexStringGenerator.estimateLength("(ab|cd){2,4}") >= 4);
+    void minLengthReflectsRegex() {
+        assertEquals(3, RegexStringGenerator.of("a{3}").minLength());
+        assertEquals(0, RegexStringGenerator.of("[a-z]*").minLength());
+        assertEquals(4, RegexStringGenerator.of("(ab|cd){2,4}").minLength());
+    }
+
+    @Test
+    void unsupportedRegexFailsFast() {
+        // 生成器是校验器的子集：不认识的正则明确抛异常，由上层决定降级
+        assertThrows(RegexGenerationException.class,
+                () -> RegexStringGenerator.of("^[a-z]{1,300}$").generate());
+        assertThrows(RegexGenerationException.class,
+                () -> RegexStringGenerator.of("^(?<word>[a-z]+)$").generate());
+        assertThrows(RegexGenerationException.class,
+                () -> RegexStringGenerator.of("^(?=.*[0-9])[a-z0-9]{6}$").generate());
     }
 
     private String genWithTarget(String regex, int target) {

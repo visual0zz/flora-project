@@ -1,7 +1,6 @@
 package com.flora.root.mock.jsonschema.impl;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.random.RandomGenerator;
 
 /**
@@ -52,11 +51,20 @@ public final class RandomSupport {
         return min + random.nextInt(max - min + 1);
     }
 
+    /** [min, max] 闭区间均匀取长整数。 */
     long longBetween(long min, long max) {
         if (max <= min) {
             return min;
         }
-        return min + (long) (random.nextDouble() * (max - min));
+        long span = max - min;
+        if (span == Long.MAX_VALUE) {
+            return min + random.nextLong(Long.MAX_VALUE);
+        }
+        if (span < 0) {
+            // 跨度超出 long 可表示范围：用 double 近似
+            return min + (long) (random.nextDouble() * Long.MAX_VALUE);
+        }
+        return min + random.nextLong(span + 1);
     }
 
     BigDecimal decimalBetween(BigDecimal min, BigDecimal max) {
@@ -65,10 +73,6 @@ public final class RandomSupport {
         }
         BigDecimal range = max.subtract(min);
         return min.add(range.multiply(BigDecimal.valueOf(random.nextDouble())));
-    }
-
-    BigInteger integerBetween(BigDecimal min, BigDecimal max) {
-        return decimalBetween(min, max).toBigInteger();
     }
 
     boolean nextBoolean() {

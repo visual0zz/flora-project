@@ -5,7 +5,9 @@ import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.codec.json.model.JsonValue;
 import com.flora.root.codec.jsonschema.impl.SchemaRegistry;
 import com.flora.root.mock.jsonschema.JsonGenerationException;
+import com.flora.root.tag.ThreadFragile;
 
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,11 +15,14 @@ import java.util.Map;
 
 /**
  * schema → 生成规则编译器。记忆化缓存节点，处理 {@code $ref}/{@code $defs}，
- * 编译期合并 {@code allOf} 分支约束（取交集）。
+ * 编译期合并 {@code allOf} 分支约束（取交集），并收集本节点须满足的全部正则。
+ * <p>正则收集进独立的 {@code patterns} 列表交给 {@link GenerationNode}，
+ * 不再写回 schema 工作副本——用户 schema 的键空间不被实现细节污染。</p>
  * <p>对外入口（{@link #of}）接受 {@link JsonValue} 模型（{@link JsonObject}/{@link JsonBool}）；
  * 内部以 {@code Map<String,Object>} 工作副本承载合并后的 schema（实现细节，非对外 schema 输入），
  * 故 {@link #compile(Object, String)} 同时接受 {@link JsonObject} 与裸 {@code Map} 工作副本。</p>
  */
+@ThreadFragile("记忆化缓存 IdentityHashMap 在惰性编译时写入，共享编译器需外部同步")
 public final class GeneratorCompiler {
 
     private final SchemaRegistry registry;
@@ -51,8 +56,12 @@ public final class GeneratorCompiler {
         @SuppressWarnings("unchecked")
         Map<String, Object> schema = node instanceof JsonObject jo ? jo.toMap()
                 : (Map<String, Object>) node;
-        Map<String, Object> effective = mergeAllOf(schema, baseUri);
-        GenerationNode gn = new GenerationNode(effective, baseUri, this);
+        List<String> patterns = new ArrayList<>();
+        Map<String, Object> effective = mergeAllOf(schema, baseUri, patterns);
+        if (schema.get("pattern") instanceof String self) {
+            addPattern(patterns, self);
+        }
+        GenerationNode gn = new GenerationNode(effective, patterns, baseUri, this);
         cache.put(node, gn);
         return gn;
     }
@@ -64,10 +73,8 @@ public final class GeneratorCompiler {
 
     // ── allOf 合并：常用约束取交集 ──
 
-    /** 内部标记 key：allOf 合并后待满足的全部 pattern（List<String>）。 */
-    private static final String PATTERNS_KEY = "_patterns";
-
-    private Map<String, Object> mergeAllOf(Map<String, Object> schema, String baseUri) {
+    private Map<String, Object> mergeAllOf(Map<String, Object> schema, String baseUri,
+                                           List<String> patterns) {
         if (!(schema.get("allOf") instanceof List<?> allOf) || allOf.isEmpty()) {
             return schema;
         }
@@ -75,27 +82,20 @@ public final class GeneratorCompiler {
         merged.remove("allOf");
         for (Object branch : allOf) {
             if (branch instanceof Map<?, ?> bm) {
-                mergeInto(merged, bm);
+                mergeInto(merged, bm, patterns);
             }
-        }
-        // 主 schema 自身的 pattern 也纳入交集
-        if (merged.get("pattern") instanceof String selfPattern) {
-            addPattern(merged, selfPattern);
         }
         return merged;
     }
 
-    private static void addPattern(Map<String, Object> merged, String pattern) {
-        @SuppressWarnings("unchecked")
-        List<String> patterns = (List<String>) merged.computeIfAbsent(PATTERNS_KEY,
-                k -> new java.util.ArrayList<String>());
+    private static void addPattern(List<String> patterns, String pattern) {
         if (!patterns.contains(pattern)) {
             patterns.add(pattern);
         }
     }
 
     @SuppressWarnings("unchecked")
-    private void mergeInto(Map<String, Object> merged, Map<?, ?> branch) {
+    private void mergeInto(Map<String, Object> merged, Map<?, ?> branch, List<String> patterns) {
         if (!merged.containsKey("type") && branch.containsKey("type")) {
             merged.put("type", branch.get("type"));
         }
@@ -123,7 +123,7 @@ public final class GeneratorCompiler {
             merged.put("required", branch.get("required"));
         }
         if (branch.get("pattern") instanceof String bp) {
-            addPattern(merged, bp);
+            addPattern(patterns, bp);
         }
         if (branch.get("properties") instanceof Map<?, ?> bp) {
             Map<String, Object> props = (Map<String, Object>) merged.computeIfAbsent("properties",

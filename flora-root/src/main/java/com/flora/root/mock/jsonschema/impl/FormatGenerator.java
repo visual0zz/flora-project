@@ -1,10 +1,12 @@
 package com.flora.root.mock.jsonschema.impl;
 
 import java.util.Locale;
-import java.util.UUID;
 
 /**
- * {@code format} 关键字逆向生成：产出能通过 {@code FormatValidators} 校验的字符串。
+ * {@code format} 关键字的取值源：产出能通过 {@code FormatValidators} 校验的字符串。
+ * <p>同时供 {@link SemanticStringGenerator} 复用（日期/时间/邮箱/URL/域名/IP/UUID 等
+ * 语义与 format 取值本应一致），两处共用同一实现避免漂移。</p>
+ * <p>全部取值走注入的熵源，同一种子可复现。</p>
  */
 public final class FormatGenerator {
 
@@ -14,18 +16,19 @@ public final class FormatGenerator {
         this.random = random;
     }
 
+    /** 按 format 关键字取值；未知 format 退化为随机字母串。 */
     String generate(String format) {
         return switch (format) {
-            case "date-time" -> randomDateTime();
-            case "date" -> randomDate();
-            case "time" -> randomTime();
-            case "email", "idn-email" -> randomEmail();
-            case "hostname", "idn-hostname" -> randomHostname();
-            case "ipv4" -> randomIpv4();
-            case "ipv6" -> randomIpv6();
-            case "uri", "iri" -> "https://example.com/" + random.randomAlpha(6);
+            case "date-time" -> dateTime();
+            case "date" -> date();
+            case "time" -> time();
+            case "email", "idn-email" -> email();
+            case "hostname", "idn-hostname" -> hostname();
+            case "ipv4" -> ipv4();
+            case "ipv6" -> ipv6();
+            case "uri", "iri" -> uri();
             case "uri-reference", "iri-reference" -> "/" + random.randomAlpha(6);
-            case "uuid" -> UUID.randomUUID().toString();
+            case "uuid" -> uuid();
             case "regex" -> "[a-z]+";
             case "json-pointer" -> "/" + random.randomAlpha(4) + "/" + random.randomAlpha(4);
             case "relative-json-pointer" -> random.intBetween(0, 9) + "/" + random.randomAlpha(4);
@@ -34,44 +37,64 @@ public final class FormatGenerator {
         };
     }
 
-    private String randomDate() {
+    String date() {
         int year = random.intBetween(1970, 2030);
         int month = random.intBetween(1, 12);
-        int day = random.intBetween(1, daysInMonth(year, month));
-        return String.format(Locale.ROOT, "%04d-%02d-%02d", year, month, day);
+        return String.format(Locale.ROOT, "%04d-%02d-%02d",
+                year, month, random.intBetween(1, daysInMonth(year, month)));
     }
 
-    private String randomTime() {
+    String time() {
         return String.format(Locale.ROOT, "%02d:%02d:%02dZ",
                 random.intBetween(0, 23), random.intBetween(0, 59), random.intBetween(0, 59));
     }
 
-    private String randomDateTime() {
-        return randomDate() + "T" + randomTime();
+    String dateTime() {
+        return date() + "T" + time();
     }
 
-    private String randomEmail() {
-        return random.randomAlpha(6) + "@" + random.randomAlpha(5) + ".com";
+    String email() {
+        return random.randomAlpha(random.intBetween(4, 8)) + "@"
+                + random.randomAlpha(random.intBetween(3, 6)) + ".com";
     }
 
-    private String randomHostname() {
-        return random.randomAlpha(4) + "." + random.randomAlpha(3) + ".com";
+    String hostname() {
+        return random.randomAlpha(random.intBetween(3, 6)) + "."
+                + random.randomAlpha(random.intBetween(2, 4)) + ".com";
     }
 
-    private String randomIpv4() {
+    String uri() {
+        return "https://" + random.randomAlpha(random.intBetween(3, 6)) + ".com/"
+                + random.randomAlpha(random.intBetween(2, 6));
+    }
+
+    String ipv4() {
         return random.intBetween(1, 254) + "."
                 + random.intBetween(0, 255) + "."
                 + random.intBetween(0, 255) + "."
                 + random.intBetween(1, 254);
     }
 
-    private String randomIpv6() {
+    String ipv6() {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 8; i++) {
             if (i > 0) {
                 sb.append(':');
             }
             sb.append(String.format(Locale.ROOT, "%x", random.intBetween(0, 0xffff)));
+        }
+        return sb.toString();
+    }
+
+    /** 由注入熵源构造 uuid 文本（不用 {@code UUID.randomUUID()}，保证同种子可复现）。 */
+    String uuid() {
+        StringBuilder sb = new StringBuilder(36);
+        for (int i = 0; i < 36; i++) {
+            if (i == 8 || i == 13 || i == 18 || i == 23) {
+                sb.append('-');
+            } else {
+                sb.append("0123456789abcdef".charAt(random.intBetween(0, 15)));
+            }
         }
         return sb.toString();
     }

@@ -6,15 +6,23 @@ import java.util.List;
 /**
  * 字符集合：排序的码点区间列表，支持并/交/补代数运算。
  * <p>表示：{@code int[] ranges}，偶数下标=区间起点、奇数下标=区间终点（含端点），
- * 升序且不重叠。全集限定 BMP（0x0000..0xFFFF，排除代理区 0xD800..0xDFFF）。</p>
+ * 升序且不重叠。全集为全部 Unicode 码点（0x0000..0x10FFFF），排除代理区
+ * 0xD800..0xDFFF——孤立代理项无法序列化为合法文本，故一律不入集合。</p>
  */
 public final class CharSet {
+
+    /** 最大码点。 */
+    public static final int MAX_CODE_POINT = 0x10FFFF;
+    /** 代理区起点：代理项不属于合法码点。 */
+    private static final int SURROGATE_LO = 0xD800;
+    /** 代理区终点。 */
+    private static final int SURROGATE_HI = 0xDFFF;
 
     /** 空集合。 */
     public static final CharSet EMPTY = new CharSet(new int[0]);
 
-    /** BMP 全集（排除代理区）。 */
-    public static final CharSet ALL = complement(EMPTY);
+    /** 全集（全部码点，排除代理区）。 */
+    public static final CharSet ALL = of(new int[]{0x0, SURROGATE_LO - 1, SURROGATE_HI + 1, MAX_CODE_POINT});
 
     private final int[] ranges;
 
@@ -27,8 +35,8 @@ public final class CharSet {
         return new CharSet(normalize(ranges));
     }
 
-    /** 单个字符。 */
-    public static CharSet ofChar(int cp) {
+    /** 单个码点（含增补平面字符）。 */
+    public static CharSet ofCodePoint(int cp) {
         return of(new int[]{cp, cp});
     }
 
@@ -61,7 +69,7 @@ public final class CharSet {
         return of(flatten(out));
     }
 
-    /** 补集：对 BMP 全集取补。 */
+    /** 补集：对全集取补。 */
     public static CharSet complement(CharSet a) {
         List<int[]> out = new ArrayList<>();
         int cursor = 0;
@@ -73,15 +81,25 @@ public final class CharSet {
             }
             cursor = hi + 1;
         }
-        if (cursor <= 0xFFFF) {
-            addRange(out, cursor, 0xFFFF);
+        if (cursor <= MAX_CODE_POINT) {
+            addRange(out, cursor, MAX_CODE_POINT);
         }
-        return of(flatten(out));
+        return intersect(of(flatten(out)), ALL);
     }
 
     /** 是否非空。 */
     public boolean isEmpty() {
         return ranges.length == 0;
+    }
+
+    /** 是否与区间 [lo, hi] 有交集（含端点）。 */
+    public boolean intersectsRange(int lo, int hi) {
+        for (int i = 0; i < ranges.length; i += 2) {
+            if (ranges[i] <= hi && lo <= ranges[i + 1]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** 是否包含指定码点。 */

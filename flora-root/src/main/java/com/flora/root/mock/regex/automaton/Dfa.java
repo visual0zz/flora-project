@@ -2,23 +2,28 @@ package com.flora.root.mock.regex.automaton;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /**
  * 确定有限自动机（DFA），由 NFA 子集构造得到。
- * <p>状态以 int 编号；转移为 CharSet → 目标状态（确定性）。
- * 提供匹配、采样所需的可达性长度预处理。</p>
+ * <p>状态以 int 编号；转移按互不相交的 {@link CharSet} 划分（确定性）。
+ * 子集构造时先把同一子集上的字符集合切成原子区间，再对每个区间求全部可达目标的
+ * ε-闭包——这样交替分支里重叠的字符区间（如 {@code [a-z]} 与 {@code [c-f]}）
+ * 不会互相覆盖。</p>
  */
 final class Dfa {
 
+    /** 状态数上限：超出视为正则过于复杂（防指数爆炸）。 */
+    private static final int MAX_STATES = 4096;
+
     private final List<Map<CharSet, Integer>> transitions = new ArrayList<>();
-    private final Set<Integer> acceptStates = new HashSet<>();
+    private final Set<Integer> acceptStates = new LinkedHashSet<>();
     private int startState;
 
     int newState() {
@@ -57,40 +62,37 @@ final class Dfa {
     /** 从 NFA 子集构造 DFA。 */
     static Dfa fromNfa(Nfa nfa) {
         Dfa dfa = new Dfa();
-        Map<Set<Integer>, Integer> stateIds = new HashMap<>();
+        Map<Set<Integer>, Integer> stateIds = new LinkedHashMap<>();
         Deque<Set<Integer>> queue = new ArrayDeque<>();
 
         Set<Integer> start = epsilonClosure(nfa, Set.of(nfa.start()));
-        stateIds.put(start, 0);
-        dfa.newState();
+        stateIds.put(start, dfa.newState());
         queue.add(start);
 
         while (!queue.isEmpty()) {
             Set<Integer> cur = queue.poll();
             int curId = stateIds.get(cur);
-            // 收集该 NFA 子集上所有符号转移，按 CharSet 分组
-            Map<CharSet, Set<Integer>> moves = new LinkedHashMap<>();
-            for (int nState : cur) {
-                for (Map.Entry<CharSet, List<Integer>> e : nfa.transitionsOf(nState)) {
-                    CharSet cs = e.getKey();
-                    for (int to : e.getValue()) {
-                        Set<Integer> target = moves.computeIfAbsent(cs, k -> new HashSet<>());
-                        target.add(to);
+            List<Move> moves = collectMoves(nfa, cur);
+            // 每个原子区间 → 所有落在该区间内的转移目标的 ε-闭包
+            for (int[] segment : atomicSegments(moves)) {
+                Set<Integer> targets = new LinkedHashSet<>();
+                for (Move move : moves) {
+                    if (move.set.intersectsRange(segment[0], segment[1])) {
+                        targets.add(move.target);
                     }
                 }
-            }
-            // 合并边界重叠的 CharSet（简单起见：两两合并相邻可合并项）
-            for (Map.Entry<CharSet, Set<Integer>> e : moves.entrySet()) {
-                Set<Integer> targetSet = epsilonClosure(nfa, e.getValue());
-                Integer targetId = stateIds.get(targetSet);
-                if (targetId == null) {
-                    targetId = dfa.newState();
-                    stateIds.put(targetSet, targetId);
-                    queue.add(targetSet);
+                Set<Integer> next = epsilonClosure(nfa, targets);
+                Integer nextId = stateIds.get(next);
+                if (nextId == null) {
+                    nextId = dfa.newState();
+                    if (dfa.stateCount() > MAX_STATES) {
+                        throw new AutomatonException("正则过于复杂，DFA 状态超上限 " + MAX_STATES);
+                    }
+                    stateIds.put(next, nextId);
+                    queue.add(next);
                 }
-                dfa.addTransition(curId, e.getKey(), targetId);
+                dfa.addTransition(curId, CharSet.ofRange(segment[0], segment[1]), nextId);
             }
-            // 接受状态：子集包含 NFA 接受状态
             for (int nState : cur) {
                 if (nfa.isAccept(nState)) {
                     dfa.addAccept(curId);
@@ -98,52 +100,46 @@ final class Dfa {
                 }
             }
         }
-        dfa.refineTransitions();
         return dfa;
     }
 
-    /** 细化转移：把重叠的 CharSet 拆分为互不相交的原子区间，保证确定性。 */
-    void refineTransitions() {
-        for (int s = 0; s < transitions.size(); s++) {
-            Map<CharSet, Integer> out = transitions.get(s);
-            if (out.size() <= 1) {
-                continue;
-            }
-            // 收集所有边界点，切分互斥区间
-            List<Integer> bounds = new ArrayList<>();
-            for (CharSet cs : out.keySet()) {
-                int[] r = cs.ranges();
-                for (int i = 0; i < r.length; i += 2) {
-                    bounds.add(r[i]);
-                    bounds.add(r[i + 1] + 1);
+    /** 收集 NFA 子集上的全部符号转移（字符集合可重叠，待切分）。 */
+    private static List<Move> collectMoves(Nfa nfa, Set<Integer> states) {
+        List<Move> moves = new ArrayList<>();
+        for (int state : states) {
+            for (Map.Entry<CharSet, List<Integer>> e : nfa.transitionsOf(state)) {
+                for (int target : e.getValue()) {
+                    moves.add(new Move(e.getKey(), target));
                 }
             }
-            bounds.sort(Integer::compareTo);
-            Map<CharSet, Integer> refined = new LinkedHashMap<>();
-            for (int i = 0; i + 1 < bounds.size(); i++) {
-                int lo = bounds.get(i);
-                int hi = bounds.get(i + 1) - 1;
-                if (lo > hi) {
-                    continue;
-                }
-                CharSet seg = CharSet.ofRange(lo, hi);
-                Integer target = null;
-                for (Map.Entry<CharSet, Integer> e : out.entrySet()) {
-                    if (!CharSet.intersect(e.getKey(), seg).isEmpty()) {
-                        target = e.getValue();
-                        break;
-                    }
-                }
-                if (target != null) {
-                    refined.merge(seg, target, (a, b) -> a);
-                }
-            }
-            transitions.set(s, refined);
         }
+        return moves;
+    }
+
+    /** 按全部区间的端点切出互不相交的原子区间。 */
+    private static List<int[]> atomicSegments(List<Move> moves) {
+        List<Integer> bounds = new ArrayList<>();
+        for (Move move : moves) {
+            int[] ranges = move.set.ranges();
+            for (int i = 0; i < ranges.length; i += 2) {
+                bounds.add(ranges[i]);
+                bounds.add(ranges[i + 1] + 1);
+            }
+        }
+        Collections.sort(bounds);
+        List<int[]> segments = new ArrayList<>();
+        for (int i = 0; i + 1 < bounds.size(); i++) {
+            int lo = bounds.get(i);
+            int hi = bounds.get(i + 1) - 1;
+            if (lo <= hi) {
+                segments.add(new int[]{lo, hi});
+            }
+        }
+        return segments;
     }
 
     private static Set<Integer> epsilonClosure(Nfa nfa, Set<Integer> states) {
-        Set<Integer> closure = new HashSet<>(states);
+        Set<Integer> closure = new LinkedHashSet<>(states);
         Deque<Integer> stack = new ArrayDeque<>(states);
         while (!stack.isEmpty()) {
             int s = stack.pop();
@@ -186,5 +182,8 @@ final class Dfa {
             }
         }
         return dist;
+    }
+
+    private record Move(CharSet set, int target) {
     }
 }

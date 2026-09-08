@@ -42,10 +42,19 @@ public final class RegexStringGenerator {
 
     private final RandomGenerator random;
     private final String pattern;
+    private Automaton automaton;
 
     private RegexStringGenerator(String pattern, RandomGenerator random) {
         this.pattern = pattern;
         this.random = random;
+    }
+
+    /** 惰性编译并缓存自动机：同一生成器反复 generate() 不会重复编译。 */
+    private Automaton automaton() {
+        if (automaton == null) {
+            automaton = Automaton.compile(pattern);
+        }
+        return automaton;
     }
 
     /** 用默认随机源构造生成器。 */
@@ -71,18 +80,18 @@ public final class RegexStringGenerator {
      */
     public String generate(int targetLength) {
         try {
-            return Automaton.compile(pattern).sample(targetLength, random);
+            return automaton().sample(targetLength, random);
         } catch (AutomatonException e) {
             throw new RegexGenerationException("不支持的正则语法: " + pattern, e);
         }
     }
 
-    /** 估算 pattern 生成的典型长度（供上层长度分配参考）；编译失败回退 8。 */
-    public static int estimateLength(String pattern) {
+    /** 该正则能生成的最短串长度；编译失败抛 {@link RegexGenerationException}。 */
+    public int minLength() {
         try {
-            return Automaton.compile(pattern).estimateLength();
+            return automaton().minLength();
         } catch (AutomatonException e) {
-            return 8;
+            throw new RegexGenerationException("不支持的正则语法: " + pattern, e);
         }
     }
 }

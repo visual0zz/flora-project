@@ -28,7 +28,9 @@ import java.util.random.RandomGenerator;
  *   <li><b>字符串</b>：先按字段名猜测含义（{@code email}/{@code phone}/{@code createdAt} 等，
  *       有 {@code format} 时优先按 format）造一个"像样"的值，校验其是否满足本节点的
  *       {@code pattern} 与 {@code minLength}/{@code maxLength}；不合规则重试，
- *       连续 5 次被拒后放弃语义生成，改为直接用对应正则调用 {@code RegexStringGenerator} 生成。</li>
+ *       连续 5 次被拒后放弃语义生成，改为按该节点正则的交集自动机采样。
+ *       正则不受支持（或交集为空）时降级为长度区间内的随机串——单个字段的正则
+ *       不认识不该让整份数据生成失败。</li>
  *   <li><b>可选部分</b>（非 required 属性、额外属性、递归引用）：按一个随深度指数递减的概率
  *       决定是否继续展开一层，越深越可能收住，因此结构规模不再由预算控制。</li>
  * </ul></p>
@@ -51,6 +53,7 @@ import java.util.random.RandomGenerator;
  * 复杂 {@code if/then/else} 条件（随机走分支，不保证 if 前提成立）、
  * {@code pattern} 与 {@code minLength/maxLength} 冲突（以 pattern 结构为准，长度可能越界）、
  * 语义值与 {@code pattern} 冲突（5 次拒绝后回退按正则生成）、
+ * 生成器不支持的 {@code pattern}（降级为随机串，该字段可能不满足 pattern）、
  * {@code oneOf} 非互斥分支（可能同时满足多个）、{@code allOf} 中未覆盖的约束组合
  * （取交集近似）、递归截断层（不保证最深层非 required 的可选约束）。</p>
  *

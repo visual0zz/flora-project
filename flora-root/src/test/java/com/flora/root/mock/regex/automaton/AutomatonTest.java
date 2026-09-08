@@ -194,6 +194,20 @@ class AutomatonTest {
         assertThrows(AutomatonException.class, () -> Automaton.compile("a{10000}"));     // 超阈值
     }
 
+    @Test
+    void unsupportedEscapesThrow() {
+        assertThrows(AutomatonException.class, () -> Automaton.compile("\\bab"));     // 词边界
+        assertThrows(AutomatonException.class, () -> Automaton.compile("a\\Qb\\E"));  // 引用
+        assertThrows(AutomatonException.class, () -> Automaton.compile("(?i)a"));      // 内联标志
+        assertThrows(AutomatonException.class, () -> Automaton.compile("*a"));         // 悬空量词
+    }
+
+    @Test
+    void complexRegexBeyondStateLimitThrows() {
+        // 倒数第 13 个字符为 a：DFA 状态数指数增长，应触发状态上限而不是耗尽内存
+        assertThrows(AutomatonException.class, () -> Automaton.compile("(a|b)*a(a|b){12}"));
+    }
+
     // ── 空语言 ──
 
     @Test
@@ -202,5 +216,62 @@ class AutomatonTest {
         Automaton a = Automaton.compile("[a&&b]");
         assertFalse(a.isSatisfiable());
         assertThrows(AutomatonException.class, () -> a.sample(random));
+    }
+
+    // ── 子集构造的正确性 ──
+
+    @Test
+    void overlappingAlternationKeepsBothBranches() {
+        // [a-z] 与 [c-f] 区间重叠：子集构造必须同时保留两条分支
+        Automaton a = Automaton.compile("(?:[a-z]|[c-f]x)");
+        assertTrue(a.matches("a"));
+        assertTrue(a.matches("cx"), "重叠区间不能丢解");
+        assertTrue(a.matches("dx"));
+        assertFalse(a.matches("zx"));
+    }
+
+    @Test
+    void overlappingAlternationSamplesBothBranches() {
+        Automaton a = Automaton.compile("(?:[a-z]|[c-f]x)");
+        boolean shortBranch = false;
+        boolean longBranch = false;
+        for (int i = 0; i < 300 && !(shortBranch && longBranch); i++) {
+            String s = a.sample(random);
+            assertTrue(Pattern.matches("(?:[a-z]|[c-f]x)", s), "采样结果不匹配: " + s);
+            if (s.length() == 1) {
+                shortBranch = true;
+            } else {
+                longBranch = true;
+            }
+        }
+        assertTrue(shortBranch && longBranch, "两条分支都应被采样到");
+    }
+
+    @Test
+    void zeroRepetitionIsReachable() {
+        Automaton a = Automaton.compile("a*");
+        assertTrue(a.matches(""), "零次重复必须可达");
+        assertEquals(0, a.minLength());
+    }
+
+    // ── 增补平面字符 ──
+
+    @Test
+    void supplementaryCharactersMatch() {
+        String emoji = "\uD83D\uDE00";
+        Automaton a = Automaton.compile(emoji + "{2}");
+        assertTrue(a.matches(emoji + emoji), "增补平面字符应整体匹配");
+        String s = a.sample(random);
+        assertEquals(2, s.codePointCount(0, s.length()));
+        assertTrue(Pattern.matches(emoji + "{2}", s), "生成结果不匹配: " + s);
+    }
+
+    @Test
+    void dotExcludesOnlyLineTerminators() {
+        Automaton dot = Automaton.compile(".");
+        assertTrue(dot.matches("\f"), "换页符不是行终止符");
+        assertFalse(dot.matches("\n"));
+        assertFalse(dot.matches(" "), "行分隔符 U+2028 是行终止符");
+        assertFalse(dot.matches(" "), "分段符 U+2029 是行终止符");
     }
 }

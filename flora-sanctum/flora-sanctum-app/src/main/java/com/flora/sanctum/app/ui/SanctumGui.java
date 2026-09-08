@@ -1266,10 +1266,6 @@ public final class SanctumGui {
         delBtn.setEnabled(section == null);
     }
 
-    private boolean isFullyManaged() {
-        return sanctum != null && syncService != null && syncService.isFullyManaged();
-    }
-
     // ---- 组树 ----
 
     /** 树节点类型：普通文件夹（UUID userObject）或区段节点（ViewNodeType userObject，对应树分类）。 */
@@ -3914,11 +3910,44 @@ public final class SanctumGui {
 
     // ================= 同步 =================
 
+    /**
+     * 云同步：读取库内配置的远程与 SSH 密钥，构建规格列表，弹出非模态进度窗，
+     * 后台执行「关闭→同步→重新打开」并刷新界面。同步不再以「完全托管」为前置。
+     */
     private void doSync() {
         resetAutoLock();
-        if (sanctum == null || syncService == null) {
+        if (sanctum == null || syncService == null || !sanctum.isUnlocked()) {
             return;
         }
+
+        // 读取远程配置（含引用的 SSH 密钥 PEM），构建同步规格
+        List<RemoteNode> remotes = sanctum.remoteTree().remotes();
+        List<com.flora.sanctum.app.sync.SyncService.RemoteSpec> specs = new ArrayList<>();
+        for (RemoteNode r : remotes) {
+            String url = r.url();
+            if (url == null || url.isBlank()) {
+                continue;
+            }
+            String pem = null;
+            Ref ref = r.keyRef();
+            if (ref != null && "node".equals(ref.scheme())) {
+                SshKeyNode key = sanctum.sshKeyTree().find(ref.nodeUuid());
+                if (key != null) {
+                    pem = key.value();
+                }
+            }
+            specs.add(new com.flora.sanctum.app.sync.SyncService.RemoteSpec(r.name(), url, pem));
+        }
+        if (specs.isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "请先在设置中配置至少一个远程仓库",
+                    "云同步", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        Path root = sanctum.root();
+        SyncProgressDialog dialog = new SyncProgressDialog(frame);
+        dialog.setVisible(true);
+
         executor.submit(new com.flora.sanctum.app.BackgroundExecutor.Task() {
             @Override
             public String name() {
@@ -3928,20 +3957,26 @@ public final class SanctumGui {
             @Override
             public void run() throws Exception {
                 if (sanctum == null || !sanctum.isUnlocked()) {
+                    dialog.done(false, "会话状态已变化，同步中止");
                     return; // 排队期间状态已变，放弃
-                }
-                if (!syncService.isFullyManaged()) {
-                    LOG.info("Sync skipped: vault is not fully managed");
-                    javax.swing.SwingUtilities.invokeLater(
-                            () -> statusLabel.setText("非完全托管，跳过同步"));
-                    return;
                 }
                 // 关闭→同步→重新打开（同步后块内容已变，必须重建会话）
                 LOG.info("Sync: closing vault, running git sync, reopening");
                 sanctum.close();
-                syncService.sync();
-                sanctum = Sanctum.open(sanctum.root());
-                current.set(sanctum);
+                try {
+                    syncService.sync(specs, dialog);
+                } finally {
+                    try {
+                        sanctum = Sanctum.open(root);
+                        current.set(sanctum);
+                    } catch (Exception reopenEx) {
+                        LOG.error("Failed to reopen vault after sync", reopenEx);
+                        javax.swing.SwingUtilities.invokeLater(
+                                () -> statusLabel.setText("同步后重新打开失败"));
+                        dialog.done(false, "同步已执行，但重新打开仓库失败：" + reopenEx.getMessage());
+                        return;
+                    }
+                }
                 LOG.info("Sync finished, vault reopened");
                 javax.swing.SwingUtilities.invokeLater(() -> {
                     modelBus.markDirty();

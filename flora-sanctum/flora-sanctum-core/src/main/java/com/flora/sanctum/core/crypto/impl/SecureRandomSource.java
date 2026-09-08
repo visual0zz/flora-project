@@ -2,7 +2,10 @@ package com.flora.sanctum.core.crypto.impl;
 
 import com.flora.sanctum.core.crypto.impl.HkdfSha256;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.security.SecureRandom;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -82,6 +85,22 @@ public final class SecureRandomSource {
             v = (v << 8) | (b[i] & 0xFFL);
         }
         return v;
+    }
+
+    /**
+     * 返回一个随机 UUID（RFC 4122 version 4，122 位随机熵，混合熵源）。
+     * <p>所有新建对象（组/条目/字段/图标/SSH 密钥/远端/配置等）的 uuid 统一经此入口生成，
+     * 不经 {@link UUID#randomUUID()}（其内部是单一 SecureRandom，不在混合熵入口内）。
+     * uuid 即对象分片路径，参与密文 AAD，故归入安全随机范畴（见设计 02"熵混合"）。</p>
+     */
+    public UUID nextUuid() {
+        byte[] b = new byte[16];
+        nextBytes(b);
+        // version 4：第 7 字节高 4 位置 0100；variant：第 9 字节高 2 位置 10
+        b[6] = (byte) ((b[6] & 0x0F) | 0x40);
+        b[8] = (byte) ((b[8] & 0x3F) | 0x80);
+        ByteBuffer bb = ByteBuffer.wrap(b).order(ByteOrder.BIG_ENDIAN);
+        return new UUID(bb.getLong(), bb.getLong());
     }
 
     /**

@@ -158,7 +158,7 @@ public final class ManifestStore {
      */
     public void write(Manifest m, byte[] macKey, String timestamp) {
         Block existing = findBlock();
-        UUID uuid = existing == null ? UUID.randomUUID() : existing.uuid();
+        UUID uuid = existing == null ? random.nextUuid() : existing.uuid();
         JsonObject manifest = new JsonObject();
         manifest.put("version", m.version());
         manifest.put("type", StoredNodeType.MANIFEST.tag());

@@ -51,7 +51,7 @@ public final class LibraryConfig {
         c.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(ctx.vault().rootObjectUuid()));
         c.put("key", key);
         c.put("value", value);
-        ctx.writeWithDek(UUID.randomUUID(), c, dek);
+        ctx.writeWithDek(ctx.random().nextUuid(), c, dek);
     }
 
     public String theme() {

@@ -125,7 +125,7 @@ public final class ObjectTree extends DataTree {
 
     /** 新建组（parentId=null 为顶层，parent 记根对象 uuid，用 rootDek 加密）。 */
     public GroupNode createGroup(UUID parentId, String name) {
-        UUID groupUuid = UUID.randomUUID();
+        UUID groupUuid = context().random().nextUuid();
         UUID effectiveParent = parentId != null ? parentId : context().vault().rootObjectUuid();
         // 组块整体用父组 DEK（顶层 rootDek）加密（外层保护）；dek1/dek2 直接存明文 base64，无需内层包裹。
         // 双 DEK：dek1 退役中、dek2 活跃，新/改子节点一律用 dek2（惰性轮换见 TreeContext）。
@@ -151,7 +151,7 @@ public final class ObjectTree extends DataTree {
 
     /** 新建条目（groupId=null 为顶层，parent 记根对象 uuid，用 rootDek 加密）。 */
     public EntryNode createEntry(UUID groupId, String name, EntryFields fields) {
-        UUID entryUuid = UUID.randomUUID();
+        UUID entryUuid = context().random().nextUuid();
         UUID effectiveParent = groupId != null ? groupId : context().vault().rootObjectUuid();
         long now = context().nextTimestamp();
         JsonObject entry = new JsonObject();

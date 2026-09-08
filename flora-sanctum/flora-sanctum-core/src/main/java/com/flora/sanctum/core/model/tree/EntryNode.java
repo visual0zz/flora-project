@@ -195,7 +195,7 @@ public final class EntryNode extends ObjectNode {
             }
             return null;
         }
-        UUID pu = existing == null ? UUID.randomUUID() : existing.uuid();
+        UUID pu = existing == null ? ctx().random().nextUuid() : existing.uuid();
         JsonObject f = new JsonObject();
         f.put("type", StoredNodeType.FIELD.tag());
         f.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(uuid()));
@@ -211,7 +211,7 @@ public final class EntryNode extends ObjectNode {
 
     /** 自定义字段块：每次新建（随机 uuid），写 FIELD（kind 可选）。 */
     private FieldNode writeCustomField(String name, String value, String kind, UUID groupId) {
-        UUID fieldUuid = UUID.randomUUID();
+        UUID fieldUuid = ctx().random().nextUuid();
         JsonObject f = new JsonObject();
         f.put("type", StoredNodeType.FIELD.tag());
         f.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(uuid()));

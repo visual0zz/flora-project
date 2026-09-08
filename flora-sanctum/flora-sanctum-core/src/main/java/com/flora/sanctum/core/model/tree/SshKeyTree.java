@@ -52,7 +52,7 @@ public final class SshKeyTree extends DataTree {
     }
 
     public SshKeyNode createSshKey(String name, String privateKeyPem) {
-        UUID keyUuid = UUID.randomUUID();
+        UUID keyUuid = context().random().nextUuid();
         JsonObject key = new JsonObject();
         key.put("type", StoredNodeType.SSH_KEY.tag());
         key.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(context().vault().rootObjectUuid()));

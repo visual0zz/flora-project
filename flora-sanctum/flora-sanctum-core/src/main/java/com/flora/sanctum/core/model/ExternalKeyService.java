@@ -106,7 +106,7 @@ public final class ExternalKeyService {
 
     /** 在某个条目下创建外部密钥字段。 */
     public UUID createExternalKey(UUID entryUuid, String fieldName, byte[] keyMaterial, String description) {
-        UUID fieldUuid = UUID.randomUUID();
+        UUID fieldUuid = sanctum.vault().random().nextUuid();
         JsonObject field = new JsonObject();
         field.put("type", StoredNodeType.FIELD.tag());
         field.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(entryUuid));

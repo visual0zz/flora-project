@@ -2294,14 +2294,13 @@ public final class SanctumGui {
             target.repaint();
             return;
         }
-        JTextField nameField = new JTextField(remote.name() == null ? "" : remote.name());
-        nameField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
-        JTextField urlField = new JTextField(remote.url() == null ? "" : remote.url());
-        urlField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        JTextField nameField = makeEntryField(remote.name());
+        JTextField urlField = makeEntryField(remote.url());
         JComboBox<SshKeyNode> keyCombo = new JComboBox<>();
         for (SshKeyNode k : sanctum.sshKeyTree().keys()) {
             keyCombo.addItem(k);
         }
+        keyCombo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         keyCombo.setRenderer(new javax.swing.DefaultListCellRenderer() {
             @Override
             public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value,
@@ -2324,15 +2323,9 @@ public final class SanctumGui {
                 }
             }
         }
-        JPanel form = new JPanel(new GridLayout(0, 2, 8, 8));
-        form.setOpaque(false);
-        form.add(new JLabel("名称:"));
-        form.add(nameField);
-        form.add(new JLabel("URL:"));
-        form.add(urlField);
-        form.add(new JLabel("SSH 密钥引用:"));
-        form.add(keyCombo);
-        target.add(form);
+        target.add(makeEntryRow("名称:", nameField, true));
+        target.add(makeEntryRow("URL:", urlField, true));
+        target.add(makeEntryRow("SSH 密钥引用:", keyCombo, false));
 
         JButton saveBtn = makeActionButton("保存", () -> {
             String newName = nameField.getText().trim();
@@ -2359,8 +2352,7 @@ public final class SanctumGui {
                 statusLabel.setText("保存失败");
             }
         });
-        JButton delBtn = new JButton("删除远程");
-        delBtn.addActionListener(e -> deleteRemote(remoteUuid));
+        JButton delBtn = makeActionButton("删除远程", () -> deleteRemote(remoteUuid));
         target.add(javax.swing.Box.createVerticalStrut(10));
         target.add(saveBtn);
         target.add(javax.swing.Box.createVerticalStrut(8));

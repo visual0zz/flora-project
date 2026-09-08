@@ -2297,6 +2297,7 @@ public final class SanctumGui {
         JTextField nameField = makeEntryField(remote.name());
         JTextField urlField = makeEntryField(remote.url());
         JComboBox<SshKeyNode> keyCombo = new JComboBox<>();
+        keyCombo.addItem(null); // 首项「无」：允许远程不绑定 SSH 密钥
         for (SshKeyNode k : sanctum.sshKeyTree().keys()) {
             keyCombo.addItem(k);
         }
@@ -2306,7 +2307,9 @@ public final class SanctumGui {
             public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value,
                                                                    int index, boolean isSelected, boolean cellHasFocus) {
                 super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                if (value instanceof SshKeyNode k) {
+                if (value == null) {
+                    setText("无（不使用密钥）");
+                } else if (value instanceof SshKeyNode k) {
                     setText(k.name());
                 }
                 return this;
@@ -3411,6 +3414,7 @@ public final class SanctumGui {
         JTextField nameField = new JTextField(16);
         JTextField urlField = new JTextField(28);
         JComboBox<SshKeyNode> keyCombo = new JComboBox<>();
+        keyCombo.addItem(null); // 首项「无」：允许远程不绑定 SSH 密钥
         for (SshKeyNode k : sanctum.sshKeyTree().keys()) {
             keyCombo.addItem(k);
         }
@@ -3419,7 +3423,9 @@ public final class SanctumGui {
             public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value,
                                                                    int index, boolean isSelected, boolean cellHasFocus) {
                 super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                if (value instanceof SshKeyNode k) {
+                if (value == null) {
+                    setText("无（不使用密钥）");
+                } else if (value instanceof SshKeyNode k) {
                     setText(k.name());
                 }
                 return this;

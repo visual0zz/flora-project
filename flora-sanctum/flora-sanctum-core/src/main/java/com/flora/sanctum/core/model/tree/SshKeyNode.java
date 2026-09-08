@@ -42,4 +42,15 @@ public final class SshKeyNode extends TreeNode {
         byte[] dek = ctx().vault().rootDek();
         ctx().writeWithDek(uuid(), d, dek);
     }
+
+    /** 更新私钥 PEM（解密明文），加密写回；不改 uuid，远程的 keyRef 不受影响。 */
+    public void update(String privateKeyPem) {
+        JsonObject d = data();
+        if (d == null) {
+            throw new IllegalArgumentException("ssh key not found");
+        }
+        d.put("value", privateKeyPem);
+        byte[] dek = ctx().vault().rootDek();
+        ctx().writeWithDek(uuid(), d, dek);
+    }
 }

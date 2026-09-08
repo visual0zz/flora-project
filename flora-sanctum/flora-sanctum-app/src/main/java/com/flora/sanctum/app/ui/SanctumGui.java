@@ -2279,7 +2279,14 @@ public final class SanctumGui {
         nameRow.add(nameTag, BorderLayout.WEST);
         nameRow.add(nameField, BorderLayout.CENTER);
         target.add(nameRow);
-        addInfoLabel("私钥已加密存储（不显示明文）", target);
+
+        JLabel keyTag = new JLabel("私钥（点击眼睛显示/编辑）:");
+        keyTag.setFont(keyTag.getFont().deriveFont(Font.BOLD, 12f));
+        target.add(keyTag);
+        MaskedNotesArea keyArea = new MaskedNotesArea(key.value());
+        target.add(keyArea);
+        target.add(javax.swing.Box.createVerticalStrut(4));
+        final String originalPem = key.value() == null ? "" : key.value();
 
         JButton saveBtn = makeActionButton("保存", () -> {
             String newName = nameField.getText().trim();
@@ -2292,9 +2299,19 @@ public final class SanctumGui {
                 statusLabel.setText("已存在同名 SSH 密钥");
                 return;
             }
+            String newPem = keyArea.getText();
+            try {
+                newPem = com.flora.sanctum.app.sync.SyncService.validateSshKeyPem(newPem);
+            } catch (IllegalArgumentException ex) {
+                statusLabel.setText(ex.getMessage());
+                return;
+            }
             resetAutoLock();
             try {
                 key.rename(newName);
+                if (!newPem.equals(originalPem)) {
+                    key.update(newPem);
+                }
                 modelBus.markDirty();
                 modelBus.refresh();
                 statusLabel.setText("已保存");

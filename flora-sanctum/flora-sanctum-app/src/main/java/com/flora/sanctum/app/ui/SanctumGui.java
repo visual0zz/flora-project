@@ -1642,6 +1642,38 @@ public final class SanctumGui {
             }
             JList.DropLocation loc = (JList.DropLocation) support.getDropLocation();
             int idx = loc == null ? -1 : loc.getIndex();
+            // SSH 密钥/远程区段内拖拽：同区段的扁平列表重排（不支持改父/跨区段）
+            ViewNodeType sec = sectionOf(currentSelection());
+            if (sec == ViewNodeType.SSH_KEY || sec == ViewNodeType.REMOTE) {
+                if (idx >= 0 && idx < entryModel.size()) {
+                    EntryListItem target = entryModel.getElementAt(idx);
+                    StoredNodeType t = sec == ViewNodeType.SSH_KEY
+                            ? StoredNodeType.SSH_KEY : StoredNodeType.REMOTE;
+                    if (target.type() == t) {
+                        UUID before = target.uuid();
+                        // 逆序逐个插到 before 之前，保持原相对顺序（[A,B]→[A,B,target]）
+                        for (int i = dragged.size() - 1; i >= 0; i--) {
+                            UUID id = dragged.get(i);
+                            if (typeOf(id) != t) {
+                                continue;
+                            }
+                            if (sec == ViewNodeType.SSH_KEY) {
+                                sanctum.sshKeyTree().reorder(id, before);
+                            } else {
+                                sanctum.remoteTree().reorder(id, before);
+                            }
+                        }
+                        try {
+                            refreshAll();
+                        } catch (Exception ignore) {
+                            // 重排已落盘，仅界面刷新失败时不回滚
+                        }
+                        statusLabel.setText("已重排顺序");
+                        return true;
+                    }
+                }
+                return false; // 不允许把密钥/远程拖成组/条目的子节点或拖入其他区段
+            }
             UUID targetGroup = null;
             UUID beforeUuid = null;
             if (idx >= 0 && idx < entryModel.size()) {

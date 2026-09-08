@@ -375,6 +375,46 @@ public final class TreeContext {
      * 仅在间隙耗尽（{@link FractionalIndex#collapsed}）或追加将溢出时调用，
      * 是唯一会发生多块改写的路径；日常插入只改被移动节点一块。
      */
+    /**
+     * 计算 self 在「根对象同级」（远程/密钥这类统一挂在根对象下的扁平列表）下，
+     * 插入到 beforeUuid 之前的 order：
+     * <ul>
+     *   <li>{@code beforeUuid == null} → 追加末尾（max + D，溢出时先整段重排）；</li>
+     *   <li>{@code beforeUuid == self} → 保持原位；</li>
+     *   <li>否则取 beforeUuid 与其前驱的中点，间隙耗尽则整段重排后重算。</li>
+     * </ul>
+     * 自身若已在同级，计算前先排除。供远程/密钥列表重排复用组/条目的小数索引机制。
+     */
+    public long computeRootSiblingOrder(UUID self, UUID beforeUuid) {
+        lock.lock();
+        try {
+            UUID parent = vault().rootObjectUuid();
+            if (beforeUuid == null) {
+                return appendOrder(parent);
+            }
+            if (beforeUuid.equals(self)) {
+                return orderOf(self);
+            }
+            List<UUID> sibs = new ArrayList<>(childrenOf(parent));
+            sibs.remove(self);
+            sibs.sort((a, b) -> Long.compare(orderOf(a), orderOf(b)));
+            int idx = sibs.indexOf(beforeUuid);
+            if (idx < 0) {
+                return appendOrder(parent);
+            }
+            long next = orderOf(beforeUuid);
+            long prev = idx == 0 ? 0L : orderOf(sibs.get(idx - 1));
+            if (FractionalIndex.collapsed(prev, next)) {
+                reassignOrders(parent);
+                prev = idx * FractionalIndex.D;
+                next = (idx + 1L) * FractionalIndex.D;
+            }
+            return FractionalIndex.between(prev, next);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     public void reassignOrders(UUID parent) {
         lock.lock();
         try {

@@ -38,6 +38,8 @@ public final class RemoteTree extends DataTree {
         for (TreeNode n : nodes()) {
             out.add((RemoteNode) n);
         }
+        // 按 order 升序渲染（小数索引），保证列表顺序稳定、可重排
+        out.sort((a, b) -> Long.compare(context().orderOf(a.uuid()), context().orderOf(b.uuid())));
         return out;
     }
 
@@ -73,9 +75,25 @@ public final class RemoteTree extends DataTree {
         if (keyRef != null) {
             remote.put("keyRef", keyRef.toJson());
         }
+        // 小数索引：追加到根下末尾（max + D，溢出时由 appendOrder 内部先重排）
+        remote.put("order", context().appendOrder(context().vault().rootObjectUuid()));
         byte[] dek = context().vault().rootDek();
         context().writeWithDek(remoteUuid, remote, dek);
         return new RemoteNode(remoteUuid, this);
+    }
+
+    /**
+     * 重排顺序：把 self 移到 beforeUuid 之前（beforeUuid=null 移到末尾）。
+     * 远程统一挂在根对象下，复用组/条目的小数索引机制。
+     */
+    public void reorder(UUID self, UUID beforeUuid) {
+        long order = context().computeRootSiblingOrder(self, beforeUuid);
+        JsonObject d = context().read(self);
+        if (d == null) {
+            return;
+        }
+        d.put("order", order);
+        context().writeWithDek(self, d, context().vault().rootDek());
     }
 
     /** 按名称删除远程配置；未找到忽略。 */

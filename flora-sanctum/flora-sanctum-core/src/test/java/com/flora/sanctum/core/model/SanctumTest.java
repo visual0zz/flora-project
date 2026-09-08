@@ -482,6 +482,43 @@ class SanctumTest {
     }
 
     @Test
+    void remoteAndKeyAreOrdered() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
+        RemoteNode r1 = s.remoteTree().addRemote("first", "git@example.com:a.git", null);
+        RemoteNode r2 = s.remoteTree().addRemote("second", "git@example.com:b.git", null);
+        RemoteNode r3 = s.remoteTree().addRemote("third", "git@example.com:c.git", null);
+        // 新建追加到末尾，按 order 升序渲染
+        List<RemoteNode> remotes = s.remoteTree().remotes();
+        assertEquals(List.of(r1.uuid(), r2.uuid(), r3.uuid()),
+                remotes.stream().map(RemoteNode::uuid).toList());
+
+        // 把 third 移到 first 之前
+        s.remoteTree().reorder(r3.uuid(), r1.uuid());
+        List<UUID> after = s.remoteTree().remotes().stream().map(RemoteNode::uuid).toList();
+        assertEquals(List.of(r3.uuid(), r1.uuid(), r2.uuid()), after);
+
+        // 把 second 移到末尾
+        s.remoteTree().reorder(r2.uuid(), null);
+        List<UUID> tail = s.remoteTree().remotes().stream().map(RemoteNode::uuid).toList();
+        assertEquals(List.of(r3.uuid(), r1.uuid(), r2.uuid()), tail);
+    }
+
+    @Test
+    void sshKeyAreOrdered() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
+        SshKeyNode k1 = s.sshKeyTree().createSshKey("k1", "-----BEGIN PRIVATE KEY-----");
+        SshKeyNode k2 = s.sshKeyTree().createSshKey("k2", "-----BEGIN PRIVATE KEY-----");
+        SshKeyNode k3 = s.sshKeyTree().createSshKey("k3", "-----BEGIN PRIVATE KEY-----");
+        List<SshKeyNode> keys = s.sshKeyTree().keys();
+        assertEquals(List.of(k1.uuid(), k2.uuid(), k3.uuid()),
+                keys.stream().map(SshKeyNode::uuid).toList());
+
+        s.sshKeyTree().reorder(k3.uuid(), k1.uuid());
+        List<UUID> after = s.sshKeyTree().keys().stream().map(SshKeyNode::uuid).toList();
+        assertEquals(List.of(k3.uuid(), k1.uuid(), k2.uuid()), after);
+    }
+
+    @Test
     void findNodeAcrossTrees() {
         Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
         EntryNode entry = s.objectTree().createEntry(null, "条目", EntryFields.EMPTY);

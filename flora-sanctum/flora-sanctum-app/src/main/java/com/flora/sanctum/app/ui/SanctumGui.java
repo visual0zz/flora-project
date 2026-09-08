@@ -1062,7 +1062,7 @@ public final class SanctumGui {
         taskSpinner = new SpinnerIcon(18);
         taskSpinnerLabel = new JLabel(taskSpinner);
         taskSpinnerLabel.setVisible(false);
-        syncBtn.setVisible(isFullyManaged());
+        syncBtn.setVisible(true);
 
         JTextField searchField = new JTextField(14);
         searchFieldRef = searchField;

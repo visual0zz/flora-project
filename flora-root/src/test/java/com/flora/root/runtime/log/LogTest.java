@@ -19,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
@@ -744,7 +746,11 @@ class LogTest {
         try (VfsFileSystem fs = newMemFs()) {
             Path dir = fs.getPath("/mem");
             Files.createDirectories(dir);
-            for (String d : new String[]{"2026-08-30", "2026-08-31", "2026-09-01", "2026-09-02", "2026-09-03"}) {
+            // 相对「今天」构造历史归档：硬编码日期会随运行日期失效（归档名由 appender 按当天生成）
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            LocalDate today = LocalDate.now();
+            for (int i = 5; i >= 1; i--) {
+                String d = today.minusDays(i).format(fmt);
                 Files.writeString(fs.getPath("/mem/app-" + d + ".1.log"), "x");
             }
 
@@ -764,12 +770,12 @@ class LogTest {
             log.info("b");
             appender.close();
 
-            assertFalse(Files.exists(fs.getPath("/mem/app-2026-08-30.1.log")), "oldest date should be pruned");
-            assertFalse(Files.exists(fs.getPath("/mem/app-2026-08-31.1.log")), "oldest date should be pruned");
-            assertFalse(Files.exists(fs.getPath("/mem/app-2026-09-01.1.log")), "old date should be pruned");
-            assertTrue(Files.exists(fs.getPath("/mem/app-2026-09-02.1.log")), "newer date should remain");
-            assertTrue(Files.exists(fs.getPath("/mem/app-2026-09-03.1.log")), "newer date should remain");
-            assertTrue(Files.exists(fs.getPath("/mem/app-2026-09-04.1.log")), "today should remain");
+            assertFalse(Files.exists(fs.getPath("/mem/app-" + today.minusDays(5).format(fmt) + ".1.log")), "oldest date should be pruned");
+            assertFalse(Files.exists(fs.getPath("/mem/app-" + today.minusDays(4).format(fmt) + ".1.log")), "oldest date should be pruned");
+            assertFalse(Files.exists(fs.getPath("/mem/app-" + today.minusDays(3).format(fmt) + ".1.log")), "old date should be pruned");
+            assertTrue(Files.exists(fs.getPath("/mem/app-" + today.minusDays(2).format(fmt) + ".1.log")), "newer date should remain");
+            assertTrue(Files.exists(fs.getPath("/mem/app-" + today.minusDays(1).format(fmt) + ".1.log")), "newer date should remain");
+            assertTrue(Files.exists(fs.getPath("/mem/app-" + today.format(fmt) + ".1.log")), "today should remain");
         }
     }
 
@@ -782,9 +788,11 @@ class LogTest {
         try (VfsFileSystem fs = newMemFs()) {
             Path dir = fs.getPath("/mem");
             Files.createDirectories(dir);
-            String today = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
+            LocalDate base = LocalDate.now();
+            String today = base.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            String yesterday = base.minusDays(1).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
             Files.writeString(fs.getPath("/mem/app-" + today + ".3.log"), "today3");
-            Files.writeString(fs.getPath("/mem/app-2026-09-01.3.log"), "yesterday3");
+            Files.writeString(fs.getPath("/mem/app-" + yesterday + ".3.log"), "yesterday3");
 
             RollingFileAppender appender = new RollingFileAppender(fs.getPath("/mem/app.log"));
             appender.setLayout(new Layout("%msg%n"));
@@ -804,7 +812,7 @@ class LogTest {
             appender.close();
 
             // 昨天的归档未被移位（独立分区）
-            assertTrue(Files.exists(fs.getPath("/mem/app-2026-09-01.3.log")), "yesterday archive must stay unscoped");
+            assertTrue(Files.exists(fs.getPath("/mem/app-" + yesterday + ".3.log")), "yesterday archive must stay unscoped");
             // 今天的归档因尺寸滚动整体后移：原 .3 → .4 → .5，且当前归档为 .1
             assertTrue(Files.exists(fs.getPath("/mem/app-" + today + ".5.log")), "today index should shift up within day");
             assertTrue(Files.exists(fs.getPath("/mem/app-" + today + ".1.log")), "current archived as .1");

@@ -53,7 +53,7 @@ public final class Argon2 {
      * @param type        {@link #TYPE_D}/{@link #TYPE_I}/{@link #TYPE_ID}
      * @param password    密码字节（KDBX 场景下为复合主密钥）
      * @param salt        盐
-     * @param memoryKiB   内存 KiB（须不小于 parallelism）
+     * @param memoryKiB   内存 KiB（须不小于 8 * parallelism）
      * @param iterations  迭代次数
      * @param parallelism 并行度（lane 数）
      * @param outLen      输出长度
@@ -70,7 +70,7 @@ public final class Argon2 {
      * @param salt        盐
      * @param secret      密钥（可为空）
      * @param ad          关联数据（可为空）
-     * @param memoryKiB   内存 KiB（须不小于 parallelism）
+     * @param memoryKiB   内存 KiB（须不小于 8 * parallelism）
      * @param iterations  迭代次数
      * @param parallelism 并行度（lane 数）
      * @param outLen      输出长度
@@ -83,9 +83,10 @@ public final class Argon2 {
         if (parallelism <= 0) {
             throw new IllegalArgumentException("p 须为正");
         }
-        // 参考实现仅做算法可行性下限校验；低于 8p 的安全下限仍可被参考向量使用。
-        if (memoryKiB < parallelism) {
-            throw new IllegalArgumentException("m 须不小于 p");
+        // RFC 9106 要求 m >= 8*p，否则 segmentLength < 2 使首个 slice 的偏移失效；
+        // 低于 4*p 时 m' = 4*p*floor(m/(4*p)) 退零，后续寻址全错。
+        if (memoryKiB < 8 * parallelism) {
+            throw new IllegalArgumentException("m 须不小于 8*p（实际 " + memoryKiB + " < " + (8 * parallelism) + "）");
         }
         if (outLen <= 0) {
             throw new IllegalArgumentException("outLen 须为正");

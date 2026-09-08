@@ -365,29 +365,14 @@ class JsonGeneratorTest {
         }
     }
 
-    // ── 推荐长度 ──
+    // ── 数组硬约束 ──
 
     @Test
-    void targetLengthScalesOutput() {
-        JsonValue schema = JsonParser.parse("{\"type\":\"string\"}");
-        JsonGenerator small = JsonGenerator.of(schema, 8);
-        JsonGenerator big = JsonGenerator.of(schema, 64);
-        for (int i = 0; i < 30; i++) {
-            int smallLen = ((JsonString) small.generate()).value().length();
-            int bigLen = ((JsonString) big.generate()).value().length();
-            assertTrue(bigLen > smallLen,
-                    "大推荐长度应生成更长的串: small=" + smallLen + ", big=" + bigLen);
-        }
-    }
-
-    @Test
-    void minItemsBeatsBudget() {
-        // 数组 minItems 硬约束优先于预算推算
+    void respectsMinItems() {
         JsonSchema schema = JsonSchema.of(
                 "{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":3}");
         JsonGenerator gen = JsonGenerator.of(
-                JsonParser.parse("{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":3}"),
-                2);
+                "{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"minItems\":3}");
         for (int i = 0; i < 20; i++) {
             JsonValue value = gen.generate();
             assertTrue(schema.isValid(value));
@@ -395,29 +380,26 @@ class JsonGeneratorTest {
         }
     }
 
-    // ── 递归深度由预算驱动 ──
+    // ── 递归：深度由随深度递减的展开概率收敛 ──
 
     @Test
-    void recursiveDepthScalesWithBudget() {
+    void recursiveDepthStaysBounded() {
         String schemaJson = "{\"$defs\":{\"node\":{\"type\":\"object\",\"properties\":{"
                 + "\"value\":{\"type\":\"integer\"},\"child\":{\"$ref\":\"#/$defs/node\"}}}},"
                 + "\"$ref\":\"#/$defs/node\"}";
-        JsonGenerator shallow = JsonGenerator.of(JsonParser.parse(schemaJson), 8);
-        JsonGenerator deep = JsonGenerator.of(JsonParser.parse(schemaJson), 200);
-        long shallowSum = 0;
-        long deepSum = 0;
-        for (int i = 0; i < 30; i++) {
-            JsonValue s = shallow.generate();
-            JsonValue d = deep.generate();
-            assertNotNull(s);
-            assertNotNull(d);
-            shallowSum += depthOf(s);
-            deepSum += depthOf(d);
+        JsonGenerator gen = JsonGenerator.of(schemaJson);
+        int rounds = 30;
+        int max = 0;
+        long sum = 0;
+        for (int i = 0; i < rounds; i++) {
+            int d = depthOf(gen.generate());
+            max = Math.max(max, d);
+            sum += d;
         }
-        double shallowAvg = shallowSum / 30.0;
-        double deepAvg = deepSum / 30.0;
-        assertTrue(deepAvg > shallowAvg,
-                "大预算应生成更深的递归树: shallowAvg=" + shallowAvg + ", deepAvg=" + deepAvg);
+        double avg = sum / (double) rounds;
+        // 展开概率随深度递减 → 递归树必须有限终止，且平均深度远低于硬上限
+        assertTrue(max < 1000, "递归必须有限终止: max=" + max);
+        assertTrue(avg < 20, "平均深度应由递减概率收敛: avg=" + avg);
     }
 
     private static int depthOf(JsonValue value) {
@@ -468,11 +450,11 @@ class JsonGeneratorTest {
 
     @Test
     void recursiveTruncationSatisfiesRequired() {
-        // 递归 node 有 required:["value"]，小预算强制截断时每层仍须有 value
+        // 递归 node 有 required:["value"]，深层按概率截断时每层仍须有 value
         String schemaJson = "{\"$defs\":{\"node\":{\"type\":\"object\",\"properties\":{"
                 + "\"value\":{\"type\":\"integer\"},\"child\":{\"$ref\":\"#/$defs/node\"}},"
                 + "\"required\":[\"value\"]}},\"$ref\":\"#/$defs/node\"}";
-        JsonGenerator gen = JsonGenerator.of(JsonParser.parse(schemaJson), 4); // 小预算，容易触发截断
+        JsonGenerator gen = JsonGenerator.of(schemaJson);
         for (int i = 0; i < 50; i++) {
             JsonValue generated = gen.generate();
             assertNotNull(generated);
@@ -507,6 +489,58 @@ class JsonGeneratorTest {
             for (JsonValue v : ja.elements()) {
                 assertEveryNodeHasValue(v);
             }
+        }
+    }
+
+    // ── 按字段名的语义化字符串 ──
+
+    @Test
+    void generatesSemanticValueByFieldName() {
+        String schemaJson = "{\"type\":\"object\",\"properties\":{"
+                + "\"email\":{\"type\":\"string\"},\"phone\":{\"type\":\"string\"},"
+                + "\"createdAt\":{\"type\":\"string\"}},"
+                + "\"required\":[\"email\",\"phone\",\"createdAt\"]}";
+        JsonSchema schema = JsonSchema.of(schemaJson);
+        JsonGenerator gen = JsonGenerator.of(schemaJson);
+        for (int i = 0; i < 20; i++) {
+            JsonObject obj = (JsonObject) gen.generate();
+            assertTrue(schema.isValid(obj));
+            String email = ((JsonString) obj.get("email")).value();
+            String phone = ((JsonString) obj.get("phone")).value();
+            String createdAt = ((JsonString) obj.get("createdAt")).value();
+            assertTrue(email.contains("@"), "email 应生成邮箱: " + email);
+            assertTrue(phone.matches("1[35789]\\d{9}"), "phone 应生成手机号: " + phone);
+            assertTrue(createdAt.matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"),
+                    "createdAt 应生成日期时间: " + createdAt);
+        }
+    }
+
+    @Test
+    void patternWinsAfterSemanticRejections() {
+        // email 的语义值恒不满足 ^[0-9]{6}$：连续拒绝后应回退为按正则生成
+        String schemaJson = "{\"type\":\"object\",\"properties\":{"
+                + "\"email\":{\"type\":\"string\",\"pattern\":\"^[0-9]{6}$\"}},"
+                + "\"required\":[\"email\"]}";
+        JsonSchema schema = JsonSchema.of(schemaJson);
+        JsonGenerator gen = JsonGenerator.of(schemaJson);
+        for (int i = 0; i < 20; i++) {
+            JsonValue value = gen.generate();
+            assertTrue(schema.isValid(value), "回退结果应通过校验");
+            String s = ((JsonString) ((JsonObject) value).get("email")).value();
+            assertTrue(s.matches("^[0-9]{6}$"), "回退后应为 6 位数字: " + s);
+        }
+    }
+
+    @Test
+    void semanticValueUsedWhenCompatible() {
+        // city 的语义值长度落在区间内 → 直接采用语义值而非回退
+        String schemaJson = "{\"type\":\"object\",\"properties\":{"
+                + "\"city\":{\"type\":\"string\",\"minLength\":3,\"maxLength\":20}},"
+                + "\"required\":[\"city\"]}";
+        JsonGenerator gen = JsonGenerator.of(schemaJson);
+        for (int i = 0; i < 20; i++) {
+            String city = ((JsonString) ((JsonObject) gen.generate()).get("city")).value();
+            assertTrue(city.length() >= 3 && city.length() <= 20, "长度应落在区间: " + city);
         }
     }
 }

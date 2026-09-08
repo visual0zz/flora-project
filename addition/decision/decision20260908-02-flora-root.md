@@ -53,7 +53,7 @@
 
 - 新增：`mock/jsonschema/impl/SemanticStringGenerator.java`。
 - 修改：`GenerationContext`、`GenerationNode`、`JsonGenerator`、测试 `JsonGeneratorTest`。
-- 删除：`LengthEstimator`（预算机制最后一个残留，复核无任何引用，删除待用户批准）。
+- 删除：`LengthEstimator`（预算机制最后一个残留，确认无引用后已删除）。
 - 改动文件：`GenerationContext`、`GenerationNode`、新增 `SemanticStringGenerator`、
   测试 `JsonGeneratorTest`（移除推荐长度/预算相关用例，新增语义化与回退用例）。
 - 行为变化：输出更"像真实数据"；规模不再可通过参数调节（无长度入口）；

@@ -1,5 +1,11 @@
 package com.flora.root.crypto;
 
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.ForkJoinWorkerThread;
+import java.util.concurrent.RecursiveAction;
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * Argon2 口令派生函数（RFC 9106）自研实现，纯 Java，无第三方依赖。
  * <p>支持 Argon2d / Argon2i / Argon2id 三种类型（v1.3，version 0x13）。结构：H0 由参数域经
@@ -13,6 +19,11 @@ public final class Argon2 {
     private static final int BLOCK_SIZE = 1024;
     private static final int SYNC_POINTS = 4;
     private static final int VERSION = 0x13;
+
+    /** 并行门槛：总块数低于此值时 fork/join 与屏障开销盖过并行收益，回退串行。 */
+    private static final int PARALLEL_MIN_BLOCKS = 4096;
+    /** 并行门槛：单个任务（lane 段）的块数下限，低于此值任务过碎。 */
+    private static final int PARALLEL_MIN_SEGMENT = 128;
 
     private Argon2() {
     }
@@ -96,46 +107,11 @@ public final class Argon2 {
             blocks[i * laneLength + 1] = variableHash(concat(h0, le32(1), le32(i)), BLOCK_SIZE);
         }
 
-        for (int pass = 0; pass < iterations; pass++) {
-            for (int slice = 0; slice < SYNC_POINTS; slice++) {
-                for (int lane = 0; lane < lanes; lane++) {
-                    int start = slice * segmentLength;
-                    int end = (slice + 1) * segmentLength;
-                    if (pass == 0 && slice == 0) {
-                        start = 2;
-                    }
-                    for (int j = start; j < end; j++) {
-                        int cur = lane * laneLength + j;
-                        // 块在 segment 内的相对索引（pass0 slice0 从 2 起，其余从 0 起）
-                        int within = j - slice * segmentLength;
-
-                        // prev 块：lane 第一块（j=0）时环绕到 lane 末尾
-                        int prevOffset = (cur % laneLength == 0) ? cur + laneLength - 1 : cur - 1;
-
-                        long j1;
-                        long j2;
-                        if (useDataIndependent(pass, slice, type)) {
-                            long value = independentValue(type, pass, lane, slice, mPrime, iterations, within);
-                            j1 = value & 0xffffffffL;
-                            j2 = value >>> 32;
-                        } else {
-                            long prev = readLong(blocks[prevOffset], 0);
-                            j1 = prev & 0xffffffffL;
-                            j2 = (prev >>> 32) & 0xffffffffL;
-                        }
-
-                        int refLane = (int) (j2 % lanes);
-                        if (pass == 0 && slice == 0) {
-                            refLane = lane;
-                        }
-                        int refIndex = indexAlpha(pass, slice, lane, refLane, j1, within,
-                                segmentLength, laneLength);
-                        // pass>0 时按 Argon2 v1.3 需与旧块 XOR
-                        blocks[cur] = fillBlock(blocks[prevOffset], blocks[refLane * laneLength + refIndex],
-                                blocks[cur], pass != 0);
-                    }
-                }
-            }
+        FillMemory fill = new FillMemory(blocks, type, iterations, mPrime, lanes, laneLength, segmentLength);
+        if (useParallel(lanes, mPrime, segmentLength)) {
+            PoolHolder.POOL.invoke(fill);
+        } else {
+            fill.computeSequentially();
         }
 
         byte[] c = new byte[BLOCK_SIZE];
@@ -158,6 +134,178 @@ public final class Argon2 {
             return false;
         }
         return pass == 0 && slice < 2; // Argon2id：前两个 slice 数据无关
+    }
+
+    // ===== 内存填充 =====
+
+    /** 是否启用按 lane 并行：多 lane、多核且工作量足够大时才有收益。 */
+    private static boolean useParallel(int lanes, int mPrime, int segmentLength) {
+        return lanes >= 2
+                && Runtime.getRuntime().availableProcessors() >= 2
+                && mPrime >= PARALLEL_MIN_BLOCKS
+                && segmentLength >= PARALLEL_MIN_SEGMENT;
+    }
+
+    /**
+     * 一次完整内存填充（全部 pass × slice × lane），串行与并行共用 {@link #fillSegment}。
+     *
+     * <p>并行依据：同一 (pass, slice) 内各 lane 之间没有数据依赖——跨 lane 引用只指向已完成
+     * 的 slice 或上一 pass 的残留值（见 {@link #indexAlpha} 的引用区间），故可按 lane 并行、
+     * 在每个 slice 结束后屏障。反之，同一 lane 的 segment 必须按 j 递增顺序由同一线程计算
+     * （同 lane 的引用域含 {@code within-1}，会延伸到本 slice 已算前缀），因此任务只能按
+     * lane 划分，绝不按 j 拆分。</p>
+     */
+    private static final class FillMemory extends RecursiveAction {
+
+        private static final long serialVersionUID = 1L;
+
+        private final byte[][] blocks;
+        private final int type;
+        private final int iterations;
+        private final int mPrime;
+        private final int lanes;
+        private final int laneLength;
+        private final int segmentLength;
+
+        FillMemory(byte[][] blocks, int type, int iterations, int mPrime,
+                int lanes, int laneLength, int segmentLength) {
+            this.blocks = blocks;
+            this.type = type;
+            this.iterations = iterations;
+            this.mPrime = mPrime;
+            this.lanes = lanes;
+            this.laneLength = laneLength;
+            this.segmentLength = segmentLength;
+        }
+
+        /** 并行执行：每个 slice 内把 lane 连续分组提交，{@code invokeAll} 即该 slice 的屏障。 */
+        @Override
+        protected void compute() {
+            int groups = Math.min(lanes, PoolHolder.POOL.getParallelism());
+            ForkJoinTask<?>[] tasks = new ForkJoinTask<?>[groups];
+            for (int pass = 0; pass < iterations; pass++) {
+                for (int slice = 0; slice < SYNC_POINTS; slice++) {
+                    int start = segmentStart(pass, slice);
+                    int end = (slice + 1) * segmentLength;
+                    for (int g = 0; g < groups; g++) {
+                        int from = g * lanes / groups;
+                        int to = (g + 1) * lanes / groups;
+                        tasks[g] = new LaneGroupTask(this, pass, slice, start, end, from, to);
+                    }
+                    // fork/join 提供 happens-before：本 slice 各 lane 的写入对下一 slice 可见
+                    ForkJoinTask.invokeAll(tasks);
+                }
+            }
+        }
+
+        /** 串行执行：小参数、单 lane 或单核时走此路径，与并行路径逐字节一致。 */
+        void computeSequentially() {
+            for (int pass = 0; pass < iterations; pass++) {
+                for (int slice = 0; slice < SYNC_POINTS; slice++) {
+                    int start = segmentStart(pass, slice);
+                    int end = (slice + 1) * segmentLength;
+                    for (int lane = 0; lane < lanes; lane++) {
+                        fillSegment(pass, slice, lane, start, end);
+                    }
+                }
+            }
+        }
+
+        private int segmentStart(int pass, int slice) {
+            return (pass == 0 && slice == 0) ? 2 : slice * segmentLength;
+        }
+
+        /** 填充一条 lane 在单个 (pass, slice) 内的 segment，必须按 j 递增顺序计算。 */
+        void fillSegment(int pass, int slice, int lane, int start, int end) {
+            // 字段先落到局部变量：内层循环每块都要用，避免反复读字段（串行路径为此前热路径）
+            final byte[][] b = blocks;
+            final int tp = type;
+            final int iters = iterations;
+            final int mp = mPrime;
+            final int lns = lanes;
+            final int laneLen = laneLength;
+            final int segLen = segmentLength;
+            for (int j = start; j < end; j++) {
+                int cur = lane * laneLen + j;
+                // 块在 segment 内的相对索引（pass0 slice0 从 2 起，其余从 0 起）
+                int within = j - slice * segLen;
+
+                // prev 块：lane 第一块（j=0）时环绕到 lane 末尾
+                int prevOffset = (cur % laneLen == 0) ? cur + laneLen - 1 : cur - 1;
+
+                long j1;
+                long j2;
+                if (useDataIndependent(pass, slice, tp)) {
+                    long value = independentValue(tp, pass, lane, slice, mp, iters, within);
+                    j1 = value & 0xffffffffL;
+                    j2 = value >>> 32;
+                } else {
+                    long prev = readLong(b[prevOffset], 0);
+                    j1 = prev & 0xffffffffL;
+                    j2 = (prev >>> 32) & 0xffffffffL;
+                }
+
+                int refLane = (int) (j2 % lns);
+                if (pass == 0 && slice == 0) {
+                    refLane = lane;
+                }
+                int refIndex = indexAlpha(pass, slice, lane, refLane, j1, within, segLen, laneLen);
+                // pass>0 时按 Argon2 v1.3 需与旧块 XOR
+                b[cur] = fillBlock(b[prevOffset], b[refLane * laneLen + refIndex], b[cur], pass != 0);
+            }
+        }
+    }
+
+    /** 一组连续 lane 在单个 (pass, slice) 内的填充任务（lane 不跨组）。 */
+    private static final class LaneGroupTask extends RecursiveAction {
+
+        private static final long serialVersionUID = 1L;
+
+        private final FillMemory owner;
+        private final int pass;
+        private final int slice;
+        private final int start;
+        private final int end;
+        private final int laneFrom;
+        private final int laneTo;
+
+        LaneGroupTask(FillMemory owner, int pass, int slice, int start, int end, int laneFrom, int laneTo) {
+            this.owner = owner;
+            this.pass = pass;
+            this.slice = slice;
+            this.start = start;
+            this.end = end;
+            this.laneFrom = laneFrom;
+            this.laneTo = laneTo;
+        }
+
+        @Override
+        protected void compute() {
+            for (int lane = laneFrom; lane < laneTo; lane++) {
+                owner.fillSegment(pass, slice, lane, start, end);
+            }
+        }
+    }
+
+    /** 并行填充专用池：惰性创建、守护线程，随 JVM 退出（与 InternalExecutors 一致，不提供关闭）。 */
+    private static final class PoolHolder {
+        static final ForkJoinPool POOL = new ForkJoinPool(
+                Math.max(1, Runtime.getRuntime().availableProcessors()),
+                new Argon2ThreadFactory(), null, false);
+    }
+
+    /** 基于默认工厂创建工作线程，仅置为守护线程并按 {@code flora-argon2-N} 命名。 */
+    private static final class Argon2ThreadFactory implements ForkJoinPool.ForkJoinWorkerThreadFactory {
+
+        private final AtomicInteger seq = new AtomicInteger();
+
+        @Override
+        public ForkJoinWorkerThread newThread(ForkJoinPool pool) {
+            ForkJoinWorkerThread t = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
+            t.setDaemon(true);
+            t.setName("flora-argon2-" + seq.incrementAndGet());
+            return t;
+        }
     }
 
     // ===== H0 / H' =====
@@ -307,13 +455,11 @@ public final class Argon2 {
         return readLong(address, (within % 128) * 8);
     }
 
-    private static byte[] zeroBlock;
+    /** 全零块常量；{@link #fillBlock} 只读 prev/ref，可安全地被多线程共享（不得写入）。 */
+    private static final byte[] ZERO_BLOCK = new byte[BLOCK_SIZE];
 
     private static byte[] zero() {
-        if (zeroBlock == null) {
-            zeroBlock = new byte[BLOCK_SIZE];
-        }
-        return zeroBlock;
+        return ZERO_BLOCK;
     }
 
     /** 从引用域 W 计算引用位置（ref.c index_alpha 语义）。 */

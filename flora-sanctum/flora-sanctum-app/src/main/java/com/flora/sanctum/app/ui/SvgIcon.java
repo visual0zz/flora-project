@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
+import java.security.MessageDigest;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,8 @@ public final class SvgIcon {
     }
 
     private static final Map<String, Icon> CACHE = new HashMap<>();
+    /** 自定义字节图标的渲染缓存，键为「尺寸@内容哈希」，避免每次重绘都重新解析+光栅化 SVG。 */
+    private static final Map<String, Icon> BYTES_CACHE = new HashMap<>();
 
     /**
      * 列出图标库中所有内置图标的名称（不含扩展名），按字母序返回。
@@ -56,8 +60,34 @@ public final class SvgIcon {
         return get(icon.path(), size);
     }
 
-    /** 从 SVG 字节渲染图标（用于仓库内用户自定义 svg 图标），不缓存。 */
+    /**
+     * 从 SVG 字节渲染图标（用于仓库内用户自定义 svg 图标）。
+     * 按「尺寸@内容哈希」缓存渲染结果，避免设置左栏等场景下每次重绘都重新解析+光栅化 SVG。
+     */
     public static Icon fromBytes(byte[] data, int size) {
+        String key = size + "@" + contentHash(data);
+        Icon cached = BYTES_CACHE.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        Icon icon = renderFromBytes(data, size);
+        if (icon != null) {
+            BYTES_CACHE.put(key, icon);
+        }
+        return icon;
+    }
+
+    /** 自定义图标内容哈希（SHA-256），用于缓存键，避免哈希碰撞导致显示错误图标。 */
+    private static String contentHash(byte[] data) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            return Base64.getEncoder().encodeToString(md.digest(data));
+        } catch (Exception e) {
+            return java.util.Arrays.hashCode(data) + ":";
+        }
+    }
+
+    private static Icon renderFromBytes(byte[] data, int size) {
         try (InputStream in = new java.io.ByteArrayInputStream(data)) {
             // 字节无真实 URI，用内存 URI 占位（jsvg 需要非空 URI）
             SVGDocument doc = new SVGLoader().load(in, URI.create("memory://icon"), LoaderContext.createDefault());

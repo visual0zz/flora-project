@@ -527,7 +527,9 @@ class SanctumTest {
         TrashView trash = s.trash();
         assertTrue(trash.manual().contains(group.uuid()));
         assertEquals(TrashView.TrashKind.MANUAL, trash.kindOf(group.uuid()));
-        assertFalse(trash.contains(entry.uuid()));
+        // 子节点自身不带 deleted 标记，但作为被删组的子树成员应一并纳入垃圾桶（修复前不可见）
+        assertTrue(trash.contains(entry.uuid()), "被删组的子节点应作为子树成员出现在垃圾桶");
+        assertEquals(TrashView.TrashKind.MANUAL, trash.kindOf(entry.uuid()));
 
         // 原位置沿 parent 链计算（core 返回中性路径段，末段为组名）
         assertTrue(trash.originalPathSegments(group.uuid()).getLast().equals("社交"));

@@ -10,6 +10,8 @@ import com.flora.root.codec.json.model.JsonObject;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -100,7 +102,49 @@ public final class TrashClassifier {
             }
         }
 
-        return new TrashView(manual, unreachable, unlockable, ctx, root);
+        // 手动删除的节点需将其整棵子树（全部后代）一并纳入垃圾桶：markDeleted 仅标记父节点自身，
+        // 子文件夹/条目不带 deleted 标记，否则既不进入 manual、也不在主树中而彻底不可见。
+        // 展开后 manual 优先，剔除已被纳入 manual 的后代，避免与不可达/不可解锁重复归类。
+        Map<UUID, List<UUID>> childMap = buildChildMap(ctx.objects());
+        Set<UUID> manualSet = new HashSet<>(manual);
+        for (UUID m : new ArrayList<>(manualSet)) {
+            collectDescendants(m, childMap, manualSet);
+        }
+        unreachable.removeIf(manualSet::contains);
+        unlockable.removeIf(manualSet::contains);
+
+        return new TrashView(new ArrayList<>(manualSet), unreachable, unlockable, ctx, root);
+    }
+
+    /** 由 parent 字段构建父子映射（key 为父节点 uuid）。 */
+    private Map<UUID, List<UUID>> buildChildMap(Map<UUID, JsonObject> objects) {
+        Map<UUID, List<UUID>> childMap = new HashMap<>();
+        for (Map.Entry<UUID, JsonObject> e : objects.entrySet()) {
+            String parent = e.getValue().getString("parent");
+            if (parent != null && isUuid(parent)) {
+                childMap.computeIfAbsent(com.flora.sanctum.core.util.UuidHex.fromHex(parent),
+                        k -> new ArrayList<>()).add(e.getKey());
+            }
+        }
+        return childMap;
+    }
+
+    /** 将 root 的全部后代（沿 parent 链）加入 out，已存在的不再重复处理（防环）。 */
+    private void collectDescendants(UUID root, Map<UUID, List<UUID>> childMap, Set<UUID> out) {
+        ArrayDeque<UUID> stack = new ArrayDeque<>();
+        stack.push(root);
+        while (!stack.isEmpty()) {
+            UUID cur = stack.pop();
+            List<UUID> kids = childMap.get(cur);
+            if (kids == null) {
+                continue;
+            }
+            for (UUID kid : kids) {
+                if (out.add(kid)) {
+                    stack.push(kid);
+                }
+            }
+        }
     }
 
     /** 沿 parent 链找到归属的 group uuid（ROOT 之上的真实 group）。 */

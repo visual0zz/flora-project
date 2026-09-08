@@ -3422,6 +3422,12 @@ public final class SanctumGui {
             statusLabel.setText("名称与私钥必填");
             return;
         }
+        try {
+            pem = com.flora.sanctum.app.sync.SyncService.validateSshKeyPem(pem);
+        } catch (IllegalArgumentException ex) {
+            statusLabel.setText(ex.getMessage());
+            return;
+        }
         if (sanctum.sshKeyTree().key(name) != null) {
             statusLabel.setText("已存在同名 SSH 密钥");
             return;

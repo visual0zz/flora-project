@@ -176,4 +176,43 @@ class SyncServiceTest {
         Process p = pb.start();
         return new String(p.getInputStream().readAllBytes());
     }
+
+    // ============ SSH 私钥校验 ============
+
+    @Test
+    void rejectPublicKeyAsPrivate() {
+        String pub = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGb9ECWmEzf6FQbrBZ9w7lshQhqowzIFj79znR5XUUi user@host";
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> SyncService.validateSshKeyPem(pub));
+        assertTrue(ex.getMessage().contains("公钥"), ex.getMessage());
+    }
+
+    @Test
+    void rejectEncryptedKey() {
+        String enc = "-----BEGIN RSA PRIVATE KEY-----\n"
+                + "Proc-Type: 4,ENCRYPTED\n"
+                + "DEK-Info: AES-128-CBC,ABCDEF\n\n"
+                + "abcdef\n-----END RSA PRIVATE KEY-----\n";
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> SyncService.validateSshKeyPem(enc));
+        assertTrue(ex.getMessage().contains("密码"), ex.getMessage());
+    }
+
+    /** 粘贴时被转义成字面 \n 的 PEM 应被还原为可用私钥。 */
+    @Test
+    void normalizeLiteralBackslashN() {
+        String literal = "-----BEGIN OPENSSH PRIVATE KEY-----\\nbase64content\\n-----END OPENSSH PRIVATE KEY-----";
+        String normalized = SyncService.validateSshKeyPem(literal);
+        assertTrue(normalized.contains("\n"), "应还原真实换行");
+        assertTrue(normalized.startsWith("-----BEGIN OPENSSH PRIVATE KEY-----"));
+        assertTrue(normalized.endsWith("\n"));
+    }
+
+    @Test
+    void acceptValidPrivateKey() {
+        String pem = "-----BEGIN OPENSSH PRIVATE KEY-----\n"
+                + "b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAA\n"
+                + "-----END OPENSSH PRIVATE KEY-----\n";
+        assertEquals(pem, SyncService.validateSshKeyPem(pem));
+    }
 }

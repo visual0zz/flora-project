@@ -148,17 +148,6 @@ public final class SyncService {
         List<Path> tempFiles = new ArrayList<>();
         int idx = 0;
         try {
-            // 预备 SSH 临时文件（权限 0600），按远程名索引
-            for (RemoteSpec r : remotes) {
-                if (r.sshKeyPem() != null && !r.sshKeyPem().isBlank()) {
-                    Path tmp = Files.createTempFile("sanctum-ssh-", ".key");
-                    Files.writeString(tmp, r.sshKeyPem());
-                    trySetOwnerOnly(tmp);
-                    sshFiles.put(r.name(), tmp);
-                    tempFiles.add(tmp);
-                }
-            }
-
             // 1) git 可用性
             listener.markRunning(idx);
             if (!isGitAvailable()) {
@@ -181,7 +170,7 @@ public final class SyncService {
             }
             idx++;
 
-            // 3) 配置每个远程（已存在则校正地址）
+            // 3) 配置每个远程（已存在则校正地址），并写入各自的 SSH 临时私钥
             for (RemoteSpec r : remotes) {
                 listener.markRunning(idx);
                 try {
@@ -190,7 +179,19 @@ public final class SyncService {
                     } else {
                         execToString("remote", "add", r.name(), r.url());
                     }
+                    if (r.sshKeyPem() != null && !r.sshKeyPem().isBlank()) {
+                        String pem = validateSshKeyPem(r.sshKeyPem());
+                        Path tmp = Files.createTempFile("sanctum-ssh-", ".key");
+                        Files.writeString(tmp, pem);
+                        trySetOwnerOnly(tmp);
+                        sshFiles.put(r.name(), tmp);
+                        tempFiles.add(tmp);
+                    }
                     listener.markDone(idx, r.url());
+                } catch (IllegalArgumentException e) {
+                    listener.markError(idx, e.getMessage());
+                    listener.done(false, "远程 " + r.name() + " 的密钥无效：" + e.getMessage());
+                    throw e;
                 } catch (Exception e) {
                     listener.markError(idx, e.getMessage());
                     listener.done(false, "配置远端 " + r.name() + " 失败：" + e.getMessage());
@@ -359,6 +360,41 @@ public final class SyncService {
         Map<String, String> env = new HashMap<>();
         env.put("GIT_SSH_COMMAND", "ssh -i " + key + " -o IdentitiesOnly=yes -o StrictHostKeyChecking=no");
         return env;
+    }
+
+    /**
+     * 校验并规整 SSH 私钥 PEM：修剪空白；把粘贴时被转义成字面 {@code \n} 的换行还原；
+     * 检测公钥误填、缺少私钥头、受密码保护（非交互无法使用）等常见错误，给出可读中文说明。
+     * 返回规整后的私钥文本（结尾保证换行）。
+     *
+     * @throws IllegalArgumentException 密钥不可用（消息可直接展示给用户）
+     */
+    public static String validateSshKeyPem(String pem) {
+        if (pem == null || pem.isBlank()) {
+            throw new IllegalArgumentException("SSH 私钥为空，请在密钥设置中填入私钥");
+        }
+        String t = pem.trim();
+        // 常见粘贴损坏：换行被转义成字面 \n（无真实换行但有 \n 序列）时还原
+        if (!t.contains("\n") && t.contains("\\n")) {
+            t = t.replace("\\n", "\n").trim();
+        }
+        if (!t.endsWith("\n")) {
+            t = t + "\n";
+        }
+        // 公钥误填：以 ssh-rsa / ssh-ed25519 / ecdsa-... 开头的一行
+        if (t.matches("(?s)^\\s*(ssh-(rsa|ed25519|dss)|ecdsa-[A-Za-z0-9-]+)\\s+\\S+.*")) {
+            throw new IllegalArgumentException("填入的是 SSH 公钥，请改用对应的私有密钥"
+                    + "（以 -----BEGIN ... PRIVATE KEY----- 开头）");
+        }
+        if (!t.contains("PRIVATE KEY")) {
+            throw new IllegalArgumentException("SSH 私钥格式无效：缺少 -----BEGIN ... PRIVATE KEY----- 头，"
+                    + "请确认填入的是私钥 PEM 文本");
+        }
+        if (t.contains("ENCRYPTED")) {
+            throw new IllegalArgumentException("SSH 私钥受密码保护，非交互式同步无法使用，"
+                    + "请改用无密码的私钥（ssh-keygen -p 去除密码）");
+        }
+        return t;
     }
 
     private static void trySetOwnerOnly(Path file) {

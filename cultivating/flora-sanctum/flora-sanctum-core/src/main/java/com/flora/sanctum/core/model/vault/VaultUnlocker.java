@@ -30,15 +30,41 @@ public final class VaultUnlocker {
 
     /**
      * 解锁：返回 Vault；失败抛 {@link VaultUnlockException}（含失败阶段）。
+     * <p>流程：扫描块 → 找 manifest → Argon2id 派生 KEK → 验证 manifest MAC → 发现根/组 DEK 构建 Vault。
+     * 会话期内已缓存 KEK 时，用 {@link #unlockWithKek(byte[])} 跳过昂贵的 Argon2 派生。
      */
     public Vault unlock(char[] masterPassword) {
+        LocatedManifest m = locateManifest();
+        byte[] kek = deriveKek(m.manifest, masterPassword);
+        try {
+            return buildVault(m, kek);
+        } catch (VaultUnlockException e) {
+            // kek 为本方法局部派生，失败时立即清零，避免主密码残留于内存
+            java.util.Arrays.fill(kek, (byte) 0);
+            throw e;
+        }
+    }
+
+    /**
+     * 用已派生的 KEK 解锁（跳过 Argon2 派生），供会话期内缓存 KEK 后重开仓库（如云同步后重建会话）复用，
+     * 避免重复昂贵的 Argon2 计算。失败按阶段抛 {@link VaultUnlockException}（含失败阶段）。
+     * <p>传入的 kek 由调用方持有与管理（本方法不会清零它）；调用方应在解锁失败时自行处置缓存。
+     */
+    public Vault unlockWithKek(byte[] kek) {
+        if (kek == null) {
+            throw new IllegalArgumentException("kek is null");
+        }
+        LocatedManifest m = locateManifest();
+        return buildVault(m, kek);
+    }
+
+    /** 定位并解析 manifest 引导块（扫描一次，顺便保留全块列表供后续发现 keyId 路由使用）。 */
+    private LocatedManifest locateManifest() {
         List<Block> blocks = store.scan();
-        // 1. 找 manifest 明文块（扫描全部明文块，按 type=="manifest" 识别）
         Block manifestBlock = findManifest(blocks);
         if (manifestBlock == null) {
             throw new VaultUnlockException(VaultUnlockException.Phase.NOT_A_VAULT);
         }
-        // 2. 解析 manifest 负载（魔数/长度/JSON 解析失败视为 manifest 损坏）
         byte[] full;
         Manifest manifest;
         try {
@@ -48,31 +74,38 @@ public final class VaultUnlocker {
         } catch (Exception e) {
             throw new VaultUnlockException(VaultUnlockException.Phase.MANIFEST_CORRUPT);
         }
-        // 3. 派生 KEK
+        return new LocatedManifest(blocks, manifestBlock, full, manifest);
+    }
+
+    /** Argon2id 派生 KEK（见设计 02"解锁流程"步骤 3）。 */
+    private byte[] deriveKek(Manifest manifest, char[] masterPassword) {
         byte[] salt = manifest.salt();
         Argon2KDF kdf = new Argon2KDF(salt, manifest.memoryKiB(), manifest.iterations(), manifest.parallelism());
-        byte[] kek = kdf.derive(masterPassword);
-        try {
-            // 4. 验证 manifest MAC（覆盖完整信封头 + 时间戳原文 + 负载，尾附于块末）
-            verifyMac(com.flora.sanctum.core.crypto.impl.CipherCodec.uuidBytes(manifestBlock.uuid()),
-                    full, manifestBlock.timestampText(), manifest, kek);
-        } catch (VaultUnlockException e) {
-            java.util.Arrays.fill(kek, (byte) 0);
-            throw e;
-        }
+        return kdf.derive(masterPassword);
+    }
+
+    /** 用 KEK 完成校验与密钥发现，构建并返回 Vault（manifest 已定位）。 */
+    private Vault buildVault(LocatedManifest m, byte[] kek) {
+        // 验证 manifest MAC（覆盖完整信封头 + 时间戳原文 + 负载，尾附于块末）
+        verifyMac(com.flora.sanctum.core.crypto.impl.CipherCodec.uuidBytes(m.manifestBlock.uuid()),
+                m.full, m.manifestBlock.timestampText(), m.manifest, kek);
         KeyIdIndex index = new KeyIdIndex();
-        long baseTimestamp = maxBlockTimestamp(blocks);
-        Vault vault = new Vault(store, manifest, index, new SecureRandomSource(), kek, baseTimestamp);
-        // 5. 解根对象：manifest 记录 rootObjectUuid，O(1) 定位；KEK 试解出 root DEK 与 repoKeyIdSeed。
-        //    根对象缺失/解不开/不完整均视为解锁失败（必要节点缺失），失败时清理驻留密钥。
+        long baseTimestamp = maxBlockTimestamp(m.blocks);
+        Vault vault = new Vault(store, m.manifest, index, new SecureRandomSource(), kek, baseTimestamp);
+        // 解根对象：manifest 记录 rootObjectUuid，O(1) 定位；KEK 试解出 root DEK 与 repoKeyIdSeed。
+        // 根对象缺失/解不开/不完整均视为解锁失败（必要节点缺失），失败时清理驻留密钥。
         try {
-            discoverRootDeks(vault, kek, blocks);
+            discoverRootDeks(vault, kek, m.blocks);
         } catch (VaultUnlockException e) {
             vault.clearSecrets();
             throw e;
         }
         // KEK 由 Vault 驻留（锁定/关闭时 clearSecrets）
         return vault;
+    }
+
+    /** manifest 定位结果（块列表 + 引导块 + 明文完整块 + 解析后 manifest）。 */
+    private record LocatedManifest(List<Block> blocks, Block manifestBlock, byte[] full, Manifest manifest) {
     }
 
     /**

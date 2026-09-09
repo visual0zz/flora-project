@@ -146,6 +146,49 @@ class SanctumTest {
     }
 
     @Test
+    void reopenWithCachedKekSkipsArgon2AndReadsBack() {
+        char[] pw = "pw".toCharArray();
+        Sanctum s = Sanctum.createAndUnlock(dir, pw, 8192, 2, 1);
+        GroupNode group = s.objectTree().createGroup(null, "社交");
+        EntryNode entry = group.createEntry("微博", new EntryFields("s3cret", null, null, List.of()));
+        UUID entryUuid = entry.uuid();
+
+        // 解锁后取出 KEK 并关闭（模拟会话期内缓存 KEK）
+        byte[] kek = s.kek();
+        assertNotNull(kek);
+        s.close();
+        assertFalse(s.isUnlocked());
+
+        // 用缓存 KEK 重新打开并解锁（跳过 Argon2 派生，不依赖主密码）
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlockWithKek(kek);
+        assertTrue(s2.isUnlocked());
+        EntryNode e = s2.objectTree().entry(entryUuid);
+        assertNotNull(e);
+        assertEquals("微博", e.name());
+        assertEquals("s3cret", e.password());
+        s2.close();
+    }
+
+    @Test
+    void reopenWithWrongKekFails() {
+        char[] pw = "pw".toCharArray();
+        Sanctum s = Sanctum.createAndUnlock(dir, pw, 8192, 2, 1);
+        s.objectTree().createEntry(null, "条目", new EntryFields("x", null, null, List.of()));
+        byte[] kek = s.kek();
+        s.close();
+
+        // 篡改 KEK：manifest MAC 校验 / 根对象解密均失败，应抛 VaultUnlockException
+        byte[] wrong = kek.clone();
+        wrong[0] ^= (byte) 0xFF;
+
+        Sanctum s2 = Sanctum.open(dir);
+        assertThrows(VaultUnlockException.class, () -> s2.unlockWithKek(wrong));
+        assertFalse(s2.isUnlocked());
+        s2.close();
+    }
+
+    @Test
     void entryInSubGroupUsesFolderDekAndSurvivesRelock() {
         char[] pw = "pw".toCharArray();
         Sanctum s = Sanctum.createAndUnlock(dir, pw, 8192, 2, 1);

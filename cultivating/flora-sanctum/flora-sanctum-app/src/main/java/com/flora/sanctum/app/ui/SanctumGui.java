@@ -132,6 +132,12 @@ public final class SanctumGui {
     private boolean standalone;
     /** 当前仓库数据根（解锁目标 / 锁定后直接回到该仓库解锁页）。 */
     private Path targetVaultRoot;
+    /**
+     * 会话期内缓存的解锁 KEK（由主密码 Argon2 派生，仅在已解锁会话驻留，锁定/失败时清零）。
+     * 云同步后重开仓库时用它走 {@code Sanctum#unlockWithKek} 跳过昂贵的 Argon2 重算；
+     * 若重开解锁失败（如远端合入了改密后的仓库），弹窗报错并退回解锁页重新输入主密码。
+     */
+    private byte[] cachedKek;
     /** 垃圾桶视图（每次重建树时刷新；含三类异常节点 uuid 与「原位置」计算）。 */
     private com.flora.sanctum.core.model.TrashView trashView;
     /**
@@ -999,6 +1005,9 @@ public final class SanctumGui {
     private void onUnlocked(Path root, Sanctum s) {
         LOG.info("Vault unlocked: {}", root);
         sanctum = s;
+        // 缓存 KEK：会话期内驻留，供云同步后重开仓库跳过 Argon2 重算（锁定/失败已清零）
+        clearCachedKek();
+        cachedKek = s.kek();
         unlockedVaultPath = root.toAbsolutePath().toString();
         config.addRecentVault(unlockedVaultPath);
         config.setLastVault(unlockedVaultPath);
@@ -1024,13 +1033,21 @@ public final class SanctumGui {
         }
     }
 
-    private void lock() {
-        if (sanctum == null) {
+    /** 清零会话期缓存的 KEK（锁定/重开失败/退出解锁时调用）。 */
+    private void clearCachedKek() {
+        if (cachedKek != null) {
+            java.util.Arrays.fill(cachedKek, (byte) 0);
+            cachedKek = null;
+        }
+    }
+
+    private void lock() {        if (sanctum == null) {
             return; // 已锁定：幂等，避免轮询窗口内重复触发
         }
         LOG.info("Locking vault{}", unlockedVaultPath != null ? " " + unlockedVaultPath : "");
         sanctum.close();
         current.set(null);
+        clearCachedKek();
         unlockedVaultPath = null;
         stopTimers();
         frame.setTitle("flora-sanctum");
@@ -4051,24 +4068,37 @@ public final class SanctumGui {
                     dialog.done(false, "会话状态已变化，同步中止");
                     return; // 排队期间状态已变，放弃
                 }
-                // 关闭→同步→重新打开（同步后块内容已变，必须重建会话）
-                LOG.info("Sync: closing vault, running git sync, reopening");
+                // 关闭→同步→用缓存 KEK 重新解锁（同步后块内容已变，必须重建会话）
+                LOG.info("Sync: closing vault, running git sync, reopening with cached KEK");
+                byte[] kek = cachedKek; // 快照：重开失败路径会清零它
                 sanctum.close();
                 try {
                     syncService.sync(specs, dialog);
                 } finally {
                     try {
                         sanctum = Sanctum.open(root);
+                        sanctum.unlockWithKek(kek);
                         current.set(sanctum);
                     } catch (Exception reopenEx) {
-                        LOG.error("Failed to reopen vault after sync", reopenEx);
-                        javax.swing.SwingUtilities.invokeLater(
-                                () -> statusLabel.setText("同步后重新打开失败"));
-                        dialog.done(false, "同步已执行，但重新打开仓库失败：" + reopenEx.getMessage());
+                        // 重开解锁失败（如远端合入了改密后的仓库）：同步已执行，但本地会话无法用旧 KEK 解锁
+                        LOG.error("Failed to reopen/unlock vault after sync", reopenEx);
+                        clearCachedKek();
+                        sanctum = null;
+                        current.set(null);
+                        javax.swing.SwingUtilities.invokeLater(() -> {
+                            statusLabel.setText("同步后重新解锁失败");
+                            JOptionPane.showMessageDialog(frame,
+                                    "同步已执行，但用缓存密钥重新解锁仓库失败：\n"
+                                            + reopenEx.getMessage() + "\n请重新输入主密码。",
+                                    "重新解锁失败", JOptionPane.ERROR_MESSAGE);
+                            // 确定后进入该仓库的解锁页
+                            showUnlockPage(root);
+                        });
+                        dialog.done(false, "同步已执行，但重新解锁仓库失败：" + reopenEx.getMessage());
                         return;
                     }
                 }
-                LOG.info("Sync finished, vault reopened");
+                LOG.info("Sync finished, vault reopened with cached KEK");
                 javax.swing.SwingUtilities.invokeLater(() -> {
                     modelBus.markDirty();
                     modelBus.refresh();

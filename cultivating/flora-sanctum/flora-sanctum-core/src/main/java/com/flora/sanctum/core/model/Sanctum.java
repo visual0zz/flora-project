@@ -75,6 +75,26 @@ public final class Sanctum implements AutoCloseable {
                 new RemoteTree(context));
     }
 
+    /**
+     * 用已派生的 KEK 解锁（跳过 Argon2 派生），供会话期内缓存 KEK 后重开仓库（如云同步后重建会话）复用，
+     * 避免重复昂贵的 Argon2 计算。失败抛 {@link com.flora.sanctum.core.model.vault.VaultUnlockException}。
+     */
+    public void unlockWithKek(byte[] kek) {
+        this.vault = new VaultUnlocker(store).unlockWithKek(kek);
+        this.context = new TreeContext(store, vault);
+        this.config = new LibraryConfig(context);
+        this.trees = List.of(
+                new ObjectTree(context),
+                new IconTree(context),
+                new SshKeyTree(context),
+                new RemoteTree(context));
+    }
+
+    /** 当前解锁会话的 KEK（缓存用）；未解锁返回 null。返回的数组为内部副本，调用方负责清零。 */
+    public byte[] kek() {
+        return vault == null ? null : vault.kek();
+    }
+
     public void lock() {
         if (vault != null) {
             vault.clearSecrets();

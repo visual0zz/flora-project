@@ -30,17 +30,14 @@ public interface FractionalIndex<T> {
     /**
      * 生成严格位于 {@code a} 与 {@code b} 之间的键。
      *
+     * <p>实现可在并发插入场景下引入随机性以分散键空间，但结果必须严格介于
+     * {@code a}、{@code b} 之间；调用方不应假设结果可复现，除非该实现明确声明确定性。</p>
+     *
      * @param a 下界；{@code null} 表示插到最前
      * @param b 上界；{@code null} 表示追加到末尾
      * @throws IllegalArgumentException 两界均非 {@code null} 且 {@code a >= b}
      */
     T between(T a, T b);
-
-    /**
-     * 同 {@link #between}，但允许实现在并发插入场景下引入随机性以分散键空间。
-     * 不支持该语义的实现（如定宽整数）可直接退化为 {@link #between}。
-     */
-    T betweenJittered(T a, T b);
 
     /** 生成 {@code n} 个均匀分布在 {@code a} 与 {@code b} 之间的键（升序）。 */
     List<T> nBetween(T a, T b, int n);

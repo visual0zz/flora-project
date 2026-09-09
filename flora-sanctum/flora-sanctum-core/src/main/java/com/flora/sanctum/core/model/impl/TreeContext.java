@@ -400,7 +400,7 @@ public final class TreeContext {
             }
             String next = orderOf(beforeUuid);
             String prev = idx == 0 ? null : orderOf(sibs.get(idx - 1));
-            return RocicorpFractionalIndex.INSTANCE.betweenJittered(prev, next);
+            return RocicorpFractionalIndex.JITTERED.between(prev, next);
         } finally {
             lock.unlock();
         }

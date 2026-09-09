@@ -1,7 +1,7 @@
 # 决策：小数索引上移至 flora-root，并改用 Rocicorp 完整算法（变长整数）
 
 日期：2026-09-09
-模块：flora-root（新增 `com.flora.root.collect.order`）、flora-sanctum-core（改用）
+模块：flora-root（新增 `com.flora.root.container.order`）、flora-sanctum-core（改用）
 
 ## 背景
 
@@ -16,7 +16,7 @@
 
 ## 决策
 
-1. 在 flora-root 新建 `com.flora.root.collect.order.DavidGreenspanFractionalIndex`，**完整实现 Rocicorp 算法**
+1. 在 flora-root 新建 `com.flora.root.container.order.RocicorpFractionalIndex`，**完整实现 Rocicorp 算法**
    （含变长整数编码），作为通用库沉淀。
 2. sanctum 删除本地副本，改为依赖 flora-root 的实现。
 
@@ -55,8 +55,8 @@ integerLength(head) = i < 26 ? 26 - i + 1 : i - 26 + 2
 ## API 设计
 
 ```java
-FractionalIndex.between(a, b)          // 确定性，与官方实现字节兼容
-FractionalIndex.betweenJittered(a, b)  // 取中点时随机取值，用于并发插入
+FractionalIndex.between(a, b)          // 唯一插入方法；是否随机由实现构造参数决定
+                                      // RocicorpFractionalIndex(false)=确定性(字节兼容) / (true)=并发抖动
 FractionalIndex.nBetween(a, b, n)      // 一次生成 n 个均匀铺开的键（比逐个生成更短）
 FractionalIndex.compare(a, b)          // 字典序比较，null 排最前
 FractionalIndex.isValid(key)           // 校验外部来源的键
@@ -66,17 +66,17 @@ FractionalIndex.isValid(key)           // 校验外部来源的键
 （`localeCompare` 会给出错误次序）。把比较器与键格式放在一起，可避免调用方各自写错。
 
 **jitter 的位置**：只在"取中点"分支生效（在开区间内随机取值）。追加/前插走整数部分加减一，
-是确定性的——官方核心库同样如此，jitter 由第三方扩展提供。
+是确定性的——官方核心库同样如此，jitter 由构造参数 jittered 控制（开启时在取中点分支随机）。
 
 **随机源的选择**：用 `ThreadLocalRandom` 而非项目的混合熵源（`SecureRandomSource`）。
 `decision20260908-01` 的"统一走混合熵入口"针对的是 uuid——唯一性依赖熵质量，源退化会导致
 "不重复但可预测"；jitter 只用于区分并发插入，不承载安全语义，且 `FractionalIndex`
-是纯静态工具类，引入实例化的随机源会破坏其无状态性质。
+是无状态实现（实例仅持有 jittered 开关），引入实例化的随机源会破坏其无状态性质。
 
 ## 影响
 
-- flora-root：新增 `com.flora.root.collect`（含 package-info）与
-  `com.flora.root.collect.order.DavidGreenspanFractionalIndex`；`module-info` 新增一条 exports。
+- flora-root：新增 `com.flora.root.container.order`（含 `FractionalIndex`、`RocicorpFractionalIndex`、
+  `LongFractionalIndex`）；`module-info` 已导出该包。
   新增测试 11 项，其中 `matchesReferenceExamples` / `nBetweenMatchesReferenceExamples`
   直接对齐官方 README 的示例（`a0`、`a1`、`Zz`、`a1V`、`['a0G','a0V']`…），
   作为跨语言实现兼容性的回归基准。

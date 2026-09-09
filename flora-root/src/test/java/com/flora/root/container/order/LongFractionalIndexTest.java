@@ -76,12 +76,6 @@ class LongFractionalIndexTest {
     }
 
     @Test
-    void jitteredEqualsBetween() {
-        assertEquals(LongFractionalIndex.INSTANCE.between(10L, 20L),
-                LongFractionalIndex.INSTANCE.betweenJittered(10L, 20L));
-    }
-
-    @Test
     void isValid() {
         assertTrue(LongFractionalIndex.INSTANCE.isValid(123L));
         assertFalse(LongFractionalIndex.INSTANCE.isValid(null));

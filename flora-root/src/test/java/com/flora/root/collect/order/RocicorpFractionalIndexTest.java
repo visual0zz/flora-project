@@ -111,7 +111,7 @@ class RocicorpFractionalIndexTest {
         String hi = "a2";
         Set<String> seen = new HashSet<>();
         for (int i = 0; i < 200; i++) {
-            String key = RocicorpFractionalIndex.INSTANCE.betweenJittered(lo, hi);
+            String key = RocicorpFractionalIndex.JITTERED.between(lo, hi);
             assertTrue(key.compareTo(lo) > 0, key + " 应大于 " + lo);
             assertTrue(key.compareTo(hi) < 0, key + " 应小于 " + hi);
             assertTrue(RocicorpFractionalIndex.INSTANCE.isValid(key), "生成的键应合法: " + key);

@@ -27,16 +27,20 @@ import java.util.concurrent.ThreadLocalRandom;
  * 小数部分不能以 {@code 0} 结尾——以 {@code 0} 结尾的键与其自身前缀之间不存在可插入区间；
  * 键不能等于最小整数 {@code A} 后接 26 个 {@code 0}，它已无法再向前生成。</p>
  *
- * <p>between 是确定性的（相同输入必得相同输出）；betweenJittered
- * 在取中点时改为随机取值，用于多端并发插入同一区间的场景，使两端得到不同但可比较的键。</p>
+ * <p>是否随机由构造参数 {@code jittered} 决定。关闭时 {@code between} 是确定性的（相同输入必得相同
+ * 输出，与官方实现字节兼容）；开启时在取中点分支随机取值，用于多端并发插入同一区间的场景，使两端得到
+ * 不同但可比较的键。</p>
  *
  * <p>本类无状态，线程安全；实现 {@link FractionalIndex}{@code <String>}，通过 {@link #INSTANCE}
- * 以多态方式使用。</p>
+ * （确定性）或 {@link #JITTERED}（并发抖动）以多态方式使用。</p>
  */
 public final class RocicorpFractionalIndex implements FractionalIndex<String> {
 
-    /** 单例（无状态），以 {@code FractionalIndex<String>} 多态使用。 */
-    public static final RocicorpFractionalIndex INSTANCE = new RocicorpFractionalIndex();
+    /** 确定性实例：{@code between} 可复现，与官方实现字节兼容。 */
+    public static final RocicorpFractionalIndex INSTANCE = new RocicorpFractionalIndex(false);
+
+    /** 抖动实例：{@code between} 在取中点分支随机取值，用于多端并发插入。 */
+    public static final RocicorpFractionalIndex JITTERED = new RocicorpFractionalIndex(true);
 
     /** 数字位字符集（升序，且与 ASCII 码点序一致）。 */
     public static final String DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -56,7 +60,11 @@ public final class RocicorpFractionalIndex implements FractionalIndex<String> {
     private static final int[] DIGIT_INDEX = indexTable(DIGITS);
     private static final int[] INT_DIGIT_INDEX = indexTable(INT_DIGITS);
 
-    private RocicorpFractionalIndex() {
+    /** 是否在中点分支引入随机性（并发插入安全）；整数段加减一始终确定。 */
+    private final boolean jittered;
+
+    public RocicorpFractionalIndex(boolean jittered) {
+        this.jittered = jittered;
     }
 
     // ====== 接口实现 ======
@@ -68,12 +76,7 @@ public final class RocicorpFractionalIndex implements FractionalIndex<String> {
 
     @Override
     public String between(String a, String b) {
-        return between(a, b, false);
-    }
-
-    @Override
-    public String betweenJittered(String a, String b) {
-        return between(a, b, true);
+        return between(a, b, jittered);
     }
 
     @Override

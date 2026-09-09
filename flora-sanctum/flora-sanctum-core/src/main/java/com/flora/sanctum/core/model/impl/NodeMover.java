@@ -133,7 +133,7 @@ public final class NodeMover {
         }
         String nextOrder = ctx.orderOf(beforeUuid);
         String prevOrder = idx == 0 ? null : ctx.orderOf(sibs.get(idx - 1));
-        return RocicorpFractionalIndex.INSTANCE.betweenJittered(prevOrder, nextOrder);
+        return RocicorpFractionalIndex.JITTERED.between(prevOrder, nextOrder);
     }
 
     /** 环检测：newParent 不能是 moved 自身或其后代（沿父链向上会经过 moved 即冲突）。 */

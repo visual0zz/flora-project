@@ -216,4 +216,40 @@ class SyncServiceTest {
                 + "-----END OPENSSH PRIVATE KEY-----\n";
         assertEquals(pem, SyncService.validateSshKeyPem(pem));
     }
+
+    /**
+     * 回归：derivePublicKey 应经一次性 agent + ssh-add -L 由私钥推导出公钥，且不依赖 /dev/stdin
+     * （原 ssh-keygen -y -f /dev/stdin + 管道输入会在 OpenSSH 权限检查下失败返回 null）。
+     */
+    @Test
+    void derivePublicKeyFromPrivate() throws Exception {
+        assumeGit();
+        Path key = dir.resolve("id_ed25519");
+        List<String> cmd = new ArrayList<>();
+        cmd.add("ssh-keygen");
+        cmd.add("-t");
+        cmd.add("ed25519");
+        cmd.add("-N");
+        cmd.add("");
+        cmd.add("-f");
+        cmd.add(key.toString());
+        cmd.add("-q");
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        pb.redirectErrorStream(true);
+        Process p = pb.start();
+        p.getInputStream().readAllBytes();
+        assertEquals(0, p.waitFor(), "ssh-keygen 生成密钥失败");
+
+        String pem = Files.readString(key);
+        String pub = SyncService.derivePublicKey(pem);
+        assertNotNull(pub, "应能由私钥推导公钥");
+        assertTrue(pub.startsWith("ssh-"), "公钥应以 ssh- 开头：" + pub);
+
+        // 受密码保护的密钥被校验拒绝，derivePublicKey 应安全返回 null 而非抛错
+        String encrypted = "-----BEGIN RSA PRIVATE KEY-----\n"
+                + "Proc-Type: 4,ENCRYPTED\n"
+                + "DEK-Info: AES-128-CBC,ABCDEF\n\n"
+                + "abcdef\n-----END RSA PRIVATE KEY-----\n";
+        assertNull(SyncService.derivePublicKey(encrypted), "加密密钥应返回 null");
+    }
 }

@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
  * 数据相关（d）与混合（id）是三条独立分支；t≥2 用于覆盖 pass&gt;0 时引用上一 pass
  * 残留值的路径。</p>
  */
+@SuppressWarnings("osmetes:secret") // 测试假密钥
 @Tag("slow")
 class Argon2ParallelTest {
 

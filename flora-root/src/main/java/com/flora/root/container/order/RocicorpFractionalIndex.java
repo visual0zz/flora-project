@@ -32,7 +32,7 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * <p>本类无状态，线程安全。</p>
  */
-public final class DavidGreenspanFractionalIndex {
+public final class RocicorpFractionalIndex {
 
     /** 数字位字符集（升序，且与 ASCII 码点序一致）。 */
     public static final String DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -52,7 +52,7 @@ public final class DavidGreenspanFractionalIndex {
     private static final int[] DIGIT_INDEX = indexTable(DIGITS);
     private static final int[] INT_DIGIT_INDEX = indexTable(INT_DIGITS);
 
-    private DavidGreenspanFractionalIndex() {
+    private RocicorpFractionalIndex() {
     }
 
     // ====== 公开 API ======

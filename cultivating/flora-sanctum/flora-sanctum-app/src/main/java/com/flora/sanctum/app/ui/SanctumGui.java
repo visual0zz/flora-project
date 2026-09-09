@@ -22,6 +22,8 @@ import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.runtime.log.Logger;
 import com.flora.root.runtime.log.LoggerFactory;
 
+import com.flora.sanctum.app.bootstrap.VaultDetector;
+
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
@@ -3942,6 +3944,13 @@ public final class SanctumGui {
         if (sanctum == null || syncService == null || !sanctum.isUnlocked()) {
             return;
         }
+        // 云同步仅对独立仓库可用：独立仓库自带完整运行时与 git 同步能力
+        if (!VaultDetector.isStandaloneRepo(sanctum.root())) {
+            JOptionPane.showMessageDialog(frame,
+                    "云同步仅适用于独立仓库，当前仓库不是独立仓库。",
+                    "云同步", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
         // 读取远程配置（含引用的 SSH 密钥 PEM），构建同步规格
         List<RemoteNode> remotes = sanctum.remoteTree().remotes();
@@ -3969,9 +3978,7 @@ public final class SanctumGui {
 
         Path root = sanctum.root();
         SyncProgressDialog dialog = new SyncProgressDialog(frame);
-        dialog.setVisible(true);
-
-        executor.submit(new com.flora.sanctum.app.BackgroundExecutor.Task() {
+        dialog.setOnStart(() -> executor.submit(new com.flora.sanctum.app.BackgroundExecutor.Task() {
             @Override
             public String name() {
                 return "同步";
@@ -4007,7 +4014,8 @@ public final class SanctumGui {
                     statusLabel.setText("已同步");
                 });
             }
-        });
+        }));
+        dialog.setVisible(true);
     }
 
     // ================= 设置 =================

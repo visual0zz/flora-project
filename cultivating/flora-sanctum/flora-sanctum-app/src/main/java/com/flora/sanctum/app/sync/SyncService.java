@@ -16,6 +16,8 @@ import java.util.Set;
 import com.flora.root.runtime.log.Logger;
 import com.flora.root.runtime.log.LoggerFactory;
 
+import com.flora.sanctum.app.bootstrap.RepoCreator;
+
 /**
  * Git 同步封装（见设计 06"Git 同步"），基于本地 git 命令（ProcessBuilder），无 jgit 依赖。
  * <p>
@@ -84,7 +86,7 @@ public final class SyncService {
         return Files.isDirectory(root.resolve(".git"));
     }
 
-    /** 初始化 git 仓库（若缺）。 */
+    /** 初始化 git 仓库（若缺）。Sanctum 默认 .gitignore 由 {@link RepoCreator} 在独立仓库创建/升级/刷新时统一管理。 */
     public void initIfNeeded() throws Exception {
         if (!isGitRepo()) {
             LOG.info("Initializing git repository at {}", root);

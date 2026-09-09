@@ -1,0 +1,88 @@
+# =============================================================================
+# Sanctum 默认 .gitignore —— 由密码管理器在初始化 git 仓库时自动放置
+# -----------------------------------------------------------------------------
+# 作用：过滤所有「不属于密码仓库」的杂质文件，避免 .DS_Store、编辑器临时
+#       文件、同步冲突副本等被误提交 / 误同步进密码库。
+# 策略：纯黑名单。密码仓库自身的核心数据（如 *.kdbx、*.key、*.1pux、*.kdb
+#       以及 Sanctum 数据块）均不受影响，可正常纳入版本控制。
+# 提示：本文件仅在新仓库初始化且仓库内尚无 .gitignore 时写入，不会覆盖
+#       你已有的自定义规则。如需调整，直接编辑仓库根目录的 .gitignore 即可。
+# =============================================================================
+
+# ---------- 操作系统产物 ----------
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.VolumeIcon.icns
+.AppleDouble
+.AppleDB
+.DocumentRevisions-V100
+.TemporaryItems
+.apdisk
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux / 其他
+*~
+.directory
+.Trash-*
+.dbus/
+
+# ---------- 同步 / 备份 / 冲突副本 ----------
+# 网盘 / 同步工具产生的冲突副本
+*.sync-conflict-*
+*.conflict-*
+# 编辑器与系统的临时 / 备份副本
+~*
+*.bak
+*.backup
+*.old
+*.tmp
+*.temp
+*.part
+*.crdownload
+# Vim / 编辑器交换与备份
+*.swp
+*.swo
+*.swn
+*.swx
+
+# ---------- 编辑器 / IDE ----------
+.idea/
+*.iml
+.vscode/
+*.sublime-*
+*.komodoproject
+.project
+.settings/
+.classpath
+*.code-workspace
+
+# ---------- 日志 / 崩溃 / 锁文件 ----------
+*.log
+*.log.*
+*.crash
+*.lock
+*.pid
+
+# ---------- 代码 / 构建产物（密码仓库不应包含） ----------
+target/
+build/
+dist/
+node_modules/
+__pycache__/
+*.class
+*.pyc
+*.pyo
+*.o
+*.so
+*.a

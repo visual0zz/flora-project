@@ -5,6 +5,7 @@ import com.flora.root.runtime.log.Logger;
 import com.flora.root.runtime.log.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.module.ModuleReference;
 import java.lang.module.ResolvedModule;
 import java.net.URI;
@@ -31,6 +32,9 @@ public final class RepoCreator {
 
     private static final Logger LOG = LoggerFactory.getLogger(RepoCreator.class);
 
+    /** classpath 上的默认 .gitignore 模板（不以 .gitignore 命名，避免误作应用仓库的 gitignore 生效）。 */
+    private static final String GITIGNORE_TEMPLATE = "/vault-gitignore";
+
     private RepoCreator() {
     }
 
@@ -55,6 +59,7 @@ public final class RepoCreator {
         copyLib(dir);
         writeScripts(dir);
         VaultDetector.writeRepoConfig(dir, appConfig);
+        placeDefaultGitignore(dir);
         LOG.info("Standalone repository created at {}", dir);
         return dir;
     }
@@ -74,6 +79,7 @@ public final class RepoCreator {
         copyLib(repoRoot);
         writeScripts(repoRoot);
         VaultDetector.writeRepoConfig(repoRoot, appConfig);
+        placeDefaultGitignore(repoRoot);
         LOG.info("Repository upgraded to standalone: {}", repoRoot);
         return repoRoot;
     }
@@ -88,6 +94,7 @@ public final class RepoCreator {
         deleteIfExists(repoRoot.resolve("edit"));
         deleteIfExists(repoRoot.resolve("edit.bat"));
         deleteIfExists(repoRoot.resolve("config.json"));
+        removeDefaultGitignore(repoRoot);
         LOG.info("Repository downgraded to normal: {}", repoRoot);
         return repoRoot;
     }
@@ -115,6 +122,7 @@ public final class RepoCreator {
         }
         copyLib(repoRoot);
         writeScripts(repoRoot);
+        placeDefaultGitignore(repoRoot);
         LOG.info("Standalone runtime refreshed: {}", repoRoot);
         return repoRoot;
     }
@@ -356,5 +364,42 @@ public final class RepoCreator {
         Path batFile = dir.resolve("edit.bat");
         Files.writeString(batFile, windows);
         batFile.toFile().setExecutable(true);
+    }
+
+    /**
+     * 将默认 .gitignore 视为独立仓库的一部分：确保仓库根存在 {@code .gitignore}
+     * （仅当缺失时写入，不覆盖用户自定义规则）。模板取自 classpath 资源
+     * {@code /vault-gitignore}（不以 .gitignore 命名，防止在应用自身代码仓库中意外作为 gitignore 生效）。
+     *
+     * @param dir 独立仓库根
+     * @throws IOException 写入失败
+     */
+    public static void placeDefaultGitignore(Path dir) throws IOException {
+        Path target = dir.resolve(".gitignore");
+        if (Files.exists(target)) {
+            return;
+        }
+        try (InputStream in = RepoCreator.class.getResourceAsStream(GITIGNORE_TEMPLATE)) {
+            if (in == null) {
+                LOG.warn("vault-gitignore template missing on classpath; skip .gitignore placement");
+                return;
+            }
+            Files.copy(in, target);
+            LOG.info("Placed default .gitignore at {}", target);
+        }
+    }
+
+    /**
+     * 移除独立仓库特征时一并删除仓库根的 {@code .gitignore}（降级为普通仓库时清理）。
+     *
+     * @param dir 仓库根
+     * @throws IOException 删除失败
+     */
+    public static void removeDefaultGitignore(Path dir) throws IOException {
+        Path target = dir.resolve(".gitignore");
+        if (Files.exists(target)) {
+            Files.deleteIfExists(target);
+            LOG.info("Removed .gitignore at {}", target);
+        }
     }
 }

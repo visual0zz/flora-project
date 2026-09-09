@@ -70,8 +70,12 @@ public final class SyncProgressDialog extends JDialog implements SyncStepListene
     private final DefaultListModel<StepRow> model = new DefaultListModel<>();
     private final JList<StepRow> stepList = new JList<>(model);
     private final JTextArea logArea = new JTextArea(8, 46);
+    private final JButton startBtn = new JButton("开始同步");
     private final JButton closeBtn = new JButton("关闭");
-    private final JLabel summary = new JLabel("同步中…");
+    private final JLabel summary = new JLabel("准备就绪 — 点击「开始同步」执行云同步");
+
+    /** 由外部注入：点击「开始同步」按钮时执行（实际同步逻辑在后台线程运行）。 */
+    private Runnable startAction;
 
     public SyncProgressDialog(java.awt.Window parent) {
         super(parent, "云同步进度", ModalityType.MODELESS);
@@ -79,6 +83,11 @@ public final class SyncProgressDialog extends JDialog implements SyncStepListene
         initUi();
         pack();
         setLocationRelativeTo(parent);
+    }
+
+    /** 注册「开始同步」按钮的点击动作；点击前不会自动开始同步。 */
+    public void setOnStart(Runnable action) {
+        this.startAction = action;
     }
 
     private void initUi() {
@@ -98,7 +107,14 @@ public final class SyncProgressDialog extends JDialog implements SyncStepListene
 
         closeBtn.setEnabled(false);
         closeBtn.addActionListener(e -> dispose());
+        startBtn.addActionListener(e -> {
+            if (startAction != null) {
+                startBtn.setEnabled(false);
+                startAction.run();
+            }
+        });
         JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        btnRow.add(startBtn);
         btnRow.add(closeBtn);
 
         JPanel content = new JPanel(new BorderLayout(8, 8));

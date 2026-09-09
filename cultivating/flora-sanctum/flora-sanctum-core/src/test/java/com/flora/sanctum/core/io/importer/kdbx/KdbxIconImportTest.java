@@ -224,9 +224,9 @@ class KdbxIconImportTest {
     }
 
     @Test
-    void notesFieldBecomesBuiltinPreset() throws Exception {
+    void notesFieldBecomesBuiltinPreset(@TempDir Path dir) throws Exception {
         Sanctum sanctum = Sanctum.createAndUnlock(
-                Path.of(System.getProperty("java.io.tmpdir"), "kdbx-notes-" + System.nanoTime()),
+                dir.resolve("vault-notes"),
                 "pw".toCharArray(), 8192, 2, 1);
         var tree = sanctum.objectTree();
 

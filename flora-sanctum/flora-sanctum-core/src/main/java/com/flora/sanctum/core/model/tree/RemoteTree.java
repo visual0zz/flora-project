@@ -3,6 +3,7 @@ import com.flora.sanctum.core.model.*;
 import com.flora.sanctum.core.model.impl.*;
 import com.flora.sanctum.core.model.vault.*;
 
+import com.flora.root.collect.order.FractionalIndex;
 import com.flora.root.codec.json.model.JsonObject;
 
 import java.util.ArrayList;
@@ -39,7 +40,7 @@ public final class RemoteTree extends DataTree {
             out.add((RemoteNode) n);
         }
         // 按 order 升序渲染（小数索引），保证列表顺序稳定、可重排
-        out.sort((a, b) -> context().orderOf(a.uuid()).compareTo(context().orderOf(b.uuid())));
+        out.sort((a, b) -> FractionalIndex.compare(context().orderOf(a.uuid()), context().orderOf(b.uuid())));
         return out;
     }
 

@@ -1,5 +1,6 @@
 package com.flora.sanctum.core.model.impl;
 
+import com.flora.root.collect.order.FractionalIndex;
 import com.flora.sanctum.core.model.StoredNodeType;
 import com.flora.sanctum.core.model.vault.Vault;
 import com.flora.root.codec.json.model.JsonObject;
@@ -125,14 +126,14 @@ public final class NodeMover {
         }
         List<UUID> sibs = new ArrayList<>(ctx.childrenOf(newParent));
         sibs.remove(self);
-        sibs.sort((a, b) -> ctx.orderOf(a).compareTo(ctx.orderOf(b)));
+        sibs.sort((a, b) -> FractionalIndex.compare(ctx.orderOf(a), ctx.orderOf(b)));
         int idx = sibs.indexOf(beforeUuid);
         if (idx < 0) {
             return ctx.appendOrder(newParent);
         }
         String nextOrder = ctx.orderOf(beforeUuid);
-        String prevOrder = idx == 0 ? "" : ctx.orderOf(sibs.get(idx - 1));
-        return FractionalIndex.between(prevOrder, nextOrder);
+        String prevOrder = idx == 0 ? null : ctx.orderOf(sibs.get(idx - 1));
+        return FractionalIndex.betweenJittered(prevOrder, nextOrder);
     }
 
     /** 环检测：newParent 不能是 moved 自身或其后代（沿父链向上会经过 moved 即冲突）。 */

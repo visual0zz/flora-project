@@ -2,6 +2,7 @@ package com.flora.sanctum.core.model.impl;
 import com.flora.sanctum.core.model.*;
 import com.flora.sanctum.core.model.vault.*;
 
+import com.flora.root.collect.order.FractionalIndex;
 import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.codec.json.model.JsonValue;
@@ -84,7 +85,7 @@ public final class TreeContext {
                     obj.remove("orderBits");
                     obj.put("order", o);
                 }
-                o = FractionalIndex.after(o);
+                o = FractionalIndex.between(o, null);
             }
         }
         // 初始化时间戳上限缓存：覆盖全部块（含 manifest/root/数据块），与解锁时 baseTimestamp 同源。
@@ -319,19 +320,19 @@ public final class TreeContext {
                 return List.of();
             }
             List<UUID> sorted = new ArrayList<>(siblings);
-            sorted.sort((a, b) -> orderOf(a).compareTo(orderOf(b)));
+            sorted.sort((a, b) -> FractionalIndex.compare(orderOf(a), orderOf(b)));
             return List.copyOf(sorted);
         } finally {
             lock.unlock();
         }
     }
 
-    /** 节点的排序键 order（块内 {@code order} 字段，base62 字符串；缺失按空串，排在最前）。 */
+    /** 节点的排序键 order（块内 {@code order} 字段，base62 字符串）；缺失或格式非法返回 null。 */
     public String orderOf(UUID uuid) {
         lock.lock();
         try {
             JsonObject o = objects.get(uuid);
-            return o == null || !isStringOrder(o) ? "" : o.getString("order");
+            return o == null || !isStringOrder(o) ? null : o.getString("order");
         } finally {
             lock.unlock();
         }
@@ -344,6 +345,9 @@ public final class TreeContext {
             String max = null;
             for (UUID c : childrenOf(parent)) {
                 String o = orderOf(c);
+                if (o == null) {
+                    continue; // 无 order 的节点（如部分非列表节点）不参与，避免把缺失值当上界
+                }
                 if (max == null || o.compareTo(max) > 0) {
                     max = o;
                 }
@@ -361,7 +365,7 @@ public final class TreeContext {
     public String appendOrder(UUID parent) {
         lock.lock();
         try {
-            return FractionalIndex.after(maxOrderUnder(parent));
+            return FractionalIndex.between(maxOrderUnder(parent), null);
         } finally {
             lock.unlock();
         }
@@ -389,14 +393,14 @@ public final class TreeContext {
             }
             List<UUID> sibs = new ArrayList<>(childrenOf(parent));
             sibs.remove(self);
-            sibs.sort((a, b) -> orderOf(a).compareTo(orderOf(b)));
+            sibs.sort((a, b) -> FractionalIndex.compare(orderOf(a), orderOf(b)));
             int idx = sibs.indexOf(beforeUuid);
             if (idx < 0) {
                 return appendOrder(parent);
             }
             String next = orderOf(beforeUuid);
-            String prev = idx == 0 ? "" : orderOf(sibs.get(idx - 1));
-            return FractionalIndex.between(prev, next);
+            String prev = idx == 0 ? null : orderOf(sibs.get(idx - 1));
+            return FractionalIndex.betweenJittered(prev, next);
         } finally {
             lock.unlock();
         }
@@ -405,7 +409,7 @@ public final class TreeContext {
     /** order 字段存在且为字符串；非字符串（缺失或旧格式数值）视为需要赋序。 */
     private static boolean isStringOrder(JsonObject obj) {
         JsonValue v = obj.get("order");
-        return v != null && v.isString();
+        return v != null && v.isString() && FractionalIndex.isValid(v.asString());
     }
 
     /**

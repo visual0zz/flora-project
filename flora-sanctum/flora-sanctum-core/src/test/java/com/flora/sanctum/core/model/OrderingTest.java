@@ -1,5 +1,6 @@
 package com.flora.sanctum.core.model;
 
+import com.flora.root.collect.order.FractionalIndex;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.sanctum.core.model.tree.EntryNode;
 import com.flora.sanctum.core.model.tree.ObjectTree;
@@ -150,7 +151,7 @@ class OrderingTest {
         assertEquals(2, migrated.size());
         assertMonotonic(s2.objectTree(), migrated);
         for (UUID u : migrated) {
-            assertFalse(s2.objectTree().context().orderOf(u).isEmpty(), "应被重新赋为非空 order");
+            assertNotNull(s2.objectTree().context().orderOf(u), "应被重新赋为合法 order");
         }
         s2.close();
         // 再次重开：赋序为惰性落盘，但扫描顺序确定，故展示次序应保持稳定
@@ -161,10 +162,10 @@ class OrderingTest {
     }
 
     private void assertMonotonic(ObjectTree t, List<UUID> order) {
-        String prev = "";
+        String prev = null;
         for (UUID u : order) {
             String o = t.context().orderOf(u);
-            assertTrue(o.compareTo(prev) > 0, "order 应单调递增");
+            assertTrue(FractionalIndex.compare(prev, o) < 0, "order 应单调递增");
             prev = o;
         }
     }

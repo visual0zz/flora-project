@@ -1,17 +1,17 @@
 package com.flora.sanctum.app.sync;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.flora.root.runtime.log.Logger;
 import com.flora.root.runtime.log.LoggerFactory;
@@ -31,8 +31,15 @@ import com.flora.sanctum.app.bootstrap.RepoCreator;
  * 冲突仲裁（见设计 06）：merge 冲突发生在同一文件被两端同时修改时。按块时间戳（落盘
  * {@code timestamp:base64} 冒号前数字）大者 wins；被覆盖方复制到 {@code .conflict} 供核查。
  * <p>
- * SSH 私钥按远程写入临时文件（权限 0600），经 {@code GIT_SSH_COMMAND} 注入该远端的
- * fetch / push 进程，同步结束统一删除临时文件。
+ * SSH 私钥<b>不落盘</b>：同步时为本次会话启动一个私有的 {@code ssh-agent}，经标准输入把私钥传给
+ * {@code ssh-add -}（密钥只驻留 agent 内存），再通过 {@code SSH_AUTH_SOCK} 让 git/ssh 自动选用，
+ * 同步结束后 {@code ssh-agent -k} 销毁该 agent 以清除内存中的密钥。相比写入临时文件（0600）的方案，
+ * 彻底避免了密钥在磁盘/交换/休眠镜像中残留的可能。
+ * <p>
+ * 平台要求：git 与 ssh 命令跨平台一致。本方案的 SSH 部分依赖 {@code ssh-agent -s} / {@code ssh-add -} /
+ * {@code ssh-keygen -y -f /dev/stdin}（私钥经管道而非文件传递）。在 Linux / macOS 与 Windows 的
+ * <b>Git for Windows（其自带的 MSYS OpenSSH 支持上述用法）</b>下均可工作；Windows 的原生
+ * {@code C:\Windows\System32\OpenSSH}（服务式 agent，无 {@code /dev/stdin}）不在支持范围内。
  */
 public final class SyncService {
 
@@ -128,6 +135,7 @@ public final class SyncService {
         List<String> titles = new ArrayList<>();
         titles.add("检查 git 可用性");
         titles.add("初始化本地仓库");
+        titles.add("启动 ssh-agent");
         for (RemoteSpec r : remotes) {
             titles.add("配置远端 " + r.name());
         }
@@ -146,8 +154,7 @@ public final class SyncService {
             listener.beginStep(i, titles.get(i));
         }
 
-        Map<String, Path> sshFiles = new HashMap<>();
-        List<Path> tempFiles = new ArrayList<>();
+        Map<String, String> agentEnv = null; // 私有 ssh-agent 的环境（SSH_AUTH_SOCK / SSH_AGENT_PID）
         int idx = 0;
         try {
             // 1) git 可用性
@@ -172,7 +179,26 @@ public final class SyncService {
             }
             idx++;
 
-            // 3) 配置每个远程（已存在则校正地址），并写入各自的 SSH 临时私钥
+            // 3) 启动私有 ssh-agent（仅当存在需要密钥的远程）；密钥经 stdin 注入 agent 内存，不落盘
+            listener.markRunning(idx);
+            try {
+                boolean needsAgent = remotes.stream()
+                        .anyMatch(r -> r.sshKeyPem() != null && !r.sshKeyPem().isBlank());
+                if (needsAgent) {
+                    agentEnv = startAgent();
+                    listener.markDone(idx, "ssh-agent 已启动");
+                } else {
+                    agentEnv = null;
+                    listener.markDone(idx, "无需 SSH 密钥");
+                }
+            } catch (Exception e) {
+                listener.markError(idx, e.getMessage());
+                listener.done(false, "启动 ssh-agent 失败：" + e.getMessage());
+                throw e;
+            }
+            idx++;
+
+            // 4) 配置每个远程（已存在则校正地址），并把各自的 SSH 私钥注入 agent
             for (RemoteSpec r : remotes) {
                 listener.markRunning(idx);
                 try {
@@ -183,11 +209,10 @@ public final class SyncService {
                     }
                     if (r.sshKeyPem() != null && !r.sshKeyPem().isBlank()) {
                         String pem = validateSshKeyPem(r.sshKeyPem());
-                        Path tmp = Files.createTempFile("sanctum-ssh-", ".key");
-                        Files.writeString(tmp, pem);
-                        trySetOwnerOnly(tmp);
-                        sshFiles.put(r.name(), tmp);
-                        tempFiles.add(tmp);
+                        if (agentEnv == null) {
+                            throw new IOException("ssh-agent 未就绪，无法载入密钥");
+                        }
+                        addKeyToAgent(pem, agentEnv);
                     }
                     listener.markDone(idx, r.url());
                 } catch (IllegalArgumentException e) {
@@ -202,7 +227,7 @@ public final class SyncService {
                 idx++;
             }
 
-            // 4) 确保主分支
+            // 5) 确保主分支
             String branch;
             listener.markRunning(idx);
             try {
@@ -215,7 +240,7 @@ public final class SyncService {
             }
             idx++;
 
-            // 5) 提交
+            // 6) 提交
             listener.markRunning(idx);
             try {
                 commit("sanctum sync");
@@ -227,11 +252,11 @@ public final class SyncService {
             }
             idx++;
 
-            // 6) 逐个 fetch（各自 SSH 环境）
+            // 7) 逐个 fetch（各自 SSH 环境）
             for (RemoteSpec r : remotes) {
                 listener.markRunning(idx);
                 try {
-                    gitWithLog(listener, "fetch " + r.name(), root, sshEnvFor(r, sshFiles),
+                    gitWithLog(listener, "fetch " + r.name(), root, sshEnvFor(r, agentEnv),
                             "fetch", r.name());
                     listener.markDone(idx, "已拉取 " + r.name());
                 } catch (Exception e) {
@@ -242,13 +267,13 @@ public final class SyncService {
                 idx++;
             }
 
-            // 7) 逐个 merge（冲突按块内时间戳仲裁；远端尚无该分支时跳过合并）
+            // 8) 逐个 merge（冲突按块内时间戳仲裁；远端尚无该分支时跳过合并）
             for (RemoteSpec r : remotes) {
                 listener.markRunning(idx);
                 try {
                     String remoteBranch = r.name() + "/" + branch;
                     if (remoteBranchExists(remoteBranch)) {
-                        int code = runGit(root, sshEnvFor(r, sshFiles), new StringBuilder(),
+                        int code = runGit(root, sshEnvFor(r, agentEnv), new StringBuilder(),
                                 "merge", remoteBranch, "--no-edit",
                                 "--allow-unrelated-histories");
                         if (code != 0) {
@@ -277,11 +302,11 @@ public final class SyncService {
                 idx++;
             }
 
-            // 8) 逐个 push（各自 SSH 环境）
+            // 9) 逐个 push（各自 SSH 环境）
             for (RemoteSpec r : remotes) {
                 listener.markRunning(idx);
                 try {
-                    gitWithLog(listener, "push " + r.name(), root, sshEnvFor(r, sshFiles),
+                    gitWithLog(listener, "push " + r.name(), root, sshEnvFor(r, agentEnv),
                             "push", r.name(), branch);
                     listener.markDone(idx, "已推送 " + r.name());
                 } catch (Exception e) {
@@ -294,13 +319,8 @@ public final class SyncService {
 
             listener.done(true, "同步完成");
         } finally {
-            for (Path p : tempFiles) {
-                try {
-                    Files.deleteIfExists(p);
-                } catch (IOException ignore) {
-                    // 临时文件残留不影响主流程，留待系统清理
-                }
-            }
+            // 销毁私有 ssh-agent，清除其内存中的全部密钥；即便中途异常也务必执行
+            stopAgent(agentEnv);
         }
     }
 
@@ -354,14 +374,83 @@ public final class SyncService {
         }
     }
 
-    private Map<String, String> sshEnvFor(RemoteSpec r, Map<String, Path> sshFiles) {
-        Path key = sshFiles.get(r.name());
-        if (key == null) {
+    /**
+     * 返回注入私有 ssh-agent 的环境变量（供 git/ssh 子进程继承 {@code SSH_AUTH_SOCK}）。
+     * agent 已载入全部远端密钥，ssh 会自动选用匹配的密钥，无需 {@code -i} 临时文件。
+     */
+    private Map<String, String> sshEnvFor(RemoteSpec r, Map<String, String> agentEnv) {
+        if (agentEnv == null || agentEnv.isEmpty()) {
             return null;
         }
+        return new HashMap<>(agentEnv);
+    }
+
+    /**
+     * 启动一个本次同步专用的 {@code ssh-agent}（通过 {@code ssh-agent -s} 解析其输出中的
+     * {@code SSH_AUTH_SOCK} / {@code SSH_AGENT_PID}）。该 agent 仅服务于本次会话，结束后由
+     * {@link #stopAgent(Map)} 销毁，密钥不会进入系统既有 agent，也不会落盘。
+     */
+    private static Map<String, String> startAgent() throws Exception {
+        ProcessBuilder pb = new ProcessBuilder("ssh-agent", "-s");
+        pb.redirectErrorStream(true);
+        Process p = pb.start();
+        String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        int code = p.waitFor();
+        if (code != 0) {
+            String hint = System.getProperty("os.name", "").toLowerCase().contains("win")
+                    ? "（Windows 需安装 Git for Windows 以使用其自带的 OpenSSH，原生 System32\\OpenSSH 不支持此用法）"
+                    : "";
+            throw new IOException("ssh-agent 启动失败: " + out.trim() + hint);
+        }
         Map<String, String> env = new HashMap<>();
-        env.put("GIT_SSH_COMMAND", "ssh -i " + key + " -o IdentitiesOnly=yes -o StrictHostKeyChecking=no");
+        Matcher m1 = Pattern.compile("SSH_AUTH_SOCK=([^;\\s]+)").matcher(out);
+        Matcher m2 = Pattern.compile("SSH_AGENT_PID=(\\d+)").matcher(out);
+        if (m1.find()) {
+            env.put("SSH_AUTH_SOCK", m1.group(1));
+        }
+        if (m2.find()) {
+            env.put("SSH_AGENT_PID", m2.group(1));
+        }
+        if (!env.containsKey("SSH_AUTH_SOCK")) {
+            throw new IOException("ssh-agent 输出缺少 SSH_AUTH_SOCK: " + out.trim());
+        }
         return env;
+    }
+
+    /**
+     * 经标准输入把私钥交给 {@code ssh-add -}；私钥仅流经管道进入 agent 内存，全程不写文件。
+     *
+     * @throws IOException 密钥无效或注入失败
+     */
+    private static void addKeyToAgent(String pem, Map<String, String> agentEnv) throws Exception {
+        String validated = validateSshKeyPem(pem);
+        ProcessBuilder pb = new ProcessBuilder("ssh-add", "-");
+        pb.environment().putAll(agentEnv);
+        pb.redirectErrorStream(true);
+        Process p = pb.start();
+        try (OutputStream os = p.getOutputStream()) {
+            os.write(validated.getBytes(StandardCharsets.UTF_8));
+        }
+        String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        int code = p.waitFor();
+        if (code != 0) {
+            throw new IOException("ssh-add 注入密钥失败: " + out.trim());
+        }
+    }
+
+    /** 销毁私有 ssh-agent，清除其内存中的密钥；失败亦不抛出，避免掩盖主流程错误。 */
+    private static void stopAgent(Map<String, String> agentEnv) {
+        if (agentEnv == null || !agentEnv.containsKey("SSH_AGENT_PID")) {
+            return;
+        }
+        try {
+            ProcessBuilder pb = new ProcessBuilder("ssh-agent", "-k");
+            pb.environment().putAll(agentEnv);
+            pb.redirectErrorStream(true);
+            pb.start().waitFor();
+        } catch (Exception ignore) {
+            // agent 会随父进程退出而释放，忽略清理失败
+        }
     }
 
     /**
@@ -399,13 +488,40 @@ public final class SyncService {
         return t;
     }
 
-    private static void trySetOwnerOnly(Path file) {
+    /**
+     * 由私钥 PEM 推导公钥文本（形如 {@code ssh-rsa AAAA...}），全程不落盘：为本次推导启动一个一次性的
+     * {@code ssh-agent}，经标准输入把私钥灌入 agent 内存（不写文件），再用 {@code ssh-add -L} 取回公钥，
+     * 最后 {@code ssh-agent -k} 销毁 agent。失败（无 ssh-agent/ssh-add、密钥加密或损坏）返回
+     * {@code null}，由调用方决定提示方式。与同步共用同一套 agent 机制，因此同样要求 Git for Windows
+     * （见类注释）；原生 Windows OpenSSH 不支持此用法。
+     */
+    public static String derivePublicKey(String pem) {
         try {
-            Set<PosixFilePermission> perms = EnumSet.of(
-                    PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
-            Files.setPosixFilePermissions(file, perms);
-        } catch (UnsupportedOperationException | IOException ignore) {
-            // 非 POSIX 文件系统（如 Windows）忽略：临时文件仅本会话使用
+            String validated = validateSshKeyPem(pem);
+            Map<String, String> agent = startAgent();
+            try {
+                addKeyToAgent(validated, agent);
+                ProcessBuilder pb = new ProcessBuilder("ssh-add", "-L");
+                pb.environment().putAll(agent);
+                pb.redirectErrorStream(true);
+                Process p = pb.start();
+                String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                int code = p.waitFor();
+                if (code != 0) {
+                    return null;
+                }
+                for (String line : out.split("\n")) {
+                    line = line.trim();
+                    if (!line.isEmpty()) {
+                        return line;
+                    }
+                }
+                return null;
+            } finally {
+                stopAgent(agent);
+            }
+        } catch (Exception e) {
+            return null;
         }
     }
 

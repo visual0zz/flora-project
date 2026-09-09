@@ -54,12 +54,19 @@ public final class SshKeyTree extends DataTree {
     }
 
     public SshKeyNode createSshKey(String name, String privateKeyPem) {
+        return createSshKey(name, privateKeyPem, null);
+    }
+
+    public SshKeyNode createSshKey(String name, String privateKeyPem, String publicKey) {
         UUID keyUuid = context().random().nextUuid();
         JsonObject key = new JsonObject();
         key.put("type", StoredNodeType.SSH_KEY.tag());
         key.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(context().vault().rootObjectUuid()));
         key.put("name", name);
         key.put("value", privateKeyPem);
+        if (publicKey != null && !publicKey.isBlank()) {
+            key.put("publicKey", publicKey.trim());
+        }
         // 小数索引：追加到根下末尾（取当前最大 order 的后继）
         key.put("order", context().appendOrder(context().vault().rootObjectUuid()));
         byte[] dek = context().vault().rootDek();

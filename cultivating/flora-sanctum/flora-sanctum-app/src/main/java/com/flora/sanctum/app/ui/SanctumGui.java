@@ -2290,6 +2290,31 @@ public final class SanctumGui {
         target.add(javax.swing.Box.createVerticalStrut(4));
         final String originalPem = key.value() == null ? "" : key.value();
 
+        JLabel pubTag = new JLabel("公钥（点击眼睛显示/编辑，可选）:");
+        pubTag.setFont(pubTag.getFont().deriveFont(Font.BOLD, 12f));
+        target.add(pubTag);
+        MaskedNotesArea pubArea = new MaskedNotesArea(key.publicKey());
+        target.add(pubArea);
+        JButton genPubBtn = new JButton("从私钥生成公钥");
+        genPubBtn.addActionListener(e -> {
+            String pem = keyArea.getText();
+            try {
+                pem = com.flora.sanctum.app.sync.SyncService.validateSshKeyPem(pem);
+            } catch (IllegalArgumentException ex) {
+                statusLabel.setText(ex.getMessage());
+                return;
+            }
+            String pub = com.flora.sanctum.app.sync.SyncService.derivePublicKey(pem);
+            if (pub == null || pub.isEmpty()) {
+                statusLabel.setText("无法从私钥推导公钥（密钥可能受密码保护或格式不支持）");
+                return;
+            }
+            pubArea.setText(pub);
+            statusLabel.setText("已生成公钥，记得点保存");
+        });
+        target.add(genPubBtn);
+        target.add(javax.swing.Box.createVerticalStrut(4));
+
         JButton saveBtn = makeActionButton("保存", () -> {
             String newName = nameField.getText().trim();
             if (newName.isEmpty()) {
@@ -2308,11 +2333,16 @@ public final class SanctumGui {
                 statusLabel.setText(ex.getMessage());
                 return;
             }
+            String newPub = pubArea.getText().trim();
+            if (!newPub.isEmpty() && !newPub.matches("^\\S+\\s+\\S+.*")) {
+                statusLabel.setText("公钥格式无效（应为 ssh-rsa/ssh-ed25519 等开头的一行）");
+                return;
+            }
             resetAutoLock();
             try {
                 key.rename(newName);
-                if (!newPem.equals(originalPem)) {
-                    key.update(newPem);
+                if (!newPem.equals(originalPem) || !newPub.equals(key.publicKey() == null ? "" : key.publicKey())) {
+                    key.update(newPem, newPub.isEmpty() ? null : newPub);
                 }
                 modelBus.markDirty();
                 modelBus.refresh();
@@ -3422,15 +3452,41 @@ public final class SanctumGui {
     /** 添加 SSH 私钥（sshKey root）。 */
     private void addSshKey() {
         JTextField nameField = new JTextField(16);
-        JTextArea keyArea = new JTextArea(6, 30);
-        keyArea.setLineWrap(true);
-        keyArea.setWrapStyleWord(true);
+        MaskedNotesArea keyArea = new MaskedNotesArea("");
+        MaskedNotesArea pubArea = new MaskedNotesArea("");
+        JButton genPubBtn = new JButton("从私钥生成公钥");
+        genPubBtn.addActionListener(e -> {
+            String pem = keyArea.getText().trim();
+            try {
+                pem = com.flora.sanctum.app.sync.SyncService.validateSshKeyPem(pem);
+            } catch (IllegalArgumentException ex) {
+                statusLabel.setText(ex.getMessage());
+                return;
+            }
+            String pub = com.flora.sanctum.app.sync.SyncService.derivePublicKey(pem);
+            if (pub == null || pub.isEmpty()) {
+                statusLabel.setText("无法从私钥推导公钥（密钥可能受密码保护或格式不支持）");
+                return;
+            }
+            pubArea.setText(pub);
+            statusLabel.setText("已生成公钥，记得点确定");
+        });
         JPanel form = new JPanel(new BorderLayout(8, 8));
         JPanel topForm = new JPanel(new GridLayout(0, 2, 8, 6));
         topForm.add(new JLabel("名称:"));
         topForm.add(nameField);
         form.add(topForm, BorderLayout.NORTH);
-        form.add(new JScrollPane(keyArea), BorderLayout.CENTER);
+        JPanel center = new JPanel(new BorderLayout(4, 4));
+        center.setOpaque(false);
+        center.add(new JLabel("私钥（点击眼睛显示/编辑）:"), BorderLayout.NORTH);
+        center.add(keyArea, BorderLayout.CENTER);
+        JPanel pubWrap = new JPanel(new BorderLayout(4, 4));
+        pubWrap.setOpaque(false);
+        pubWrap.add(new JLabel("公钥（可选）:"), BorderLayout.NORTH);
+        pubWrap.add(pubArea, BorderLayout.CENTER);
+        pubWrap.add(genPubBtn, BorderLayout.SOUTH);
+        center.add(pubWrap, BorderLayout.SOUTH);
+        form.add(center, BorderLayout.CENTER);
         int ok = JOptionPane.showConfirmDialog(frame, form, "添加 SSH 密钥", JOptionPane.OK_CANCEL_OPTION);
         if (ok != JOptionPane.OK_OPTION) {
             return;
@@ -3447,13 +3503,18 @@ public final class SanctumGui {
             statusLabel.setText(ex.getMessage());
             return;
         }
+        String pub = pubArea.getText().trim();
+        if (!pub.isEmpty() && !pub.matches("^\\S+\\s+\\S+.*")) {
+            statusLabel.setText("公钥格式无效（应为 ssh-rsa/ssh-ed25519 等开头的一行）");
+            return;
+        }
         if (sanctum.sshKeyTree().key(name) != null) {
             statusLabel.setText("已存在同名 SSH 密钥");
             return;
         }
         resetAutoLock();
         try {
-            sanctum.sshKeyTree().createSshKey(name, pem);
+            sanctum.sshKeyTree().createSshKey(name, pem, pub.isEmpty() ? null : pub);
             modelBus.markDirty();
             modelBus.refresh();
             statusLabel.setText("已添加 SSH 密钥 " + name);

@@ -32,6 +32,12 @@ public final class SshKeyNode extends TreeNode {
         return d == null ? null : d.getString("value");
     }
 
+    /** 公钥文本（形如 {@code ssh-rsa AAAA...} 的一行），可选；便于查看与配置到远程服务端。 */
+    public String publicKey() {
+        JsonObject d = data();
+        return d == null ? null : d.getString("publicKey");
+    }
+
     /** 改名（不改 uuid，远程的 keyRef 不受影响）。 */
     public void rename(String name) {
         JsonObject d = data();
@@ -43,13 +49,18 @@ public final class SshKeyNode extends TreeNode {
         ctx().writeWithDek(uuid(), d, dek);
     }
 
-    /** 更新私钥 PEM（解密明文），加密写回；不改 uuid，远程的 keyRef 不受影响。 */
-    public void update(String privateKeyPem) {
+    /** 更新私钥 PEM 与公钥（解密明文），加密写回；不改 uuid，远程的 keyRef 不受影响。 */
+    public void update(String privateKeyPem, String publicKey) {
         JsonObject d = data();
         if (d == null) {
             throw new IllegalArgumentException("ssh key not found");
         }
         d.put("value", privateKeyPem);
+        if (publicKey == null || publicKey.isBlank()) {
+            d.remove("publicKey");
+        } else {
+            d.put("publicKey", publicKey.trim());
+        }
         byte[] dek = ctx().vault().rootDek();
         ctx().writeWithDek(uuid(), d, dek);
     }

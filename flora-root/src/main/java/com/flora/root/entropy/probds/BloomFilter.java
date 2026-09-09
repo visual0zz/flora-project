@@ -36,12 +36,17 @@ public final class BloomFilter<T> {
      * @param toBytes           将元素转换为字节数组的函数
      */
     public BloomFilter(int expectedInsertions, double fpp, Function<T, byte[]> toBytes) {
-        if (expectedInsertions <= 0 || fpp <= 0 || fpp >= 1) {
+        if (!(expectedInsertions > 0) || !(fpp > 0 && fpp < 1)) {
             throw new IllegalArgumentException("expectedInsertions > 0, 0 < fpp < 1");
         }
         this.toBytes = toBytes;
         // m = -n * ln(p) / (ln2)^2
-        this.bitCount = optimalBitCount(expectedInsertions, fpp);
+        long m = optimalBitCount(expectedInsertions, fpp);
+        if (m > Integer.MAX_VALUE) {
+            // 位数组以 int 索引，超过约 21 亿位（256MB）无法表示
+            throw new IllegalArgumentException("expectedInsertions 过大，位数组超出 int 上限: " + expectedInsertions);
+        }
+        this.bitCount = (int) m;
         // k = (m / n) * ln2
         this.hashCount = optimalHashCount(expectedInsertions, bitCount);
         this.bits = new BitSet(bitCount);
@@ -118,8 +123,8 @@ public final class BloomFilter<T> {
 
     // ==================== 内部工具 ====================
 
-    private static int optimalBitCount(int n, double p) {
-        return (int) Math.ceil(-n * Math.log(p) / (Math.log(2) * Math.log(2)));
+    private static long optimalBitCount(int n, double p) {
+        return (long) Math.ceil(-n * Math.log(p) / (Math.log(2) * Math.log(2)));
     }
 
     private static int optimalHashCount(int n, int m) {

@@ -41,22 +41,31 @@ public final class CuckooFilter {
      * 构造布谷鸟过滤器。
      *
      * @param expectedInsertions 期望插入元素数量
-     * @param fpp                期望误报率（0 &lt; fpp &lt; 1）
+     * @param fpp                期望误报率（0 &lt; fpp &lt; 1，且不低于约 1.2e-4，
+     *                           这是 16 位指纹存储的误报率下限）
      */
     public CuckooFilter(int expectedInsertions, double fpp) {
-        if (expectedInsertions <= 0 || fpp <= 0 || fpp >= 1) {
+        if (!(expectedInsertions > 0) || !(fpp > 0 && fpp < 1)) {
             throw new IllegalArgumentException("expectedInsertions > 0, 0 < fpp < 1");
         }
-        // 指纹位 = ceil(log2(1/fpp) + log2(2*b))
+        // 指纹位 = ceil(log2(1/fpp) + log2(2*b))，b = entriesPerBucket = 4
         this.entriesPerBucket = 4;
-        this.fingerprintBits = (int) Math.ceil(Math.log(1.0 / fpp) / Math.log(2)) + 3;
-        this.fingerprintMask = (1 << Math.min(fingerprintBits, 16)) - 1;
+        int bits = (int) Math.ceil(Math.log(1.0 / fpp) / Math.log(2)) + 3;
+        if (bits > 16) {
+            // 指纹以 short 存储，最多 16 位；fpp 低于 2^-13 时无法满足，直接拒绝而非静默降级
+            throw new IllegalArgumentException("fpp 过小，低于 16 位指纹的误报率下限（约 1.2e-4）: " + fpp);
+        }
+        this.fingerprintBits = bits;
+        this.fingerprintMask = (1 << bits) - 1;
 
-        // 桶数 = ceil(expectedInsertions / entriesPerBucket / loadFactor)
+        // 桶数 = ceil(expectedInsertions / entriesPerBucket / loadFactor)，向上取整到 2 的幂
         double loadFactor = 0.95;
-        int rawBuckets = (int) Math.ceil(expectedInsertions / entriesPerBucket / loadFactor);
-        // 向上取整到 2 的幂
-        this.numBuckets = Integer.highestOneBit(rawBuckets) << 1;
+        long rawBuckets = (long) Math.ceil(expectedInsertions / (double) entriesPerBucket / loadFactor);
+        if (rawBuckets > (1L << 29)) {
+            // 上限保证 numBuckets = highestOneBit(rawBuckets) << 1 不溢出 int
+            throw new IllegalArgumentException("expectedInsertions 过大，桶数量超出 int 支持范围: " + expectedInsertions);
+        }
+        this.numBuckets = Integer.highestOneBit((int) rawBuckets) << 1;
         this.bucketMask = numBuckets - 1;
 
         this.buckets = new short[numBuckets][entriesPerBucket];
@@ -68,10 +77,12 @@ public final class CuckooFilter {
      * 插入元素。
      *
      * @param data 元素的字节表示
-     * @return true 插入成功，false 插入失败（过滤器已满）
+     * @return true 插入成功，false 插入失败（过滤器已满）。
+     *         返回 false 时过滤器内容保持不变（不会丢失任何已存在元素）。
      */
     public boolean put(byte[] data) {
-        return putFingerprint(hashFingerprint(data), getBucketIndex(data));
+        int h = MurmurHash.mmh3(data);
+        return putFingerprint(fingerprintOf(h), indexOf(h));
     }
 
     /**
@@ -91,8 +102,9 @@ public final class CuckooFilter {
      * @return false 一定不存在，true 可能存在
      */
     public boolean mightContain(byte[] data) {
-        short fp = hashFingerprint(data);
-        int i1 = getBucketIndex(data);
+        int h = MurmurHash.mmh3(data);
+        short fp = fingerprintOf(h);
+        int i1 = indexOf(h);
         return containsInBucket(i1, fp) || containsInBucket(alternateIndex(i1, fp), fp);
     }
 
@@ -113,8 +125,9 @@ public final class CuckooFilter {
      * @return true 删除成功，false 元素不存在
      */
     public boolean delete(byte[] data) {
-        short fp = hashFingerprint(data);
-        int i1 = getBucketIndex(data);
+        int h = MurmurHash.mmh3(data);
+        short fp = fingerprintOf(h);
+        int i1 = indexOf(h);
         if (removeFromBucket(i1, fp)) {
             size--;
             return true;
@@ -164,15 +177,24 @@ public final class CuckooFilter {
             return true;
         }
 
-        // 两个桶都满，执行布谷鸟踢出
-        // 随机选择一个桶开始踢出
+        // 两个桶都满，执行布谷鸟踢出。
+        // 记录每次被覆盖的槽位及其原指纹，若最终仍无法安放，逆序回滚，保证失败不改动过滤器内容。
         ThreadLocalRandom rng = ThreadLocalRandom.current();
+        int[] kickBuckets = new int[MAX_KICKS];
+        int[] kickSlots = new int[MAX_KICKS];
+        short[] kickVictims = new short[MAX_KICKS];
+        int kickCount = 0;
+
         short curFp = fp;
         for (int i = 0; i < MAX_KICKS; i++) {
             // 从当前桶中随机踢出一个指纹
             int victimSlot = rng.nextInt(entriesPerBucket);
             short victimFp = buckets[curBucket][victimSlot];
             buckets[curBucket][victimSlot] = curFp;
+            kickBuckets[kickCount] = curBucket;
+            kickSlots[kickCount] = victimSlot;
+            kickVictims[kickCount] = victimFp;
+            kickCount++;
 
             // 被踢出者去往它的备用桶
             curBucket = alternateIndex(curBucket, victimFp);
@@ -183,7 +205,11 @@ public final class CuckooFilter {
                 return true;
             }
         }
-        // 达到最大踢出次数，空间不足
+        // 达到最大踢出次数，空间不足：逆序撤销所有被覆盖的槽位，恢复踢出前状态
+        while (kickCount > 0) {
+            kickCount--;
+            buckets[kickBuckets[kickCount]][kickSlots[kickCount]] = kickVictims[kickCount];
+        }
         return false;
     }
 
@@ -224,19 +250,21 @@ public final class CuckooFilter {
         return false;
     }
 
-    /** 计算指纹。 */
-    private short hashFingerprint(byte[] data) {
-        int hash = MurmurHash.mmh3(data);
+    /** 从 32 位哈希提取指纹（取低 fingerprintBits 位，0 映射为 1 以保留空槽哨兵）。 */
+    private short fingerprintOf(int hash) {
         int fp = hash & fingerprintMask;
         // 指纹不能为 0（0 用于标示空槽），最小值为 1
         if (fp == 0) fp = 1;
         return (short) fp;
     }
 
-    /** 计算第一个桶索引。 */
-    private int getBucketIndex(byte[] data) {
-        int hash = MurmurHash.mmh3(data);
-        return (hash >>> 16) & bucketMask; // 使用高位避免与指纹哈希相关
+    /**
+     * 从 32 位哈希推导桶索引。
+     * <p>对完整 32 位哈希做一次 mmh3 扩散后掩码，索引可覆盖全部 numBuckets 桶
+     * （不再受 16 位截断限制），且与指纹所用低 fingerprintBits 位在统计上独立。</p>
+     */
+    private int indexOf(int hash) {
+        return MurmurHash.mmh3(hash) & bucketMask;
     }
 
     /** 计算备用桶索引：i2 = i1 XOR H(fp)。 */

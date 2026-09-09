@@ -15,8 +15,9 @@ import java.nio.charset.StandardCharsets;
  * <p>
  * 实现基于 Flajolet 等人的 HyperLogLog 论文，包含：
  * <ul>
- *   <li>小范围线性计数（registers &lt; 2.5m 时）</li>
- *   <li>大范围 64 位修正（原始 HLL 在接近 2^32 时溢出）</li>
+ *   <li>小范围线性计数（raw &lt; 2.5m 且存在空寄存器时）</li>
+ *   <li>rank 基于移除索引位后的完整剩余位计算，支持大基数估计；超出
+ *       long 表示范围时结果封顶为 {@link Long#MAX_VALUE}</li>
  * </ul>
  * 哈希使用 {@link MurmurHash#mmh3(byte[])} 产生 32 位结果，
  * 通过两个独立调用拼接为 64 位哈希，以支持精度 p 高达 16。
@@ -53,13 +54,12 @@ public final class HyperLogLog {
      * @param data 输入数据（字节数组）
      */
     public void add(byte[] data) {
-        // 获取 64 位哈希：用两次 MurmurHash3 32 位，1次 mmh3+1次mmh3(翻转)
+        // 获取 64 位哈希：用两次独立的 32 位 mmh3 拼接
         long hash = hash64(data);
         // 取前 p 位作为寄存器索引
         int idx = (int) (hash >>> (Long.SIZE - p));
-        // 剩余位：移除前 p 位，计算前导零数 + 1
-        int w = (int) ((hash << p) >>> (Long.SIZE - Integer.SIZE));
-        int leading = numberOfLeadingZeros(w) + 1;
+        // 剩余 (64 - p) 位中首个置 1 位的位置决定 rank（前导零数 + 1）
+        int leading = rankOf(hash << p);
         if (leading > registers[idx]) {
             registers[idx] = (byte) leading;
             dirty = true;
@@ -101,7 +101,8 @@ public final class HyperLogLog {
         double sum = 0;
         int zeroCount = 0;
         for (byte r : registers) {
-            sum += 1.0 / (1 << r);
+            // 用 long 移位避免 int 移位在 rank >= 31 时回绕/变负
+            sum += 1.0 / (1L << r);
             if (r == 0) {
                 zeroCount++;
             }
@@ -113,7 +114,13 @@ public final class HyperLogLog {
         if (raw < 2.5 * m && zeroCount > 0) {
             raw = linearCounting(m, zeroCount);
         }
-        // 大范围基数由 64 位哈希自然支持，无需额外的修正步骤
+        // 大范围基数由 64 位哈希自然支持，无需额外的修正步骤；
+        // 但估计值超出 long 表示范围时封顶，避免强转溢出为负数
+        if (raw >= Long.MAX_VALUE) {
+            cache = Long.MAX_VALUE;
+            dirty = false;
+            return Long.MAX_VALUE;
+        }
         long result = (long) Math.ceil(raw);
         cache = result;
         dirty = false;
@@ -160,16 +167,13 @@ public final class HyperLogLog {
         return ((long) high << 32) | (low & 0xFFFFFFFFL);
     }
 
-    /** 计算 32 位 int 的前导零数（包含符号位）。 */
-    private static int numberOfLeadingZeros(int x) {
-        if (x == 0) return 32;
-        int n = 0;
-        if ((x & 0xFFFF0000) == 0) { n += 16; x <<= 16; }
-        if ((x & 0xFF000000) == 0) { n += 8;  x <<= 8;  }
-        if ((x & 0xF0000000) == 0) { n += 4;  x <<= 4;  }
-        if ((x & 0xC0000000) == 0) { n += 2;  x <<= 2;  }
-        if ((x & 0x80000000) == 0) { n += 1;           }
-        return n;
+    /** 计算剩余位段（已移除索引位、高位对齐）的 rank = 前导零数 + 1。 */
+    private int rankOf(long remainder) {
+        if (remainder == 0) {
+            // 剩余 (64 - p) 位全为 0，前导零数为 64 - p
+            return Long.SIZE - p + 1;
+        }
+        return Long.numberOfLeadingZeros(remainder) + 1;
     }
 
     /** 返回 alpha 常量。 */

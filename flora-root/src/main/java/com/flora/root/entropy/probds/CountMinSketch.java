@@ -13,12 +13,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * 适用于 Top-K 统计、网络流量监控、热点检测等场景。
  * </p>
  * <p>
- * 实现特点：
- * <ul>
- *   <li>深度 d × 宽度 w 的 long 矩阵，w = ceil(e / ε)，d = ceil(ln(1 / δ))</li>
- *   <li>误差 ε，置信度 1 - δ：即估计误差不超过 ε × totalCount 的概率为 1 - δ</li>
- *   <li>每行使用独立的哈希种子</li>
- * </ul>
+ * 线程安全约定：{@link #add} 与 {@link #estimate} 内部对单元格同步，可安全并发；
+ * {@link #merge} 读取 other 时不加锁，因此 merge 不能与任何一方实例上的并发写入
+ * （add/merge）同时进行，需要调用方自行保证。
  * </p>
  */
 
@@ -36,20 +33,24 @@ public final class CountMinSketch {
     public CountMinSketch() {
         this(0.001, 0.001);
     }
+
     /**
      * 构造 Count-Min Sketch。
      * @param epsilon 相对误差（值越小精度越高，宽度越大），如 0.01
      * @param delta   置信度（值越小置信度越高，深度越大），如 0.01
      */
     public CountMinSketch(double epsilon, double delta) {
-        if (epsilon <= 0 || delta <= 0 || delta >= 1) {
-            throw new IllegalArgumentException("epsilon > 0, 0 < delta < 1");
+        if (!(epsilon > 0) || !(Double.isFinite(epsilon))
+                || !(delta > 0 && delta < 1)) {
+            throw new IllegalArgumentException("epsilon > 0 且有限, 0 < delta < 1");
         }
-        // w = ceil(e / epsilon)
-        int width = (int) Math.ceil(Math.E / epsilon);
-        // d = ceil(ln(1 / delta))
-        int depth = (int) Math.ceil(Math.log(1.0 / delta));
-        this(width,depth);
+        // w = ceil(e / epsilon)，d = ceil(ln(1 / delta))
+        double w = Math.ceil(Math.E / epsilon);
+        double d = Math.ceil(Math.log(1.0 / delta));
+        if (!(w <= Integer.MAX_VALUE) || !(d <= Integer.MAX_VALUE)) {
+            throw new IllegalArgumentException("epsilon/delta 过小，矩阵维度超出 int 上限");
+        }
+        this((int) w, (int) d);
     }
 
     /**
@@ -63,15 +64,18 @@ public final class CountMinSketch {
      *               取值为 ln(1 / δ)
      */
     public CountMinSketch(int width, int depth) {
-        this.width=width;
-        this.depth=depth;
+        if (!(width > 0) || !(depth > 0)) {
+            throw new IllegalArgumentException("width 和 depth 都必须为正数");
+        }
+        this.width = width;
+        this.depth = depth;
         this.table = new long[width][depth];
         // 为每一行生成独立种子
         this.seeds = new long[depth];
         for (int i = 0; i < depth; i++) {
             seeds[i] = HashUtil.goldenHash(i);
         }
-        this.totalCount=new AtomicLong(0);
+        this.totalCount = new AtomicLong(0);
     }
 
     /**

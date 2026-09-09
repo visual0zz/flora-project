@@ -39,7 +39,7 @@ public final class SshKeyTree extends DataTree {
             out.add((SshKeyNode) n);
         }
         // 按 order 升序渲染（小数索引），保证列表顺序稳定、可重排
-        out.sort((a, b) -> RocicorpFractionalIndex.compare(context().orderOf(a.uuid()), context().orderOf(b.uuid())));
+        out.sort((a, b) -> RocicorpFractionalIndex.INSTANCE.compare(context().orderOf(a.uuid()), context().orderOf(b.uuid())));
         return out;
     }
 

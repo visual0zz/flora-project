@@ -27,12 +27,16 @@ import java.util.concurrent.ThreadLocalRandom;
  * 小数部分不能以 {@code 0} 结尾——以 {@code 0} 结尾的键与其自身前缀之间不存在可插入区间；
  * 键不能等于最小整数 {@code A} 后接 26 个 {@code 0}，它已无法再向前生成。</p>
  *
- * <p>{@link #between} 是确定性的（相同输入必得相同输出）；{@link #betweenJittered}
+ * <p>between 是确定性的（相同输入必得相同输出）；betweenJittered
  * 在取中点时改为随机取值，用于多端并发插入同一区间的场景，使两端得到不同但可比较的键。</p>
  *
- * <p>本类无状态，线程安全。</p>
+ * <p>本类无状态，线程安全；实现 {@link FractionalIndex}{@code <String>}，通过 {@link #INSTANCE}
+ * 以多态方式使用。</p>
  */
-public final class RocicorpFractionalIndex {
+public final class RocicorpFractionalIndex implements FractionalIndex<String> {
+
+    /** 单例（无状态），以 {@code FractionalIndex<String>} 多态使用。 */
+    public static final RocicorpFractionalIndex INSTANCE = new RocicorpFractionalIndex();
 
     /** 数字位字符集（升序，且与 ASCII 码点序一致）。 */
     public static final String DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -55,41 +59,25 @@ public final class RocicorpFractionalIndex {
     private RocicorpFractionalIndex() {
     }
 
-    // ====== 公开 API ======
+    // ====== 接口实现 ======
 
-    /** 首个键（等价于 {@code between(null, null)}），形如 {@code a0}。 */
-    public static String first() {
+    @Override
+    public String first() {
         return between(null, null);
     }
 
-    /**
-     * 生成严格位于 {@code a} 与 {@code b} 之间的键。
-     *
-     * @param a 下界；null 表示插到最前
-     * @param b 上界；null 表示追加到末尾
-     * @throws IllegalArgumentException 两界均非 null 且 {@code a >= b}，或传入的键非法
-     */
-    public static String between(String a, String b) {
+    @Override
+    public String between(String a, String b) {
         return between(a, b, false);
     }
 
-    /**
-     * 同 {@link #between}，但在取中点时随机取值而非取正中。
-     * <p>用于多端并发场景：两端在同一区间插入会得到不同但可比较的键，合并后按字典序
-     * 即可得到一致次序。相邻（无中点可取）的分支仍为确定性。</p>
-     */
-    public static String betweenJittered(String a, String b) {
+    @Override
+    public String betweenJittered(String a, String b) {
         return between(a, b, true);
     }
 
-    /**
-     * 生成 {@code n} 个均匀分布在 {@code a} 与 {@code b} 之间的键（升序）。
-     * <p>比逐个调用 {@link #between} 得到的键更短——后者会让后面的键反复在前一个的
-     * 右半区取中点，而本方法按分治均匀铺开。</p>
-     *
-     * @param n 需要的键数量，{@code n >= 0}
-     */
-    public static List<String> nBetween(String a, String b, int n) {
+    @Override
+    public List<String> nBetween(String a, String b, int n) {
         if (n < 0) {
             throw new IllegalArgumentException("n 不能为负: " + n);
         }
@@ -129,8 +117,8 @@ public final class RocicorpFractionalIndex {
         return List.copyOf(out);
     }
 
-    /** 键是否为合法格式（非 null、头部有效、整数部分完整、小数部分不以 0 结尾）。 */
-    public static boolean isValid(String key) {
+    @Override
+    public boolean isValid(String key) {
         if (key == null || key.isEmpty() || SMALLEST_INTEGER.equals(key)) {
             return false;
         }
@@ -147,13 +135,8 @@ public final class RocicorpFractionalIndex {
         return fraction.isEmpty() || fraction.charAt(fraction.length() - 1) != ZERO;
     }
 
-    /**
-     * 比较两个键的先后，可直接用于排序。
-     * <p>必须按字典序比较——两个字符集内部均为升序、且字典序即数值序。切勿改用大小写无关的
-     * 比较（如 {@code String.CASE_INSENSITIVE_ORDER}），那会得出错误次序。
-     * {@code null}（无键）排在最前。</p>
-     */
-    public static int compare(String a, String b) {
+    @Override
+    public int compare(String a, String b) {
         if (a == null) {
             return b == null ? 0 : -1;
         }
@@ -165,7 +148,7 @@ public final class RocicorpFractionalIndex {
 
     // ====== 生成主体 ======
 
-    private static String between(String a, String b, boolean jittered) {
+    private String between(String a, String b, boolean jittered) {
         if (a == null) {
             if (b == null) {
                 // 最短正向头部 + 最小的数字位
@@ -333,7 +316,7 @@ public final class RocicorpFractionalIndex {
         }
     }
 
-    private static void requireValid(String key) {
+    private void requireValid(String key) {
         if (!isValid(key)) {
             throw new IllegalArgumentException("非法 order 键: " + key);
         }

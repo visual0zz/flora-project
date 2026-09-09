@@ -15,29 +15,29 @@ class RocicorpFractionalIndexTest {
     /** 对齐官方实现的示例，作为跨语言实现兼容性的回归基准。 */
     @Test
     void matchesReferenceExamples() {
-        String first = RocicorpFractionalIndex.between(null, null);
+        String first = RocicorpFractionalIndex.INSTANCE.between(null, null);
         assertEquals("a0", first);
-        String second = RocicorpFractionalIndex.between(first, null);
+        String second = RocicorpFractionalIndex.INSTANCE.between(first, null);
         assertEquals("a1", second);
-        String third = RocicorpFractionalIndex.between(second, null);
+        String third = RocicorpFractionalIndex.INSTANCE.between(second, null);
         assertEquals("a2", third);
-        assertEquals("Zz", RocicorpFractionalIndex.between(null, first));
-        assertEquals("a1V", RocicorpFractionalIndex.between(second, third));
+        assertEquals("Zz", RocicorpFractionalIndex.INSTANCE.between(null, first));
+        assertEquals("a1V", RocicorpFractionalIndex.INSTANCE.between(second, third));
     }
 
     @Test
     void nBetweenMatchesReferenceExamples() {
-        assertEquals(List.of("a0", "a1"), RocicorpFractionalIndex.nBetween(null, null, 2));
-        assertEquals(List.of("a2", "a3"), RocicorpFractionalIndex.nBetween("a1", null, 2));
-        assertEquals(List.of("Zy", "Zz"), RocicorpFractionalIndex.nBetween(null, "a0", 2));
-        assertEquals(List.of("a0G", "a0V"), RocicorpFractionalIndex.nBetween("a0", "a1", 2));
+        assertEquals(List.of("a0", "a1"), RocicorpFractionalIndex.INSTANCE.nBetween(null, null, 2));
+        assertEquals(List.of("a2", "a3"), RocicorpFractionalIndex.INSTANCE.nBetween("a1", null, 2));
+        assertEquals(List.of("Zy", "Zz"), RocicorpFractionalIndex.INSTANCE.nBetween(null, "a0", 2));
+        assertEquals(List.of("a0G", "a0V"), RocicorpFractionalIndex.INSTANCE.nBetween("a0", "a1", 2));
     }
 
     @Test
     void appendStaysStrictlyIncreasing() {
-        String prev = RocicorpFractionalIndex.first();
+        String prev = RocicorpFractionalIndex.INSTANCE.first();
         for (int i = 0; i < 3000; i++) {
-            String next = RocicorpFractionalIndex.between(prev, null);
+            String next = RocicorpFractionalIndex.INSTANCE.between(prev, null);
             assertTrue(next.compareTo(prev) > 0, next + " 应大于 " + prev);
             prev = next;
         }
@@ -45,9 +45,9 @@ class RocicorpFractionalIndexTest {
 
     @Test
     void prependStaysStrictlyDecreasing() {
-        String first = RocicorpFractionalIndex.first();
+        String first = RocicorpFractionalIndex.INSTANCE.first();
         for (int i = 0; i < 500; i++) {
-            String inserted = RocicorpFractionalIndex.between(null, first);
+            String inserted = RocicorpFractionalIndex.INSTANCE.between(null, first);
             assertTrue(inserted.compareTo(first) < 0, inserted + " 应小于 " + first);
             first = inserted;
         }
@@ -59,16 +59,16 @@ class RocicorpFractionalIndexTest {
      */
     @Test
     void repeatedAppendsAndPrependsKeepKeysShort() {
-        String tail = RocicorpFractionalIndex.first();
+        String tail = RocicorpFractionalIndex.INSTANCE.first();
         for (int i = 0; i < 3000; i++) {
-            tail = RocicorpFractionalIndex.between(tail, null);
+            tail = RocicorpFractionalIndex.INSTANCE.between(tail, null);
         }
         assertTrue(tail.length() <= 4,
                 "3000 次追加后键长应仍很短（变长整数），实际 " + tail.length() + " (" + tail + ")");
 
-        String head = RocicorpFractionalIndex.first();
+        String head = RocicorpFractionalIndex.INSTANCE.first();
         for (int i = 0; i < 3000; i++) {
-            head = RocicorpFractionalIndex.between(null, head);
+            head = RocicorpFractionalIndex.INSTANCE.between(null, head);
         }
         assertTrue(head.length() <= 8, "3000 次前插后键长应仍是个位数，实际 " + head.length() + " (" + head + ")");
     }
@@ -77,11 +77,11 @@ class RocicorpFractionalIndexTest {
     @Test
     void manyInsertsKeepTotalOrder() {
         List<String> keys = new ArrayList<>();
-        keys.add(RocicorpFractionalIndex.first());
+        keys.add(RocicorpFractionalIndex.INSTANCE.first());
         for (int i = 0; i < 500; i++) {
             int at = (i * 7) % keys.size();
             String prev = at == 0 ? null : keys.get(at - 1);
-            keys.add(at, RocicorpFractionalIndex.between(prev, keys.get(at)));
+            keys.add(at, RocicorpFractionalIndex.INSTANCE.between(prev, keys.get(at)));
         }
         for (int i = 1; i < keys.size(); i++) {
             assertTrue(keys.get(i - 1).compareTo(keys.get(i)) < 0,
@@ -93,7 +93,7 @@ class RocicorpFractionalIndexTest {
     void nBetweenReturnsSortedDistinctKeysInsideBounds() {
         String lo = "a1";
         String hi = "a2";
-        List<String> keys = RocicorpFractionalIndex.nBetween(lo, hi, 20);
+        List<String> keys = RocicorpFractionalIndex.INSTANCE.nBetween(lo, hi, 20);
         assertEquals(20, keys.size());
         for (int i = 0; i < keys.size(); i++) {
             assertTrue(keys.get(i).compareTo(lo) > 0, keys.get(i) + " 应大于 " + lo);
@@ -111,10 +111,10 @@ class RocicorpFractionalIndexTest {
         String hi = "a2";
         Set<String> seen = new HashSet<>();
         for (int i = 0; i < 200; i++) {
-            String key = RocicorpFractionalIndex.betweenJittered(lo, hi);
+            String key = RocicorpFractionalIndex.INSTANCE.betweenJittered(lo, hi);
             assertTrue(key.compareTo(lo) > 0, key + " 应大于 " + lo);
             assertTrue(key.compareTo(hi) < 0, key + " 应小于 " + hi);
-            assertTrue(RocicorpFractionalIndex.isValid(key), "生成的键应合法: " + key);
+            assertTrue(RocicorpFractionalIndex.INSTANCE.isValid(key), "生成的键应合法: " + key);
             seen.add(key);
         }
         assertTrue(seen.size() > 1, "同一区间的多次插入应产生不同的键");
@@ -122,25 +122,25 @@ class RocicorpFractionalIndexTest {
 
     @Test
     void deterministicInsertsAreStable() {
-        assertEquals(RocicorpFractionalIndex.between("a1", "a2"), RocicorpFractionalIndex.between("a1", "a2"));
+        assertEquals(RocicorpFractionalIndex.INSTANCE.between("a1", "a2"), RocicorpFractionalIndex.INSTANCE.between("a1", "a2"));
     }
 
     @Test
     void validatesKeys() {
-        assertTrue(RocicorpFractionalIndex.isValid("a0"));
-        assertTrue(RocicorpFractionalIndex.isValid("a1"));
-        assertTrue(RocicorpFractionalIndex.isValid("Zz"));
-        assertFalse(RocicorpFractionalIndex.isValid(null));
-        assertFalse(RocicorpFractionalIndex.isValid(""));
-        assertFalse(RocicorpFractionalIndex.isValid("0a0"), "头部必须是 A-Za-z");
-        assertFalse(RocicorpFractionalIndex.isValid("a"), "整数部分不完整");
-        assertFalse(RocicorpFractionalIndex.isValid("a10"), "小数部分不能以 0 结尾");
-        assertFalse(RocicorpFractionalIndex.isValid("A" + "0".repeat(26)), "最小整数不可再向前生成");
+        assertTrue(RocicorpFractionalIndex.INSTANCE.isValid("a0"));
+        assertTrue(RocicorpFractionalIndex.INSTANCE.isValid("a1"));
+        assertTrue(RocicorpFractionalIndex.INSTANCE.isValid("Zz"));
+        assertFalse(RocicorpFractionalIndex.INSTANCE.isValid(null));
+        assertFalse(RocicorpFractionalIndex.INSTANCE.isValid(""));
+        assertFalse(RocicorpFractionalIndex.INSTANCE.isValid("0a0"), "头部必须是 A-Za-z");
+        assertFalse(RocicorpFractionalIndex.INSTANCE.isValid("a"), "整数部分不完整");
+        assertFalse(RocicorpFractionalIndex.INSTANCE.isValid("a10"), "小数部分不能以 0 结尾");
+        assertFalse(RocicorpFractionalIndex.INSTANCE.isValid("A" + "0".repeat(26)), "最小整数不可再向前生成");
     }
 
     @Test
     void rejectsOutOfOrderBounds() {
-        assertThrows(IllegalArgumentException.class, () -> RocicorpFractionalIndex.between("a2", "a1"));
-        assertThrows(IllegalArgumentException.class, () -> RocicorpFractionalIndex.between("a1", "a1"));
+        assertThrows(IllegalArgumentException.class, () -> RocicorpFractionalIndex.INSTANCE.between("a2", "a1"));
+        assertThrows(IllegalArgumentException.class, () -> RocicorpFractionalIndex.INSTANCE.between("a1", "a1"));
     }
 }

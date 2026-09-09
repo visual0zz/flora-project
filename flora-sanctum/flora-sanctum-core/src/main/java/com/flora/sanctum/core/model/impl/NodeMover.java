@@ -126,14 +126,14 @@ public final class NodeMover {
         }
         List<UUID> sibs = new ArrayList<>(ctx.childrenOf(newParent));
         sibs.remove(self);
-        sibs.sort((a, b) -> RocicorpFractionalIndex.compare(ctx.orderOf(a), ctx.orderOf(b)));
+        sibs.sort((a, b) -> RocicorpFractionalIndex.INSTANCE.compare(ctx.orderOf(a), ctx.orderOf(b)));
         int idx = sibs.indexOf(beforeUuid);
         if (idx < 0) {
             return ctx.appendOrder(newParent);
         }
         String nextOrder = ctx.orderOf(beforeUuid);
         String prevOrder = idx == 0 ? null : ctx.orderOf(sibs.get(idx - 1));
-        return RocicorpFractionalIndex.betweenJittered(prevOrder, nextOrder);
+        return RocicorpFractionalIndex.INSTANCE.betweenJittered(prevOrder, nextOrder);
     }
 
     /** 环检测：newParent 不能是 moved 自身或其后代（沿父链向上会经过 moved 即冲突）。 */

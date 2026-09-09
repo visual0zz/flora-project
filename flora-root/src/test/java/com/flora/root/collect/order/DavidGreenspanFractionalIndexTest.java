@@ -1,5 +1,6 @@
 package com.flora.root.collect.order;
 
+import com.flora.root.container.order.DavidGreenspanFractionalIndex;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -9,34 +10,34 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class FractionalIndexTest {
+class DavidGreenspanFractionalIndexTest {
 
     /** 对齐官方实现的示例，作为跨语言实现兼容性的回归基准。 */
     @Test
     void matchesReferenceExamples() {
-        String first = FractionalIndex.between(null, null);
+        String first = DavidGreenspanFractionalIndex.between(null, null);
         assertEquals("a0", first);
-        String second = FractionalIndex.between(first, null);
+        String second = DavidGreenspanFractionalIndex.between(first, null);
         assertEquals("a1", second);
-        String third = FractionalIndex.between(second, null);
+        String third = DavidGreenspanFractionalIndex.between(second, null);
         assertEquals("a2", third);
-        assertEquals("Zz", FractionalIndex.between(null, first));
-        assertEquals("a1V", FractionalIndex.between(second, third));
+        assertEquals("Zz", DavidGreenspanFractionalIndex.between(null, first));
+        assertEquals("a1V", DavidGreenspanFractionalIndex.between(second, third));
     }
 
     @Test
     void nBetweenMatchesReferenceExamples() {
-        assertEquals(List.of("a0", "a1"), FractionalIndex.nBetween(null, null, 2));
-        assertEquals(List.of("a2", "a3"), FractionalIndex.nBetween("a1", null, 2));
-        assertEquals(List.of("Zy", "Zz"), FractionalIndex.nBetween(null, "a0", 2));
-        assertEquals(List.of("a0G", "a0V"), FractionalIndex.nBetween("a0", "a1", 2));
+        assertEquals(List.of("a0", "a1"), DavidGreenspanFractionalIndex.nBetween(null, null, 2));
+        assertEquals(List.of("a2", "a3"), DavidGreenspanFractionalIndex.nBetween("a1", null, 2));
+        assertEquals(List.of("Zy", "Zz"), DavidGreenspanFractionalIndex.nBetween(null, "a0", 2));
+        assertEquals(List.of("a0G", "a0V"), DavidGreenspanFractionalIndex.nBetween("a0", "a1", 2));
     }
 
     @Test
     void appendStaysStrictlyIncreasing() {
-        String prev = FractionalIndex.first();
+        String prev = DavidGreenspanFractionalIndex.first();
         for (int i = 0; i < 3000; i++) {
-            String next = FractionalIndex.between(prev, null);
+            String next = DavidGreenspanFractionalIndex.between(prev, null);
             assertTrue(next.compareTo(prev) > 0, next + " 应大于 " + prev);
             prev = next;
         }
@@ -44,9 +45,9 @@ class FractionalIndexTest {
 
     @Test
     void prependStaysStrictlyDecreasing() {
-        String first = FractionalIndex.first();
+        String first = DavidGreenspanFractionalIndex.first();
         for (int i = 0; i < 500; i++) {
-            String inserted = FractionalIndex.between(null, first);
+            String inserted = DavidGreenspanFractionalIndex.between(null, first);
             assertTrue(inserted.compareTo(first) < 0, inserted + " 应小于 " + first);
             first = inserted;
         }
@@ -58,16 +59,16 @@ class FractionalIndexTest {
      */
     @Test
     void repeatedAppendsAndPrependsKeepKeysShort() {
-        String tail = FractionalIndex.first();
+        String tail = DavidGreenspanFractionalIndex.first();
         for (int i = 0; i < 3000; i++) {
-            tail = FractionalIndex.between(tail, null);
+            tail = DavidGreenspanFractionalIndex.between(tail, null);
         }
         assertTrue(tail.length() <= 4,
                 "3000 次追加后键长应仍很短（变长整数），实际 " + tail.length() + " (" + tail + ")");
 
-        String head = FractionalIndex.first();
+        String head = DavidGreenspanFractionalIndex.first();
         for (int i = 0; i < 3000; i++) {
-            head = FractionalIndex.between(null, head);
+            head = DavidGreenspanFractionalIndex.between(null, head);
         }
         assertTrue(head.length() <= 8, "3000 次前插后键长应仍是个位数，实际 " + head.length() + " (" + head + ")");
     }
@@ -76,11 +77,11 @@ class FractionalIndexTest {
     @Test
     void manyInsertsKeepTotalOrder() {
         List<String> keys = new ArrayList<>();
-        keys.add(FractionalIndex.first());
+        keys.add(DavidGreenspanFractionalIndex.first());
         for (int i = 0; i < 500; i++) {
             int at = (i * 7) % keys.size();
             String prev = at == 0 ? null : keys.get(at - 1);
-            keys.add(at, FractionalIndex.between(prev, keys.get(at)));
+            keys.add(at, DavidGreenspanFractionalIndex.between(prev, keys.get(at)));
         }
         for (int i = 1; i < keys.size(); i++) {
             assertTrue(keys.get(i - 1).compareTo(keys.get(i)) < 0,
@@ -92,7 +93,7 @@ class FractionalIndexTest {
     void nBetweenReturnsSortedDistinctKeysInsideBounds() {
         String lo = "a1";
         String hi = "a2";
-        List<String> keys = FractionalIndex.nBetween(lo, hi, 20);
+        List<String> keys = DavidGreenspanFractionalIndex.nBetween(lo, hi, 20);
         assertEquals(20, keys.size());
         for (int i = 0; i < keys.size(); i++) {
             assertTrue(keys.get(i).compareTo(lo) > 0, keys.get(i) + " 应大于 " + lo);
@@ -110,10 +111,10 @@ class FractionalIndexTest {
         String hi = "a2";
         Set<String> seen = new HashSet<>();
         for (int i = 0; i < 200; i++) {
-            String key = FractionalIndex.betweenJittered(lo, hi);
+            String key = DavidGreenspanFractionalIndex.betweenJittered(lo, hi);
             assertTrue(key.compareTo(lo) > 0, key + " 应大于 " + lo);
             assertTrue(key.compareTo(hi) < 0, key + " 应小于 " + hi);
-            assertTrue(FractionalIndex.isValid(key), "生成的键应合法: " + key);
+            assertTrue(DavidGreenspanFractionalIndex.isValid(key), "生成的键应合法: " + key);
             seen.add(key);
         }
         assertTrue(seen.size() > 1, "同一区间的多次插入应产生不同的键");
@@ -121,25 +122,25 @@ class FractionalIndexTest {
 
     @Test
     void deterministicInsertsAreStable() {
-        assertEquals(FractionalIndex.between("a1", "a2"), FractionalIndex.between("a1", "a2"));
+        assertEquals(DavidGreenspanFractionalIndex.between("a1", "a2"), DavidGreenspanFractionalIndex.between("a1", "a2"));
     }
 
     @Test
     void validatesKeys() {
-        assertTrue(FractionalIndex.isValid("a0"));
-        assertTrue(FractionalIndex.isValid("a1"));
-        assertTrue(FractionalIndex.isValid("Zz"));
-        assertFalse(FractionalIndex.isValid(null));
-        assertFalse(FractionalIndex.isValid(""));
-        assertFalse(FractionalIndex.isValid("0a0"), "头部必须是 A-Za-z");
-        assertFalse(FractionalIndex.isValid("a"), "整数部分不完整");
-        assertFalse(FractionalIndex.isValid("a10"), "小数部分不能以 0 结尾");
-        assertFalse(FractionalIndex.isValid("A" + "0".repeat(26)), "最小整数不可再向前生成");
+        assertTrue(DavidGreenspanFractionalIndex.isValid("a0"));
+        assertTrue(DavidGreenspanFractionalIndex.isValid("a1"));
+        assertTrue(DavidGreenspanFractionalIndex.isValid("Zz"));
+        assertFalse(DavidGreenspanFractionalIndex.isValid(null));
+        assertFalse(DavidGreenspanFractionalIndex.isValid(""));
+        assertFalse(DavidGreenspanFractionalIndex.isValid("0a0"), "头部必须是 A-Za-z");
+        assertFalse(DavidGreenspanFractionalIndex.isValid("a"), "整数部分不完整");
+        assertFalse(DavidGreenspanFractionalIndex.isValid("a10"), "小数部分不能以 0 结尾");
+        assertFalse(DavidGreenspanFractionalIndex.isValid("A" + "0".repeat(26)), "最小整数不可再向前生成");
     }
 
     @Test
     void rejectsOutOfOrderBounds() {
-        assertThrows(IllegalArgumentException.class, () -> FractionalIndex.between("a2", "a1"));
-        assertThrows(IllegalArgumentException.class, () -> FractionalIndex.between("a1", "a1"));
+        assertThrows(IllegalArgumentException.class, () -> DavidGreenspanFractionalIndex.between("a2", "a1"));
+        assertThrows(IllegalArgumentException.class, () -> DavidGreenspanFractionalIndex.between("a1", "a1"));
     }
 }

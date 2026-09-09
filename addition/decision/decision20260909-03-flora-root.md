@@ -16,7 +16,7 @@
 
 ## 决策
 
-1. 在 flora-root 新建 `com.flora.root.collect.order.FractionalIndex`，**完整实现 Rocicorp 算法**
+1. 在 flora-root 新建 `com.flora.root.collect.order.DavidGreenspanFractionalIndex`，**完整实现 Rocicorp 算法**
    （含变长整数编码），作为通用库沉淀。
 2. sanctum 删除本地副本，改为依赖 flora-root 的实现。
 
@@ -76,7 +76,7 @@ FractionalIndex.isValid(key)           // 校验外部来源的键
 ## 影响
 
 - flora-root：新增 `com.flora.root.collect`（含 package-info）与
-  `com.flora.root.collect.order.FractionalIndex`；`module-info` 新增一条 exports。
+  `com.flora.root.collect.order.DavidGreenspanFractionalIndex`；`module-info` 新增一条 exports。
   新增测试 11 项，其中 `matchesReferenceExamples` / `nBetweenMatchesReferenceExamples`
   直接对齐官方 README 的示例（`a0`、`a1`、`Zz`、`a1V`、`['a0G','a0V']`…），
   作为跨语言实现兼容性的回归基准。

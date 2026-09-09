@@ -1,8 +1,8 @@
 package com.flora.sanctum.core.model.impl;
+import com.flora.root.container.order.DavidGreenspanFractionalIndex;
 import com.flora.sanctum.core.model.*;
 import com.flora.sanctum.core.model.vault.*;
 
-import com.flora.root.collect.order.FractionalIndex;
 import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.codec.json.model.JsonValue;
@@ -75,7 +75,7 @@ public final class TreeContext {
         // 为缺 order 的节点按当前（扫描）顺序赋序：保证展示顺序稳定，且可被小数索引接管。
         // 仅改内存对象图（objects），不强制落盘，首次被编辑时随块写入。
         for (List<UUID> sibs : childrenByParent.values()) {
-            String o = FractionalIndex.first();
+            String o = DavidGreenspanFractionalIndex.first();
             for (UUID u : sibs) {
                 JsonObject obj = objects.get(u);
                 if (obj == null) {
@@ -85,7 +85,7 @@ public final class TreeContext {
                     obj.remove("orderBits");
                     obj.put("order", o);
                 }
-                o = FractionalIndex.between(o, null);
+                o = DavidGreenspanFractionalIndex.between(o, null);
             }
         }
         // 初始化时间戳上限缓存：覆盖全部块（含 manifest/root/数据块），与解锁时 baseTimestamp 同源。
@@ -320,7 +320,7 @@ public final class TreeContext {
                 return List.of();
             }
             List<UUID> sorted = new ArrayList<>(siblings);
-            sorted.sort((a, b) -> FractionalIndex.compare(orderOf(a), orderOf(b)));
+            sorted.sort((a, b) -> DavidGreenspanFractionalIndex.compare(orderOf(a), orderOf(b)));
             return List.copyOf(sorted);
         } finally {
             lock.unlock();
@@ -365,7 +365,7 @@ public final class TreeContext {
     public String appendOrder(UUID parent) {
         lock.lock();
         try {
-            return FractionalIndex.between(maxOrderUnder(parent), null);
+            return DavidGreenspanFractionalIndex.between(maxOrderUnder(parent), null);
         } finally {
             lock.unlock();
         }
@@ -393,14 +393,14 @@ public final class TreeContext {
             }
             List<UUID> sibs = new ArrayList<>(childrenOf(parent));
             sibs.remove(self);
-            sibs.sort((a, b) -> FractionalIndex.compare(orderOf(a), orderOf(b)));
+            sibs.sort((a, b) -> DavidGreenspanFractionalIndex.compare(orderOf(a), orderOf(b)));
             int idx = sibs.indexOf(beforeUuid);
             if (idx < 0) {
                 return appendOrder(parent);
             }
             String next = orderOf(beforeUuid);
             String prev = idx == 0 ? null : orderOf(sibs.get(idx - 1));
-            return FractionalIndex.betweenJittered(prev, next);
+            return DavidGreenspanFractionalIndex.betweenJittered(prev, next);
         } finally {
             lock.unlock();
         }
@@ -409,7 +409,7 @@ public final class TreeContext {
     /** order 字段存在且为字符串；非字符串（缺失或旧格式数值）视为需要赋序。 */
     private static boolean isStringOrder(JsonObject obj) {
         JsonValue v = obj.get("order");
-        return v != null && v.isString() && FractionalIndex.isValid(v.asString());
+        return v != null && v.isString() && DavidGreenspanFractionalIndex.isValid(v.asString());
     }
 
     /**

@@ -48,7 +48,7 @@ module com.flora.root {
     // JSON Schema 处理
     exports com.flora.root.codec.jsonschema;
     // 小数索引排序键（fractional indexing）：可无限插入、无需重排序列
-    exports com.flora.root.collect.order;
+    exports com.flora.root.container.order;
     exports com.flora.root.common;
     // 通用算法抽象与注册中心（Algorithm/AlgorithmFactory/AbstractAlgorithmFactoryRegister）
     exports com.flora.root.common.register;

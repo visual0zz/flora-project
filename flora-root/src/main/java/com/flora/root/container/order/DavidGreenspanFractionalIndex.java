@@ -1,4 +1,4 @@
-package com.flora.root.collect.order;
+package com.flora.root.container.order;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,7 +32,7 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * <p>本类无状态，线程安全。</p>
  */
-public final class FractionalIndex {
+public final class DavidGreenspanFractionalIndex {
 
     /** 数字位字符集（升序，且与 ASCII 码点序一致）。 */
     public static final String DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -52,7 +52,7 @@ public final class FractionalIndex {
     private static final int[] DIGIT_INDEX = indexTable(DIGITS);
     private static final int[] INT_DIGIT_INDEX = indexTable(INT_DIGITS);
 
-    private FractionalIndex() {
+    private DavidGreenspanFractionalIndex() {
     }
 
     // ====== 公开 API ======

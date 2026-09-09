@@ -1,6 +1,6 @@
 package com.flora.sanctum.core.model;
 
-import com.flora.root.collect.order.FractionalIndex;
+import com.flora.root.container.order.DavidGreenspanFractionalIndex;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.sanctum.core.model.tree.EntryNode;
 import com.flora.sanctum.core.model.tree.ObjectTree;
@@ -165,7 +165,7 @@ class OrderingTest {
         String prev = null;
         for (UUID u : order) {
             String o = t.context().orderOf(u);
-            assertTrue(FractionalIndex.compare(prev, o) < 0, "order 应单调递增");
+            assertTrue(DavidGreenspanFractionalIndex.compare(prev, o) < 0, "order 应单调递增");
             prev = o;
         }
     }

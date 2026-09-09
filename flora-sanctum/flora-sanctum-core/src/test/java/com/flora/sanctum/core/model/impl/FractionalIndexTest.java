@@ -2,79 +2,110 @@ package com.flora.sanctum.core.model.impl;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class FractionalIndexTest {
 
     @Test
-    void constants() {
-        assertEquals(8_589_934_592L, FractionalIndex.D);
-        assertEquals(2L, FractionalIndex.L);
-        assertEquals(32, FractionalIndex.X);
+    void firstIsCompact() {
+        assertEquals("a1", FractionalIndex.first());
     }
 
     @Test
-    void initialOrderAppendsAfterMax() {
-        assertEquals(FractionalIndex.D, FractionalIndex.initialOrder(0L));
-        assertEquals(100L + FractionalIndex.D, FractionalIndex.initialOrder(100L));
+    void afterAppendsByIncrementingFraction() {
+        assertEquals("a2", FractionalIndex.after("a1"));
+        assertEquals("aA", FractionalIndex.after("a9"));
+        assertEquals("b1", FractionalIndex.after("az"), "小数段全满时整数段进一");
+        assertEquals("a1", FractionalIndex.after(null), "空列表取首个");
+        assertEquals("a1", FractionalIndex.after(""));
+    }
+
+    @Test
+    void afterGrowsWhenHeadCannotCarry() {
+        assertEquals("z1", FractionalIndex.after("z"));
+        assertEquals("zz1", FractionalIndex.after("zz"));
+        assertEquals("zzzz1", FractionalIndex.after("zzzz"));
+    }
+
+    @Test
+    void afterNeverEndsWithZero() {
+        String k = FractionalIndex.first();
+        for (int i = 0; i < 3000; i++) {
+            k = FractionalIndex.after(k);
+            assertFalse(k.endsWith("0"), "键不应以 0 结尾: " + k);
+        }
+    }
+
+    @Test
+    void afterStaysStrictlyIncreasing() {
+        String prev = FractionalIndex.first();
+        for (int i = 0; i < 3000; i++) {
+            String next = FractionalIndex.after(prev);
+            assertTrue(next.compareTo(prev) > 0, next + " 应大于 " + prev);
+            prev = next;
+        }
     }
 
     @Test
     void betweenComputesMidpoint() {
-        // 插到首位之前：0 与首位中点
-        assertEquals(FractionalIndex.D / 2L, FractionalIndex.between(0L, FractionalIndex.D));
-        // 普通中点
-        assertEquals(10L + (FractionalIndex.D - 10L) / 2L, FractionalIndex.between(10L, FractionalIndex.D));
-        // 插到末尾
-        assertEquals(FractionalIndex.D + FractionalIndex.D, FractionalIndex.between(FractionalIndex.D, null));
-    }
-
-    /** (a+b)/2 在两者都接近 Long.MAX_VALUE 时会溢出成负数，必须走 a + (b-a)/2。 */
-    @Test
-    void betweenDoesNotOverflowNearMaxValue() {
-        long a = Long.MAX_VALUE - 100L;
-        long b = Long.MAX_VALUE;
-        long mid = FractionalIndex.between(a, b);
-        assertEquals(Long.MAX_VALUE - 50L, mid);
-        assertTrue(mid > 0, "溢出会导致中点变负");
-        assertTrue(mid > a && mid < b, "中点应严格落在两邻居之间");
-        // 反证：朴素 (a+b)/2 确实会溢出
-        assertTrue(a + b < 0, "朴素写法 a+b 在本例会溢出为负");
+        assertEquals("a2", FractionalIndex.between("a1", null), "无后继即追加");
+        String head = FractionalIndex.between(null, "a1");
+        assertTrue(head.compareTo("a1") < 0, "无前驱时应落在首个之前: " + head);
     }
 
     @Test
-    void appendOverflowDetectedBeforeItWraps() {
-        assertFalse(FractionalIndex.appendOverflow(0L));
-        assertFalse(FractionalIndex.appendOverflow(Long.MAX_VALUE - FractionalIndex.D),
-                "last 恰好等于 MAX-D 时 +D 仍不溢出");
-        assertTrue(FractionalIndex.appendOverflow(Long.MAX_VALUE - FractionalIndex.D + 1L));
-        assertTrue(FractionalIndex.appendOverflow(Long.MAX_VALUE));
-    }
-
-    /** L 必须保持 2：间隙为 1 时 (b-a)/2 会退化成 0，新 order 等于旧 order。 */
-    @Test
-    void collapsedOnlyWhenGapBelowL() {
-        assertFalse(FractionalIndex.collapsed(0L, FractionalIndex.D));
-        assertFalse(FractionalIndex.collapsed(5L, 7L), "间隙=2 时 (b-a)/2=1，中点合法");
-        assertEquals(6L, FractionalIndex.between(5L, 7L), "间隙=2 时中点应为 a+1");
-        assertTrue(FractionalIndex.collapsed(5L, 6L), "间隙=1 时中点会退化，必须重排");
-    }
-
-    @Test
-    void headInsertionHalvesRepeatedly() {
-        long first = FractionalIndex.D;
-        for (int i = 0; i < FractionalIndex.X; i++) {
-            long mid = FractionalIndex.between(0L, first);
-            assertTrue(mid > 0 && mid < first, "头部插入的中点应严格在 (0, first) 内");
-            first = mid;
+    void betweenFallsStrictlyBetweenNeighbours() {
+        String lo = FractionalIndex.first();
+        String hi = FractionalIndex.after(lo);
+        for (int i = 0; i < 500; i++) {
+            String mid = FractionalIndex.between(lo, hi);
+            assertTrue(mid.compareTo(lo) > 0, mid + " 应大于 " + lo);
+            assertTrue(mid.compareTo(hi) < 0, mid + " 应小于 " + hi);
+            if (i % 2 == 0) {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
         }
-        // X = log2(D/L) 次后，间隙恰好缩到 L（阈值上，仍可再插一次）
-        assertEquals(FractionalIndex.L, first);
-        assertFalse(FractionalIndex.collapsed(0L, first));
-        // 再插一次（第 X+1 次）间隙 < L，必须重排
-        first = FractionalIndex.between(0L, first);
-        assertEquals(1L, first);
-        assertTrue(FractionalIndex.collapsed(0L, first), "第 X+1 次头部插入后应触发重排");
     }
 
+    @Test
+    void repeatedHeadInsertionStaysStrictlyDecreasing() {
+        String first = FractionalIndex.first();
+        for (int i = 0; i < 500; i++) {
+            String inserted = FractionalIndex.between(null, first);
+            assertTrue(inserted.compareTo(first) < 0, inserted + " 应小于 " + first);
+            first = inserted;
+        }
+    }
+
+    /** 反复在任意位置插入，列表应始终保持全序。 */
+    @Test
+    void manyInsertsKeepTotalOrder() {
+        List<String> keys = new ArrayList<>();
+        keys.add(FractionalIndex.first());
+        for (int i = 0; i < 500; i++) {
+            int at = (i * 7) % keys.size();
+            String prev = at == 0 ? null : keys.get(at - 1);
+            keys.add(at, FractionalIndex.between(prev, keys.get(at)));
+        }
+        for (int i = 1; i < keys.size(); i++) {
+            assertTrue(keys.get(i - 1).compareTo(keys.get(i)) < 0,
+                    "位置 " + i + " 处顺序被破坏: " + keys.get(i - 1) + " / " + keys.get(i));
+        }
+    }
+
+    @Test
+    void rejectsNonAscendingBounds() {
+        assertThrows(IllegalArgumentException.class, () -> FractionalIndex.between("a2", "a1"));
+        assertThrows(IllegalArgumentException.class, () -> FractionalIndex.between("a1", "a1"));
+    }
+
+    @Test
+    void rejectsIllegalCharacters() {
+        assertThrows(IllegalArgumentException.class, () -> FractionalIndex.after("a-"));
+    }
 }

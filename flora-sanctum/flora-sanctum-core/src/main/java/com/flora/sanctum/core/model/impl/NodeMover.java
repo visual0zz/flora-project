@@ -41,9 +41,8 @@ public final class NodeMover {
 
     /**
      * 改变节点归属并定位顺序（小数索引）。
-     * <p>beforeUuid=null → 追加到新父末尾（initialOrder = max + D）；
-     * 否则插入到 beforeUuid 之前（取前驱与 beforeUuid 的中点；间隙耗尽则整段重排后重算）。
-     * 同父内纯重排只改写被移动那一个块的 order，数据修改范围最小。</p>
+     * <p>beforeUuid=null → 追加到新父末尾；否则插入到 beforeUuid 之前（取前驱与
+     * beforeUuid 的中点）。同父内纯重排只改写被移动那一个块的 order，数据修改范围最小。</p>
      */
     public void moveTo(UUID node, UUID newParent, UUID beforeUuid) {
         StoredNodeType type = typeOf(node);
@@ -114,11 +113,10 @@ public final class NodeMover {
     }
 
     /**
-     * 计算被移动节点在新父下的 order：beforeUuid=null 追加末尾（溢出则先重排）；
-     * 否则取前驱与 beforeUuid 中点，间隙耗尽则整段重排后重算。
-     * 自身若已在目标父下，重排前先排除。
+     * 计算被移动节点在新父下的 order：beforeUuid=null 追加到末尾；否则取前驱与 beforeUuid
+     * 的中点。自身若已在目标父下，计算前先排除。
      */
-    private long computeOrder(UUID newParent, UUID beforeUuid, UUID self) {
+    private String computeOrder(UUID newParent, UUID beforeUuid, UUID self) {
         if (beforeUuid == null) {
             return ctx.appendOrder(newParent);
         }
@@ -127,19 +125,13 @@ public final class NodeMover {
         }
         List<UUID> sibs = new ArrayList<>(ctx.childrenOf(newParent));
         sibs.remove(self);
-        sibs.sort((a, b) -> Long.compare(ctx.orderOf(a), ctx.orderOf(b)));
+        sibs.sort((a, b) -> ctx.orderOf(a).compareTo(ctx.orderOf(b)));
         int idx = sibs.indexOf(beforeUuid);
         if (idx < 0) {
             return ctx.appendOrder(newParent);
         }
-        long nextOrder = ctx.orderOf(beforeUuid);
-        long prevOrder = (idx == 0) ? 0L : ctx.orderOf(sibs.get(idx - 1));
-        if (FractionalIndex.collapsed(prevOrder, nextOrder)) {
-            ctx.reassignOrders(newParent);
-            // 重排后子列表 order 为 {(i+1)*D}，beforeUuid 位于 idx，故前后邻居即 idx*D 与 (idx+1)*D
-            prevOrder = idx * FractionalIndex.D;
-            nextOrder = (idx + 1L) * FractionalIndex.D;
-        }
+        String nextOrder = ctx.orderOf(beforeUuid);
+        String prevOrder = idx == 0 ? "" : ctx.orderOf(sibs.get(idx - 1));
         return FractionalIndex.between(prevOrder, nextOrder);
     }
 

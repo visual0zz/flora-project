@@ -4,6 +4,7 @@ import com.flora.sanctum.core.model.vault.*;
 
 import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
+import com.flora.root.codec.json.model.JsonValue;
 import com.flora.sanctum.core.crypto.KeyDerivation;
 import com.flora.sanctum.core.crypto.KeyIdDeriver;
 import com.flora.sanctum.core.crypto.impl.CipherCodec;
@@ -70,21 +71,20 @@ public final class TreeContext {
                 // 无法解析的块跳过
             }
         }
-        // 为缺 order 的旧库/导入节点按当前（扫描）顺序赋序：保证展示顺序稳定，
-        // 且可被小数索引接管。仅改内存对象图（objects），不强制落盘，首次被编辑时随块写入。
+        // 为缺 order 的节点按当前（扫描）顺序赋序：保证展示顺序稳定，且可被小数索引接管。
+        // 仅改内存对象图（objects），不强制落盘，首次被编辑时随块写入。
         for (List<UUID> sibs : childrenByParent.values()) {
-            long o = FractionalIndex.D;
+            String o = FractionalIndex.first();
             for (UUID u : sibs) {
                 JsonObject obj = objects.get(u);
                 if (obj == null) {
                     continue;
                 }
-                if (obj.getLong("order") == null) {
-                    // 旧版 orderBits 存的是 double 位模式（语义不同且量级巨大），丢弃后按当前顺序重赋
+                if (!isStringOrder(obj)) {
                     obj.remove("orderBits");
                     obj.put("order", o);
                 }
-                o += FractionalIndex.D;
+                o = FractionalIndex.after(o);
             }
         }
         // 初始化时间戳上限缓存：覆盖全部块（含 manifest/root/数据块），与解锁时 baseTimestamp 同源。
@@ -319,32 +319,34 @@ public final class TreeContext {
                 return List.of();
             }
             List<UUID> sorted = new ArrayList<>(siblings);
-            sorted.sort((a, b) -> Long.compare(orderOf(a), orderOf(b)));
+            sorted.sort((a, b) -> orderOf(a).compareTo(orderOf(b)));
             return List.copyOf(sorted);
         } finally {
             lock.unlock();
         }
     }
 
-    /** 节点的排序键 order（块内 {@code order} 字段，long 整数；缺失按 0）。 */
-    public long orderOf(UUID uuid) {
+    /** 节点的排序键 order（块内 {@code order} 字段，base62 字符串；缺失按空串，排在最前）。 */
+    public String orderOf(UUID uuid) {
         lock.lock();
         try {
             JsonObject o = objects.get(uuid);
-            Long v = o == null ? null : o.getLong("order");
-            return v == null ? 0L : v;
+            return o == null || !isStringOrder(o) ? "" : o.getString("order");
         } finally {
             lock.unlock();
         }
     }
 
-    /** parent 下当前最大 order（无子返回 0），供新建/追加时取 max + D。 */
-    public long maxOrderUnder(UUID parent) {
+    /** parent 下当前最大的 order（无子返回 null），供追加时取其后继。 */
+    public String maxOrderUnder(UUID parent) {
         lock.lock();
         try {
-            long max = 0L;
+            String max = null;
             for (UUID c : childrenOf(parent)) {
-                max = Math.max(max, orderOf(c));
+                String o = orderOf(c);
+                if (max == null || o.compareTo(max) > 0) {
+                    max = o;
+                }
             }
             return max;
         } finally {
@@ -353,39 +355,29 @@ public final class TreeContext {
     }
 
     /**
-     * 取「追加到 parent 末尾」的 order：max + D。若将溢出 long 则先对该子列表整段重排
-     * （重排后 order 回到 {(i+1)*D}，量级骤降）再取。
+     * 取「追加到 parent 末尾」的 order：当前最大 order 的后继。
+     * <p>小数索引精度无界，不存在溢出，也不需要整段重排。</p>
      */
-    public long appendOrder(UUID parent) {
+    public String appendOrder(UUID parent) {
         lock.lock();
         try {
-            long max = maxOrderUnder(parent);
-            if (FractionalIndex.appendOverflow(max)) {
-                reassignOrders(parent);
-                max = maxOrderUnder(parent);
-            }
-            return FractionalIndex.initialOrder(max);
+            return FractionalIndex.after(maxOrderUnder(parent));
         } finally {
             lock.unlock();
         }
     }
 
     /**
-     * 对 parent 下子列表按当前 order 全局重排，赋 order = (i+1)*D 并落盘。
-     * 仅在间隙耗尽（{@link FractionalIndex#collapsed}）或追加将溢出时调用，
-     * 是唯一会发生多块改写的路径；日常插入只改被移动节点一块。
-     */
-    /**
      * 计算 self 在「根对象同级」（远程/密钥这类统一挂在根对象下的扁平列表）下，
      * 插入到 beforeUuid 之前的 order：
      * <ul>
-     *   <li>{@code beforeUuid == null} → 追加末尾（max + D，溢出时先整段重排）；</li>
+     *   <li>{@code beforeUuid == null} → 追加末尾；</li>
      *   <li>{@code beforeUuid == self} → 保持原位；</li>
-     *   <li>否则取 beforeUuid 与其前驱的中点，间隙耗尽则整段重排后重算。</li>
+     *   <li>否则取 beforeUuid 与其前驱的中点。</li>
      * </ul>
      * 自身若已在同级，计算前先排除。供远程/密钥列表重排复用组/条目的小数索引机制。
      */
-    public long computeRootSiblingOrder(UUID self, UUID beforeUuid) {
+    public String computeRootSiblingOrder(UUID self, UUID beforeUuid) {
         lock.lock();
         try {
             UUID parent = vault().rootObjectUuid();
@@ -397,41 +389,23 @@ public final class TreeContext {
             }
             List<UUID> sibs = new ArrayList<>(childrenOf(parent));
             sibs.remove(self);
-            sibs.sort((a, b) -> Long.compare(orderOf(a), orderOf(b)));
+            sibs.sort((a, b) -> orderOf(a).compareTo(orderOf(b)));
             int idx = sibs.indexOf(beforeUuid);
             if (idx < 0) {
                 return appendOrder(parent);
             }
-            long next = orderOf(beforeUuid);
-            long prev = idx == 0 ? 0L : orderOf(sibs.get(idx - 1));
-            if (FractionalIndex.collapsed(prev, next)) {
-                reassignOrders(parent);
-                prev = idx * FractionalIndex.D;
-                next = (idx + 1L) * FractionalIndex.D;
-            }
+            String next = orderOf(beforeUuid);
+            String prev = idx == 0 ? "" : orderOf(sibs.get(idx - 1));
             return FractionalIndex.between(prev, next);
         } finally {
             lock.unlock();
         }
     }
 
-    public void reassignOrders(UUID parent) {
-        lock.lock();
-        try {
-            List<UUID> sibs = new ArrayList<>(childrenByParent.getOrDefault(parent, List.of()));
-            sibs.sort((a, b) -> Long.compare(orderOf(a), orderOf(b)));
-            for (int i = 0; i < sibs.size(); i++) {
-                UUID u = sibs.get(i);
-                JsonObject obj = objects.get(u);
-                if (obj == null) {
-                    continue;
-                }
-                obj.put("order", (i + 1L) * FractionalIndex.D);
-                write(u, obj, parent);
-            }
-        } finally {
-            lock.unlock();
-        }
+    /** order 字段存在且为字符串；非字符串（缺失或旧格式数值）视为需要赋序。 */
+    private static boolean isStringOrder(JsonObject obj) {
+        JsonValue v = obj.get("order");
+        return v != null && v.isString();
     }
 
     /**

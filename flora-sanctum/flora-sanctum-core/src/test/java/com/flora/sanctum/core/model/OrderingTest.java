@@ -30,10 +30,10 @@ class OrderingTest {
         EntryNode a = t.createEntry(null, "A", empty());
         EntryNode b = t.createEntry(null, "B", empty());
         EntryNode c = t.createEntry(null, "C", empty());
-        long oa = t.context().orderOf(a.uuid());
-        long ob = t.context().orderOf(b.uuid());
-        long oc = t.context().orderOf(c.uuid());
-        assertTrue(oa < ob && ob < oc, "创建顺序应反映为 order 递增");
+        String oa = t.context().orderOf(a.uuid());
+        String ob = t.context().orderOf(b.uuid());
+        String oc = t.context().orderOf(c.uuid());
+        assertTrue(oa.compareTo(ob) < 0 && ob.compareTo(oc) < 0, "创建顺序应反映为 order 递增");
         List<UUID> order = t.rootEntries().stream().map(EntryNode::uuid).toList();
         assertEquals(List.of(a.uuid(), b.uuid(), c.uuid()), order, "rootEntries 应按 order 升序");
         s.close();
@@ -46,15 +46,31 @@ class OrderingTest {
         EntryNode a = t.createEntry(null, "A", empty());
         EntryNode b = t.createEntry(null, "B", empty());
         EntryNode c = t.createEntry(null, "C", empty());
-        long oa = t.context().orderOf(a.uuid());
-        long oc = t.context().orderOf(c.uuid());
+        String oa = t.context().orderOf(a.uuid());
+        String oc = t.context().orderOf(c.uuid());
         // 把 B 移到 A 之前
         s.moveTo(b.uuid(), s.rootObjectUuid(), a.uuid());
         assertEquals(oa, t.context().orderOf(a.uuid()), "A 的 order 不应变");
         assertEquals(oc, t.context().orderOf(c.uuid()), "C 的 order 不应变");
-        assertTrue(t.context().orderOf(b.uuid()) < oa, "B 应插到 A 之前");
+        assertTrue(t.context().orderOf(b.uuid()).compareTo(oa) < 0, "B 应插到 A 之前");
         List<UUID> order = t.rootEntries().stream().map(EntryNode::uuid).toList();
         assertEquals(List.of(b.uuid(), a.uuid(), c.uuid()), order);
+        s.close();
+    }
+
+    /** 同父内把中间元素后移：期望落在目标前驱之后，而不是被挤到列表前部。 */
+    @Test
+    void reorderWithinSameParentKeepsExactPosition(@TempDir Path dir) {
+        Sanctum s = newVault(dir);
+        ObjectTree t = s.objectTree();
+        EntryNode a = t.createEntry(null, "A", empty());
+        EntryNode b = t.createEntry(null, "B", empty());
+        EntryNode c = t.createEntry(null, "C", empty());
+        EntryNode d = t.createEntry(null, "D", empty());
+        // B 移到 D 之前：期望 A C B D
+        s.moveTo(b.uuid(), s.rootObjectUuid(), d.uuid());
+        assertEquals(List.of(a.uuid(), c.uuid(), b.uuid(), d.uuid()),
+                t.rootEntries().stream().map(EntryNode::uuid).toList());
         s.close();
     }
 
@@ -65,8 +81,8 @@ class OrderingTest {
         EntryNode a = t.createEntry(null, "A", empty());
         EntryNode b = t.createEntry(null, "B", empty());
         EntryNode c = t.createEntry(null, "C", empty());
-        long oa = t.context().orderOf(a.uuid());
-        long ob = t.context().orderOf(b.uuid());
+        String oa = t.context().orderOf(a.uuid());
+        String ob = t.context().orderOf(b.uuid());
         // 改 A 的图标（这正是上一轮导致顺序跳动的 bug）
         a.setIcon(UUID.randomUUID());
         assertEquals(oa, t.context().orderOf(a.uuid()), "改图标不应改变 order");
@@ -82,37 +98,40 @@ class OrderingTest {
         s2.close();
     }
 
+    /**
+     * 反复插到最前：小数索引精度无界，不触发重排，每次的精确位置都应保持。
+     * 断言精确列表而非仅单调性——单调性会放过「元素被放到错误邻居旁」的缺陷。
+     */
     @Test
-    void rebalanceTriggersAndRecovers(@TempDir Path dir) {
+    void repeatedHeadInsertKeepsExactOrder(@TempDir Path dir) {
         Sanctum s = newVault(dir);
         ObjectTree t = s.objectTree();
         UUID root = s.rootObjectUuid();
-        List<EntryNode> nodes = new ArrayList<>();
-        for (int i = 0; i < 40; i++) {
-            nodes.add(t.createEntry(null, "e" + i, empty()));
-        }
-        // 反复插到最前，压缩首部间隙直到触发 rebalance（X=32）
-        for (int i = 0; i < 40; i++) {
+        List<UUID> expected = new ArrayList<>();
+        EntryNode a = t.createEntry(null, "A", empty());
+        EntryNode b = t.createEntry(null, "B", empty());
+        expected.add(a.uuid());
+        expected.add(b.uuid());
+        for (int i = 0; i < 120; i++) {
             EntryNode n = t.createEntry(null, "x" + i, empty());
-            s.moveTo(n.uuid(), root, nodes.get(0).uuid());
-            nodes.add(0, n);
+            s.moveTo(n.uuid(), root, expected.get(0));
+            expected.add(0, n.uuid());
         }
-        List<UUID> order = t.rootEntries().stream().map(EntryNode::uuid).toList();
-        assertMonotonic(t, order);
+        assertEquals(expected, t.rootEntries().stream().map(EntryNode::uuid).toList());
         s.close();
         // 重开仍有序
         Sanctum s2 = Sanctum.open(dir.resolve("vault"));
         s2.unlock("pw".toCharArray());
-        assertMonotonic(s2.objectTree(), s2.objectTree().rootEntries().stream().map(EntryNode::uuid).toList());
+        assertEquals(expected, s2.objectTree().rootEntries().stream().map(EntryNode::uuid).toList());
         s2.close();
     }
 
     /**
-     * 旧版用 orderBits 存 double 的 IEEE-754 位模式（量级约 4.6e18，语义与 long order 不同）。
-     * 重开时应丢弃该旧字段、按当前顺序重新赋序，保证旧库展示顺序不变且可被小数索引接管。
+     * order 不是字符串（缺失或旧格式数值）时不应用作排序键，扫描时应按当前顺序重赋。
+     * 旧数据本就没有字符串 order，其展示顺序也是扫描顺序，故按扫描顺序赋序恰好延续原次序。
      */
     @Test
-    void legacyDoubleBitsFieldIsMigrated(@TempDir Path dir) {
+    void nonStringOrderIsReassigned(@TempDir Path dir) {
         Sanctum s = newVault(dir);
         ObjectTree t = s.objectTree();
         EntryNode a = t.createEntry(null, "A", empty());
@@ -120,22 +139,18 @@ class OrderingTest {
         for (EntryNode n : List.of(a, b)) {
             JsonObject o = t.context().read(n.uuid());
             o.remove("order");
-            o.put("orderBits", Double.doubleToLongBits(4.6e18));
+            o.put("order", 4_600_000_000_000_000_000L);
             t.context().write(n.uuid(), o, s.rootObjectUuid());
         }
         s.close();
 
-        // 重开：旧字段应被丢弃、按扫描顺序重新赋序。旧数据本就没有 order，其旧展示顺序也是扫描顺序，
-        // 因此按扫描顺序赋序恰好延续了旧库原有的展示次序。
         Sanctum s2 = Sanctum.open(dir.resolve("vault"));
         s2.unlock("pw".toCharArray());
         List<UUID> migrated = s2.objectTree().rootEntries().stream().map(EntryNode::uuid).toList();
         assertEquals(2, migrated.size());
         assertMonotonic(s2.objectTree(), migrated);
         for (UUID u : migrated) {
-            assertTrue(s2.objectTree().context().orderOf(u) > 0, "应被重新赋为正的 order");
-            assertNull(s2.objectTree().context().read(u).getLong("orderBits"),
-                    "旧 orderBits 应从内存对象中清除，下次写块时不再带出");
+            assertFalse(s2.objectTree().context().orderOf(u).isEmpty(), "应被重新赋为非空 order");
         }
         s2.close();
         // 再次重开：赋序为惰性落盘，但扫描顺序确定，故展示次序应保持稳定
@@ -146,10 +161,10 @@ class OrderingTest {
     }
 
     private void assertMonotonic(ObjectTree t, List<UUID> order) {
-        long prev = -1L;
+        String prev = "";
         for (UUID u : order) {
-            long o = t.context().orderOf(u);
-            assertTrue(o > prev, "order 应单调递增");
+            String o = t.context().orderOf(u);
+            assertTrue(o.compareTo(prev) > 0, "order 应单调递增");
             prev = o;
         }
     }

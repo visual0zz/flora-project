@@ -140,7 +140,7 @@ public final class ObjectTree extends DataTree {
         group.put("dek1", Base64.getEncoder().encodeToString(dek1));
         group.put("dek2", Base64.getEncoder().encodeToString(dek2));
         group.remove("dek");
-        // 小数索引：追加到父下末尾（max + D，溢出时由 appendOrder 内部先重排）
+        // 小数索引：追加到父下末尾（取当前最大 order 的后继）
         group.put("order", context().appendOrder(effectiveParent));
         context().write(groupUuid, group, effectiveParent);
         context().vault().addGroupDek(groupUuid, dek1, dek2);
@@ -161,7 +161,7 @@ public final class ObjectTree extends DataTree {
         // createTime/updateTime 直接存条目 JSON 内（不再单独成块）
         entry.put("createTime", now);
         entry.put("updateTime", now);
-        // 小数索引：追加到父下末尾（max + D，溢出时由 appendOrder 内部先重排）
+        // 小数索引：追加到父下末尾（取当前最大 order 的后继）
         entry.put("order", context().appendOrder(effectiveParent));
         context().write(entryUuid, entry, effectiveParent);
         // 预设字段独立块（password/url/username/labels 有值才写；createTime/updateTime 已在条目内）

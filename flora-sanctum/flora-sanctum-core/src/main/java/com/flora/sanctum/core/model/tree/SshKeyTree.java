@@ -39,7 +39,7 @@ public final class SshKeyTree extends DataTree {
             out.add((SshKeyNode) n);
         }
         // 按 order 升序渲染（小数索引），保证列表顺序稳定、可重排
-        out.sort((a, b) -> Long.compare(context().orderOf(a.uuid()), context().orderOf(b.uuid())));
+        out.sort((a, b) -> context().orderOf(a.uuid()).compareTo(context().orderOf(b.uuid())));
         return out;
     }
 
@@ -60,7 +60,7 @@ public final class SshKeyTree extends DataTree {
         key.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(context().vault().rootObjectUuid()));
         key.put("name", name);
         key.put("value", privateKeyPem);
-        // 小数索引：追加到根下末尾（max + D，溢出时由 appendOrder 内部先重排）
+        // 小数索引：追加到根下末尾（取当前最大 order 的后继）
         key.put("order", context().appendOrder(context().vault().rootObjectUuid()));
         byte[] dek = context().vault().rootDek();
         context().writeWithDek(keyUuid, key, dek);
@@ -72,7 +72,7 @@ public final class SshKeyTree extends DataTree {
      * 密钥统一挂在根对象下，复用组/条目的小数索引机制。
      */
     public void reorder(UUID self, UUID beforeUuid) {
-        long order = context().computeRootSiblingOrder(self, beforeUuid);
+        String order = context().computeRootSiblingOrder(self, beforeUuid);
         JsonObject d = context().read(self);
         if (d == null) {
             return;

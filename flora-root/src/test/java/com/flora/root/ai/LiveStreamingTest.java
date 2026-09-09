@@ -19,9 +19,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * DeepSeek direct at https://api.deepseek.com,
  * Anthropic-compatible at https://api.deepseek.com/anthropic.
  * The key is read from DEEPSEEK_API_KEY; if unset, both tests are skipped (TestAborted).
- * Tagged slow at class level: run via ./action/test-slow.cmd.
+ * Tagged expensive at class level (NOT slow: it is intentionally excluded from the slow
+ * suite so test-slow.cmd never triggers paid external calls). Network + a valid
+ * DEEPSEEK_API_KEY are required; when the key is unset both tests are skipped (TestAborted).
+ * Run only via ./action/test-expensive.cmd.
  */
-@Tag("slow")
+@Tag("expensive")
 class LiveStreamingTest {
 
     private static final String DEEPSEEK_BASE = "https://api.deepseek.com";

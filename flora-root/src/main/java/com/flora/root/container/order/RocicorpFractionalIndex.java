@@ -168,8 +168,10 @@ public final class RocicorpFractionalIndex implements FractionalIndex<String> {
                 return ib; // b 带小数部分，其整数部分本身即严格小于 b
             }
             String smaller = decrementInteger(ib);
-            if (smaller == null) {
-                throw new IllegalStateException("无法再向前生成键（已达最小整数）: " + b);
+            // smaller 为 null（已是最小头部）或等于 SMALLEST_INTEGER（最小合法整数的直接前驱，
+            // 但 SMALLEST_INTEGER 自身非法、不可再生成）时，都没有合法前驱键。
+            if (smaller == null || SMALLEST_INTEGER.equals(smaller)) {
+                throw new IllegalStateException("无法再向前生成键（已接近最小整数，无合法前驱）: " + b);
             }
             return smaller;
         }
@@ -234,8 +236,9 @@ public final class RocicorpFractionalIndex implements FractionalIndex<String> {
         if (b != null && b.length() > 1) {
             return b.substring(0, 1);
         }
-        // b 为空或仅一位：固定 a 的首位，对剩余部分继续求中点
-        return DIGITS.charAt(da) + midpoint(a.substring(1), null, jittered);
+        // b 为空或仅一位：固定 a 的首位，对剩余部分继续求中点。
+        // 注意 a 可能为空（对应「纯整数键」、无小数部分），此时不能对空串取 substring(1)。
+        return DIGITS.charAt(da) + midpoint(a.isEmpty() ? "" : a.substring(1), null, jittered);
     }
 
     /** 取 da 与 db 之间的中点数字；{@code jittered} 时改为在开区间内随机取。 */

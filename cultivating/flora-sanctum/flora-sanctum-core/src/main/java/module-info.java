@@ -3,7 +3,7 @@
  * <p>
  * 密码管理器核心，纯 Java 无 UI 依赖，专注数据读写（加密/存储/数据模型与树）。
  * 同步（git/ssh）与 HTTP 外部密钥服务已迁至 app 模块。
- * 本模块使用 AGPL-3.0 许可证（见 flora-sanctum/LICENSE）。
+ * 本模块使用 AGPL-3.0 许可证（见 cultivating/flora-sanctum/LICENSE）。
  */
 module com.flora.sanctum.core {
     // 加密、密钥派生、块信封（纯 JDK + 自研实现）——内部实现（impl）不导出

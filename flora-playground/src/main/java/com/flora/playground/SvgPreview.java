@@ -25,7 +25,7 @@ public final class SvgPreview {
 
     public static void main(String[] args) throws Exception {
         Path svg = Path.of(args.length > 0 ? args[0]
-                : "flora-sanctum/flora-sanctum-app/src/main/resources/icons/sync.svg");
+                : "cultivating/flora-sanctum/flora-sanctum-app/src/main/resources/icons/sync.svg");
         int size = args.length > 1 ? Integer.parseInt(args[1]) : 192;
         Path out = args.length > 2 ? Path.of(args[2]) : Path.of("target", "svg-preview.png");
         Files.createDirectories(out.getParent());

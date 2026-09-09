@@ -13,7 +13,7 @@
 逐个说明其结构、功能、加密路由与**块内 JSON 字段**。
 阅读对象：需要理解仓库磁盘结构的开发者（GC、同步、备份、格式兼容均依赖此）。
 
-源码位置：`flora-sanctum/flora-sanctum-core/src/main/java/com/flora/sanctum/model/`
+源码位置：`cultivating/flora-sanctum/flora-sanctum-core/src/main/java/com/flora/sanctum/model/`
 （`StoredNodeType.java`、`model/tree/*`、`model/vault/*`、`model/impl/TreeContext.java`）。
 
 ---

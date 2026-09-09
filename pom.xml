@@ -21,7 +21,7 @@
         <module>flora-tangle</module>
         <module>flora-tangle/testbed</module>
         <module>cultivating/flora-hanako</module>
-        <module>flora-sanctum</module>
+        <module>cultivating/flora-sanctum</module>
     </modules>
 
     <properties>
@@ -32,9 +32,11 @@
         <maven.compiler.source>26</maven.compiler.source>
         <maven.compiler.target>26</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- 默认排除 slow 测试标签（如实现真机集成测试），可通过测试脚本的
-             -Dsurefire.excludedGroups= 参数设置为空来关闭该排除 -->
-        <surefire.excludedGroups>slow</surefire.excludedGroups>
+        <!-- 默认排除 slow 与 expensive 两个测试标签：
+             - slow：耗时但免费（如 Argon2、大步数压测、大文件读取）
+             - expensive：调用真实付费外部服务（如 LiveStreamingTest 调 DeepSeek/Anthropic）
+             可通过测试脚本的 -Dsurefire.excludedGroups= 参数设置为空来关闭该排除 -->
+        <surefire.excludedGroups>slow,expensive</surefire.excludedGroups>
     </properties>
 
     <dependencyManagement>

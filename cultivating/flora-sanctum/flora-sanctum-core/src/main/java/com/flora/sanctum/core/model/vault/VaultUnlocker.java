@@ -14,9 +14,9 @@ import java.util.List;
  * 库解锁器（见设计 02"解锁流程"）。
  * <p>
  * 流程：扫描块 → 找 manifest（明文块，type=manifest）→ Argon2id 派生 KEK →
- * 验证 manifest MAC → 构建 Vault。根密钥与 group DEK 由本类内部发现并登记：
- * 根对象 uuid 由 KEK 单向推导（见 {@link com.flora.sanctum.core.crypto.RootUuid}）后直接定位，
- * 根对象本身以 KEK 解密并取出 repoKeyIdSeed；其余 cipher 块经 keyId 路由定位父 DEK 解开。
+ * 验证 manifest MAC → 构建 Vault。根密钥与 group/entry DEK 由本类内部发现并登记：
+ * 种子优先取自 manifest 的 seed 字段（KEK 解密）；根对象为随机 uuid、不可定位，扫描全部块经
+ * keyId 命中 type==root 定位，本身以 KEK 解密；其余 cipher 块经 keyId 路由定位父 DEK 解开。
  * <p>
  * 失败按阶段抛 {@link VaultUnlockException}（而非统一"解锁失败"），供上层给出针对性提示。
  */
@@ -92,10 +92,11 @@ public final class VaultUnlocker {
         KeyIdIndex index = new KeyIdIndex();
         long baseTimestamp = maxBlockTimestamp(m.blocks);
         Vault vault = new Vault(store, m.manifest, index, new SecureRandomSource(), kek, baseTimestamp);
-        // 解根对象：manifest 记录 rootObjectUuid，O(1) 定位；KEK 试解出 root DEK 与 repoKeyIdSeed。
+        // 发现根对象与全部 group/entry DEK：种子优先取自 manifest 的 seed 字段（KEK 解密），
+        // 根对象（随机 uuid、不可定位）扫描全部块经 keyId 命中 type==root 定位。
         // 根对象缺失/解不开/不完整均视为解锁失败（必要节点缺失），失败时清理驻留密钥。
         try {
-            discoverRootDeks(vault, kek, m.blocks);
+            discoverRootDeks(vault, kek, m);
         } catch (VaultUnlockException e) {
             vault.clearSecrets();
             throw e;
@@ -109,49 +110,92 @@ public final class VaultUnlocker {
     }
 
     /**
-     * 发现并登记根密钥与全部 group DEK（见设计"root DEK"）。
-     * 根对象 uuid 由 KEK 单向推导定位（O(1)），根对象直接以 KEK 解密，取出 repoKeyIdSeed 与
-     * 明文 rootDek；rootDek 注册为 {@code groupDek(rootUuid)}，作为顶层子树加密根。
-     * 根级密钥仍即 KEK（dataDek），用于加密 root 块本身；登记进 keyId 索引后，
-     * 后续 cipher 块统一经 keyId 路由（BlockResolver）定位父 DEK 解开，对 type==group 且含 dek 的
-     * 取组块内明文子 DEK（外层块已由父 DEK 加密保护）并登记，逐层递归直至无新增。
-     * <p>根对象缺失/无法解密/内容不完整（缺 repoKeyIdSeed 或 dek）时抛 {@link VaultUnlockException}。
+     * 发现并登记根密钥与全部 group / entry DEK（见设计"root DEK"）。
+     * <p>种子来源：新格式自 manifest 的 {@code seed} 字段（经 KEK 加密，解锁时由 KEK 解密）；
+     * 旧格式 manifest 无 seed，回退到根对象块内（kek 直解）。根对象 uuid 新格式为随机、不可定位，
+     * 扫描全部块经 keyId 命中 {@code type==root} 即定位；旧格式仍由 KEK 单向推导定位。
+     * 根级密钥即 KEK（dataDek），用于加密 root 块本身，登记进 keyId 索引后，后续 cipher 块统一经
+     * keyId 路由（BlockResolver）定位父 DEK 解开，对 type==group / type==entry 且含 dek 的
+     * 取块内明文子 DEK（外层块已由父 DEK 加密保护）并登记，逐层递归直至无新增。
+     * <p>根对象缺失/无法解密/内容不完整（缺 dek）时抛 {@link VaultUnlockException}。
      */
-    private void discoverRootDeks(Vault vault, byte[] kek, List<Block> blocks) {
-        // 根对象块用 KEK 加密，但 keyId 由 repoKeyIdSeed 派生（解锁时尚未读出），
-        // 无法用 keyId 预筛 → 按 KEK 推导出的 uuid 定位，KEK 试解（GCM tag 确证）。
-        java.util.UUID rootUuid = RootUuid.derive(kek);
-        Block rootBlock = null;
-        for (Block b : blocks) {
-            if (rootUuid.equals(b.uuid())) {
-                rootBlock = b;
-                break;
+    private void discoverRootDeks(Vault vault, byte[] kek, LocatedManifest m) {
+        List<Block> blocks = m.blocks();
+        Manifest manifest = m.manifest();
+        // 1) 取得 repoKeyIdSeed：新格式自 manifest.seed（KEK 解密）；旧格式为 null，回退根对象块内。
+        byte[] seed = null;
+        if (manifest.encryptedSeed() != null) {
+            try {
+                seed = com.flora.sanctum.core.model.impl.ManifestStore.decryptSeed(manifest.encryptedSeed(), kek);
+            } catch (Exception ignore) {
+                seed = null; // 解密失败（如种子被篡改）→ 视为旧格式/损坏，下方走 kek 直解或报缺
             }
         }
-        if (rootBlock == null) {
-            throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_MISSING);
+        if (seed != null) {
+            vault.setRepoKeyIdSeed(seed);
         }
-        byte[] plain = tryDecode(vault, kek, rootBlock);
-        if (plain == null) {
-            throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_DECRYPT_FAILED);
-        }
-        com.flora.root.codec.json.model.JsonObject n = parsePlain(plain);
-        // 根对象以 KEK 加解密；必要内容是仓库级 keyId 派生种子与明文 rootDek 对（dek1/dek2）
-        if (n == null || n.getString("repoKeyIdSeed") == null) {
-            throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
-        }
-        Vault.GroupKeys rk = readGroupKeys(n);
-        if (rk == null) {
-            throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
-        }
-        vault.addRootObjectUuid(rootUuid);
-        vault.setRepoKeyIdSeed(java.util.Base64.getDecoder().decode(n.getString("repoKeyIdSeed")));
-        // dataDek 仍是 KEK（用于加密 root 块）；rootDek 对明文解出后注册为 groupDek(rootUuid)，
-        // 顶层对象与顶层分组 DEK 的加密改由活跃 rootDek(dek2) 承担
+        // 2) 登记 KEK：根对象块以 KEK 加密，其 keyId = makeKeyId(seed, nonce, kek)，
+        //    需先将 kek 注册进 keyId 索引，扫描时方能经 keyId 命中根对象。
         vault.addRootDek(kek);
-        vault.addGroupDek(rootUuid, rk.dek1(), rk.dek2());
-        // 逐层发现 group DEK：repoKeyIdSeed 已读出，cipher 块经 keyId 路由定位父 DEK 解开；
-        // 父 DEK 必先于子块登记于 KeyIdIndex（树自顶向下展开），故 keyId 路由始终可命中。
+
+        if (seed != null) {
+            // 新格式：根对象随机 uuid、不可定位，扫描全部块经 keyId 解出 type==root 即定位。
+            for (Block b : blocks) {
+                if (!b.isCipher()) {
+                    continue;
+                }
+                com.flora.sanctum.core.crypto.impl.BlockResolver.Decoded d =
+                        vault.resolver().decodeKeyed(b.masked(), b.uuid(), b.timestampText());
+                if (d == null) {
+                    continue;
+                }
+                com.flora.root.codec.json.model.JsonObject n = parsePlain(d.plaintext);
+                if (n != null && StoredNodeType.ROOT == StoredNodeType.fromTag(n.getString("type"))) {
+                    Vault.GroupKeys rk = readGroupKeys(n);
+                    if (rk == null) {
+                        throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
+                    }
+                    vault.addRootObjectUuid(b.uuid());
+                    vault.addGroupDek(b.uuid(), rk.dek1(), rk.dek2());
+                    break;
+                }
+            }
+            if (vault.rootObjectUuid() == null) {
+                throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_MISSING);
+            }
+        } else {
+            // 旧格式：根对象 uuid 由 KEK 推导、块以 kek 直解，种子存于根对象块内。
+            java.util.UUID rootUuid = RootUuid.derive(kek);
+            Block rootBlock = null;
+            for (Block b : blocks) {
+                if (rootUuid.equals(b.uuid())) {
+                    rootBlock = b;
+                    break;
+                }
+            }
+            if (rootBlock == null) {
+                throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_MISSING);
+            }
+            byte[] plain = tryDecode(vault, kek, rootBlock);
+            if (plain == null) {
+                throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_DECRYPT_FAILED);
+            }
+            com.flora.root.codec.json.model.JsonObject n = parsePlain(plain);
+            if (n == null || n.getString("repoKeyIdSeed") == null) {
+                throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
+            }
+            vault.setRepoKeyIdSeed(java.util.Base64.getDecoder().decode(n.getString("repoKeyIdSeed")));
+            Vault.GroupKeys rk = readGroupKeys(n);
+            if (rk == null) {
+                throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
+            }
+            vault.addRootObjectUuid(rootUuid);
+            vault.addGroupDek(rootUuid, rk.dek1(), rk.dek2());
+        }
+
+        // 3) 逐层发现 group / entry DEK：repoKeyIdSeed 已读出，cipher 块经 keyId 路由定位父 DEK 解开；
+        //    父 DEK 必先于子块登记于 KeyIdIndex（树自顶向下展开），故 keyId 路由始终可命中。
+        //    entry 亦为密钥持有者（持 dek1/dek2），其字段块经 entry DEK 加密，keyId 指向父（条目）的密钥。
         boolean any = true;
         while (any) {
             any = false;
@@ -167,8 +211,8 @@ public final class VaultUnlocker {
                 try {
                     com.flora.root.codec.json.model.JsonObject gn = parsePlain(d.plaintext);
                     StoredNodeType nt = StoredNodeType.fromTag(gn == null ? null : gn.getString("type"));
-                    if (nt == StoredNodeType.GROUP) {
-                        // 组块整体以父 DEK 加密（外层保护），dek1/dek2 字段直接存明文 base64
+                    if (nt == StoredNodeType.GROUP || nt == StoredNodeType.ENTRY) {
+                        // 组/条目块整体以父 DEK 加密（外层保护），dek1/dek2 字段直接存明文 base64
                         Vault.GroupKeys gk = readGroupKeys(gn);
                         if (gk != null && vault.groupKeys(b.uuid()) == null) {
                             vault.addGroupDek(b.uuid(), gk.dek1(), gk.dek2());

@@ -19,6 +19,10 @@ import java.util.Base64;
  * 根对象 uuid 不由 manifest 记录，而由 KEK 单向推导
  * （见 {@link com.flora.sanctum.core.crypto.RootUuid#derive}）：同一主密码即重算出同一根对象路径，
  * 换主密码后根对象的分片位置随之改变。
+ * <p>
+ * manifest 额外承载 {@code seed} 字段：仓库级 keyId 派生种子 {@code repoKeyIdSeed} 经 KEK 加密后的
+ * blob（base64）。解锁时由 KEK 解密即得种子，无需再从根对象块读取（见 02"解锁流程"重构：seed 进 manifest）。
+ * 该字段为可空：旧格式仓库 seed 仍存于根对象块内，读到 null 时回退旧路径。
  */
 public final class Manifest {
 
@@ -29,9 +33,11 @@ public final class Manifest {
     private final int memoryKiB;
     private final int iterations;
     private final int parallelism;
+    /** 经 KEK 加密的 repoKeyIdSeed blob（base64 于 JSON）；旧格式为 null。 */
+    private final byte[] encryptedSeed;
 
     public Manifest(int version, String crypto, String kdf, byte[] salt,
-                    int memoryKiB, int iterations, int parallelism) {
+                    int memoryKiB, int iterations, int parallelism, byte[] encryptedSeed) {
         this.version = version;
         this.crypto = crypto;
         this.kdf = kdf;
@@ -39,6 +45,7 @@ public final class Manifest {
         this.memoryKiB = memoryKiB;
         this.iterations = iterations;
         this.parallelism = parallelism;
+        this.encryptedSeed = encryptedSeed == null ? null : encryptedSeed.clone();
     }
 
     public int version() {
@@ -69,6 +76,11 @@ public final class Manifest {
         return parallelism;
     }
 
+    /** 经 KEK 加密的 repoKeyIdSeed blob；旧格式仓库为 null（种子存于根对象块内）。 */
+    public byte[] encryptedSeed() {
+        return encryptedSeed == null ? null : encryptedSeed.clone();
+    }
+
     /** manifest MAC 密钥派生：macKey = HKDF-SHA256(KEK, "sanctum-manifest-mac", 32B)（见 02）。 */
     public byte[] manifestMacKey(byte[] kek) {
         return com.flora.sanctum.core.crypto.impl.HkdfSha256.derive(kek, null, "sanctum-manifest-mac", 32);
@@ -82,6 +94,8 @@ public final class Manifest {
             throw new IllegalArgumentException("not a manifest");
         }
         com.flora.root.codec.json.model.JsonObject params = n.getObject("params");
+        String seedStr = n.getString("seed");
+        byte[] seed = seedStr == null ? null : Base64.getDecoder().decode(seedStr);
         return new Manifest(
                 n.getInt("version"),
                 n.getString("crypto"),
@@ -89,7 +103,8 @@ public final class Manifest {
                 Base64.getDecoder().decode(n.getString("salt")),
                 params.getInt("memoryKiB"),
                 params.getInt("iterations"),
-                params.getInt("parallelism")
+                params.getInt("parallelism"),
+                seed
         );
     }
 }

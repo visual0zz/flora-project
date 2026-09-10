@@ -154,16 +154,28 @@ public final class ObjectTree extends DataTree {
         UUID entryUuid = context().random().nextUuid();
         UUID effectiveParent = groupId != null ? groupId : context().vault().rootObjectUuid();
         long now = context().nextTimestamp();
+        // 条目持有自身 DEK 对（双 DEK：dek1 退役中、dek2 活跃）：其字段块经条目 DEK 加密，
+        // 满足"所有节点的 keyId 指向其父节点内某一密钥"与"父节点懒惰轮换"。
+        byte[] dek1 = new byte[32];
+        byte[] dek2 = new byte[32];
+        context().random().nextBytes(dek1);
+        context().random().nextBytes(dek2);
         JsonObject entry = new JsonObject();
         entry.put("type", StoredNodeType.ENTRY.tag());
         entry.put("name", name);
         entry.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(effectiveParent));
+        entry.put("dek1", Base64.getEncoder().encodeToString(dek1));
+        entry.put("dek2", Base64.getEncoder().encodeToString(dek2));
         // createTime/updateTime 直接存条目 JSON 内（不再单独成块）
         entry.put("createTime", now);
         entry.put("updateTime", now);
         // 小数索引：追加到父下末尾（取当前最大 order 的后继）
         entry.put("order", context().appendOrder(effectiveParent));
         context().write(entryUuid, entry, effectiveParent);
+        // 注册条目 DEK（须在写字段前，使字段块经条目 DEK 加密且 keyId 可命中）
+        context().vault().addGroupDek(entryUuid, dek1, dek2);
+        java.util.Arrays.fill(dek1, (byte) 0);
+        java.util.Arrays.fill(dek2, (byte) 0);
         // 预设字段独立块（password/url/username/labels 有值才写；createTime/updateTime 已在条目内）
         EntryNode node = new EntryNode(entryUuid, this);
         node.writeField("password", fields.password(), null);

@@ -4,6 +4,7 @@ import com.flora.sanctum.core.model.vault.*;
 
 import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
+import com.flora.sanctum.core.crypto.KeyDerivation;
 import com.flora.sanctum.core.crypto.impl.CipherCodec;
 import com.flora.sanctum.core.crypto.impl.Envelope;
 import com.flora.sanctum.core.crypto.impl.SecureRandomSource;
@@ -170,8 +171,29 @@ public final class ManifestStore {
         params.put("iterations", m.iterations());
         params.put("parallelism", m.parallelism());
         manifest.put("params", params);
+        // seed：仓库级 keyId 派生种子经 KEK 加密的 blob（旧格式无此字段）
+        byte[] seed = m.encryptedSeed();
+        if (seed != null) {
+            manifest.put("seed", Base64.getEncoder().encodeToString(seed));
+        }
         byte[] payload = JsonUtil.toJsonString(manifest).getBytes(StandardCharsets.UTF_8);
         byte[] obf = buildBlock(CipherCodec.uuidBytes(uuid), payload, timestamp, macKey);
         store.put(uuid, obf, null, timestamp);
+    }
+
+    /**
+     * 用 KEK 加密 repoKeyIdSeed（生成 manifest 的 {@code seed} blob）。
+     * <p>该 blob 独立于仓库 keyId 机制：用空仓库种子（确定性 keyId）包裹，仅借 KEK 保密，
+     * 解密侧以同一方式解开（见设计"seed 进 manifest"）。</p>
+     */
+    public static byte[] encryptSeed(byte[] seed, byte[] kek) {
+        CipherCodec codec = new CipherCodec(KeyDerivation.encKey(kek), kek);
+        return codec.encode(CipherCodec.EMBEDDED_UUID, seed, "0");
+    }
+
+    /** 用 KEK 解密 manifest 的 {@code seed} blob 得到 repoKeyIdSeed。 */
+    public static byte[] decryptSeed(byte[] encryptedSeed, byte[] kek) {
+        CipherCodec codec = new CipherCodec(KeyDerivation.encKey(kek), kek);
+        return codec.decode(encryptedSeed, CipherCodec.EMBEDDED_UUID, "0");
     }
 }

@@ -44,21 +44,35 @@ public final class MasterKeyRotator {
         Argon2KDF kdf = new Argon2KDF(m.salt(), memoryKiB, iterations, parallelism);
         byte[] newKek = kdf.derive(newPassword);
         try {
-            UUID oldRootUuid = RootUuid.derive(oldKek);
-            UUID newRootUuid = RootUuid.derive(newKek);
-            // rootDek 对（dek1/dek2）明文值换主密码时不变：先取出，迁移全程复用同一对，结尾重挂到新根 uuid
+            // rootDek 对（dek1/dek2）明文值换主密码时不变：先取出，迁移全程复用同一对，结尾重挂到根 uuid
             Vault.GroupKeys rk = vault.groupKeys(vault.rootObjectUuid());
             if (rk == null) {
                 throw new IllegalStateException("root DEK unavailable");
             }
-            // 仓库级 keyId 种子（解锁时已在 vault 中），用于 keyId 派生；解码侧 keyId 取自块头，种子仅供编码
+            // 仓库级 keyId 种子（解锁时已在 vault 中），用于 keyId 派生；解码侧 keyId 取自块头，种子仅供编码。
+            // 换新主密码时种子值不变，仅改用新 KEK 加密后写入 manifest 的 seed 字段。
             byte[] seed = vault.repoKeyIdSeed();
-            // 两个解码器：根对象块以 KEK 加密；顶层块（parent=根）以 rootDek 加密
-            migrateRootObject(oldRootUuid, newRootUuid, newKek, rk);
-            migrateRootLevelBlocks(oldRootUuid, newRootUuid);
-            // 更新 manifest 的 MAC（用新 KEK）；manifest 不记录根对象 uuid，无根相关字段需改
+            boolean oldFormat = m.encryptedSeed() == null;
+
+            UUID rootUuid;
+            if (oldFormat) {
+                // 旧格式：根对象 uuid 由 KEK 推导，换密码后改变 ⇒ 根块改写到新路径、顶层块改父指新根 uuid
+                UUID oldRootUuid = RootUuid.derive(oldKek);
+                UUID newRootUuid = RootUuid.derive(newKek);
+                migrateRootObject(oldRootUuid, newRootUuid, newKek, rk);
+                migrateRootLevelBlocks(oldRootUuid, newRootUuid);
+                rootUuid = newRootUuid;
+            } else {
+                // 新格式：根对象 uuid 随机、不可定位，换密码不变；仅根块以新 KEK 重加密（同 uuid 覆盖）。
+                // 顶层块 parent=根 uuid、以 rootDek 加密，二者均不变 ⇒ 无需重写。
+                rootUuid = vault.rootObjectUuid();
+                migrateRootObject(rootUuid, rootUuid, newKek, rk);
+            }
+
+            // 更新 manifest：新 KDF 参数 + seed（用新 KEK 加密）；MAC 用新 KEK 重算
             Manifest updated = new Manifest(m.version(), m.crypto(), m.kdf(),
-                    m.salt(), memoryKiB, iterations, parallelism);
+                    m.salt(), memoryKiB, iterations, parallelism,
+                    ManifestStore.encryptSeed(seed, newKek));
             byte[] macKey = updated.manifestMacKey(newKek);
             // manifest 经 ManifestStore 直接 store.put 落盘（绕过 writeCipherBlock），需回写时间戳上限，
             // 否则缓存会低于该块时间戳，后续写入可能复用同一时间戳。
@@ -67,10 +81,10 @@ public final class MasterKeyRotator {
             ctx.noteTimestamp(manifestTs);
             vault.replaceManifest(updated);
             vault.replaceKek(newKek);
-            // 根级密钥仍即 KEK（用于加密 root 块）；rootDek 对值不变，重挂到新根 uuid
+            // 根级密钥仍即 KEK（用于加密 root 块）；rootDek 对值不变，重挂到根 uuid
             vault.addRootDek(newKek);
-            vault.addRootObjectUuid(newRootUuid);
-            vault.addGroupDek(newRootUuid, rk.dek1(), rk.dek2());
+            vault.addRootObjectUuid(rootUuid);
+            vault.addGroupDek(rootUuid, rk.dek1(), rk.dek2());
         } finally {
             java.util.Arrays.fill(newKek, (byte) 0);
             java.util.Arrays.fill(oldKek, (byte) 0);

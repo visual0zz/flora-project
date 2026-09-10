@@ -4,6 +4,8 @@
 模块：flora-sanctum-core（model / crypto / vault）
 状态：设计稿（待决策评审后实现）
 
+> 2026-09-10 修订：放弃"父子指向翻转为父→子"的设想，维持现有**子→父**模型（每个节点块内持 `parent` 字段），category 层建立在子→父之上。理由见文末"权衡与风险"。
+
 ## 背景与动机
 
 当前 sanctum 是**单根扁平模型**：唯一根对象（`type=root`，持 rootDek）之下直接平铺四类数据对象——
@@ -20,13 +22,15 @@
 
 目标：在 **root 与顶级对象之间插入一层 `category` 节点**，每类数据拥有自己的 category 节点（含独立 DEK 对 + 惰性轮换），使"容器级加密粒度 = 对象"的模型对全部数据类统一，并获得**按类独立的前向保密**。
 
+> 本次**维持子→父模型**：每个数据对象仍在其块内写 `parent`（指向所属 category 或 group），category 节点本身 `parent=根对象uuid`。父级不持有子列表，列子靠 `TreeContext.childrenByParent` 内存索引（`TreeContext.java:42-43`）。增/删/移一个子节点只重写该子节点块（父块不动，见 `TreeContext.delete` 仅删子块 + 维护内存索引，`TreeContext.java:245-267`）。
+
 ## 目标
 
 - 新增 1 个存储类型 `CATEGORY("category", null)`，内部以字段 `category=xxx` 区分数据类
   （`password` / `icon` / `sshKey` / `remote`）。
 - 层级变为 `root → {category:password, category:icon, category:sshKey, category:remote} → 各数据对象`。
 - 每个 category 节点持有自己的 DEK 对（`dek1`/`dek2`，明文 base64 存于块内），外层以 rootDek 加密
-  （因 `parent=根对象uuid`）；其下数据对象以该 category 的活跃 DEK 加密。
+  （因 `parent=根对象uuid`）；其下数据对象以该 category 的活跃 DEK 加密（`parent=category uuid`）。
 - 复用现有 `TreeContext.maybeRotateGroupKeys` / `dekFor` / `write`/`delete` 触发机制，使 category 的
   密钥轮换与级联行为与 group 完全同源。
 - **不做前向兼容迁移**（用户明确放弃旧库）：旧格式（数据对象 `parent==root`、根对象无 `categories` 字段）
@@ -58,7 +62,7 @@ category 节点自身用 **rootDek** 加密（外层保护），与 group 块结
 - `TreeContext.maybeRotateGroupKeys(groupUuid)`：检查 `vault.groupKeys(categoryUuid)`，
   枚举 category 直接孩子判定 `dek1` 是否失活 → 轮换 → `rewriteGroupKeys`。对 category 完全适用；
   轮换 category 时经 `ctx.write` 顺带触发 `maybeRotateGroupKeys(root)`（上级联，到 root 经
-  `writeWithDek` 终止，**有界、安全**——沿用已分析结论）。
+  `writeWithDek` 终止，**有界、安全**）。
 - `TreeContext.write/delete`：写/删 category 下孩子会触发 `maybeRotateGroupKeys(categoryUuid)`，
   自动获得按类隔离的前向保密。
 - `TreeNode.markDeleted/restore`：`groupId=parentGroupUuid(d)`，父为 category 也能正确取 DEK。
@@ -84,11 +88,11 @@ categories = {
 ```
 
 - 解锁时 `discoverRootDeks` 先读根对象 → 拿到 `categories` → 登记各 category uuid；
-  随后既有的"逐层发现 DEK"循环（`VaultUnlocker.java:155-181`）在解密 category 块（rootDek 包外层）
-  后，对其 `dek1/dek2` 调用 `addGroupDek(categoryUuid, …)`，使该类 DEK 就绪。
+  随后既有的"逐层发现 DEK"循环（`VaultUnlocker.java` 内 `type==GROUP` 分支）在解密 category 块
+  （rootDek 包外层）后，对其 `dek1/dek2` 调用 `addGroupDek(categoryUuid, …)`，使该类 DEK 就绪。
 - 优点：O(1) 定位（读根对象即得，免扫描）、无新原语、uuid 稳定可跨重载复用；旧格式（无 `categories`
   字段）直接拒绝解锁。
-- 该循环当前仅处理 `type==GROUP`（`VaultUnlocker.java:170`），需扩展为 `GROUP || CATEGORY`。
+- 该循环当前仅处理 `type==GROUP`，需扩展为 `GROUP || CATEGORY`。
 
 ### 各模块改动点（实现阶段）
 
@@ -156,6 +160,40 @@ GC 不误删 category 子树、旧格式拒绝解锁）。core/app 既有测试�
 - **category 自身块加密**：务必用 rootDek（因其 `parent=root`），不能误用类别 DEK，否则换主密码时
   根块重加密但 category 块无法以新 KEK 定位（category 块不由 KEK 直接加密，而由 rootDek 加密，
   rootDek 值不变，故安全）。
+
+## 权衡与风险（价值评估，决策前必读）
+
+1. **安全收益边际。** 两个动机里，(2) 是代码整洁度诉求而非安全诉求；(1) "按类独立轮换"要真正生效，
+   得把某一整类删光使其 DEK 退役——对 icon/sshKey/remote 几乎不会发生。且 rootDek 在换主密码时
+   不变是**既有设计**（`MasterKeyRotator` 只重加密根块），这一点即使不加 category 也成立。
+   核心收益是模型一致性，而非显著的安全提升。
+
+2. **改动面比文档显式列出的更宽（导航层，非 crypto 层）。** crypto/密钥发现确为"近乎零新增逻辑"，
+   但真正的成本在**最易出 bug 的导航层**：涉及 `rootDek()`/`writeWithDek` 的调用点散布于 9 个文件、
+   约 20+ 处；涉及"顶层 / root 为父"判定的引用全模型约 68 处（`parentOf`/`isTopLevel`/`rootGroups`/
+   `rootEntries`/`computeRootSiblingOrder`/`childrenOf(root)` 等）。顶层边界、`NodeMover` 环检测与
+   权限、`reorder` 的 sibling 序计算、`roots()` 锚点，只要漏改一处就会出现节点不可见、双重列出、
+   移动后加密父不一致等隐蔽回归。文档"几乎零新增逻辑"对 crypto 成立，对导航层不成立。
+
+3. **破坏性变更代价被低估。** 文档说"不做前向兼容迁移，旧格式解锁即拒绝"。但当前 icon/sshKey/remote
+   的 `parent==root` 正是文档定义的"旧格式"——一旦落地，所有现存 vault（含测试库与任何真实库）全部
+   打不开。"导出→新建→导入"的迁移路径本身要先能在新旧两种格式间读取，等于又写一遍兼容代码，与
+   "不做迁移"自相矛盾。若 sanctum 尚无真实用户可接受，但应在文档顶部显著标注，而非埋于末尾。
+
+4. **与并行工作交叉。** category 层改变 `parent` 指向（数据对象 `parent` 由 root 变 category），
+   云同步的 merge 依赖 `parent` 引用；`SanctumGui` 的 doSync reopen（KEK 重开路径）、trash 视图、
+   virtual sections 都要随之验证逻辑。KDBX 导入器若某处硬编码 `parent==root`，会静默出错。
+
+5. **更便宜的替代。** 若目标仅为"消除 rootDek 特殊分支、统一模型"：保留 icon/sshKey/remote 的
+   `parent=root`，但让它们经 `dekFor` 取 DEK 时复用 root 的 keyId（本就在 rootDek 索引里）。代码
+   统一性基本达成，零格式变更、零导航层改动，成本不足本方案的 1/10。
+
+## 推荐决策
+
+- 现阶段：**不实现**。把本文档状态维持为"设计稿/备选"，顶部显著标注"破坏性、无迁移"。
+- 若仅为整洁：走上面的"最小代价方案"。
+- 若确要按类前向保密：排到功能稳定、格式冻结之后；届时补"旧库兼容读取"迁移实现（至少导入器能读旧
+  格式），别做硬性拒绝。
 
 ## 测试建议
 

@@ -8,7 +8,7 @@ import com.flora.root.codec.json.model.JsonObject;
 import java.util.UUID;
 
 /**
- * SSH 私钥节点（唯一根 DEK 加密）。
+ * SSH 私钥节点（块以 sshKey category 活跃 DEK 加密，parent 指向 sshKey category）。
  */
 public final class SshKeyNode extends TreeNode {
 
@@ -45,7 +45,7 @@ public final class SshKeyNode extends TreeNode {
             throw new IllegalArgumentException("ssh key not found");
         }
         d.put("name", name);
-        byte[] dek = ctx().vault().rootDek();
+        byte[] dek = ctx().dekFor(ctx().vault().categoryUuid("sshKey"));
         ctx().writeWithDek(uuid(), d, dek);
     }
 
@@ -61,7 +61,7 @@ public final class SshKeyNode extends TreeNode {
         } else {
             d.put("publicKey", publicKey.trim());
         }
-        byte[] dek = ctx().vault().rootDek();
+        byte[] dek = ctx().dekFor(ctx().vault().categoryUuid("sshKey"));
         ctx().writeWithDek(uuid(), d, dek);
     }
 }

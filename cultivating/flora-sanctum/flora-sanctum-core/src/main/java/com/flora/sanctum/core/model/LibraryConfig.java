@@ -39,7 +39,8 @@ public final class LibraryConfig {
 
     /** 写仓库设置（config 节点，加密存储；新建或更新）。 */
     public void setConfig(String key, String value) {
-        byte[] dek = ctx.vault().dataDek();
+        // config 节点 parent 指向 root 对象，与顶层对象一致：用 rootDek 加密（而非 KEK）。
+        byte[] dek = ctx.vault().rootDek();
         Map.Entry<UUID, JsonObject> e = findConfigEntry(key);
         if (e != null) {
             e.getValue().put("value", value);

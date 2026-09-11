@@ -2,9 +2,11 @@
 
 日期：2026-09-10
 模块：flora-sanctum-core（model / crypto / vault）
-状态：设计稿（待决策评审后实现）
+状态：已实现（2026-09-11 提交）
 
 > 2026-09-10 修订：放弃"父子指向翻转为父→子"的设想，维持现有**子→父**模型（每个节点块内持 `parent` 字段），category 层建立在子→父之上。理由见文末"权衡与风险"。
+
+> **实现纪要（2026-09-11）**：决策与文末"推荐决策"相反——用户拍板**实现**，并锁定两条原则：(1) **硬性拒绝旧格式**——root 缺 `categories` 字段的库在解锁时抛 `OLD_FORMAT_REJECTED`，不做静默兼容；(2) **四类全纳入**——`password`/`icon`/`sshKey`/`remote` 均落地为独立 category 节点，顶层 group/entry 路由到 `password` category。crypto 层确为近零新增逻辑（复用 `addGroupDek`/`maybeRotateGroupKeys`/`dekFor`/`write`/`delete`）；真实改动面集中在导航层（约 68 处"顶层/root 为父"判定、`NodeMover`、`reorder`、`roots()` 锚点、`SanctumGui` 拖拽目标），已逐项适配。验证见 `CategoryRoutingTest` + 既有 core/app 全绿。
 
 ## 背景与动机
 

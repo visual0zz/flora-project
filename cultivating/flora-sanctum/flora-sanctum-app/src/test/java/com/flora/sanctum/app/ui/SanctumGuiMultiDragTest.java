@@ -81,7 +81,8 @@ class SanctumGuiMultiDragTest {
         EntryNode a = tree.createEntry(h.uuid(), "A", new com.flora.sanctum.core.model.EntryFields(null, null, null, java.util.List.of()));
         EntryNode b = tree.createEntry(h.uuid(), "B", new com.flora.sanctum.core.model.EntryFields(null, null, null, java.util.List.of()));
         EntryNode c = tree.createEntry(h.uuid(), "C", new com.flora.sanctum.core.model.EntryFields(null, null, null, java.util.List.of()));
-        UUID root = sanctum.rootObjectUuid();
+        // 顶层移动目标组传 null（category 层落地后，null 经 NodeMover 映射到 password 类别）
+        UUID root = null;
         sanctum.close();
 
         Sanctum s2 = Sanctum.open(vault);

@@ -45,7 +45,8 @@ class SanctumGuiReorderTest {
         EntryNode a = tree.createEntry(null, "A", new com.flora.sanctum.core.model.EntryFields(null, null, null, java.util.List.of()));
         EntryNode b = tree.createEntry(null, "B", new com.flora.sanctum.core.model.EntryFields(null, null, null, java.util.List.of()));
         EntryNode c = tree.createEntry(null, "C", new com.flora.sanctum.core.model.EntryFields(null, null, null, java.util.List.of()));
-        UUID root = sanctum.rootObjectUuid();
+        // 顶层移动目标组传 null（category 层落地后，null 经 NodeMover 映射到 password 类别）
+        UUID root = null;
         sanctum.close();
 
         Sanctum s2 = Sanctum.open(vault);
@@ -66,11 +67,18 @@ class SanctumGuiReorderTest {
         // B 拖到 A 之前（落到 A 上）：targetGroup=根，beforeUuid=A
         performMove.invoke(gui, b.uuid(), root, a.uuid());
 
+        JLabel status = (JLabel) readField(gui, "statusLabel");
+        assertTrue(status.getText().contains("已移动"),
+                "performMove 应成功移动；实际状态：" + status.getText());
+
         s2.close();
         Sanctum s3 = Sanctum.open(vault);
         s3.unlock(pw.toCharArray());
         List<UUID> order = s3.objectTree().rootEntries().stream().map(EntryNode::uuid).toList();
         s3.close();
+
+        assertEquals(List.of(b.uuid(), a.uuid(), c.uuid()), order,
+                "B 拖到 A 之前后，重开仓库顺序应为 [B, A, C]");
 
         assertEquals(List.of(b.uuid(), a.uuid(), c.uuid()), order,
                 "B 拖到 A 之前后，重开仓库顺序应为 [B, A, C]");
@@ -80,5 +88,11 @@ class SanctumGuiReorderTest {
         Field f = SanctumGui.class.getDeclaredField(name);
         f.setAccessible(true);
         f.set(target, value);
+    }
+
+    private static Object readField(Object target, String name) throws Exception {
+        Field f = SanctumGui.class.getDeclaredField(name);
+        f.setAccessible(true);
+        return f.get(target);
     }
 }

@@ -49,8 +49,8 @@ class OrderingTest {
         EntryNode c = t.createEntry(null, "C", empty());
         String oa = t.context().orderOf(a.uuid());
         String oc = t.context().orderOf(c.uuid());
-        // 把 B 移到 A 之前
-        s.moveTo(b.uuid(), s.rootObjectUuid(), a.uuid());
+        // 把 B 移到 A 之前（顶层条目移动到密码库根：新父传 null，落点为 password category）
+        s.moveTo(b.uuid(), null, a.uuid());
         assertEquals(oa, t.context().orderOf(a.uuid()), "A 的 order 不应变");
         assertEquals(oc, t.context().orderOf(c.uuid()), "C 的 order 不应变");
         assertTrue(t.context().orderOf(b.uuid()).compareTo(oa) < 0, "B 应插到 A 之前");
@@ -68,8 +68,8 @@ class OrderingTest {
         EntryNode b = t.createEntry(null, "B", empty());
         EntryNode c = t.createEntry(null, "C", empty());
         EntryNode d = t.createEntry(null, "D", empty());
-        // B 移到 D 之前：期望 A C B D
-        s.moveTo(b.uuid(), s.rootObjectUuid(), d.uuid());
+        // B 移到 D 之前：期望 A C B D（顶层条目移动到密码库根：新父传 null，落点为 password category）
+        s.moveTo(b.uuid(), null, d.uuid());
         assertEquals(List.of(a.uuid(), c.uuid(), b.uuid(), d.uuid()),
                 t.rootEntries().stream().map(EntryNode::uuid).toList());
         s.close();
@@ -107,7 +107,6 @@ class OrderingTest {
     void repeatedHeadInsertKeepsExactOrder(@TempDir Path dir) {
         Sanctum s = newVault(dir);
         ObjectTree t = s.objectTree();
-        UUID root = s.rootObjectUuid();
         List<UUID> expected = new ArrayList<>();
         EntryNode a = t.createEntry(null, "A", empty());
         EntryNode b = t.createEntry(null, "B", empty());
@@ -115,7 +114,8 @@ class OrderingTest {
         expected.add(b.uuid());
         for (int i = 0; i < 120; i++) {
             EntryNode n = t.createEntry(null, "x" + i, empty());
-            s.moveTo(n.uuid(), root, expected.get(0));
+            // 顶层条目移动到密码库根：新父传 null，落点为 password category
+            s.moveTo(n.uuid(), null, expected.get(0));
             expected.add(0, n.uuid());
         }
         assertEquals(expected, t.rootEntries().stream().map(EntryNode::uuid).toList());
@@ -141,7 +141,8 @@ class OrderingTest {
             JsonObject o = t.context().read(n.uuid());
             o.remove("order");
             o.put("order", 4_600_000_000_000_000_000L);
-            t.context().write(n.uuid(), o, s.rootObjectUuid());
+            // 重新落盘：顶层条目归属 password category（groupId 用 category uuid），维持加密归属一致
+            t.context().write(n.uuid(), o, s.vault().categoryUuid("password"));
         }
         s.close();
 

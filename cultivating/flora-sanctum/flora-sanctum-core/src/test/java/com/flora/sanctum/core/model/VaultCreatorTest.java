@@ -28,9 +28,14 @@ class VaultCreatorTest {
         Vault vault = unlocker.unlock(pw);
         assertNotNull(vault);
         assertEquals("gcm-siv-1", vault.manifest().crypto());
-        // 单根模型：keyId 索引含三条——根对象块用的 KEK，以及被注册为 groupDek 的 rootDek 对
-        // （dek1 退役中 + dek2 活跃，二者不同故各占一条）。
-        assertEquals(3, vault.keyIdIndex().size());
+        // 解锁后 keyId 索引应含 KEK、rootDek 对、以及 4 个 category 分隔层节点的 DEK 对；
+        // 类别层落地后顶层对象的 parent 指向 category 而非 root，故 category DEK 必须已注册。
+        assertNotNull(vault.rootDek());
+        for (String disc : new String[]{"password", "icon", "sshKey", "remote"}) {
+            java.util.UUID cu = vault.categoryUuid(disc);
+            assertNotNull(cu, "category 未注册: " + disc);
+            assertNotNull(vault.groupDek(cu), "category DEK 未注册: " + disc);
+        }
     }
 
     @Test

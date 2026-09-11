@@ -89,11 +89,10 @@ class VaultUnlockerTest {
         char[] pw = "correct horse battery".toCharArray();
         ObjectStore store = createVault(pw);
         VaultUnlocker unlocker = new VaultUnlocker(store);
-        Vault vault = unlocker.unlock(pw);
-        assertNotNull(vault);
-        assertEquals("gcm-siv-1", vault.manifest().crypto());
-        // 根对象 uuid 由 KEK 推导，解锁后登记在 vault 上（manifest 未记录）
-        assertNotNull(vault.rootObjectUuid());
+        // category 层落地后，缺 categories 映射的旧格式根对象被硬性拒绝（见设计：不支持就地升级，
+        // 逃生通道为「导出旧库 → 新建库 → 导入」）。新格式解锁的正确路径由 VaultCreatorTest.createThenUnlock 覆盖。
+        VaultUnlockException ex = assertThrows(VaultUnlockException.class, () -> unlocker.unlock(pw));
+        assertEquals(VaultUnlockException.Phase.OLD_FORMAT_REJECTED, ex.phase());
     }
 
     @Test

@@ -376,29 +376,35 @@ class SanctumTest {
         GroupNode group = s.objectTree().createGroup(null, "社交");
         EntryNode entry = s.objectTree().createEntry(null, "顶层条目",
                 new EntryFields("x", null, null, List.of()));
-        String root = com.flora.sanctum.core.util.UuidHex.toHex(s.rootObjectUuid());
-        assertEquals(root, group.parentRef());
-        assertEquals(root, entry.parentRef());
+        // category 层落地后，顶层对象的 parent 指向各自 category 节点（而非根对象）。
+        String passwordCat = com.flora.sanctum.core.util.UuidHex.toHex(s.vault().categoryUuid("password"));
+        assertEquals(passwordCat, group.parentRef());
+        assertEquals(passwordCat, entry.parentRef());
 
         RemoteNode remote = s.remoteTree().addRemote("origin", "git@example.com:r.git", null);
-        assertEquals(root, remote.parentRef());
+        String remoteCat = com.flora.sanctum.core.util.UuidHex.toHex(s.vault().categoryUuid("remote"));
+        assertEquals(remoteCat, remote.parentRef());
 
         IconNode icon = s.iconTree().createIcon("icon", new byte[]{1}, "png");
         SshKeyNode ssh = s.sshKeyTree().createSshKey("k", "-----BEGIN PRIVATE KEY-----");
-        assertEquals(root, icon.parentRef());
-        assertEquals(root, ssh.parentRef());
+        String iconCat = com.flora.sanctum.core.util.UuidHex.toHex(s.vault().categoryUuid("icon"));
+        String sshCat = com.flora.sanctum.core.util.UuidHex.toHex(s.vault().categoryUuid("sshKey"));
+        assertEquals(iconCat, icon.parentRef());
+        assertEquals(sshCat, ssh.parentRef());
 
         // 根对象 uuid 由 KEK 单向推导（不记入 manifest），登记在 vault 上
+        String root = com.flora.sanctum.core.util.UuidHex.toHex(s.vault().rootObjectUuid());
         assertEquals(root, com.flora.sanctum.core.util.UuidHex.toHex(s.vault().rootObjectUuid()));
 
         s.close();
         Sanctum s2 = Sanctum.open(dir);
         s2.unlock("pw".toCharArray());
-        String root2 = com.flora.sanctum.core.util.UuidHex.toHex(s2.rootObjectUuid());
-        assertEquals(root2, s2.objectTree().group(group.uuid()).parentRef());
-        assertEquals(root2, s2.objectTree().entry(entry.uuid()).parentRef());
-        assertEquals(root2, s2.remoteTree().remote("origin").parentRef());
-        assertEquals(root2, com.flora.sanctum.core.util.UuidHex.toHex(s2.vault().rootObjectUuid()));
+        String passwordCat2 = com.flora.sanctum.core.util.UuidHex.toHex(s2.vault().categoryUuid("password"));
+        String remoteCat2 = com.flora.sanctum.core.util.UuidHex.toHex(s2.vault().categoryUuid("remote"));
+        assertEquals(passwordCat2, s2.objectTree().group(group.uuid()).parentRef());
+        assertEquals(passwordCat2, s2.objectTree().entry(entry.uuid()).parentRef());
+        assertEquals(remoteCat2, s2.remoteTree().remote("origin").parentRef());
+        assertEquals(root, com.flora.sanctum.core.util.UuidHex.toHex(s2.vault().rootObjectUuid()));
     }
 
     @Test

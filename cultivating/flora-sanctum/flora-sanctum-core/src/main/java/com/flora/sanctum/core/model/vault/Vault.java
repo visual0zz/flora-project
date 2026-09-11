@@ -46,6 +46,8 @@ public final class Vault {
     private final java.util.Map<java.util.UUID, GroupKeys> groupDeks = new java.util.concurrent.ConcurrentHashMap<>();
     private byte[] kek; // 解锁期间驻留内存，锁定/关闭时清除
     private byte[] repoKeyIdSeed; // 仓库级 keyId 派生种子（DATA 根 json 存储），锁定/关闭时清除
+    /** category 分隔层映射：数据类区分符（password/icon/sshKey/remote）→ 该 category 节点 uuid。 */
+    private final java.util.Map<String, java.util.UUID> categories = new java.util.concurrent.ConcurrentHashMap<>();
 
     Vault(ObjectStore store, Manifest manifest, KeyIdIndex keyIdIndex, SecureRandomSource random, byte[] kek, long baseTimestamp) {
         this.store = store;
@@ -144,6 +146,35 @@ public final class Vault {
         this.repoKeyIdSeed = seed == null ? null : seed.clone();
     }
 
+    /**
+     * 登记 category 分隔层节点：数据类区分符（password/icon/sshKey/remote）→ 其 category 节点 uuid。
+     * 解锁时从 root 对象的 {@code categories} 映射填充。
+     */
+    public void addCategory(String discriminator, java.util.UUID categoryUuid) {
+        categories.put(discriminator, categoryUuid);
+    }
+
+    /**
+     * 取某数据类的 category 节点 uuid；未登记（旧格式或尚未解锁）返回 null。
+     */
+    public java.util.UUID categoryUuid(String discriminator) {
+        return categories.get(discriminator);
+    }
+
+    /**
+     * 判断某 uuid 是否为根对象或任一 category 节点（即"顶层锚点"）。
+     * 导航层据此判定"parent 指向它即为顶层"，category 落地后顶层对象的 parent 指向 category 而非 root。
+     */
+    public boolean isCategoryOrRoot(java.util.UUID uuid) {
+        if (uuid == null) {
+            return false;
+        }
+        if (uuid.equals(rootObjectUuid)) {
+            return true;
+        }
+        return categories.containsValue(uuid);
+    }
+
     /** 换主密码后更新驻留 KEK。 */
     public void replaceKek(byte[] newKek) {
         if (kek != null) {
@@ -167,6 +198,7 @@ public final class Vault {
             java.util.Arrays.fill(k.dek2(), (byte) 0);
         }
         groupDeks.clear();
+        categories.clear();
         if (repoKeyIdSeed != null) {
             java.util.Arrays.fill(repoKeyIdSeed, (byte) 0);
             repoKeyIdSeed = null;

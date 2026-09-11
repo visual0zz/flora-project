@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 图标树：自定义图标对象（IconNode）。
- * 用唯一根（data）DEK 加密，parent 指向根对象 uuid。
+ * 用 icon category 的活跃 DEK 加密，parent 指向 icon category 节点 uuid。
  * <p>
  * 去重：{@link #findOrCreate(String, byte[], String)} 按图标字节内容（SHA-256）复用已有图标，
  * 内容相同的图标在库内只存一份，重复导入同一份文件不会产生副本。
@@ -55,15 +55,17 @@ public final class IconTree extends DataTree {
 
     public IconNode createIcon(String name, byte[] data, String format) {
         UUID iconUuid = context().random().nextUuid();
+        UUID cat = context().vault().categoryUuid("icon");
         JsonObject icon = new JsonObject();
         icon.put("type", StoredNodeType.ICON.tag());
-        icon.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(context().vault().rootObjectUuid()));
+        icon.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(cat));
         if (name != null && !name.isBlank()) {
             icon.put("name", name);
         }
         icon.put("data", Base64.getEncoder().encodeToString(data));
         icon.put("format", format);
-        byte[] dek = context().vault().rootDek();
+        // 图标块以 icon category 的活跃 DEK 加密（外层保护），parent 指向 icon category 节点
+        byte[] dek = context().dekFor(cat);
         context().writeWithDek(iconUuid, icon, dek);
         // 索引已构建时同步登记，使后续 findOrCreate 能命中刚写入的图标
         Map<String, UUID> idx = contentIndex;

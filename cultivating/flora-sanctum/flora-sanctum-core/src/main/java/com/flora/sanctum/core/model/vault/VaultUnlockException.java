@@ -19,7 +19,12 @@ public final class VaultUnlockException extends RuntimeException {
         /** 根对象块存在，但用 KEK 无法解密（可能已被篡改）。 */
         ROOT_DECRYPT_FAILED("仓库损坏：根对象无法解密（可能已被篡改）"),
         /** 根对象可解密，但缺少必要字段（dek / repoKeyIdSeed）。 */
-        ROOT_INCOMPLETE("仓库损坏：根对象内容不完整（缺少必要字段）");
+        ROOT_INCOMPLETE("仓库损坏：根对象内容不完整（缺少必要字段）"),
+        /**
+         * 根对象存在且可解密，但缺少 {@code categories} 映射：属于 category 层落地前的旧格式，
+         * 不支持就地升级，解锁被拒。逃生通道：旧库「导出 → 新建库（新格式）→ 导入」。
+         */
+        OLD_FORMAT_REJECTED("不支持的旧格式仓库：缺少 category 分隔层（categories），请改用「导出旧库 → 新建库 → 导入」迁移");
 
         private final String message;
 

@@ -34,8 +34,8 @@ public final class ObjectTree extends DataTree {
             return null;
         }
         StoredNodeType nt = StoredNodeType.fromTag(d.getString("type"));
-        // 仓库根对象（type=root）是基础设施（持 root DEK），不暴露为普通节点
-        if (nt == StoredNodeType.ROOT) {
+        // 仓库根对象（type=root）与 category 分隔层节点（type=category）是基础设施，不暴露为普通节点
+        if (nt == StoredNodeType.ROOT || nt == StoredNodeType.CATEGORY) {
             return null;
         }
         return switch (nt) {
@@ -82,7 +82,7 @@ public final class ObjectTree extends DataTree {
         return out;
     }
 
-    /** 父对象 uuid；顶层（parent 指向仓库根对象）或无法解析时返回 null。 */
+    /** 父对象 uuid；顶层（parent 指向 root 或任一 category 节点）或无法解析时返回 null。 */
     public UUID parentOf(UUID uuid) {
         ObjectNode n = find(uuid);
         if (n == null) {
@@ -92,14 +92,13 @@ public final class ObjectTree extends DataTree {
         if (p == null) {
             return null;
         }
-        UUID root = context().vault().rootObjectUuid();
         UUID pid;
         try {
             pid = UuidHex.fromHex(p);
         } catch (IllegalArgumentException e) {
             return null;
         }
-        return root != null && root.equals(pid) ? null : pid;
+        return context().vault().isCategoryOrRoot(pid) ? null : pid;
     }
 
     /** 是否顶层（parent 指向仓库根对象）。 */
@@ -123,12 +122,12 @@ public final class ObjectTree extends DataTree {
         return names;
     }
 
-    /** 新建组（parentId=null 为顶层，parent 记根对象 uuid，用 rootDek 加密）。 */
+    /** 新建组（parentId=null 为顶层，parent 记 password category 节点 uuid，用该 category DEK 加密）。 */
     public GroupNode createGroup(UUID parentId, String name) {
         UUID groupUuid = context().random().nextUuid();
-        UUID effectiveParent = parentId != null ? parentId : context().vault().rootObjectUuid();
-        // 组块整体用父组 DEK（顶层 rootDek）加密（外层保护）；dek1/dek2 直接存明文 base64，无需内层包裹。
-        // 双 DEK：dek1 退役中、dek2 活跃，新/改子节点一律用 dek2（惰性轮换见 TreeContext）。
+        UUID effectiveParent = parentId != null ? parentId : context().vault().categoryUuid("password");
+        // 组块整体用父组/类别 DEK（顶层 password category DEK）加密（外层保护）；
+        // dek1/dek2 直接存明文 base64，无需内层包裹。双 DEK：dek1 退役中、dek2 活跃，新/改子节点一律用 dek2。
         byte[] dek1 = new byte[32];
         byte[] dek2 = new byte[32];
         context().random().nextBytes(dek1);
@@ -149,10 +148,10 @@ public final class ObjectTree extends DataTree {
         return new GroupNode(groupUuid, this);
     }
 
-    /** 新建条目（groupId=null 为顶层，parent 记根对象 uuid，用 rootDek 加密）。 */
+    /** 新建条目（groupId=null 为顶层，parent 记 password category 节点 uuid，用该 category DEK 加密）。 */
     public EntryNode createEntry(UUID groupId, String name, EntryFields fields) {
         UUID entryUuid = context().random().nextUuid();
-        UUID effectiveParent = groupId != null ? groupId : context().vault().rootObjectUuid();
+        UUID effectiveParent = groupId != null ? groupId : context().vault().categoryUuid("password");
         long now = context().nextTimestamp();
         // 条目持有自身 DEK 对（双 DEK：dek1 退役中、dek2 活跃）：其字段块经条目 DEK 加密，
         // 满足"所有节点的 keyId 指向其父节点内某一密钥"与"父节点懒惰轮换"。

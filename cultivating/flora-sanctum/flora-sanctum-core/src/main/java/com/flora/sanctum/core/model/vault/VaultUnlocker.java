@@ -138,6 +138,8 @@ public final class VaultUnlocker {
         //    需先将 kek 注册进 keyId 索引，扫描时方能经 keyId 命中根对象。
         vault.addRootDek(kek);
 
+        com.flora.root.codec.json.model.JsonObject rootJson = null;
+
         if (seed != null) {
             // 新格式：根对象随机 uuid、不可定位，扫描全部块经 keyId 解出 type==root 即定位。
             for (Block b : blocks) {
@@ -155,6 +157,7 @@ public final class VaultUnlocker {
                     if (rk == null) {
                         throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
                     }
+                    rootJson = n;
                     vault.addRootObjectUuid(b.uuid());
                     vault.addGroupDek(b.uuid(), rk.dek1(), rk.dek2());
                     break;
@@ -184,6 +187,7 @@ public final class VaultUnlocker {
             if (n == null || n.getString("repoKeyIdSeed") == null) {
                 throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
             }
+            rootJson = n;
             vault.setRepoKeyIdSeed(java.util.Base64.getDecoder().decode(n.getString("repoKeyIdSeed")));
             Vault.GroupKeys rk = readGroupKeys(n);
             if (rk == null) {
@@ -193,7 +197,23 @@ public final class VaultUnlocker {
             vault.addGroupDek(rootUuid, rk.dek1(), rk.dek2());
         }
 
-        // 3) 逐层发现 group / entry DEK：repoKeyIdSeed 已读出，cipher 块经 keyId 路由定位父 DEK 解开；
+        // 2.5) 解析 category 分隔层映射：root 对象记载 categories（数据类 → category 节点 uuid）。
+        //      缺失即 category 层落地前的旧格式，不支持就地升级，解锁被拒（逃生通道：导出 → 新建库 → 导入）。
+        if (rootJson == null) {
+            throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
+        }
+        com.flora.root.codec.json.model.JsonObject cats = rootJson.getObject("categories");
+        if (cats == null) {
+            throw new VaultUnlockException(VaultUnlockException.Phase.OLD_FORMAT_REJECTED);
+        }
+        for (String disc : cats.keySet()) {
+            String hex = cats.getString(disc);
+            if (hex != null) {
+                vault.addCategory(disc, com.flora.sanctum.core.util.UuidHex.fromHex(hex));
+            }
+        }
+
+        // 3) 逐层发现 group / entry / category DEK：repoKeyIdSeed 已读出，cipher 块经 keyId 路由定位父 DEK 解开；
         //    父 DEK 必先于子块登记于 KeyIdIndex（树自顶向下展开），故 keyId 路由始终可命中。
         //    entry 亦为密钥持有者（持 dek1/dek2），其字段块经 entry DEK 加密，keyId 指向父（条目）的密钥。
         boolean any = true;
@@ -211,8 +231,9 @@ public final class VaultUnlocker {
                 try {
                     com.flora.root.codec.json.model.JsonObject gn = parsePlain(d.plaintext);
                     StoredNodeType nt = StoredNodeType.fromTag(gn == null ? null : gn.getString("type"));
-                    if (nt == StoredNodeType.GROUP || nt == StoredNodeType.ENTRY) {
-                        // 组/条目块整体以父 DEK 加密（外层保护），dek1/dek2 字段直接存明文 base64
+                    if (nt == StoredNodeType.GROUP || nt == StoredNodeType.ENTRY
+                            || nt == StoredNodeType.CATEGORY) {
+                        // 组/条目/category 块整体以父 DEK 加密（外层保护），dek1/dek2 字段直接存明文 base64
                         Vault.GroupKeys gk = readGroupKeys(gn);
                         if (gk != null && vault.groupKeys(b.uuid()) == null) {
                             vault.addGroupDek(b.uuid(), gk.dek1(), gk.dek2());

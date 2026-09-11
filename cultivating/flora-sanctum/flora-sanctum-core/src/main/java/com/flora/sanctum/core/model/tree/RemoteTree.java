@@ -11,7 +11,7 @@ import java.util.UUID;
 
 /**
  * 远程配置树（StoredNodeType.REMOTE）：远程仓库配置对象（RemoteNode）。
- * 类型 type=remote，直接存 name/url/keyRef，parent 指向仓库根对象 uuid。
+ * 类型 type=remote，直接存 name/url/keyRef，parent 指向 remote category 节点 uuid。
  */
 public final class RemoteTree extends DataTree {
 
@@ -67,33 +67,36 @@ public final class RemoteTree extends DataTree {
 
     public RemoteNode addRemote(String name, String url, Ref keyRef) {
         UUID remoteUuid = context().random().nextUuid();
+        UUID cat = context().vault().categoryUuid("remote");
         JsonObject remote = new JsonObject();
         remote.put("type", StoredNodeType.REMOTE.tag());
-        remote.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(context().vault().rootObjectUuid()));
+        remote.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(cat));
         remote.put("name", name);
         remote.put("url", url);
         if (keyRef != null) {
             remote.put("keyRef", keyRef.toJson());
         }
-        // 小数索引：追加到根下末尾（取当前最大 order 的后继）
-        remote.put("order", context().appendOrder(context().vault().rootObjectUuid()));
-        byte[] dek = context().vault().rootDek();
+        // 小数索引：追加到 remote category 下末尾（取当前最大 order 的后继）
+        remote.put("order", context().appendOrder(cat));
+        // 远程块以 remote category 的活跃 DEK 加密（外层保护），parent 指向 remote category 节点
+        byte[] dek = context().dekFor(cat);
         context().writeWithDek(remoteUuid, remote, dek);
         return new RemoteNode(remoteUuid, this);
     }
 
     /**
      * 重排顺序：把 self 移到 beforeUuid 之前（beforeUuid=null 移到末尾）。
-     * 远程统一挂在根对象下，复用组/条目的小数索引机制。
+     * 远程统一挂在 remote category 下，复用组/条目的小数索引机制。
      */
     public void reorder(UUID self, UUID beforeUuid) {
-        String order = context().computeRootSiblingOrder(self, beforeUuid);
+        UUID cat = context().vault().categoryUuid("remote");
+        String order = context().computeSiblingOrder(self, beforeUuid, cat);
         JsonObject d = context().read(self);
         if (d == null) {
             return;
         }
         d.put("order", order);
-        context().writeWithDek(self, d, context().vault().rootDek());
+        context().writeWithDek(self, d, context().dekFor(cat));
     }
 
     /** 按名称删除远程配置；未找到忽略。 */

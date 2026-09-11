@@ -29,7 +29,13 @@ public enum StoredNodeType {
     ICON("icon", ViewNodeType.ICON),
     SSH_KEY("sshKey", ViewNodeType.SSH_KEY),
     /** 远程配置（独立落盘类型，直接存 name/url/keyRef）。 */
-    REMOTE("remote", ViewNodeType.REMOTE);
+    REMOTE("remote", ViewNodeType.REMOTE),
+    /**
+     * 数据类分隔层节点（root 与顶级对象之间）。每类数据（password/icon/sshKey/remote）各一个，
+     * 自身持独立 DEK 对、以其所属数据类的父级（root）为 parent；顶层对象改为挂到对应 category 下。
+     * 无展示归属（UI 不直接呈现，经各树 {@code roots()} 跳过）。
+     */
+    CATEGORY("category", null);
 
     private final String tag;
     private final ViewNodeType view;

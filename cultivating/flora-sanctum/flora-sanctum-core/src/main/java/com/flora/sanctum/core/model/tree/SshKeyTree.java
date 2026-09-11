@@ -11,7 +11,7 @@ import java.util.UUID;
 
 /**
  * SSH 密钥树：SSH 私钥对象（SshKeyNode）。
- * 用唯一根（data）DEK 加密，parent 指向根对象 uuid。
+ * 用 sshKey category 的活跃 DEK 加密，parent 指向 sshKey category 节点 uuid。
  */
 public final class SshKeyTree extends DataTree {
 
@@ -59,32 +59,35 @@ public final class SshKeyTree extends DataTree {
 
     public SshKeyNode createSshKey(String name, String privateKeyPem, String publicKey) {
         UUID keyUuid = context().random().nextUuid();
+        UUID cat = context().vault().categoryUuid("sshKey");
         JsonObject key = new JsonObject();
         key.put("type", StoredNodeType.SSH_KEY.tag());
-        key.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(context().vault().rootObjectUuid()));
+        key.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(cat));
         key.put("name", name);
         key.put("value", privateKeyPem);
         if (publicKey != null && !publicKey.isBlank()) {
             key.put("publicKey", publicKey.trim());
         }
-        // 小数索引：追加到根下末尾（取当前最大 order 的后继）
-        key.put("order", context().appendOrder(context().vault().rootObjectUuid()));
-        byte[] dek = context().vault().rootDek();
+        // 小数索引：追加到 sshKey category 下末尾（取当前最大 order 的后继）
+        key.put("order", context().appendOrder(cat));
+        // 密钥块以 sshKey category 的活跃 DEK 加密（外层保护），parent 指向 sshKey category 节点
+        byte[] dek = context().dekFor(cat);
         context().writeWithDek(keyUuid, key, dek);
         return new SshKeyNode(keyUuid, this);
     }
 
     /**
      * 重排顺序：把 self 移到 beforeUuid 之前（beforeUuid=null 移到末尾）。
-     * 密钥统一挂在根对象下，复用组/条目的小数索引机制。
+     * 密钥统一挂在 sshKey category 下，复用组/条目的小数索引机制。
      */
     public void reorder(UUID self, UUID beforeUuid) {
-        String order = context().computeRootSiblingOrder(self, beforeUuid);
+        UUID cat = context().vault().categoryUuid("sshKey");
+        String order = context().computeSiblingOrder(self, beforeUuid, cat);
         JsonObject d = context().read(self);
         if (d == null) {
             return;
         }
         d.put("order", order);
-        context().writeWithDek(self, d, context().vault().rootDek());
+        context().writeWithDek(self, d, context().dekFor(cat));
     }
 }

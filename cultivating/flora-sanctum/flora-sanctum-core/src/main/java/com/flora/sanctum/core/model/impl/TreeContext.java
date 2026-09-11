@@ -246,6 +246,12 @@ public final class TreeContext {
         lock.lock();
         UUID parent = null;
         try {
+            JsonObject obj = objects.get(uuid);
+            // category 分隔层节点是结构基础设施（持某类数据 DEK、其下挂该类全部数据），不可被直接删除，
+            // 否则其下数据将悬空、parent 指向缺失 uuid。
+            if (obj != null && StoredNodeType.CATEGORY == StoredNodeType.fromTag(obj.getString("type"))) {
+                throw new IllegalStateException("category 分隔层节点不可删除");
+            }
             parent = parentOf.get(uuid);
             store.delete(uuid);
             objects.remove(uuid);
@@ -372,19 +378,20 @@ public final class TreeContext {
     }
 
     /**
-     * 计算 self 在「根对象同级」（远程/密钥这类统一挂在根对象下的扁平列表）下，
+     * 计算 self 在指定 parent 同级下（远程/密钥/图标这类挂在某父节点下的扁平列表），
      * 插入到 beforeUuid 之前的 order：
      * <ul>
      *   <li>{@code beforeUuid == null} → 追加末尾；</li>
      *   <li>{@code beforeUuid == self} → 保持原位；</li>
      *   <li>否则取 beforeUuid 与其前驱的中点。</li>
      * </ul>
-     * 自身若已在同级，计算前先排除。供远程/密钥列表重排复用组/条目的小数索引机制。
+     * 自身若已在同级，计算前先排除。parent 为调用方传入的锚点（如对应 category 节点 uuid），
+     * 供远程/密钥/图标列表重排复用组/条目的小数索引机制。
      */
-    public String computeRootSiblingOrder(UUID self, UUID beforeUuid) {
+    public String computeSiblingOrder(UUID self, UUID beforeUuid, UUID parentUuid) {
         lock.lock();
         try {
-            UUID parent = vault().rootObjectUuid();
+            UUID parent = parentUuid;
             if (beforeUuid == null) {
                 return appendOrder(parent);
             }
@@ -425,6 +432,12 @@ public final class TreeContext {
      */
     public void maybeRotateGroupKeys(UUID groupUuid) {
         if (groupUuid == null) {
+            return;
+        }
+        // 根对象（type=root）持根级密钥 rootDek，其下挂 4 个 category 分隔层节点并由 rootDek 加密。
+        // 根 DEK 不参与惰性轮换：一旦轮换会丢弃旧 rootDek2，而 category 节点仍以旧 rootDek2 加密，导致不可解密。
+        // 根 DEK 的更新仅发生在换主密码（MasterKeyRotator，rootDek 值不变、仅根块改用新 KEK 重加密）。
+        if (groupUuid.equals(vault.rootObjectUuid())) {
             return;
         }
         Vault.GroupKeys keys = vault.groupKeys(groupUuid);

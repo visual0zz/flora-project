@@ -14,7 +14,7 @@ import java.util.UUID;
  * <p>
  * 每棵树对应一个节点类型分类（GROUP 树/ICON 树/SSH_KEY 树/REMOTE 树），承载该分类下
  * 的对象节点；节点负责新建/编辑/删除等操作（见设计 05"数据结构树化"）。
- * 所有树的顶层节点 parent 均指向仓库唯一根对象 uuid（单根模型）。
+ * 所有树的顶层节点 parent 均指向所属 category 节点 uuid（category 层位于 root 与顶级对象之间）。
  */
 public abstract class DataTree {
 
@@ -29,6 +29,17 @@ public abstract class DataTree {
     /** 树分类（展示区段，代表该树承载的节点展示归属）。 */
     public ViewNodeType category() {
         return category;
+    }
+
+    /** 本树对应的 category 分隔层区分符（password/icon/sshKey/remote），用于定位其 category 节点 uuid。 */
+    protected String categoryDiscriminator() {
+        return switch (category) {
+            case PASSWORD -> "password";
+            case ICON -> "icon";
+            case SSH_KEY -> "sshKey";
+            case REMOTE -> "remote";
+            default -> throw new IllegalStateException("不支持的树分类：" + category);
+        };
     }
 
     public TreeContext context() {
@@ -53,14 +64,14 @@ public abstract class DataTree {
         return out;
     }
 
-    /** 顶层节点（parent 为仓库根对象 uuid），按 order 升序。 */
+    /** 顶层节点（parent 为所属 category 节点 uuid），按 order 升序。 */
     public List<TreeNode> roots() {
-        UUID rootUuid = ctx.vault().rootObjectUuid();
-        if (rootUuid == null) {
+        UUID catUuid = ctx.vault().categoryUuid(categoryDiscriminator());
+        if (catUuid == null) {
             return new ArrayList<>();
         }
         List<TreeNode> out = new ArrayList<>();
-        for (UUID u : ctx.childrenOf(rootUuid)) {
+        for (UUID u : ctx.childrenOf(catUuid)) {
             TreeNode n = find(u);
             if (n != null) {
                 out.add(n);

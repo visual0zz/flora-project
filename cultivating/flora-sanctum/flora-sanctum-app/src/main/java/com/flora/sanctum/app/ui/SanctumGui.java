@@ -1384,22 +1384,9 @@ public final class SanctumGui {
         return top;
     }
 
-    /** 父对象 uuid（null 表示顶层/根）；找不到或父为根对象时返回 null。 */
+    /** 父对象 uuid（null 表示顶层/根）；找不到或父为根对象（root 或任一 category 节点）时返回 null。 */
     private UUID parentOf(UUID id) {
-        TreeNode n = sanctum.findNode(id);
-        if (n == null) {
-            return null;
-        }
-        String ref = n.parentRef();
-        if (ref == null) {
-            return null;
-        }
-        UUID p = com.flora.sanctum.core.util.UuidHex.fromHex(ref);
-        if (p == null) {
-            return null;
-        }
-        UUID root = sanctum.rootObjectUuid();
-        return root != null && p.equals(root) ? null : p;
+        return sanctum.objectTree().parentOf(id);
     }
 
     /**

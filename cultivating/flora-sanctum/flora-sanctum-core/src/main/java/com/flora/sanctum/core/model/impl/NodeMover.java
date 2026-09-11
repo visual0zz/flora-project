@@ -63,8 +63,12 @@ public final class NodeMover {
         if (g == null) {
             throw new IllegalArgumentException("组不存在：" + groupUuid);
         }
-        if (newParent != null && typeOf(newParent) != StoredNodeType.GROUP) {
-            throw new IllegalArgumentException("组的父必须是组或根");
+        if (newParent != null) {
+            StoredNodeType pt = typeOf(newParent);
+            // 组的父可以是组（嵌套）、category（顶层组挂到 password category）或根（兼容旧语义）
+            if (pt != StoredNodeType.GROUP && pt != StoredNodeType.CATEGORY && pt != StoredNodeType.ROOT) {
+                throw new IllegalArgumentException("组的父必须是组、类别或根");
+            }
         }
         Vault.GroupKeys keys = vault.groupKeys(groupUuid);
         if (keys == null) {
@@ -84,27 +88,26 @@ public final class NodeMover {
     }
 
     private void moveEntry(UUID entryUuid, UUID newParentGroup, UUID beforeUuid) {
-        if (newParentGroup == null) {
-            throw new IllegalArgumentException("条目必须移动到某个组内");
-        }
-        StoredNodeType parentType = typeOf(newParentGroup);
-        // 允许落到组内，或落到密码库根（顶层条目 parent 即根对象，加密走 rootDek）
-        if (parentType != StoredNodeType.GROUP && parentType != StoredNodeType.ROOT) {
-            throw new IllegalArgumentException("条目只能移动到组内或密码库根");
+        // 顶层条目落 password category（parent=newParentGroup==null 时解析到 password category uuid）
+        UUID effectiveParent = newParentGroup != null ? newParentGroup : vault.categoryUuid("password");
+        StoredNodeType parentType = typeOf(effectiveParent);
+        // 允许落到组内，或落到 password category（顶层条目 parent 即 category，加密走 category DEK）
+        if (parentType != StoredNodeType.GROUP && parentType != StoredNodeType.CATEGORY) {
+            throw new IllegalArgumentException("条目只能移动到组内或密码库根（顶层类别）");
         }
         JsonObject e = ctx.read(entryUuid);
         if (e == null) {
             throw new IllegalArgumentException("条目不存在：" + entryUuid);
         }
         UUID oldParentGroup = ctx.parentGroupUuid(e);
-        e.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(newParentGroup));
-        e.put("order", computeOrder(newParentGroup, beforeUuid, entryUuid));
-        ctx.write(entryUuid, e, newParentGroup);
-        // 字段块随条目改归属到新组 DEK 之下重加密（field.parent 仍指向条目，不变）
+        e.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(effectiveParent));
+        e.put("order", computeOrder(effectiveParent, beforeUuid, entryUuid));
+        ctx.write(entryUuid, e, effectiveParent);
+        // 字段块随条目改归属到新父 DEK 之下重加密（field.parent 仍指向条目，不变）
         for (UUID f : ctx.childrenOf(entryUuid)) {
             JsonObject field = ctx.read(f);
             if (field != null) {
-                ctx.write(f, field, newParentGroup);
+                ctx.write(f, field, effectiveParent);
             }
         }
         // 旧父组失去本条目这一子节点，其退役 dek1 使用数可能下降 → 尝试轮换
@@ -146,7 +149,9 @@ public final class NodeMover {
     }
 
     private String parentStr(UUID newParent) {
-        return com.flora.sanctum.core.util.UuidHex.toHex(newParent == null ? vault.rootObjectUuid() : newParent);
+        // newParent==null 表示置顶到 password category（顶层组/条目）
+        UUID p = newParent == null ? vault.categoryUuid("password") : newParent;
+        return com.flora.sanctum.core.util.UuidHex.toHex(p);
     }
 
     private StoredNodeType typeOf(UUID uuid) {

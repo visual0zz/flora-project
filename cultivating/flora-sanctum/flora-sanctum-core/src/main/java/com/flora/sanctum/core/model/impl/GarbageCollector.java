@@ -82,7 +82,8 @@ public final class GarbageCollector {
             return null;
         }
         try {
-            return JsonUtil.parseObject(new String(plain, StandardCharsets.UTF_8));
+            return com.flora.root.codec.JsonUtil.parseObject(
+                    new String(plain, java.nio.charset.StandardCharsets.UTF_8));
         } catch (Exception e) {
             return null;
         }

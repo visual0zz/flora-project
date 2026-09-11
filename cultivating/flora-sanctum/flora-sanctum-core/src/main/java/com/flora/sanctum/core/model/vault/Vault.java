@@ -155,7 +155,7 @@ public final class Vault {
     }
 
     /**
-     * 取某数据类的 category 节点 uuid；未登记（旧格式或尚未解锁）返回 null。
+     * 取某数据类的 category 节点 uuid；未登记（尚未解锁）返回 null。
      */
     public java.util.UUID categoryUuid(String discriminator) {
         return categories.get(discriminator);

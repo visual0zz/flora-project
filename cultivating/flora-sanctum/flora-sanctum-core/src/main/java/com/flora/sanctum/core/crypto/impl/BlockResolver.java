@@ -20,7 +20,7 @@ public final class BlockResolver {
     private final KeyIdIndex index;
     private final Supplier<byte[]> repoKeyIdSeed;
 
-    /** @param repoKeyIdSeed 仓库级 keyId 派生种子提供者（解锁后非 null；旧库 null 时无法定位返回 null） */
+    /** @param repoKeyIdSeed 仓库级 keyId 派生种子提供者（解锁后非 null；未解锁时为 null，解码返回 null） */
     public BlockResolver(KeyIdIndex index, Supplier<byte[]> repoKeyIdSeed) {
         this.index = index;
         this.repoKeyIdSeed = repoKeyIdSeed;
@@ -66,7 +66,7 @@ public final class BlockResolver {
 
         byte[] repoSeed = repoKeyIdSeed.get();
         if (repoSeed == null) {
-            return null; // 无仓库级派生种子（旧库未补种），无法定位
+            return null; // 未解锁或种子缺失，无法定位父 DEK
         }
         byte[] dekId = KeyIdDeriver.resolveDekId(repoSeed, nonce, keyId);
         List<byte[]> candidates = index.lookup(dekId);

@@ -180,12 +180,8 @@ public final class EntryNode extends ObjectNode {
         if (entry == null) {
             throw new IllegalArgumentException("entry not found");
         }
-        // 字段加密归属：新格式条目持有自身 DEK，字段块经条目 DEK 加密（keyId 指向父=条目）；
-        // 旧格式条目无 dek（从老仓库载入）则沿用父组 DEK，与既有字段保持一致。
-        UUID groupId = ctx().parentGroupUuid(entry);
-        if (ctx().vault().groupKeys(uuid()) != null) {
-            groupId = uuid();
-        }
+        // 字段加密归属：条目自身持 DEK，字段块经条目 DEK 加密（keyId 指向父=条目）。
+        UUID groupId = uuid();
         return EntryFields.isPreset(name)
                 ? writePresetField(name, value, kind, groupId)
                 : writeCustomField(name, value, kind, groupId);

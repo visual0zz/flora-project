@@ -5,28 +5,19 @@ import com.flora.sanctum.core.model.vault.*;
 import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.sanctum.core.crypto.Argon2KDF;
-import com.flora.sanctum.core.crypto.RootUuid;
 import com.flora.sanctum.core.store.Block;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Base64;
-import java.util.List;
 import java.util.UUID;
 
 /**
- * 换主密码：以新 KEK 迁移根对象与全部根级块、用新 KEK 重加密根块，并更新 manifest MAC。
+ * 换主密码：以新 KEK 重加密根对象块并更新 manifest MAC（见设计 02"换主密码"）。
  * <p>
- * 根对象 uuid 由 KEK 单向推导（见 {@link RootUuid#derive}），故换主密码后 KEK 变化会连带：
- * <ol>
- *   <li>根对象 uuid 改变 ⇒ 根对象块改写至新分片路径、旧路径删除；</li>
- *   <li>根对象本身仍直接以 KEK 加解密，其内嵌的 rootDek 对（dek1/dek2）明文值不变
- *       （根块整体改以新 KEK 加密）；</li>
- *   <li>顶层对象（parent 指向根对象 uuid）以活跃 rootDek（dek2）加密（非 KEK），rootDek 值不变，
- *       故仅把 parent 改指新根 uuid 并以活跃 rootDek 重写即可，无需用新 KEK 重加密；
- *       顶层 group 的 DEK 对由活跃 rootDek 加密（外层块），值不变。</li>
- * </ol>
- * 更深层级以分组 DEK 加解密、parent 指向分组 uuid，均不受密码轮换影响。
+ * 新格式根对象 uuid 随机、不依赖主密码，故换密码只改变根块的 KEK 加密层，根对象路径与
+ * 内嵌的 rootDek 对（dek1/dek2）明文值均不变；顶层对象（parent 指向根对象 uuid）以活跃 rootDek
+ * （dek2）加密（非 KEK），rootDek 与父指均不变，无需重写。更深层级以分组 DEK 加解密、parent 指向
+ * 分组 uuid，均不受密码轮换影响。
  */
 public final class MasterKeyRotator {
 
@@ -52,22 +43,11 @@ public final class MasterKeyRotator {
             // 仓库级 keyId 种子（解锁时已在 vault 中），用于 keyId 派生；解码侧 keyId 取自块头，种子仅供编码。
             // 换新主密码时种子值不变，仅改用新 KEK 加密后写入 manifest 的 seed 字段。
             byte[] seed = vault.repoKeyIdSeed();
-            boolean oldFormat = m.encryptedSeed() == null;
 
-            UUID rootUuid;
-            if (oldFormat) {
-                // 旧格式：根对象 uuid 由 KEK 推导，换密码后改变 ⇒ 根块改写到新路径、顶层块改父指新根 uuid
-                UUID oldRootUuid = RootUuid.derive(oldKek);
-                UUID newRootUuid = RootUuid.derive(newKek);
-                migrateRootObject(oldRootUuid, newRootUuid, newKek, rk);
-                migrateRootLevelBlocks(oldRootUuid, newRootUuid);
-                rootUuid = newRootUuid;
-            } else {
-                // 新格式：根对象 uuid 随机、不可定位，换密码不变；仅根块以新 KEK 重加密（同 uuid 覆盖）。
-                // 顶层块 parent=根 uuid、以 rootDek 加密，二者均不变 ⇒ 无需重写。
-                rootUuid = vault.rootObjectUuid();
-                migrateRootObject(rootUuid, rootUuid, newKek, rk);
-            }
+            // 新格式：根对象 uuid 随机、不依赖主密码，换密码不变；仅根块以新 KEK 重加密（同 uuid 覆盖）。
+            // 顶层块 parent=根 uuid、以 rootDek 加密，二者均不变 ⇒ 无需重写。
+            UUID rootUuid = vault.rootObjectUuid();
+            migrateRootObject(rootUuid, rootUuid, newKek, rk);
 
             // 更新 manifest：新 KDF 参数 + seed（用新 KEK 加密）；MAC 用新 KEK 重算
             Manifest updated = new Manifest(m.version(), m.crypto(), m.kdf(),
@@ -115,38 +95,6 @@ public final class MasterKeyRotator {
         ctx.writeWithDek(newRootUuid, n, newKek);
         if (!newRootUuid.equals(oldRootUuid)) {
             ctx.delete(oldRootUuid);
-        }
-    }
-
-    /**
-     * 迁移根级块（parent 指向旧根 uuid）：parent 改指新根 uuid、以活跃 rootDek 重写（rootDek 值不变）。
-     * 以 vault.resolve 解码（尝试全部已登记 DEK，兼容 root 双 dek）；非根级块（以分组 DEK 加密）
-     * 自然跳过滤过。用 writeWithDek 重写以避免触发组密钥轮换（换密码期间 KEK 尚未完全切换）。
-     */
-    private void migrateRootLevelBlocks(UUID oldRootUuid, UUID newRootUuid) {
-        String oldRootStr = com.flora.sanctum.core.util.UuidHex.toHex(oldRootUuid);
-        byte[] rootDek = vault().rootDek();
-        for (Block b : new ArrayList<>(ctx.store().scan())) {
-            if (!b.isCipher()) {
-                continue;
-            }
-            byte[] plain = vault().resolve(b.masked(), b.uuid(), b.timestampText());
-            if (plain == null) {
-                continue; // 非以 rootDek 加密的根级块（深层块/根对象外的其它）
-            }
-            JsonObject n;
-            try {
-                n = JsonUtil.parseObject(new String(plain, StandardCharsets.UTF_8));
-            } catch (Exception e) {
-                continue;
-            }
-            String parent = n.getString("parent");
-            if (parent == null || !oldRootStr.equals(parent)) {
-                continue; // 非顶层块
-            }
-            n.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(newRootUuid));
-            // dek1/dek2 字段（如顶层 group）存明文 DEK，值不变，无需重写；以活跃 rootDek 重写
-            ctx.writeWithDek(b.uuid(), n, rootDek);
         }
     }
 

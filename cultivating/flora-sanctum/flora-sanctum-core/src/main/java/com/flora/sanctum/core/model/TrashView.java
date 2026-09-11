@@ -80,7 +80,7 @@ public final class TrashView {
      */
     public List<String> originalPathSegments(UUID uuid) {
         List<String> segments = new ArrayList<>();
-        String cur = uuid.toString();
+        String cur = com.flora.sanctum.core.util.UuidHex.toHex(uuid);
         Set<String> seen = new HashSet<>();
         while (cur != null && !cur.equals(root) && seen.add(cur)) {
             if (!isUuid(cur)) {

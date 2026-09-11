@@ -59,7 +59,7 @@ public final class SshKeyTree extends DataTree {
 
     public SshKeyNode createSshKey(String name, String privateKeyPem, String publicKey) {
         UUID keyUuid = context().random().nextUuid();
-        UUID cat = context().vault().categoryUuid("sshKey");
+        UUID cat = context().vault().categoryUuid(CategoryDisc.SSH_KEY.tag());
         JsonObject key = new JsonObject();
         key.put("type", StoredNodeType.SSH_KEY.tag());
         key.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(cat));
@@ -81,7 +81,7 @@ public final class SshKeyTree extends DataTree {
      * 密钥统一挂在 sshKey category 下，复用组/条目的小数索引机制。
      */
     public void reorder(UUID self, UUID beforeUuid) {
-        UUID cat = context().vault().categoryUuid("sshKey");
+        UUID cat = context().vault().categoryUuid(CategoryDisc.SSH_KEY.tag());
         String order = context().computeSiblingOrder(self, beforeUuid, cat);
         JsonObject d = context().read(self);
         if (d == null) {

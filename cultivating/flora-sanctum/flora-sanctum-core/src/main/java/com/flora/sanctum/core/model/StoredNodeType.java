@@ -7,7 +7,7 @@ import java.util.Optional;
  * <p>
  * 与纯 UI 展示概念（{@link ViewNodeType}）解耦：每个存储类型声明自己的展示归属
  * {@link #view()}，即"存储节点内部字段指定其展示节点是什么"。本枚举的值会持久化到
- * 存储块，不可随意增删（旧库兼容）。
+ * 存储块，不可随意增删（读端按字符串精确匹配）。
  */
 public enum StoredNodeType {
 
@@ -21,7 +21,6 @@ public enum StoredNodeType {
      * 字段块（预设与自定义统一）。预设/自定义的语义由字段名是否在
      * {@link com.flora.sanctum.core.model.EntryFields#PRESET_NAMES} 区分；
      * 块负载字段：name/value/kind/parent。
-     * 旧版本曾分 {@code predefField} / {@code customField} 两种 type，读端兼容映射到本值。
      */
     FIELD("field", ViewNodeType.PASSWORD),
     /** 仓库级设置项（key/value，存 DATA 根下，不显示为普通对象）。 */
@@ -55,13 +54,10 @@ public enum StoredNodeType {
         return Optional.ofNullable(view);
     }
 
-    /** 解析存储 type 字符串；未知或 null 返回 null。旧版字段 type（predefField/customField）映射为 FIELD。 */
+    /** 解析存储 type 字符串；未知或 null 返回 null。 */
     public static StoredNodeType fromTag(String s) {
         if (s == null) {
             return null;
-        }
-        if ("predefField".equals(s) || "customField".equals(s)) {
-            return FIELD;
         }
         for (StoredNodeType t : values()) {
             if (t.tag.equals(s)) {
@@ -69,5 +65,10 @@ public enum StoredNodeType {
             }
         }
         return null;
+    }
+
+    /** 是否为结构根（root 或 category 分隔层节点）：不暴露为普通数据节点、不参与 trash/移动等。 */
+    public boolean isStructuralRoot() {
+        return this == ROOT || this == CATEGORY;
     }
 }

@@ -58,49 +58,20 @@ public final class Ref {
     }
 
     /**
-     * 由遗留字符串构造：{@code "builtin:name"} → builtin:icon/name；其余视为 node:icon 的 uuid。
-     * 用于 GUI 旧选择回调（仍产出 {@code "builtin:name"} 或 uuid 串）桥接到 Ref。
-     */
-    public static Ref fromLegacyId(String id) {
-        if (id == null) {
-            return null;
-        }
-        if (id.startsWith("builtin:")) {
-            return new Ref("builtin:icon", id.substring("builtin:".length()));
-        }
-        return new Ref("node:icon", id);
-    }
-
-    /**
-     * 解析存储值：新格式为含 {@code type}/{@code id} 的 JSON 对象；遗留格式为 {@code "builtin:name"}
-     * 或 uuid 字符串（{@code defaultKind} 决定 node 种类，iconRef 字段用 "icon"、keyRef 字段用 "key"）。
+     * 解析存储值：含 {@code type}/{@code id} 的 JSON 对象。其它形态（含遗留的
+     * {@code "builtin:name"} 或 uuid 字符串）一律返回 null，不再静默桥接。
      */
     public static Ref parse(JsonValue raw, String defaultKind) {
-        if (raw == null || raw.isNull()) {
+        if (raw == null || raw.isNull() || !raw.isObject()) {
             return null;
         }
-        if (raw.isObject()) {
-            JsonObject jo = raw.asObject();
-            String t = jo.getString("type");
-            String i = jo.getString("id");
-            if (t != null && i != null) {
-                return new Ref(t, i);
-            }
-            return null;
-        }
-        if (raw.isString()) {
-            String s = raw.asString();
-            if (s.startsWith("builtin:")) {
-                return new Ref("builtin:icon", s.substring("builtin:".length()));
-            }
-            return new Ref("node:" + defaultKind, s);
+        JsonObject jo = raw.asObject();
+        String t = jo.getString("type");
+        String i = jo.getString("id");
+        if (t != null && i != null) {
+            return new Ref(t, i);
         }
         return null;
-    }
-
-    /** 转遗留字符串（用于 UI 兼容显示）：builtin→"builtin:name"，node→uuid 串。 */
-    public String legacyId() {
-        return "builtin".equals(scheme) ? "builtin:" + id : id;
     }
 
     /** 序列化为存储对象（含 type/id 两字段）。 */

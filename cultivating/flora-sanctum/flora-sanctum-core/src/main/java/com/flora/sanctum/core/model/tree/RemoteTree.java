@@ -67,7 +67,7 @@ public final class RemoteTree extends DataTree {
 
     public RemoteNode addRemote(String name, String url, Ref keyRef) {
         UUID remoteUuid = context().random().nextUuid();
-        UUID cat = context().vault().categoryUuid("remote");
+        UUID cat = context().vault().categoryUuid(CategoryDisc.REMOTE.tag());
         JsonObject remote = new JsonObject();
         remote.put("type", StoredNodeType.REMOTE.tag());
         remote.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(cat));
@@ -89,7 +89,7 @@ public final class RemoteTree extends DataTree {
      * 远程统一挂在 remote category 下，复用组/条目的小数索引机制。
      */
     public void reorder(UUID self, UUID beforeUuid) {
-        UUID cat = context().vault().categoryUuid("remote");
+        UUID cat = context().vault().categoryUuid(CategoryDisc.REMOTE.tag());
         String order = context().computeSiblingOrder(self, beforeUuid, cat);
         JsonObject d = context().read(self);
         if (d == null) {

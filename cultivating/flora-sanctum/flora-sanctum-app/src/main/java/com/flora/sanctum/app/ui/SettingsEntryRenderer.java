@@ -3,6 +3,7 @@ package com.flora.sanctum.app.ui;
 import com.flora.sanctum.core.model.Ref;
 
 import javax.swing.DefaultListCellRenderer;
+import java.util.UUID;
 import javax.swing.Icon;
 import javax.swing.JList;
 import javax.swing.border.EmptyBorder;
@@ -31,7 +32,7 @@ final class SettingsEntryRenderer extends DefaultListCellRenderer {
             // 图标条目：在文本左侧附一个小号缩略图（与全局图标尺寸风格一致的 24px）
             if (entry instanceof SettingsModel.ObjectEntry oe
                     && oe.kind() == SettingsModel.SettingsCategory.Kind.ICON) {
-                Icon ic = iconResolver.apply(Ref.fromLegacyId(oe.id()), 24);
+                Icon ic = iconResolver.apply(Ref.nodeIcon(UUID.fromString(oe.id())), 24);
                 if (ic != null) {
                     setIcon(ic);
                 }

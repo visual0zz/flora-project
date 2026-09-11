@@ -3,7 +3,7 @@ package com.flora.sanctum.core.model;
 /**
  * 自定义字段 kind 的已知集合（见设计 05"自定义字段统一格式"）。
  * <p>
- * 存储仍是字符串（未知 kind 原样保留，向后兼容），enum 仅作为已知 kind 的规范
+ * 存储为自由字符串：未知 kind 仍可写入与回显（见 {@link FieldNode}），enum 仅作为已知 kind 的规范
  * 与 GUI 下拉列表数据源。判断未知 kind 用 {@link #fromTag(String)} 返回 null。
  */
 public enum FieldKind {

@@ -16,13 +16,12 @@ import java.util.Base64;
  * manifest 块的 uuid 为普通随机 uuid（不预留特殊值），定位时通过全局扫描明文块、
  * 按 {@code type=="manifest"} 识别，而非依赖固定路径。
  * <p>
- * 根对象 uuid 不由 manifest 记录，而由 KEK 单向推导
- * （见 {@link com.flora.sanctum.core.crypto.RootUuid#derive}）：同一主密码即重算出同一根对象路径，
- * 换主密码后根对象的分片位置随之改变。
+ * 根对象 uuid 为随机生成、不依赖主密码；manifest 不记录它，解锁时由 keyId 路由扫描定位。
+ * 换主密码不改变根对象路径（仅根块以新 KEK 重加密）。
  * <p>
  * manifest 额外承载 {@code seed} 字段：仓库级 keyId 派生种子 {@code repoKeyIdSeed} 经 KEK 加密后的
  * blob（base64）。解锁时由 KEK 解密即得种子，无需再从根对象块读取（见 02"解锁流程"重构：seed 进 manifest）。
- * 该字段为可空：旧格式仓库 seed 仍存于根对象块内，读到 null 时回退旧路径。
+ * 该字段为可空：未设置（未解锁或种子缺失）时为 null。
  */
 public final class Manifest {
 
@@ -33,7 +32,7 @@ public final class Manifest {
     private final int memoryKiB;
     private final int iterations;
     private final int parallelism;
-    /** 经 KEK 加密的 repoKeyIdSeed blob（base64 于 JSON）；旧格式为 null。 */
+    /** 经 KEK 加密的 repoKeyIdSeed blob（base64 于 JSON）；未设置时为 null。 */
     private final byte[] encryptedSeed;
 
     public Manifest(int version, String crypto, String kdf, byte[] salt,
@@ -76,7 +75,7 @@ public final class Manifest {
         return parallelism;
     }
 
-    /** 经 KEK 加密的 repoKeyIdSeed blob；旧格式仓库为 null（种子存于根对象块内）。 */
+    /** 经 KEK 加密的 repoKeyIdSeed blob；未设置（未解锁或种子缺失）为 null。 */
     public byte[] encryptedSeed() {
         return encryptedSeed == null ? null : encryptedSeed.clone();
     }

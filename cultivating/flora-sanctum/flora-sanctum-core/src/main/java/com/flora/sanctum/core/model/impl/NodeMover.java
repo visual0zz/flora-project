@@ -1,6 +1,7 @@
 package com.flora.sanctum.core.model.impl;
 
 import com.flora.root.container.order.RocicorpFractionalIndex;
+import com.flora.sanctum.core.model.CategoryDisc;
 import com.flora.sanctum.core.model.StoredNodeType;
 import com.flora.sanctum.core.model.vault.Vault;
 import com.flora.root.codec.json.model.JsonObject;
@@ -65,8 +66,8 @@ public final class NodeMover {
         }
         if (newParent != null) {
             StoredNodeType pt = typeOf(newParent);
-            // 组的父可以是组（嵌套）、category（顶层组挂到 password category）或根（兼容旧语义）
-            if (pt != StoredNodeType.GROUP && pt != StoredNodeType.CATEGORY && pt != StoredNodeType.ROOT) {
+            // 组的父可以是组（嵌套）或 category（顶层组挂到对应 category）；root 不再作为数据节点父
+            if (pt != StoredNodeType.GROUP && !pt.isStructuralRoot()) {
                 throw new IllegalArgumentException("组的父必须是组、类别或根");
             }
         }
@@ -89,7 +90,7 @@ public final class NodeMover {
 
     private void moveEntry(UUID entryUuid, UUID newParentGroup, UUID beforeUuid) {
         // 顶层条目落 password category（parent=newParentGroup==null 时解析到 password category uuid）
-        UUID effectiveParent = newParentGroup != null ? newParentGroup : vault.categoryUuid("password");
+        UUID effectiveParent = newParentGroup != null ? newParentGroup : vault.categoryUuid(CategoryDisc.PASSWORD.tag());
         StoredNodeType parentType = typeOf(effectiveParent);
         // 允许落到组内，或落到 password category（顶层条目 parent 即 category，加密走 category DEK）
         if (parentType != StoredNodeType.GROUP && parentType != StoredNodeType.CATEGORY) {
@@ -150,7 +151,7 @@ public final class NodeMover {
 
     private String parentStr(UUID newParent) {
         // newParent==null 表示置顶到 password category（顶层组/条目）
-        UUID p = newParent == null ? vault.categoryUuid("password") : newParent;
+        UUID p = newParent == null ? vault.categoryUuid(CategoryDisc.PASSWORD.tag()) : newParent;
         return com.flora.sanctum.core.util.UuidHex.toHex(p);
     }
 

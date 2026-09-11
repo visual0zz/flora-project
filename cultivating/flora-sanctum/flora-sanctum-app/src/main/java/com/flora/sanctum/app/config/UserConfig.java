@@ -16,11 +16,11 @@ import java.util.Objects;
  * 应用形态存于 {@code $XDG_CONFIG_HOME/flora-sanctum/config.json}（默认 {@code ~/.config/flora-sanctum/config.json}）；
  * 独立仓库形态存于仓库根的 {@code config.json}（仓库级）。两类配置同结构：
  * 外观偏好（主题/强调色）、自动锁定时长、剪贴板清空时长、同步开关等。
- * 不存放任何密码学材料/密钥/密文块。迁移前遗留路径 {@code ~/.flora-sanctum/config.json} 仍作为读取回退。
+ * 不存放任何密码学材料/密钥/密文块。
  */
 public final class UserConfig {
 
-    /** 应用名（同时作为 XDG 子目录名与遗留配置目录名）。 */
+    /** 应用名（同时作为 XDG 子目录名与配置目录名）。 */
     private static final String APP_NAME = "flora-sanctum";
 
     private final Path dir;
@@ -39,12 +39,6 @@ public final class UserConfig {
         }
         String home = System.getProperty("user.home");
         return Path.of(Objects.requireNonNullElse(home, "."), ".config", APP_NAME);
-    }
-
-    /** 迁移前遗留配置路径 {@code ~/.flora-sanctum/config.json}，仅作读取回退。 */
-    private static Path legacyConfigFile() {
-        String home = System.getProperty("user.home");
-        return Path.of(Objects.requireNonNullElse(home, "."), "." + APP_NAME, "config.json");
     }
 
     public UserConfig(Path dir) {
@@ -73,7 +67,11 @@ public final class UserConfig {
      */
     public String theme() {
         String v = data.getString("theme");
-        return v == null ? "light" : v;
+        // "system" 非合法 scheme（UiTheme 无对应分支），视为默认 light，避免悬空值悄悄按 light 渲染造成语义不一致
+        if (v == null || "system".equals(v)) {
+            return "light";
+        }
+        return v;
     }
 
     public void setTheme(String theme) {
@@ -177,10 +175,6 @@ public final class UserConfig {
         try {
             if (Files.isRegularFile(file)) {
                 return JsonUtil.parseObject(Files.readString(file));
-            }
-            // XDG 迁移前遗留路径 ~/.flora-sanctum/config.json 仍作为读取回退
-            if (Files.isRegularFile(legacyConfigFile())) {
-                return JsonUtil.parseObject(Files.readString(legacyConfigFile()));
             }
         } catch (Exception ignore) {
             // 配置损坏则回退默认

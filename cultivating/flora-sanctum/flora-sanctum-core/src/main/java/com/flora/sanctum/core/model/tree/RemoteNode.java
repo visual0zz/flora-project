@@ -49,7 +49,7 @@ public final class RemoteNode extends TreeNode {
         } else {
             remote.remove("keyRef");
         }
-        byte[] dek = ctx().dekFor(ctx().vault().categoryUuid("remote"));
+        byte[] dek = ctx().dekFor(ctx().vault().categoryUuid(CategoryDisc.REMOTE.tag()));
         ctx().writeWithDek(uuid(), remote, dek);
     }
 
@@ -60,7 +60,7 @@ public final class RemoteNode extends TreeNode {
             throw new IllegalArgumentException("remote not found");
         }
         remote.put("name", name);
-        byte[] dek = ctx().dekFor(ctx().vault().categoryUuid("remote"));
+        byte[] dek = ctx().dekFor(ctx().vault().categoryUuid(CategoryDisc.REMOTE.tag()));
         ctx().writeWithDek(uuid(), remote, dek);
     }
 }

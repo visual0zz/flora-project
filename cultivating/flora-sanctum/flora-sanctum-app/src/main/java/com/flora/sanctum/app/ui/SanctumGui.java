@@ -5,6 +5,7 @@ import com.flora.sanctum.app.util.Concurrency;
 import com.flora.sanctum.core.model.StoredNodeType;
 import com.flora.sanctum.core.model.ViewNodeType;
 import com.flora.sanctum.core.model.tree.DataTree;
+import com.flora.sanctum.core.model.tree.ObjectTree;
 import com.flora.sanctum.core.model.tree.EntryNode;
 import com.flora.sanctum.core.model.FieldKind;
 import com.flora.sanctum.core.model.tree.FieldNode;
@@ -1384,9 +1385,11 @@ public final class SanctumGui {
         return top;
     }
 
-    /** 父对象 uuid（null 表示顶层/根）；找不到或父为根对象（root 或任一 category 节点）时返回 null。 */
+    /** 父对象 uuid（null 表示顶层/根）；顶层（父为 root 或 category 节点）时返回 null。
+     *  基于统一的 parentOf（真实父 uuid）与 isTopLevel 派生，不直接碰结构根 uuid。 */
     private UUID parentOf(UUID id) {
-        return sanctum.objectTree().parentOf(id);
+        ObjectTree t = sanctum.objectTree();
+        return t.isTopLevel(id) ? null : t.parentOf(id);
     }
 
     /**
@@ -3279,9 +3282,10 @@ public final class SanctumGui {
         }
     }
 
-    /** 由条目推导其所属组 uuid（顶层条目 parent 为根对象 uuid 返回 null）。 */
+    /** 由条目推导其所属组 uuid（顶层条目返回 null）。基于统一的 parentOf 与 isTopLevel 派生。 */
     private UUID groupIdOf(UUID entryUuid) {
-        return sanctum.objectTree().parentOf(entryUuid);
+        ObjectTree t = sanctum.objectTree();
+        return t.isTopLevel(entryUuid) ? null : t.parentOf(entryUuid);
     }
 
     /** kind 下拉选项：预定义 FieldKind tag + 库内未预定义的 kind（向后兼容，未知 kind 可继续选择）。 */
@@ -4331,7 +4335,7 @@ public final class SanctumGui {
             } else if (entry instanceof SettingsModel.ObjectEntry oe) {
                 switch (oe.kind()) {
                     case ICON -> {
-                        JButton saveBtn = renderSettingsIcon(Ref.fromLegacyId(oe.id()), settingsEditPanel);
+                        JButton saveBtn = renderSettingsIcon(Ref.nodeIcon(UUID.fromString(oe.id())), settingsEditPanel);
                         if (!isBuiltinIcon(oe.id())) {
                             Runnable deleteAction = () -> {
                                 try {

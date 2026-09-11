@@ -2,7 +2,6 @@ package com.flora.sanctum.core.model.vault;
 import com.flora.sanctum.core.model.*;
 
 import com.flora.sanctum.core.crypto.Argon2KDF;
-import com.flora.sanctum.core.crypto.RootUuid;
 import com.flora.sanctum.core.crypto.impl.KeyIdIndex;
 import com.flora.sanctum.core.crypto.impl.SecureRandomSource;
 import com.flora.sanctum.core.store.Block;
@@ -122,79 +121,50 @@ public final class VaultUnlocker {
     private void discoverRootDeks(Vault vault, byte[] kek, LocatedManifest m) {
         List<Block> blocks = m.blocks();
         Manifest manifest = m.manifest();
-        // 1) 取得 repoKeyIdSeed：新格式自 manifest.seed（KEK 解密）；旧格式为 null，回退根对象块内。
+        // 1) 取得 repoKeyIdSeed：自 manifest.seed（KEK 解密）。解密失败说明种子被篡改或损坏，
+        //    按 null 处理 → 下方以旧格式拒绝（seed 必写入新格式 manifest）。
         byte[] seed = null;
         if (manifest.encryptedSeed() != null) {
             try {
                 seed = com.flora.sanctum.core.model.impl.ManifestStore.decryptSeed(manifest.encryptedSeed(), kek);
             } catch (Exception ignore) {
-                seed = null; // 解密失败（如种子被篡改）→ 视为旧格式/损坏，下方走 kek 直解或报缺
+                seed = null;
             }
         }
-        if (seed != null) {
-            vault.setRepoKeyIdSeed(seed);
+        if (seed == null) {
+            throw new VaultUnlockException(VaultUnlockException.Phase.OLD_FORMAT_REJECTED);
         }
+        vault.setRepoKeyIdSeed(seed);
         // 2) 登记 KEK：根对象块以 KEK 加密，其 keyId = makeKeyId(seed, nonce, kek)，
         //    需先将 kek 注册进 keyId 索引，扫描时方能经 keyId 命中根对象。
         vault.addRootDek(kek);
 
         com.flora.root.codec.json.model.JsonObject rootJson = null;
 
-        if (seed != null) {
-            // 新格式：根对象随机 uuid、不可定位，扫描全部块经 keyId 解出 type==root 即定位。
-            for (Block b : blocks) {
-                if (!b.isCipher()) {
-                    continue;
+        // 根对象随机 uuid、不可定位，扫描全部块经 keyId 解出 type==root 即定位。
+        for (Block b : blocks) {
+            if (!b.isCipher()) {
+                continue;
+            }
+            com.flora.sanctum.core.crypto.impl.BlockResolver.Decoded d =
+                    vault.resolver().decodeKeyed(b.masked(), b.uuid(), b.timestampText());
+            if (d == null) {
+                continue;
+            }
+            com.flora.root.codec.json.model.JsonObject n = parsePlain(d.plaintext);
+            if (n != null && StoredNodeType.ROOT == StoredNodeType.fromTag(n.getString("type"))) {
+                Vault.GroupKeys rk = readGroupKeys(n);
+                if (rk == null) {
+                    throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
                 }
-                com.flora.sanctum.core.crypto.impl.BlockResolver.Decoded d =
-                        vault.resolver().decodeKeyed(b.masked(), b.uuid(), b.timestampText());
-                if (d == null) {
-                    continue;
-                }
-                com.flora.root.codec.json.model.JsonObject n = parsePlain(d.plaintext);
-                if (n != null && StoredNodeType.ROOT == StoredNodeType.fromTag(n.getString("type"))) {
-                    Vault.GroupKeys rk = readGroupKeys(n);
-                    if (rk == null) {
-                        throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
-                    }
-                    rootJson = n;
-                    vault.addRootObjectUuid(b.uuid());
-                    vault.addGroupDek(b.uuid(), rk.dek1(), rk.dek2());
-                    break;
-                }
+                rootJson = n;
+                vault.addRootObjectUuid(b.uuid());
+                vault.addGroupDek(b.uuid(), rk.dek1(), rk.dek2());
+                break;
             }
-            if (vault.rootObjectUuid() == null) {
-                throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_MISSING);
-            }
-        } else {
-            // 旧格式：根对象 uuid 由 KEK 推导、块以 kek 直解，种子存于根对象块内。
-            java.util.UUID rootUuid = RootUuid.derive(kek);
-            Block rootBlock = null;
-            for (Block b : blocks) {
-                if (rootUuid.equals(b.uuid())) {
-                    rootBlock = b;
-                    break;
-                }
-            }
-            if (rootBlock == null) {
-                throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_MISSING);
-            }
-            byte[] plain = tryDecode(vault, kek, rootBlock);
-            if (plain == null) {
-                throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_DECRYPT_FAILED);
-            }
-            com.flora.root.codec.json.model.JsonObject n = parsePlain(plain);
-            if (n == null || n.getString("repoKeyIdSeed") == null) {
-                throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
-            }
-            rootJson = n;
-            vault.setRepoKeyIdSeed(java.util.Base64.getDecoder().decode(n.getString("repoKeyIdSeed")));
-            Vault.GroupKeys rk = readGroupKeys(n);
-            if (rk == null) {
-                throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
-            }
-            vault.addRootObjectUuid(rootUuid);
-            vault.addGroupDek(rootUuid, rk.dek1(), rk.dek2());
+        }
+        if (vault.rootObjectUuid() == null) {
+            throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_MISSING);
         }
 
         // 2.5) 解析 category 分隔层映射：root 对象记载 categories（数据类 → category 节点 uuid）。
@@ -256,8 +226,7 @@ public final class VaultUnlocker {
     }
 
     /**
-     * 从组/根对象 JSON 读取密钥对：新格式取 dek1/dek2；旧格式单 dek 则 dek1==dek2==dek。
-     * 两者均缺失返回 null（必要字段不完整）。
+     * 从组/根对象 JSON 读取密钥对：取 dek1/dek2（新格式双 DEK）。两者均缺失返回 null（必要字段不完整）。
      */
     private static Vault.GroupKeys readGroupKeys(com.flora.root.codec.json.model.JsonObject gn) {
         String s1 = gn.getString("dek1");
@@ -267,22 +236,7 @@ public final class VaultUnlocker {
                     java.util.Base64.getDecoder().decode(s1),
                     java.util.Base64.getDecoder().decode(s2));
         }
-        String sd = gn.getString("dek"); // 旧格式单 dek 回退
-        if (sd == null) {
-            return null;
-        }
-        byte[] d = java.util.Base64.getDecoder().decode(sd);
-        return new Vault.GroupKeys(d, d);
-    }
-
-    private byte[] tryDecode(Vault vault, byte[] dk, Block b) {
-        try {
-            byte[] encK = com.flora.sanctum.core.crypto.KeyDerivation.encKey(dk);
-            com.flora.sanctum.core.crypto.impl.CipherCodec gc = new com.flora.sanctum.core.crypto.impl.CipherCodec(encK, dk, vault.random());
-            return gc.decode(b.masked(), b.uuid(), b.timestampText());
-        } catch (Exception e) {
-            return null;
-        }
+        return null;
     }
 
     /** 全库块时间戳上限（见设计 02"仓库时间戳"）。仅取已落盘块的最大值，

@@ -6,7 +6,6 @@ import com.flora.sanctum.core.model.impl.*;
 import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.sanctum.core.crypto.Argon2KDF;
-import com.flora.sanctum.core.crypto.RootUuid;
 import com.flora.sanctum.core.crypto.impl.SecureRandomSource;
 import com.flora.sanctum.core.store.ObjectStore;
 import com.flora.sanctum.core.store.impl.MarkdownObjectStore;
@@ -26,8 +25,8 @@ class VaultUnlockerTest {
     Path dir;
 
     /**
-     * 构造一个可完整解锁的最小仓库：manifest 明文块（普通随机 uuid，扫描 type=="manifest" 定位）
-     * + 根对象块（uuid 由 KEK 单向推导，直接用 KEK 加密，仅持 repoKeyIdSeed）。
+     * 构造一个可完整解锁的最小仓库：manifest 明文块（随机 uuid，扫描 type=="manifest" 定位）
+     * + 根对象块（随机 uuid，直接以 KEK 加密，仅持 repoKeyIdSeed / dek1 / dek2）。
      *
      * @param withRoot false 时只写 manifest，用于验证根对象缺失的解锁失败阶段
      */
@@ -39,7 +38,7 @@ class VaultUnlockerTest {
         byte[] kek = kdf.derive(password);
         byte[] macKey = kdf.manifestMacKey(kek);
 
-        // manifest 不记录根对象 uuid（根 uuid 由 KEK 单向推导得出）；manifest 用普通随机 uuid
+        // manifest 用普通随机 uuid；新格式：仓库级 keyId 种子经 KEK 加密写入 manifest.seed
         JsonObject manifest = new JsonObject();
         manifest.put("version", 1);
         manifest.put("type", "manifest");
@@ -51,6 +50,10 @@ class VaultUnlockerTest {
         params.put("iterations", 3);
         params.put("parallelism", 4);
         manifest.put("params", params);
+        byte[] repoSeed = new byte[32];
+        rng.nextBytes(repoSeed);
+        manifest.put("seed", Base64.getEncoder().encodeToString(
+                com.flora.sanctum.core.model.impl.ManifestStore.encryptSeed(repoSeed, kek)));
 
         ObjectStore store = new MarkdownObjectStore(dir);
         UUID manifestUuid = UUID.randomUUID();
@@ -62,9 +65,8 @@ class VaultUnlockerTest {
         if (!withRoot) {
             return store;
         }
-        // 根对象块：{type:root, repoKeyIdSeed, dek}，直接用 KEK 加密；dek 为明文随机 rootDek
-        byte[] repoSeed = new byte[32];
-        rng.nextBytes(repoSeed);
+        // 根对象块：{type:root, repoKeyIdSeed, dek1, dek2}，直接用 KEK 加密；dek 为明文随机 rootDek。
+        // 新格式根对象 uuid 为随机值，解锁时按 type=="root" 扫描定位，故此处写任意随机 uuid 即可。
         byte[] rootDek = new byte[32];
         rng.nextBytes(rootDek);
         com.flora.sanctum.core.crypto.impl.CipherCodec rootCodec = new com.flora.sanctum.core.crypto.impl.CipherCodec(
@@ -72,9 +74,10 @@ class VaultUnlockerTest {
         JsonObject root = new JsonObject();
         root.put("type", "root");
         root.put("repoKeyIdSeed", Base64.getEncoder().encodeToString(repoSeed));
-        root.put("dek", Base64.getEncoder().encodeToString(rootDek));
+        root.put("dek1", Base64.getEncoder().encodeToString(rootDek));
+        root.put("dek2", Base64.getEncoder().encodeToString(rootDek));
         byte[] rootJson = JsonUtil.toJsonString(root).getBytes(StandardCharsets.UTF_8);
-        UUID rootUuid = RootUuid.derive(kek);
+        UUID rootUuid = UUID.randomUUID();
         byte[] rootBlock = rootCodec.encode(rootUuid, rootJson, "1");
         store.put(rootUuid, rootBlock, null, "1");
         return store;

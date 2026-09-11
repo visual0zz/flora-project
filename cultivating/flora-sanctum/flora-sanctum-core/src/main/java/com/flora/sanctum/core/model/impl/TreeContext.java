@@ -72,7 +72,7 @@ public final class TreeContext {
                 // 无法解析的块跳过
             }
         }
-        // 为缺 order 的节点按当前（扫描）顺序赋序：保证展示顺序稳定，且可被小数索引接管。
+        // 为缺 order（或 order 非字符串）的节点按当前扫描顺序赋序：保证展示顺序稳定，且可被小数索引接管。
         // 仅改内存对象图（objects），不强制落盘，首次被编辑时随块写入。
         for (List<UUID> sibs : childrenByParent.values()) {
             String o = RocicorpFractionalIndex.INSTANCE.first();
@@ -272,17 +272,20 @@ public final class TreeContext {
         }
     }
 
-    /** 找加密归属 DEK：顶层（groupId=null 或 root uuid）用 rootDek，否则用对应 group DEK，兜底 KEK。 */
+    /** 找加密归属 DEK：顶层（groupId=null 或 root uuid）用 rootDek，否则用对应 group DEK。 */
     public byte[] dekFor(UUID groupId) {
         if (groupId == null) {
             // 顶层对象归属根对象：rootDek（注册为 groupDek(rootObjectUuid)）；未登记时兜底 KEK
             byte[] root = vault.rootDek();
             return root != null ? root : vault.dataDek();
         }
-        if (vault.groupDek(groupId) != null) {
-            return vault.groupDek(groupId);
+        // 非根 group 必须有已登记的 group DEK：缺失说明不变量被破坏（如未解锁即写入、或块归错了组），
+        // 不再静默退回 KEK，使块用错密钥加密而与"块一律用所属 group/category DEK"的心智模型背离。
+        byte[] dek = vault.groupDek(groupId);
+        if (dek != null) {
+            return dek;
         }
-        return vault.dataDek();
+        throw new IllegalStateException("group DEK 未登记，无法解析加密归属: " + groupId);
     }
 
     /**
@@ -413,7 +416,7 @@ public final class TreeContext {
         }
     }
 
-    /** order 字段存在且为字符串；非字符串（缺失或旧格式数值）视为需要赋序。 */
+    /** order 字段存在且为合法字符串；缺失或非字符串视为需要赋序。 */
     private static boolean isStringOrder(JsonObject obj) {
         JsonValue v = obj.get("order");
         return v != null && v.isString() && RocicorpFractionalIndex.INSTANCE.isValid(v.asString());
@@ -446,7 +449,7 @@ public final class TreeContext {
         }
         byte[] dek1 = keys.dek1();
         byte[] dek2 = keys.dek2();
-        // 尚未开始迁移（含旧格式单 dek：dek1==dek2）时不轮换
+        // 退役中 dek1 与活跃 dek2 相同（未初始化为双 DEK）时不轮换
         if (Arrays.equals(dek1, dek2)) {
             return;
         }

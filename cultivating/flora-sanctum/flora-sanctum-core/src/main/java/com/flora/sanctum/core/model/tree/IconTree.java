@@ -55,7 +55,7 @@ public final class IconTree extends DataTree {
 
     public IconNode createIcon(String name, byte[] data, String format) {
         UUID iconUuid = context().random().nextUuid();
-        UUID cat = context().vault().categoryUuid("icon");
+        UUID cat = context().vault().categoryUuid(CategoryDisc.ICON.tag());
         JsonObject icon = new JsonObject();
         icon.put("type", StoredNodeType.ICON.tag());
         icon.put("parent", com.flora.sanctum.core.util.UuidHex.toHex(cat));

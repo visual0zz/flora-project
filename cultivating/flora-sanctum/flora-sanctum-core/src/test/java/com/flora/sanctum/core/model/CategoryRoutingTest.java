@@ -92,6 +92,35 @@ class CategoryRoutingTest {
     }
 
     @Test
+    void configRoutesToConfigCategory() {
+        char[] pw = "pw".toCharArray();
+        Sanctum s = Sanctum.createAndUnlock(dir, pw, 8192, 2, 1);
+        Vault v = s.vault();
+        byte[] rootDekId = KeyIdDeriver.dekId(v.rootDek());
+
+        UUID configCat = v.categoryUuid("config");
+        assertNotNull(configCat, "config category 未注册");
+        assertNotNull(v.groupDek(configCat), "config category DEK 未注册");
+
+        s.config().setTheme("dark");
+        UUID themeNode = s.config().configNodeUuid("theme");
+        assertNotNull(themeNode, "config 节点未落盘");
+        // config 节点应加密于 config category 的 DEK 之下、且不等于 rootDek（与 root 隔开）
+        assertEncryptedUnderCategoryDek(s, themeNode, "config", rootDekId);
+        assertEquals("dark", s.config().theme());
+
+        s.close();
+        // 重新解锁：config category 须经 rootDek 解密、其下 config 节点须可路由读回
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlock(pw);
+        assertNotNull(s2.vault().categoryUuid("config"), "relock 后 config category 丢失");
+        assertEquals("dark", s2.config().theme());
+        UUID themeNode2 = s2.config().configNodeUuid("theme");
+        assertEncryptedUnderCategoryDek(s2, themeNode2, "config", KeyIdDeriver.dekId(s2.vault().rootDek()));
+        s2.close();
+    }
+
+    @Test
     void allFourCategoriesRegisteredAndReachableAfterRelock() {
         char[] pw = "pw".toCharArray();
         Sanctum s = Sanctum.createAndUnlock(dir, pw, 8192, 2, 1);

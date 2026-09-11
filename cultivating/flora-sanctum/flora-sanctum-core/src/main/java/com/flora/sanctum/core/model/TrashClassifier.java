@@ -81,7 +81,7 @@ public final class TrashClassifier {
             UUID uuid = e.getKey();
             JsonObject d = e.getValue();
             StoredNodeType nt = StoredNodeType.fromTag(d.getString("type"));
-            if (nt == StoredNodeType.ROOT || nt == StoredNodeType.CATEGORY
+            if (nt.isStructuralRoot()
                     || nt == StoredNodeType.MANIFEST || nt == StoredNodeType.CONFIG) {
                 continue;
             }

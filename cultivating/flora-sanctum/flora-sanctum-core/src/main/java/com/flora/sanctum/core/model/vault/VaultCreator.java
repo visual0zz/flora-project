@@ -14,8 +14,9 @@ import java.util.UUID;
  * <p>
  * 生成 salt、manifest（明文块 + MAC，并携带经 KEK 加密的 {@code seed} blob：仓库级 keyId 派生种子
  * repoKeyIdSeed）、唯一根对象（data 根，type=root，持明文 rootDek 对，经 KEK 直接加密，并记载
- * {@code categories} 映射），以及 4 个 category 节点（password/icon/sshKey/remote，各持独立 DEK 对、
- * 以 rootDek 加密外层、parent 指向根对象），写入库根。
+ * {@code categories} 映射），以及 5 个 category 节点（password/icon/sshKey/remote/config，各持独立 DEK 对、
+ * 以 rootDek 加密外层、parent 指向根对象），写入库根。config 类别承载仓库级设置（type=config 节点），
+ * 与 password/icon/... 同级，将配置与 root 隔开（见设计"设置存仓库"与"category 分隔层"）。
  * 根对象与 category 节点 uuid 均为随机、不可定位：不记入 manifest、不由 KEK 推导；解锁时扫描全部块经
  * keyId 命中 {@code type==root}/{@code type==category} 定位（见设计"seed 进 manifest"与"根对象不可定位"）。
  */
@@ -58,24 +59,25 @@ public final class VaultCreator {
             // 初始块统一打真实当前时间戳，避免新建库所有块落在哨兵值 1 上，
             // 导致解锁时钟锚点被钉在 1971（见 VaultUnlocker.maxBlockTimestamp）。
             long created = System.currentTimeMillis();
-            // 4 个 category 节点（数据类分隔层）：各随机 uuid + 独立 DEK 对；password 承载顶层组/条目，
-            // icon/sshKey/remote 各承载对应数据类。均 parent=根对象、以 rootDek 加密外层。
+            // 5 个 category 节点（数据类分隔层，含 config 配置类）：各随机 uuid + 独立 DEK 对；
+            // password 承载顶层组/条目，icon/sshKey/remote 各承载对应数据类，config 承载仓库级设置（type=config）。
+            // 均 parent=根对象、以 rootDek 加密外层。
             java.util.Map<String, java.util.UUID> cats = new java.util.LinkedHashMap<>();
             java.util.Map<java.util.UUID, byte[][]> catDeks = new java.util.LinkedHashMap<>();
-            for (String disc : new String[]{"password", "icon", "sshKey", "remote"}) {
+            for (CategoryDisc disc : CategoryDisc.values()) {
                 java.util.UUID cu = random.nextUuid();
                 byte[] c1 = new byte[32];
                 byte[] c2 = new byte[32];
                 random.nextBytes(c1);
                 random.nextBytes(c2);
-                cats.put(disc, cu);
+                cats.put(disc.tag(), cu);
                 catDeks.put(cu, new byte[][]{c1, c2});
             }
             writeManifestBlock(salt, memoryKiB, iterations, parallelism, macKey, kek, seed, created);
             // 唯一根对象：data 根（type=root），持明文 rootDek 对，直接用 KEK 加密（其 keyId 经 seed 派生），
             // 并记载 categories 映射（数据类 → category 节点 uuid）。
             writeRootGroup(rootUuid, kek, seed, rootDek1, rootDek2, cats, created);
-            // 4 个 category 节点：各持独立 DEK 对，以 rootDek(dek2) 加密外层、parent 指向根对象。
+            // 5 个 category 节点：各持独立 DEK 对，以 rootDek(dek2) 加密外层、parent 指向根对象。
             for (java.util.Map.Entry<String, java.util.UUID> e : cats.entrySet()) {
                 byte[][] d = catDeks.get(e.getValue());
                 writeCategoryNode(e.getValue(), e.getKey(), rootUuid, rootDek2, d[0], d[1], created);

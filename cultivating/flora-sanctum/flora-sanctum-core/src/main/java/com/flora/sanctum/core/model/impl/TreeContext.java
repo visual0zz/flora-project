@@ -434,12 +434,12 @@ public final class TreeContext {
         if (groupUuid == null) {
             return;
         }
-        // 根对象（type=root）持根级密钥 rootDek，其下挂 4 个 category 分隔层节点并由 rootDek 加密。
-        // 根 DEK 不参与惰性轮换：一旦轮换会丢弃旧 rootDek2，而 category 节点仍以旧 rootDek2 加密，导致不可解密。
-        // 根 DEK 的更新仅发生在换主密码（MasterKeyRotator，rootDek 值不变、仅根块改用新 KEK 重加密）。
-        if (groupUuid.equals(vault.rootObjectUuid())) {
-            return;
-        }
+        // 根对象与普通 group 走同一惰性轮换路径（不再特殊跳过）。轮换为 dek2 提升为 dek1（保留），解密不受影响。
+        // 级联：category 节点自身轮换时，rewriteGroupKeys 经 write(category, parentUuidOf(category)=root)
+        // 触发本方法（maybeRotateGroupKeys(root)），故根会随 category 的 churn 渐进轮换，而非孤立静止；
+        // category 外层每次以其当前活跃 rootDek2 重写，旧 rootDek2 升为 dek1 仍保留，始终可解密。
+        // root 轮换改写根块用 KEK（见 rewriteGroupKeys 的 root 分支），不再级联，故无环路。
+        // 换主密码的重加密仍由 MasterKeyRotator 负责（rootDek 值不变、仅根块改用新 KEK 重加密）。
         Vault.GroupKeys keys = vault.groupKeys(groupUuid);
         if (keys == null) {
             return;

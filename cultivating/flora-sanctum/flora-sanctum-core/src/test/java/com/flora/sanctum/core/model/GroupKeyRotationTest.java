@@ -81,4 +81,26 @@ class GroupKeyRotationTest {
         assertTrue(s2.trash().manual().contains(e1Id), "轮换后软删除条目应仍在垃圾桶");
         s2.close();
     }
+
+    /** category churn 级联触发 root 轮换：根活跃 dek2 应随 category 轮换而改变，且重开仍可读。 */
+    @Test
+    void categoryChurnTriggersRootRotation() {
+        Sanctum s = Sanctum.createAndUnlock(dir, "pw".toCharArray(), 8192, 2, 1);
+        byte[] rootDekBefore = s.vault().groupDek(s.vault().rootObjectUuid()).clone();
+        // 在 password category 下反复增删组/条目，触发 category 轮换，进而经 rewriteGroupKeys→write(category,root)
+        // 级联 maybeRotateGroupKeys(root)
+        for (int i = 0; i < 6; i++) {
+            GroupNode g = s.objectTree().createGroup(null, "G" + i);
+            g.createEntry("E", new EntryFields("p", null, null, List.of()));
+            g.delete();
+        }
+        byte[] rootDekAfter = s.vault().groupDek(s.vault().rootObjectUuid());
+        assertFalse(java.util.Arrays.equals(rootDekBefore, rootDekAfter),
+                "category churn 应级联触发 root 轮换（root 活跃 dek2 应改变）");
+        // 重开仍可读（轮换后旧 rootDek2 升为 dek1 保留，category 外层可解密）
+        s.close();
+        Sanctum s2 = Sanctum.open(dir);
+        s2.unlock("pw".toCharArray());
+        s2.close();
+    }
 }

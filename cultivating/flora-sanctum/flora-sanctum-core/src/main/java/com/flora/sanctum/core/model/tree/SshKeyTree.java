@@ -70,9 +70,9 @@ public final class SshKeyTree extends DataTree {
         }
         // 小数索引：追加到 sshKey category 下末尾（取当前最大 order 的后继）
         key.put("order", context().appendOrder(cat));
-        // 密钥块以 sshKey category 的活跃 DEK 加密（外层保护），parent 指向 sshKey category 节点
-        byte[] dek = context().dekFor(cat);
-        context().writeWithDek(keyUuid, key, dek);
+        // 密钥块以 sshKey category 的活跃 DEK 加密（外层保护），parent 指向 sshKey category 节点；
+        // 走 write 以触发 category 惰性轮换，与 group/entry 统一
+        context().write(keyUuid, key, cat);
         return new SshKeyNode(keyUuid, this);
     }
 
@@ -88,6 +88,6 @@ public final class SshKeyTree extends DataTree {
             return;
         }
         d.put("order", order);
-        context().writeWithDek(self, d, context().dekFor(cat));
+        context().write(self, d, cat);
     }
 }

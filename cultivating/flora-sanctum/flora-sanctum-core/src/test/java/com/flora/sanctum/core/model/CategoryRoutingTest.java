@@ -138,18 +138,13 @@ class CategoryRoutingTest {
         remote.rename("renamedRemote");
         remote.update("git@example.com:r2.git", null);
 
-        byte[] sshCatDekId = KeyIdDeriver.dekId(v.groupDek(v.categoryUuid("sshKey")));
-        byte[] remoteCatDekId = KeyIdDeriver.dekId(v.groupDek(v.categoryUuid("remote")));
         byte[] rootDekId = KeyIdDeriver.dekId(v.rootDek());
 
-        assertArrayEquals(sshCatDekId, blockDekId(s, key.uuid()),
-                "sshKey 节点块应加密于 sshKey category 活跃 DEK");
-        assertFalse(Arrays.equals(rootDekId, blockDekId(s, key.uuid())),
-                "sshKey 节点块不应加密于 rootDek");
-        assertArrayEquals(remoteCatDekId, blockDekId(s, remote.uuid()),
-                "remote 节点块应加密于 remote category 活跃 DEK");
-        assertFalse(Arrays.equals(rootDekId, blockDekId(s, remote.uuid())),
-                "remote 节点块不应加密于 rootDek");
+        // 改写会触发 category 惰性轮换，块可能加密于轮换前的活跃 dek2（现已退居 dek1）或当前活跃 dek2，
+        // 故断言"加密于 category 的某一把 DEK（dek1 或 dek2）之下、且绝不退回 rootDek"——这才是 keyId↔parent
+        // 一致性的真正不变量。直接用 groupDek（仅 dek2）比对会因轮换失配。
+        assertEncryptedUnderCategoryDek(s, key.uuid(), "sshKey", rootDekId);
+        assertEncryptedUnderCategoryDek(s, remote.uuid(), "remote", rootDekId);
 
         // 改写后仍可解密读回（relock 往返）
         s.close();
@@ -170,5 +165,20 @@ class CategoryRoutingTest {
         byte[] nonce = Arrays.copyOfRange(env, 8, 20);
         byte[] keyId = Arrays.copyOfRange(env, 20, 24);
         return KeyIdDeriver.resolveDekId(s.vault().repoKeyIdSeed(), nonce, keyId);
+    }
+
+    /** 断言某节点块加密于其 category 的某一把 DEK（dek1 或 dek2）之下、且不等于 rootDek。 */
+    private static void assertEncryptedUnderCategoryDek(Sanctum s, UUID nodeUuid,
+                                                        String discriminator, byte[] rootDekId) {
+        byte[] got = blockDekId(s, nodeUuid);
+        Vault.GroupKeys keys = s.vault().groupKeys(s.vault().categoryUuid(discriminator));
+        assertNotNull(keys, "category 未登记密钥对: " + discriminator);
+        byte[] dek1Id = KeyIdDeriver.dekId(keys.dek1());
+        byte[] dek2Id = KeyIdDeriver.dekId(keys.dek2());
+        boolean underCategory = Arrays.equals(got, dek1Id) || Arrays.equals(got, dek2Id);
+        assertTrue(underCategory,
+                discriminator + " 节点块应加密于该 category 的 DEK（dek1 或 dek2），实际 dekId=" + java.util.Arrays.toString(got));
+        assertFalse(Arrays.equals(rootDekId, got),
+                discriminator + " 节点块不应加密于 rootDek");
     }
 }

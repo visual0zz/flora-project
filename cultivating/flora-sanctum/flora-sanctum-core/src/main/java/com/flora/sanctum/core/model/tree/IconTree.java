@@ -64,9 +64,9 @@ public final class IconTree extends DataTree {
         }
         icon.put("data", Base64.getEncoder().encodeToString(data));
         icon.put("format", format);
-        // 图标块以 icon category 的活跃 DEK 加密（外层保护），parent 指向 icon category 节点
-        byte[] dek = context().dekFor(cat);
-        context().writeWithDek(iconUuid, icon, dek);
+        // 图标块以 icon category 的活跃 DEK 加密（外层保护），parent 指向 icon category 节点；
+        // 走 write 以触发 category 惰性轮换，与 group/entry 统一
+        context().write(iconUuid, icon, cat);
         // 索引已构建时同步登记，使后续 findOrCreate 能命中刚写入的图标
         Map<String, UUID> idx = contentIndex;
         if (idx != null && data != null && data.length > 0) {

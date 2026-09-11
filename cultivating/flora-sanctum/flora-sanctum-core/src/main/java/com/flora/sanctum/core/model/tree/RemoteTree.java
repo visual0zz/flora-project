@@ -78,9 +78,9 @@ public final class RemoteTree extends DataTree {
         }
         // 小数索引：追加到 remote category 下末尾（取当前最大 order 的后继）
         remote.put("order", context().appendOrder(cat));
-        // 远程块以 remote category 的活跃 DEK 加密（外层保护），parent 指向 remote category 节点
-        byte[] dek = context().dekFor(cat);
-        context().writeWithDek(remoteUuid, remote, dek);
+        // 远程块以 remote category 的活跃 DEK 加密（外层保护），parent 指向 remote category 节点；
+        // 走 write 以触发 category 惰性轮换，与 group/entry 统一
+        context().write(remoteUuid, remote, cat);
         return new RemoteNode(remoteUuid, this);
     }
 
@@ -96,7 +96,7 @@ public final class RemoteTree extends DataTree {
             return;
         }
         d.put("order", order);
-        context().writeWithDek(self, d, context().dekFor(cat));
+        context().write(self, d, cat);
     }
 
     /** 按名称删除远程配置；未找到忽略。 */

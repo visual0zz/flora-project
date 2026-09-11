@@ -45,8 +45,7 @@ public final class SshKeyNode extends TreeNode {
             throw new IllegalArgumentException("ssh key not found");
         }
         d.put("name", name);
-        byte[] dek = ctx().dekFor(ctx().vault().categoryUuid("sshKey"));
-        ctx().writeWithDek(uuid(), d, dek);
+        ctx().write(uuid(), d, ctx().vault().categoryUuid("sshKey"));
     }
 
     /** 更新私钥 PEM 与公钥（解密明文），加密写回；不改 uuid，远程的 keyRef 不受影响。 */
@@ -61,7 +60,6 @@ public final class SshKeyNode extends TreeNode {
         } else {
             d.put("publicKey", publicKey.trim());
         }
-        byte[] dek = ctx().dekFor(ctx().vault().categoryUuid("sshKey"));
-        ctx().writeWithDek(uuid(), d, dek);
+        ctx().write(uuid(), d, ctx().vault().categoryUuid("sshKey"));
     }
 }

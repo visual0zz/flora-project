@@ -15,7 +15,8 @@ import java.util.Objects;
  * <p>
  * 应用形态存于 {@code $XDG_CONFIG_HOME/flora-sanctum/config.json}（默认 {@code ~/.config/flora-sanctum/config.json}）；
  * 独立仓库形态存于仓库根的 {@code config.json}（仓库级）。两类配置同结构：
- * 外观偏好（主题/强调色）、自动锁定时长、剪贴板清空时长、同步开关等。
+ * 仅承载明文偏好（主题/强调色、最近库、上次库、窗口尺寸、分隔线比例等），不含任何机密。
+ * 自动锁定/剪贴板清空等仓库策略存于仓库内加密配置（见 LibraryConfig），不在此处重复存储。
  * 不存放任何密码学材料/密钥/密文块。
  */
 public final class UserConfig {
@@ -76,28 +77,6 @@ public final class UserConfig {
 
     public void setTheme(String theme) {
         data.put("theme", theme);
-        save();
-    }
-
-    /** 自动锁定时长（秒，默认 300）。 */
-    public int lockTimeoutSeconds() {
-        Integer v = data.getInt("lockTimeoutSeconds");
-        return v == null ? 300 : v;
-    }
-
-    public void setLockTimeoutSeconds(int seconds) {
-        data.put("lockTimeoutSeconds", seconds);
-        save();
-    }
-
-    /** 剪贴板清空时长（秒，默认 30）。 */
-    public int clipboardClearSeconds() {
-        Integer v = data.getInt("clipboardClearSeconds");
-        return v == null ? 30 : v;
-    }
-
-    public void setClipboardClearSeconds(int seconds) {
-        data.put("clipboardClearSeconds", seconds);
         save();
     }
 

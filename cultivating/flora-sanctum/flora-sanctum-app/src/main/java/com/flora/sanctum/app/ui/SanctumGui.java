@@ -774,15 +774,6 @@ public final class SanctumGui {
         }
     }
 
-    private static JsonObject loadAppConfig() {
-        try {
-            return new UserConfig().raw();
-        } catch (Exception e) {
-            LOG.warn("Failed to load app config, using defaults: {}", e.getMessage());
-            return new JsonObject();
-        }
-    }
-
     // ================= 解锁页（针对特定仓库） =================
 
     private JPanel buildUnlockPanel(Path root) {
@@ -4624,12 +4615,12 @@ public final class SanctumGui {
         return targetVaultRoot;
     }
 
-    /** 复制给仓库级 config.json 的配置：优先当前仓库 LibraryConfig，否则应用级配置。 */
+    /**
+     * 仓库级 config.json 即系统配置的明文形态：复制当前应用级明文偏好（主题等），
+     * 与全局 config.json 保持同一组可用 key。不含仓库加密配置（自动锁定/剪贴板清空等，见 LibraryConfig）。
+     */
     private JsonObject configForStandalone() {
-        if (sanctum != null && sanctum.isUnlocked()) {
-            return sanctum.config().toJson();
-        }
-        return loadAppConfig();
+        return config.raw();
     }
 
     /** 保存已编辑的设置项到仓库。 */

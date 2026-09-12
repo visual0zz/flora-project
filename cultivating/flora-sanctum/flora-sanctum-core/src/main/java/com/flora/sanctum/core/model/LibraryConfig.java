@@ -14,7 +14,7 @@ import java.util.UUID;
  * 库配置数据（Sanctum = 元数据 + 配置数据 + List&lt;数据树&gt; 的"配置数据"部分）。
  * <p>
  * 承载仓库级设置（type=config 节点，key/value 加密存储于 config category 分隔层下，与 password/icon/... 同级，
- * 将配置与 root 隔开）：主题/自动锁定时长/剪贴板清空时长。
+ * 将配置与 root 隔开）：自动锁定时长/剪贴板清空时长（主题属明文全局配置，见 UserConfig，不在此存储）。
  * 配置数据以仓库内加密节点存储（见设计"设置存仓库"）；未设置时返回默认值。远程配置与 SSH 密钥是一等数据节点（type=remote / type=ssh_key），
  * 由 {@code RemoteTree}/{@code SshKeyTree} 负责读写，不在此类中重复表示。
  */
@@ -28,7 +28,6 @@ public final class LibraryConfig {
 
     // ---- 仓库级设置（type=config 节点，加密存储；见设计"设置存仓库"） ----
 
-    public static final String DEFAULT_THEME = "light";
     public static final int DEFAULT_LOCK_TIMEOUT_SECONDS = 300;
     public static final int DEFAULT_CLIPBOARD_CLEAR_SECONDS = 30;
 
@@ -60,19 +59,6 @@ public final class LibraryConfig {
         ctx.write(ctx.random().nextUuid(), c, configCat);
     }
 
-    public String theme() {
-        String v = getConfig("theme");
-        // "system" 非合法 scheme（UiTheme 无对应分支），视为默认 light，避免悬空值悄悄按 light 渲染造成语义不一致
-        if (v == null || "system".equals(v)) {
-            return DEFAULT_THEME;
-        }
-        return v;
-    }
-
-    public void setTheme(String theme) {
-        setConfig("theme", theme);
-    }
-
     public int lockTimeoutSeconds() {
         return intConfig("lockTimeoutSeconds", DEFAULT_LOCK_TIMEOUT_SECONDS);
     }
@@ -95,10 +81,9 @@ public final class LibraryConfig {
         setConfig("clipboardClearSeconds", String.valueOf(seconds));
     }
 
-    /** 导出当前配置为 JSON（theme/lockTimeoutSeconds/clipboardClearSeconds）。 */
+    /** 导出仓库级（密文）配置为 JSON（仅含本层负责的键，不含明文主题）。 */
     public JsonObject toJson() {
         JsonObject cfg = new JsonObject();
-        cfg.put("theme", theme());
         cfg.put("lockTimeoutSeconds", lockTimeoutSeconds());
         cfg.put("clipboardClearSeconds", clipboardClearSeconds());
         return cfg;
@@ -108,10 +93,6 @@ public final class LibraryConfig {
     public void fromJson(JsonObject src) {
         if (src == null) {
             return;
-        }
-        String theme = src.getString("theme");
-        if (theme != null) {
-            setTheme(theme);
         }
         Integer lock = src.getInt("lockTimeoutSeconds");
         if (lock != null) {

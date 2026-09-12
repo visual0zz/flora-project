@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 @goto :windows || true
 # ============================================================
-#  sanctum.cmd - build and launch flora-sanctum (Swing GUI or CLI)
+#  dev-sanctum.cmd - build and launch flora-sanctum (Swing GUI or CLI)
 #
 #  Steps:
 #    1. Install flora-root, flora-shell, flora-sanctum-core to local Maven repo
@@ -9,10 +9,10 @@
 #    3. Launch via module-path (no args -> Swing GUI; with args -> CLI)
 #
 #  Usage (same on every OS):
-#      ./sanctum.cmd              # launch Swing GUI
-#      ./sanctum.cmd create /path  # run a CLI command (args passed through)
+#      ./dev-sanctum.cmd              # launch Swing GUI
+#      ./dev-sanctum.cmd create /path  # run a CLI command (args passed through)
 # ============================================================
-cd "$(dirname "$0")/../.." || exit 1
+cd "$(dirname "$0")/.." || exit 1
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
 
@@ -56,7 +56,7 @@ fi
 @echo off
 setlocal
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
-cd /d "%~dp0..\.." || exit /b 1
+cd /d "%~dp0.." || exit /b 1
 
 rem ---- 1. Install dependencies ----
 echo %ESC%[36m$ mvnw -pl flora-root,flora-shell,cultivating/flora-sanctum/flora-sanctum-core -am install -DskipTests%ESC%[0m

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 @goto :windows || true
 # ============================================================
-#  devrun.cmd - one-click build and launch Flora Hanako (Java openhanako)
+#  dev-hanako.cmd - one-click build and launch Flora Hanako (Java openhanako)
 #
 #  Steps:
 #    1. Install flora-root to local Maven repo (flora-hanako depends on it)
@@ -9,10 +9,10 @@
 #    3. Launch the Javalin server; open http://localhost:<port>
 #
 #  Usage (same on every OS):
-#      ./devrun.cmd            # default port 4567
-#      ./devrun.cmd 8080      # custom port
+#      ./dev-hanako.cmd            # default port 4567
+#      ./dev-hanako.cmd 8080      # custom port
 # ============================================================
-cd "$(dirname "$0")/../.." || exit 1
+cd "$(dirname "$0")/.." || exit 1
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
 PORT="${1:-4567}"
@@ -50,7 +50,7 @@ exec ./mvnw -s addition/config/settings.xml -P !osmetes-check -pl cultivating/fl
 @echo off
 setlocal
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
-cd /d "%~dp0..\.." || exit /b 1
+cd /d "%~dp0.." || exit /b 1
 
 set "PORT=%~1"
 if "%PORT%"=="" set "PORT=4567"

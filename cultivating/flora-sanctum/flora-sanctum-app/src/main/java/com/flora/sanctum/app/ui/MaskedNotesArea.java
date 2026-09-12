@@ -24,6 +24,8 @@ final class MaskedNotesArea extends JPanel {
     private final JButton eye;
     private boolean revealed = false;
     private String real;
+    /** 程序化 setText 期间抑制 sync，避免把遮罩文本（圆点）误写回真实内容 real。 */
+    private boolean updating = false;
 
     MaskedNotesArea(String value) {
         super(new BorderLayout(0, 0));
@@ -57,7 +59,7 @@ final class MaskedNotesArea extends JPanel {
             }
 
             private void sync() {
-                if (revealed) {
+                if (revealed && !updating) {
                     real = area.getText();
                 }
             }
@@ -76,16 +78,21 @@ final class MaskedNotesArea extends JPanel {
     }
 
     private void setMasked(boolean masked) {
-        if (masked) {
-            area.setText(masked(real));
-            area.setEditable(false);
-            eye.setIcon(SvgIcon.get(UiIcon.EYE_OFF, 18));
-            revealed = false;
-        } else {
-            area.setText(real);
-            area.setEditable(true);
-            eye.setIcon(SvgIcon.get(UiIcon.EYE, 18));
-            revealed = true;
+        updating = true;
+        try {
+            if (masked) {
+                area.setText(masked(real));
+                area.setEditable(false);
+                eye.setIcon(SvgIcon.get(UiIcon.EYE_OFF, 18));
+                revealed = false;
+            } else {
+                area.setText(real);
+                area.setEditable(true);
+                eye.setIcon(SvgIcon.get(UiIcon.EYE, 18));
+                revealed = true;
+            }
+        } finally {
+            updating = false;
         }
     }
 
@@ -117,10 +124,15 @@ final class MaskedNotesArea extends JPanel {
 
     void setText(String text) {
         real = text == null ? "" : text;
-        if (revealed) {
-            area.setText(real);
-        } else {
-            area.setText(masked(real));
+        updating = true;
+        try {
+            if (revealed) {
+                area.setText(real);
+            } else {
+                area.setText(masked(real));
+            }
+        } finally {
+            updating = false;
         }
     }
 

@@ -6,6 +6,7 @@ import com.flora.root.codec.JsonUtil;
 import com.flora.root.codec.json.model.JsonObject;
 import com.flora.sanctum.core.crypto.KeyDerivation;
 import com.flora.sanctum.core.crypto.impl.CipherCodec;
+import com.flora.sanctum.core.crypto.impl.GcmSiv;
 import com.flora.sanctum.core.crypto.impl.Envelope;
 import com.flora.sanctum.core.crypto.impl.SecureRandomSource;
 import com.flora.sanctum.core.store.Block;
@@ -171,7 +172,7 @@ public final class ManifestStore {
         params.put("iterations", m.iterations());
         params.put("parallelism", m.parallelism());
         manifest.put("params", params);
-        // seed：仓库级 keyId 派生种子经 KEK 加密的 blob（旧格式无此字段）
+        // seed：repoKeyIdSeed 经 KEK 直接加密的 blob（最简结构：nonce ‖ 密文 ‖ tag，无信封头/压缩）
         byte[] seed = m.encryptedSeed();
         if (seed != null) {
             manifest.put("seed", Base64.getEncoder().encodeToString(seed));
@@ -182,18 +183,26 @@ public final class ManifestStore {
     }
 
     /**
-     * 用 KEK 加密 repoKeyIdSeed（生成 manifest 的 {@code seed} blob）。
-     * <p>该 blob 独立于仓库 keyId 机制：用空仓库种子（确定性 keyId）包裹，仅借 KEK 保密，
-     * 解密侧以同一方式解开（见设计"seed 进 manifest"）。</p>
+     * 用 KEK 直接加密 repoKeyIdSeed（生成 manifest 的 {@code seed} blob）。
+     * <p>最简结构：{@code nonce(12) ‖ GCM-SIV(encKey, nonce, seed) ‖ tag(16)}，
+     * 无信封头、无 keyId、无压缩。encKey = HKDF(KEK, "sanctum-enc")。</p>
      */
     public static byte[] encryptSeed(byte[] seed, byte[] kek) {
-        CipherCodec codec = new CipherCodec(KeyDerivation.encKey(kek), kek);
-        return codec.encode(CipherCodec.EMBEDDED_UUID, seed, "0");
+        byte[] encKey = KeyDerivation.encKey(kek);
+        byte[] nonce = new byte[12];
+        new SecureRandomSource().nextBytes(nonce);
+        byte[] ct = GcmSiv.encrypt(encKey, nonce, new byte[0], seed);
+        byte[] out = new byte[nonce.length + ct.length];
+        System.arraycopy(nonce, 0, out, 0, nonce.length);
+        System.arraycopy(ct, 0, out, nonce.length, ct.length);
+        return out;
     }
 
-    /** 用 KEK 解密 manifest 的 {@code seed} blob 得到 repoKeyIdSeed。 */
-    public static byte[] decryptSeed(byte[] encryptedSeed, byte[] kek) {
-        CipherCodec codec = new CipherCodec(KeyDerivation.encKey(kek), kek);
-        return codec.decode(encryptedSeed, CipherCodec.EMBEDDED_UUID, "0");
+    /** 用 KEK 解密 manifest 的 {@code seed} blob（结构见 {@link #encryptSeed}）得到 repoKeyIdSeed。 */
+    public static byte[] decryptSeed(byte[] blob, byte[] kek) {
+        byte[] encKey = KeyDerivation.encKey(kek);
+        byte[] nonce = Arrays.copyOfRange(blob, 0, 12);
+        byte[] ct = Arrays.copyOfRange(blob, 12, blob.length);
+        return GcmSiv.decrypt(encKey, nonce, new byte[0], ct);
     }
 }

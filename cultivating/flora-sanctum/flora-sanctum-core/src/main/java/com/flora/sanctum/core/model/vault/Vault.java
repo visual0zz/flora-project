@@ -148,14 +148,14 @@ public final class Vault {
 
     /**
      * 登记 category 分隔层节点：数据类区分符（password/icon/sshKey/remote）→ 其 category 节点 uuid。
-     * 解锁时从 root 对象的 {@code categories} 映射填充。
+     * 解锁时扫描 category 块、读其 {@code category} 字段填充（与 group 同理，不依赖 root 记录映射）。
      */
     public void addCategory(String discriminator, java.util.UUID categoryUuid) {
         categories.put(discriminator, categoryUuid);
     }
 
     /**
-     * 取某数据类的 category 节点 uuid；未登记（尚未解锁）返回 null。
+     * 取某数据类的 category 节点 uuid；未登记（尚未解锁或旧格式）返回 null。
      */
     public java.util.UUID categoryUuid(String discriminator) {
         return categories.get(discriminator);

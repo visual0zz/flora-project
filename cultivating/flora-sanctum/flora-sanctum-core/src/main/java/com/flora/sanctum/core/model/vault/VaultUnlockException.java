@@ -21,10 +21,10 @@ public final class VaultUnlockException extends RuntimeException {
         /** 根对象可解密，但缺少必要字段（dek / repoKeyIdSeed）。 */
         ROOT_INCOMPLETE("仓库损坏：根对象内容不完整（缺少必要字段）"),
         /**
-         * 根对象存在且可解密，但缺少 {@code categories} 映射：属于 category 层落地前的旧格式，
+         * 根对象存在且可解密，但扫描未发现全部 category 节点（category 分隔层缺失）：属于 category 层落地前的旧格式，
          * 不支持就地升级，解锁被拒。逃生通道：旧库「导出 → 新建库（新格式）→ 导入」。
          */
-        OLD_FORMAT_REJECTED("不支持的旧格式仓库：缺少 category 分隔层（categories），请改用「导出旧库 → 新建库 → 导入」迁移");
+        OLD_FORMAT_REJECTED("不支持的旧格式仓库：缺少 category 分隔层（扫描未发现全部 category 节点），请改用「导出旧库 → 新建库 → 导入」迁移");
 
         private final String message;
 

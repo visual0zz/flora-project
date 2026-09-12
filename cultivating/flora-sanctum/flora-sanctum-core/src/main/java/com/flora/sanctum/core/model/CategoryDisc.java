@@ -3,7 +3,7 @@ package com.flora.sanctum.core.model;
 /**
  * 数据类分隔层的判别符（category 层，见设计"category 分隔层"）。
  * <p>
- * 每个取值对应一个 category 节点：其 uuid 登记于根对象 {@code categories} 映射、节点的 {@code category} 字段，
+ * 每个取值对应一个 category 节点：其 uuid 由解锁时扫描 category 块（读节点的 {@code category} 字段）发现并登记，
  * 且为该类数据的顶层父与加密归属组。字符串值会持久化到存储块，不可随意改动（持久化判别符）。
  * 集中在此枚举，避免 "password"/"icon"/"sshKey"/"remote"/"config" 作为裸字符串散落多处导致的静默路由错误。
  */

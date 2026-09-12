@@ -139,8 +139,6 @@ public final class VaultUnlocker {
         //    需先将 kek 注册进 keyId 索引，扫描时方能经 keyId 命中根对象。
         vault.addRootDek(kek);
 
-        com.flora.root.codec.json.model.JsonObject rootJson = null;
-
         // 根对象随机 uuid、不可定位，扫描全部块经 keyId 解出 type==root 即定位。
         for (Block b : blocks) {
             if (!b.isCipher()) {
@@ -157,7 +155,6 @@ public final class VaultUnlocker {
                 if (rk == null) {
                     throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
                 }
-                rootJson = n;
                 vault.addRootObjectUuid(b.uuid());
                 vault.addGroupDek(b.uuid(), rk.dek1(), rk.dek2());
                 break;
@@ -167,24 +164,10 @@ public final class VaultUnlocker {
             throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_MISSING);
         }
 
-        // 2.5) 解析 category 分隔层映射：root 对象记载 categories（数据类 → category 节点 uuid）。
-        //      缺失即 category 层落地前的旧格式，不支持就地升级，解锁被拒（逃生通道：导出 → 新建库 → 导入）。
-        if (rootJson == null) {
-            throw new VaultUnlockException(VaultUnlockException.Phase.ROOT_INCOMPLETE);
-        }
-        com.flora.root.codec.json.model.JsonObject cats = rootJson.getObject("categories");
-        if (cats == null) {
-            throw new VaultUnlockException(VaultUnlockException.Phase.OLD_FORMAT_REJECTED);
-        }
-        for (String disc : cats.keySet()) {
-            String hex = cats.getString(disc);
-            if (hex != null) {
-                vault.addCategory(disc, com.flora.sanctum.core.util.UuidHex.fromHex(hex));
-            }
-        }
-
         // 3) 逐层发现 group / entry / category DEK：repoKeyIdSeed 已读出，cipher 块经 keyId 路由定位父 DEK 解开；
         //    父 DEK 必先于子块登记于 KeyIdIndex（树自顶向下展开），故 keyId 路由始终可命中。
+        //    category 块与 group/entry 同理：读出 dek1/dek2 登记进内存缓存，并据其 category 字段（判别符）
+        //    登记 discriminator → category uuid 映射（供 Vault.categoryUuid 路由，与 group 同理，不依赖 root 记录）。
         //    entry 亦为密钥持有者（持 dek1/dek2），其字段块经 entry DEK 加密，keyId 指向父（条目）的密钥。
         boolean any = true;
         while (any) {
@@ -207,11 +190,25 @@ public final class VaultUnlocker {
                         Vault.GroupKeys gk = readGroupKeys(gn);
                         if (gk != null && vault.groupKeys(b.uuid()) == null) {
                             vault.addGroupDek(b.uuid(), gk.dek1(), gk.dek2());
+                            if (nt == StoredNodeType.CATEGORY) {
+                                String disc = gn.getString("category");
+                                if (disc != null) {
+                                    vault.addCategory(disc, b.uuid());
+                                }
+                            }
                             any = true;
                         }
                     }
                 } catch (Exception ignore) {
                 }
+            }
+        }
+        // 3.5) 校验 category 分隔层：category 节点经扫描发现并登记于内存缓存（discriminator → uuid），
+        //       与 group 同理，不依赖 root 记录映射。任一数据类未发现对应 category 节点 ⇒
+        //       category 层落地前的旧格式/损坏，不支持就地升级，解锁被拒（逃生通道：导出 → 新建库 → 导入）。
+        for (CategoryDisc disc : CategoryDisc.values()) {
+            if (vault.categoryUuid(disc.tag()) == null) {
+                throw new VaultUnlockException(VaultUnlockException.Phase.OLD_FORMAT_REJECTED);
             }
         }
     }

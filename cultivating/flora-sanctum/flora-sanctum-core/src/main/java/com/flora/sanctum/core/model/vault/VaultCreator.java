@@ -13,8 +13,7 @@ import java.util.UUID;
  * 新建库（见设计 02"manifest"与"文件夹 DEK"，及设计"category 分隔层"）。
  * <p>
  * 生成 salt、manifest（明文块 + MAC，并携带经 KEK 加密的 {@code seed} blob：仓库级 keyId 派生种子
- * repoKeyIdSeed）、唯一根对象（data 根，type=root，持明文 rootDek 对，经 KEK 直接加密，并记载
- * {@code categories} 映射），以及 5 个 category 节点（password/icon/sshKey/remote/config，各持独立 DEK 对、
+ * repoKeyIdSeed）、唯一根对象（data 根，type=root，持明文 rootDek 对，经 KEK 直接加密），以及 5 个 category 节点（password/icon/sshKey/remote/config，各持独立 DEK 对、
  * 以 rootDek 加密外层、parent 指向根对象），写入库根。config 类别承载仓库级设置（type=config 节点），
  * 与 password/icon/... 同级，将配置与 root 隔开（见设计"设置存仓库"与"category 分隔层"）。
  * 根对象与 category 节点 uuid 均为随机、不可定位：不记入 manifest、不由 KEK 推导；解锁时扫描全部块经
@@ -59,28 +58,21 @@ public final class VaultCreator {
             // 初始块统一打真实当前时间戳，避免新建库所有块落在哨兵值 1 上，
             // 导致解锁时钟锚点被钉在 1971（见 VaultUnlocker.maxBlockTimestamp）。
             long created = System.currentTimeMillis();
+            writeManifestBlock(salt, memoryKiB, iterations, parallelism, macKey, kek, seed, created);
+            // 唯一根对象：data 根（type=root），持明文 rootDek 对，直接用 KEK 加密（其 keyId 经 seed 派生）。
+            // 根对象不记载任何子节点映射；category 节点与 group 同理，经解锁时扫描发现（见 VaultUnlocker）。
+            writeRootGroup(rootUuid, kek, seed, rootDek1, rootDek2, created);
             // 5 个 category 节点（数据类分隔层，含 config 配置类）：各随机 uuid + 独立 DEK 对；
             // password 承载顶层组/条目，icon/sshKey/remote 各承载对应数据类，config 承载仓库级设置（type=config）。
-            // 均 parent=根对象、以 rootDek 加密外层。
-            java.util.Map<String, java.util.UUID> cats = new java.util.LinkedHashMap<>();
-            java.util.Map<java.util.UUID, byte[][]> catDeks = new java.util.LinkedHashMap<>();
+            // 均 parent=根对象（子→父）、以 rootDek 加密外层；category 节点的 category 字段标识其数据类，
+            // 解锁时扫描读取以填充内存缓存（与 group 同理，不依赖 root 记录映射）。
             for (CategoryDisc disc : CategoryDisc.values()) {
                 java.util.UUID cu = random.nextUuid();
                 byte[] c1 = new byte[32];
                 byte[] c2 = new byte[32];
                 random.nextBytes(c1);
                 random.nextBytes(c2);
-                cats.put(disc.tag(), cu);
-                catDeks.put(cu, new byte[][]{c1, c2});
-            }
-            writeManifestBlock(salt, memoryKiB, iterations, parallelism, macKey, kek, seed, created);
-            // 唯一根对象：data 根（type=root），持明文 rootDek 对，直接用 KEK 加密（其 keyId 经 seed 派生），
-            // 并记载 categories 映射（数据类 → category 节点 uuid）。
-            writeRootGroup(rootUuid, kek, seed, rootDek1, rootDek2, cats, created);
-            // 5 个 category 节点：各持独立 DEK 对，以 rootDek(dek2) 加密外层、parent 指向根对象。
-            for (java.util.Map.Entry<String, java.util.UUID> e : cats.entrySet()) {
-                byte[][] d = catDeks.get(e.getValue());
-                writeCategoryNode(e.getValue(), e.getKey(), rootUuid, rootDek2, d[0], d[1], created);
+                writeCategoryNode(cu, disc.tag(), rootUuid, rootDek2, c1, c2, created);
             }
         } finally {
             if (repoKeyIdSeed != null) {
@@ -104,23 +96,18 @@ public final class VaultCreator {
     }
 
     private void writeRootGroup(java.util.UUID rootUuid, byte[] kek, byte[] repoKeyIdSeed,
-                                byte[] rootDek1, byte[] rootDek2,
-                                java.util.Map<String, java.util.UUID> categories, long created) {
+                                byte[] rootDek1, byte[] rootDek2, long created) {
         // 根对象自身以 KEK 加密（外层保护）；dek1/dek2 字段直接存明文 base64，无需内层包裹。
         // 双 DEK：dek1 退役中、dek2 活跃（rootDek），供惰性轮换（前向保密，见 GroupKeyRotation 设计）。
-        // 其下 category 节点外层以 rootDek(dek2) 加密，故根对象记载 categories 映射（数据类 → category uuid），
-        // 供解锁时 O(1) 定位。仓库级 keyId 种子已移至 manifest 的 seed 字段，根对象不再承载 repoKeyIdSeed。
-        // 注意：rootDek1/rootDek2 不可在此处清零——下方 4 个 category 节点仍以 rootDek2 加密外层，
+        // 其下 category 节点外层以 rootDek(dek2) 加密；category 节点与 group 同理，经解锁时扫描发现，
+        // 其 uuid 不记入 root（root 不持有任何子节点映射，仅 category 节点自身存 parent=root）。
+        // 仓库级 keyId 种子已移至 manifest 的 seed 字段，根对象不再承载 repoKeyIdSeed。
+        // 注意：rootDek1/rootDek2 不可在此处清零——下方 category 节点仍以 rootDek2 加密外层，
         // 提前清零会使 category 用全 0 密钥加密、解锁后无法解密。清零统一推迟到 create 的 finally（category 写完之后）。
         com.flora.root.codec.json.model.JsonObject group = new com.flora.root.codec.json.model.JsonObject();
         group.put("type", StoredNodeType.ROOT.tag());
         group.put("dek1", Base64.getEncoder().encodeToString(rootDek1));
         group.put("dek2", Base64.getEncoder().encodeToString(rootDek2));
-        com.flora.root.codec.json.model.JsonObject cats = new com.flora.root.codec.json.model.JsonObject();
-        for (java.util.Map.Entry<String, java.util.UUID> e : categories.entrySet()) {
-            cats.put(e.getKey(), com.flora.sanctum.core.util.UuidHex.toHex(e.getValue()));
-        }
-        group.put("categories", cats);
         group.remove("dek");
         group.remove("repoKeyIdSeed");
         writeCipherBlock(rootUuid, group, kek, created);

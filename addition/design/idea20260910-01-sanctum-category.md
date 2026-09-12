@@ -6,7 +6,9 @@
 
 > 2026-09-10 修订：放弃"父子指向翻转为父→子"的设想，维持现有**子→父**模型（每个节点块内持 `parent` 字段），category 层建立在子→父之上。理由见文末"权衡与风险"。
 
-> **实现纪要（2026-09-11）**：决策与文末"推荐决策"相反——用户拍板**实现**，并锁定两条原则：(1) **硬性拒绝旧格式**——root 缺 `categories` 字段的库在解锁时抛 `OLD_FORMAT_REJECTED`，不做静默兼容；(2) **四类全纳入**——`password`/`icon`/`sshKey`/`remote` 均落地为独立 category 节点，顶层 group/entry 路由到 `password` category。crypto 层确为近零新增逻辑（复用 `addGroupDek`/`maybeRotateGroupKeys`/`dekFor`/`write`/`delete`）；真实改动面集中在导航层（约 68 处"顶层/root 为父"判定、`NodeMover`、`reorder`、`roots()` 锚点、`SanctumGui` 拖拽目标），已逐项适配。验证见 `CategoryRoutingTest` + 既有 core/app 全绿。
+> **实现纪要（2026-09-11）**：决策与文末"推荐决策"相反——用户拍板**实现**，并锁定两条原则：(1) **硬性拒绝旧格式**——解锁扫描未发现全部 5 个 category 节点（category 分隔层缺失）即抛 `OLD_FORMAT_REJECTED`，不做静默兼容；(2) **五类全纳入**——`password`/`icon`/`sshKey`/`remote`/`config` 均落地为独立 category 节点，顶层 group/entry 路由到 `password` category。crypto 层确为近零新增逻辑（复用 `addGroupDek`/`maybeRotateGroupKeys`/`dekFor`/`write`/`delete`）；真实改动面集中在导航层（约 68 处"顶层/root 为父"判定、`NodeMover`、`reorder`、`roots()` 锚点、`SanctumGui` 拖拽目标），已逐项适配。验证见 `CategoryRoutingTest` + 既有 core/app 全绿。
+>
+> **机制修正（与下文"方案概述"不同）**：最终落地**未把** category uuid 写进根对象的 `categories` 字段——根对象仅保留 `type`/`dek1`/`dek2`（仓库级 keyId 种子 `repoKeyIdSeed` 也已移至 manifest 的 `seed`），category 节点由解锁扫描经 keyId 命中 `type==category`、读取其 `category` 字段登记 `discriminator→uuid` 映射（与 group 同理，不依赖根记录映射）；因此下文"category uuid 来源（存于根对象）"一节描述的是被弃用的方案，实际未采用。另：`config` category 亦在此轮一并落地（承载仓库级设置，见 05「LibraryConfig」）。
 
 ## 背景与动机
 

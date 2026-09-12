@@ -108,6 +108,8 @@ public final class SanctumGui {
     private JFrame frame;
     private JTree groupTree;
     private DefaultMutableTreeNode treeRoot;
+    /** 当前 groupTree 是否已被填充过。新建 JTree 时重置：首建展开四个区段根，后续刷新恢复原展开态。 */
+    private boolean groupTreeBuilt;
     private final Map<UUID, DefaultMutableTreeNode> groupNodes = new LinkedHashMap<>();
     private JList<EntryListItem> entryList;
     private DefaultListModel<EntryListItem> entryModel;
@@ -1112,6 +1114,7 @@ public final class SanctumGui {
 
         // 左：组树（"全部"根隐藏，四区段为顶层）
         groupTree = new JTree();
+        groupTreeBuilt = false;
         groupTree.setRootVisible(false);
         groupTree.setFont(groupTree.getFont().deriveFont(Font.PLAIN, 14f));
         groupTree.setRowHeight(36);
@@ -1286,7 +1289,8 @@ public final class SanctumGui {
 
         // 重建前记录已展开节点的身份（文件夹 uuid / 区段类型），重建后按原样恢复，
         // 避免整树被强制展开（删除/还原等刷新会触发重建，旧逻辑会展开所有行）。
-        boolean firstBuild = groupTree.getModel() == null;
+        // 注意：groupTree.getModel() 在 new JTree() 后恒为非 null（自带样例模型），不能用它判断首建。
+        boolean firstBuild = !groupTreeBuilt;
         java.util.Set<Object> expandedIds = new java.util.HashSet<>();
         if (!firstBuild && treeRoot != null) {
             java.util.Enumeration<?> en = groupTree.getExpandedDescendants(new TreePath(treeRoot));
@@ -1350,6 +1354,7 @@ public final class SanctumGui {
         } else {
             restoreTreeExpansion(treeRoot, expandedIds);
         }
+        groupTreeBuilt = true;
         LOG.debug("Group tree rebuilt: objects={}, trash", groupNodes.size());
     }
 

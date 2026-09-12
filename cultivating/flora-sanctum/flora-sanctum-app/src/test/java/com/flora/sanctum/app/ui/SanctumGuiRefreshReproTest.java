@@ -2,6 +2,7 @@ package com.flora.sanctum.app.ui;
 
 import com.flora.sanctum.core.model.ExternalKeyService;
 import com.flora.sanctum.core.model.Sanctum;
+import com.flora.sanctum.core.model.ViewNodeType;
 import com.flora.sanctum.core.model.tree.EntryNode;
 import com.flora.sanctum.core.model.tree.GroupNode;
 import com.flora.sanctum.core.model.tree.IconNode;
@@ -10,6 +11,8 @@ import com.flora.sanctum.core.model.tree.ObjectTree;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -99,6 +102,33 @@ class SanctumGuiRefreshReproTest {
             }
             throw new AssertionError("解锁后主界面刷新抛异常（将被 EDT 静默吞掉的根因）", cause);
         }
+
+        // 回归守卫：首建后"密码库"区段必须处于展开态。曾用 groupTree.getModel() == null 判断首建，
+        // 而 new JTree() 自带非 null 样例模型，导致恒判为"非首建"、恢复空展开集 → 四区段全折叠，
+        // 表现为重开后"密码库空了、看不到数据"。
+        javax.swing.JTree jtree = (javax.swing.JTree) getField(gui, "groupTree");
+        javax.swing.tree.DefaultMutableTreeNode rootNode =
+                (javax.swing.tree.DefaultMutableTreeNode)
+                        ((javax.swing.tree.DefaultTreeModel) jtree.getModel()).getRoot();
+        boolean passwordExpanded = false;
+        java.util.Enumeration<?> expanded =
+                jtree.getExpandedDescendants(new javax.swing.tree.TreePath(rootNode));
+        if (expanded != null) {
+            while (expanded.hasMoreElements()) {
+                javax.swing.tree.TreePath p = (javax.swing.tree.TreePath) expanded.nextElement();
+                if (((javax.swing.tree.DefaultMutableTreeNode) p.getLastPathComponent()).getUserObject()
+                        == ViewNodeType.PASSWORD) {
+                    passwordExpanded = true;
+                }
+            }
+        }
+        assertTrue(passwordExpanded, "首建后密码库区段应默认展开，否则左树看起来一片空白");
+    }
+
+    private static Object getField(Object target, String name) throws Exception {
+        Field f = SanctumGui.class.getDeclaredField(name);
+        f.setAccessible(true);
+        return f.get(target);
     }
 
     private static void setField(Object target, String name, Object value) throws Exception {

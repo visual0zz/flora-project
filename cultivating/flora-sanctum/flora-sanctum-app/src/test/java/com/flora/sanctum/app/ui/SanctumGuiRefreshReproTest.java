@@ -129,6 +129,14 @@ class SanctumGuiRefreshReproTest {
                 (javax.swing.DefaultListModel<?>) getField(gui, "entryModel");
         refresh.invoke(gui, "条目");
         assertTrue(listModel.size() > 0, "全量搜索应能命中导入的条目");
+
+        // 回归守卫：根隐藏时必须开启 showsRootHandles，否则顶层四个区段没有展开三角，
+        // 折叠后看似"没有数据"（用户把折叠误判为空库的直接原因）。
+        Method configure = SanctumGui.class.getDeclaredMethod("configureGroupTree", javax.swing.JTree.class);
+        configure.setAccessible(true);
+        javax.swing.JTree probe = new javax.swing.JTree();
+        configure.invoke(null, probe);
+        assertTrue(probe.getShowsRootHandles(), "根隐藏时区段节点必须显示展开柄");
     }
 
     private static Object getField(Object target, String name) throws Exception {

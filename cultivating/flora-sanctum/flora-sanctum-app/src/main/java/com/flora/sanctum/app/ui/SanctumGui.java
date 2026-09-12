@@ -1115,7 +1115,7 @@ public final class SanctumGui {
         // 左：组树（"全部"根隐藏，四区段为顶层）
         groupTree = new JTree();
         groupTreeBuilt = false;
-        groupTree.setRootVisible(false);
+        configureGroupTree(groupTree);
         groupTree.setFont(groupTree.getFont().deriveFont(Font.PLAIN, 14f));
         groupTree.setRowHeight(36);
         groupTree.setCellRenderer(new FolderTreeRenderer());
@@ -1283,6 +1283,16 @@ public final class SanctumGui {
     // ---- 组树 ----
 
     /** 树节点类型：普通文件夹（UUID userObject）或区段节点（ViewNodeType userObject，对应树分类）。 */
+
+    /**
+     * 左树基础配置：隐藏"全部"根。根隐藏时，顶层可见行（四个区段）的展开/折叠柄由
+     * {@link JTree#setShowsRootHandles(boolean)} 控制（默认 false 会让区段节点完全没有展开三角，
+     * 折叠后看似"没有数据"），故显式开启。
+     */
+    private static void configureGroupTree(JTree groupTree) {
+        groupTree.setRootVisible(false);
+        groupTree.setShowsRootHandles(true);
+    }
 
     private void rebuildGroupTree() {
         LOG.debug("Rebuilding group tree");

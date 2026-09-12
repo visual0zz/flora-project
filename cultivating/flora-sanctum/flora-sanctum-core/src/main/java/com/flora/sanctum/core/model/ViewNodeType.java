@@ -4,7 +4,8 @@ package com.flora.sanctum.core.model;
  * 展示节点类型（纯 UI 区段 / 虚拟根标记，不持久化、不对应任何存储对象）。
  * <p>
  * 与存储节点类型（{@link StoredNodeType}）解耦；左树区段、垃圾桶虚拟根等展示概念
- * 以此为 userObject。存储类型经 {@link StoredNodeType#view()} 指向其展示归属。
+ * 以此为 userObject。各存储类型归属哪个展示区段，由对应 DataTree 子类在构造时固定
+ * （见 ObjectTree/IconTree/SshKeyTree/RemoteTree 的 category()）。
  */
 public enum ViewNodeType {
     /** 密码库区段（group/entry/field 的展示归属）。 */

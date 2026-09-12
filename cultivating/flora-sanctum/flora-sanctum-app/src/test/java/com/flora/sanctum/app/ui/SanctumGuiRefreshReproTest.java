@@ -123,6 +123,12 @@ class SanctumGuiRefreshReproTest {
             }
         }
         assertTrue(passwordExpanded, "首建后密码库区段应默认展开，否则左树看起来一片空白");
+
+        // 回归守卫：全量搜索必须能命中导入的条目（搜索走 objectTree().nodes()，与树展开状态无关）
+        javax.swing.DefaultListModel<?> listModel =
+                (javax.swing.DefaultListModel<?>) getField(gui, "entryModel");
+        refresh.invoke(gui, "条目");
+        assertTrue(listModel.size() > 0, "全量搜索应能命中导入的条目");
     }
 
     private static Object getField(Object target, String name) throws Exception {

@@ -1292,6 +1292,21 @@ public final class SanctumGui {
 
     private void rebuildGroupTree() {
         LOG.debug("Rebuilding group tree");
+
+        // 重建前记录已展开节点的身份（文件夹 uuid / 区段类型），重建后按原样恢复，
+        // 避免整树被强制展开（删除/还原等刷新会触发重建，旧逻辑会展开所有行）。
+        boolean firstBuild = groupTree.getModel() == null;
+        java.util.Set<Object> expandedIds = new java.util.HashSet<>();
+        if (!firstBuild && treeRoot != null) {
+            java.util.Enumeration<?> en = groupTree.getExpandedDescendants(new TreePath(treeRoot));
+            if (en != null) {
+                while (en.hasMoreElements()) {
+                    TreePath p = (TreePath) en.nextElement();
+                    expandedIds.add(((DefaultMutableTreeNode) p.getLastPathComponent()).getUserObject());
+                }
+            }
+        }
+
         treeRoot = new DefaultMutableTreeNode("全部");
         groupNodes.clear();
         groupCache = null; // 重置缓存
@@ -1334,11 +1349,27 @@ public final class SanctumGui {
         treeRoot.add(totpNode);
 
         groupTree.setModel(new DefaultTreeModel(treeRoot));
-        // 根隐藏，密码库区段展开
-        for (int r = 0; r < groupTree.getRowCount(); r++) {
-            groupTree.expandRow(r);
+        // 首建仅展开四个区段根（对应设计：密码库区段展开，其余由用户按需展开）；
+        // 后续重建按记录的展开状态恢复，避免删除/还原等操作把整树强制展开。
+        if (firstBuild) {
+            groupTree.expandPath(new TreePath(objectsNode.getPath()));
+            groupTree.expandPath(new TreePath(trashNode.getPath()));
+            groupTree.expandPath(new TreePath(externalKeyNode.getPath()));
+            groupTree.expandPath(new TreePath(totpNode.getPath()));
+        } else {
+            restoreTreeExpansion(treeRoot, expandedIds);
         }
         LOG.debug("Group tree rebuilt: objects={}, trash", groupNodes.size());
+    }
+
+    /** 按已展开的身份集合恢复树展开状态；文件夹 uuid 与区段类型跨重建保持稳定。 */
+    private void restoreTreeExpansion(DefaultMutableTreeNode node, java.util.Set<Object> expandedIds) {
+        if (expandedIds.contains(node.getUserObject())) {
+            groupTree.expandPath(new TreePath(node.getPath()));
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            restoreTreeExpansion((DefaultMutableTreeNode) node.getChildAt(i), expandedIds);
+        }
     }
 
     /** 取节点的图标引用（条目/文件夹），无则返回 null；用于垃圾桶列表中对象的图标展示。 */

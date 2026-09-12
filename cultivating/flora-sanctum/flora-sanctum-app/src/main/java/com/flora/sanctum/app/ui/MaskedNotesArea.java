@@ -1,6 +1,7 @@
 package com.flora.sanctum.app.ui;
 
 import javax.swing.JButton;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -8,7 +9,6 @@ import javax.swing.text.BadLocationException;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Insets;
@@ -17,8 +17,8 @@ import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
 /**
- * 多行备注编辑控件：正文 + 右上角眼睛图标，点击在明文/密文之间切换。
- * 默认以圆点遮蔽，避免敏感内容（SSH 私钥、备注等）在编辑界面直接暴露。
+ * 多行机密文本编辑控件：顶部一行「标签 …… 眼睛图标」，下方为多行编辑框。
+ * 点击眼睛在明文/密文之间切换，默认以圆点遮蔽，避免敏感内容（SSH 私钥、备注等）直接暴露。
  * <p>遮罩在渲染层完成：编辑框文档始终保存真实文本，{@link MaskArea#paintComponent} 在 UI 绘制后
  * 用背景色抹掉可见文字并逐字画圆点。因此遮罩/显示切换不涉及任何内容改写，
  * 反复点击始终稳定，{@link #getText()} 无论在何种状态都返回真实内容。</p>
@@ -29,7 +29,7 @@ final class MaskedNotesArea extends JPanel {
     private final JButton eye;
     private boolean revealed = false;
 
-    MaskedNotesArea(String value) {
+    MaskedNotesArea(String label, String value) {
         super(new BorderLayout(0, 0));
         area = new MaskArea(value == null ? "" : value);
         area.setLineWrap(true);
@@ -38,17 +38,20 @@ final class MaskedNotesArea extends JPanel {
         scroll.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
         eye = eyeButton();
         eye.addActionListener(e -> toggle());
-        JPanel eyeBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        eyeBar.setOpaque(false);
-        eyeBar.add(eye);
-        add(eyeBar, BorderLayout.NORTH);
+        JLabel tag = new JLabel(label);
+        tag.setPreferredSize(new Dimension(84, 24));
+        JPanel header = new JPanel(new BorderLayout(4, 0));
+        header.setOpaque(false);
+        header.add(tag, BorderLayout.WEST);
+        header.add(eye, BorderLayout.EAST);
+        add(header, BorderLayout.NORTH);
         add(scroll, BorderLayout.CENTER);
         setMasked(true);
     }
 
     private static JButton eyeButton() {
         JButton b = new JButton(SvgIcon.get(UiIcon.EYE_OFF, 18));
-        b.setToolTipText("显示/隐藏备注");
+        b.setToolTipText("显示/隐藏内容");
         b.setBorderPainted(false);
         b.setContentAreaFilled(false);
         b.setFocusPainted(false);

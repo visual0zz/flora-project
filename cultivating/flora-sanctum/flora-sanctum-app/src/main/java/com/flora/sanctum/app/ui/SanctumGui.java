@@ -2311,18 +2311,12 @@ public final class SanctumGui {
         nameRow.add(nameField, BorderLayout.CENTER);
         target.add(nameRow);
 
-        JLabel keyTag = new JLabel("私钥（点击眼睛显示/编辑）:");
-        keyTag.setFont(keyTag.getFont().deriveFont(Font.BOLD, 12f));
-        target.add(keyTag);
-        MaskedNotesArea keyArea = new MaskedNotesArea(key.value());
+        MaskedNotesArea keyArea = new MaskedNotesArea("私钥 :", key.value());
         target.add(keyArea);
         target.add(javax.swing.Box.createVerticalStrut(4));
         final String originalPem = key.value() == null ? "" : key.value();
 
-        JLabel pubTag = new JLabel("公钥（点击眼睛显示/编辑，可选）:");
-        pubTag.setFont(pubTag.getFont().deriveFont(Font.BOLD, 12f));
-        target.add(pubTag);
-        MaskedNotesArea pubArea = new MaskedNotesArea(key.publicKey());
+        MaskedNotesArea pubArea = new MaskedNotesArea("公钥 :", key.publicKey());
         target.add(pubArea);
         JButton genPubBtn = new JButton("从私钥生成公钥");
         genPubBtn.addActionListener(e -> {
@@ -2914,16 +2908,10 @@ public final class SanctumGui {
         editPanel.add(makeEntryRow("标签 :", labelsField, false));
 
         // 备注（内置预设字段，多行，默认遮蔽，眼睛切换显示）
-        MaskedNotesArea notesArea = new MaskedNotesArea(entryNode.notes());
-        JPanel notesRow = new JPanel(new BorderLayout(0, 0));
-        notesRow.setOpaque(false);
-        notesRow.setBorder(new javax.swing.border.EmptyBorder(0, 0, 8, 0));
-        notesRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 98));
-        JLabel notesTag = new JLabel("备注 :");
-        notesTag.setPreferredSize(new Dimension(84, 24));
-        notesRow.add(notesTag, BorderLayout.WEST);
-        notesRow.add(notesArea, BorderLayout.CENTER);
-        editPanel.add(notesRow);
+        MaskedNotesArea notesArea = new MaskedNotesArea("备注 :", entryNode.notes());
+        notesArea.setBorder(new javax.swing.border.EmptyBorder(0, 0, 8, 0));
+        notesArea.setMaximumSize(new Dimension(Integer.MAX_VALUE, 98));
+        editPanel.add(notesArea);
 
         // 时间信息（只读）
         editPanel.add(makeInfoRow("创建时间", formatTime(entryNode.createTime())));
@@ -3482,8 +3470,8 @@ public final class SanctumGui {
     /** 添加 SSH 私钥（sshKey root）。 */
     private void addSshKey() {
         JTextField nameField = new JTextField(16);
-        MaskedNotesArea keyArea = new MaskedNotesArea("");
-        MaskedNotesArea pubArea = new MaskedNotesArea("");
+        MaskedNotesArea keyArea = new MaskedNotesArea("私钥 :", "");
+        MaskedNotesArea pubArea = new MaskedNotesArea("公钥 :", "");
         JButton genPubBtn = new JButton("从私钥生成公钥");
         genPubBtn.addActionListener(e -> {
             String pem = keyArea.getText().trim();
@@ -3508,11 +3496,9 @@ public final class SanctumGui {
         form.add(topForm, BorderLayout.NORTH);
         JPanel center = new JPanel(new BorderLayout(4, 4));
         center.setOpaque(false);
-        center.add(new JLabel("私钥（点击眼睛显示/编辑）:"), BorderLayout.NORTH);
         center.add(keyArea, BorderLayout.CENTER);
         JPanel pubWrap = new JPanel(new BorderLayout(4, 4));
         pubWrap.setOpaque(false);
-        pubWrap.add(new JLabel("公钥（可选）:"), BorderLayout.NORTH);
         pubWrap.add(pubArea, BorderLayout.CENTER);
         pubWrap.add(genPubBtn, BorderLayout.SOUTH);
         center.add(pubWrap, BorderLayout.SOUTH);

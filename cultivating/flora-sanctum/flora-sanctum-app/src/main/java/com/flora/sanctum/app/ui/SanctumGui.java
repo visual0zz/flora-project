@@ -4366,7 +4366,10 @@ public final class SanctumGui {
             } else if (entry instanceof SettingsModel.ObjectEntry oe) {
                 switch (oe.kind()) {
                     case ICON -> {
-                        JButton saveBtn = renderSettingsIcon(Ref.nodeIcon(UUID.fromString(oe.id())), settingsEditPanel);
+                        Ref iconRef = isBuiltinIcon(oe.id())
+                                ? Ref.builtinIcon(oe.id().substring(BUILTIN_PREFIX.length()))
+                                : Ref.nodeIcon(UUID.fromString(oe.id()));
+                        JButton saveBtn = renderSettingsIcon(iconRef, settingsEditPanel);
                         if (!isBuiltinIcon(oe.id())) {
                             Runnable deleteAction = () -> {
                                 try {

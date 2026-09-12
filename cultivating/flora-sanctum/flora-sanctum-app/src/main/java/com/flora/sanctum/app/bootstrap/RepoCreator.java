@@ -1,6 +1,5 @@
 package com.flora.sanctum.app.bootstrap;
 
-import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.runtime.log.Logger;
 import com.flora.root.runtime.log.LoggerFactory;
 
@@ -24,8 +23,8 @@ import java.util.jar.JarFile;
  * 新建仓库（见设计"形态与启动"）。
  * <ul>
  *   <li><b>普通仓库</b>：在目标目录直接建数据块结构（两层目录，该目录即 vault 根）。</li>
- *   <li><b>独立仓库</b>：把应用自身复制为 {@code { config.json, lib/, edit, edit.bat }}，
- *       复制应用级配置为仓库级配置（不含密钥等加密信息），之后可由该仓库自己的 edit 脚本启动。</li>
+ *   <li><b>独立仓库</b>：把应用自身复制为 {@code { lib/, edit, edit.bat }}，之后可由该仓库
+ *       自己的 edit 脚本启动。明文偏好统一走系统级配置，仓库根不再写入 config.json。</li>
  * </ul>
  */
 public final class RepoCreator {
@@ -46,29 +45,27 @@ public final class RepoCreator {
     }
 
     /**
-     * 新建独立仓库：把应用自身（lib/ + edit 脚本 + config.json）复制到目标目录，
+     * 新建独立仓库：把应用自身（lib/ + edit 脚本）复制到目标目录，
      * 数据块（两层目录 + md）直接建在仓库根（与普通仓库布局一致）。
      * 应用自身不打开它。
      *
-     * @param dir       独立仓库目标目录
-     * @param appConfig 应用级配置（复制为仓库级，不含密钥）
+     * @param dir 独立仓库目标目录
      */
-    public static Path createStandalone(Path dir, JsonObject appConfig) throws IOException {
+    public static Path createStandalone(Path dir) throws IOException {
         LOG.info("Creating standalone repository at {}", dir);
         Files.createDirectories(dir);
         copyLib(dir);
         writeScripts(dir);
-        VaultDetector.writeRepoConfig(dir, appConfig);
         placeDefaultGitignore(dir);
         LOG.info("Standalone repository created at {}", dir);
         return dir;
     }
 
     /**
-     * 把普通仓库原地升级为独立仓库：仓库根新增 {@code config.json}、{@code lib/} 与 edit 脚本，
+     * 把普通仓库原地升级为独立仓库：仓库根新增 {@code lib/} 与 edit 脚本，
      * 数据块不动（普通/独立仓库数据布局一致，无 data 层）。返回仓库根。
      */
-    public static Path upgradeToStandalone(Path repoRoot, JsonObject appConfig) throws IOException {
+    public static Path upgradeToStandalone(Path repoRoot) throws IOException {
         LOG.info("Upgrading repository to standalone: {}", repoRoot);
         if (VaultDetector.isStandaloneRepo(repoRoot)) {
             throw new IOException("已是独立仓库");
@@ -78,22 +75,21 @@ public final class RepoCreator {
         }
         copyLib(repoRoot);
         writeScripts(repoRoot);
-        VaultDetector.writeRepoConfig(repoRoot, appConfig);
         placeDefaultGitignore(repoRoot);
         LOG.info("Repository upgraded to standalone: {}", repoRoot);
         return repoRoot;
     }
 
     /**
-     * 把独立仓库降级为普通仓库：移除 {@code config.json}、{@code lib/} 与 edit 脚本，
-     * 数据块不动。返回仓库根。
+     * 把独立仓库降级为普通仓库：移除 {@code lib/} 与 edit 脚本，数据块不动。
+     * 仓库根的 config.json（历史遗留文件，现已不再使用）不在管理范围内，保持原样。
+     * 返回仓库根。
      */
     public static Path downgradeToNormal(Path repoRoot) throws IOException {
         LOG.info("Downgrading repository to normal: {}", repoRoot);
         deleteIfExists(repoRoot.resolve("lib"));
         deleteIfExists(repoRoot.resolve("edit"));
         deleteIfExists(repoRoot.resolve("edit.bat"));
-        deleteIfExists(repoRoot.resolve("config.json"));
         removeDefaultGitignore(repoRoot);
         LOG.info("Repository downgraded to normal: {}", repoRoot);
         return repoRoot;

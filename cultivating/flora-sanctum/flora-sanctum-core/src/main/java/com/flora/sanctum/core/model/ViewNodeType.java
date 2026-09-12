@@ -16,8 +16,7 @@ public enum ViewNodeType {
     /** 仓库配置区段（自动锁定/剪贴板清空等，存仓库内加密 config 节点）。 */
     SETTINGS,
     /**
-     * 全局配置区段（界面主题等，存全局配置文件：应用级 ~/.flora-sanctum/config.json
-     * 或独立仓库级 config.json）。
+     * 全局配置区段（界面主题等，统一存系统级配置文件 ~/.config/flora-sanctum/config.json）。
      */
     GLOBAL,
     /** 垃圾桶虚拟根（与数据根平级，见设计 idea20260826-sanctum-trash）。 */

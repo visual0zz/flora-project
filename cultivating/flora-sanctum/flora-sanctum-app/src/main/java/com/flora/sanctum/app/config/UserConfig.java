@@ -11,10 +11,10 @@ import java.nio.file.Path;
 import java.util.Objects;
 
 /**
- * 用户配置目录（见设计 07"用户配置目录"）。
+ * 用户配置（见设计 07"用户配置目录"）。
  * <p>
- * 应用形态存于 {@code $XDG_CONFIG_HOME/flora-sanctum/config.json}（默认 {@code ~/.config/flora-sanctum/config.json}）；
- * 独立仓库形态存于仓库根的 {@code config.json}（仓库级）。两类配置同结构：
+ * 统一存于 {@code $XDG_CONFIG_HOME/flora-sanctum/config.json}（默认 {@code ~/.config/flora-sanctum/config.json}），
+ * 应用形态与独立仓库形态共用同一份：独立仓库根不再持有自己的 config.json。
  * 仅承载明文偏好（主题/强调色、最近库、上次库、窗口尺寸、分隔线比例等），不含任何机密。
  * 自动锁定/剪贴板清空等仓库策略存于仓库内加密配置（见 LibraryConfig），不在此处重复存储。
  * 不存放任何密码学材料/密钥/密文块。
@@ -29,7 +29,9 @@ public final class UserConfig {
     private JsonObject data;
 
     public UserConfig() {
-        this(defaultConfigDir());
+        this.dir = defaultConfigDir();
+        this.file = dir.resolve("config.json");
+        this.data = load();
     }
 
     /** 解析用户级配置目录：优先 {@code $XDG_CONFIG_HOME}，未设置回退 {@code ~/.config}。 */
@@ -40,26 +42,6 @@ public final class UserConfig {
         }
         String home = System.getProperty("user.home");
         return Path.of(Objects.requireNonNullElse(home, "."), ".config", APP_NAME);
-    }
-
-    public UserConfig(Path dir) {
-        this.dir = dir;
-        // 独立仓库：读仓库根 config.json（与应用级 config.json 同结构）
-        this.file = dir.resolve("config.json");
-        this.data = load();
-    }
-
-    public Path dir() {
-        return dir;
-    }
-
-    public Path file() {
-        return file;
-    }
-
-    /** 原始配置对象（用于写入独立仓库配置副本）。 */
-    public JsonObject raw() {
-        return data;
     }
 
     /**

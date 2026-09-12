@@ -1,7 +1,5 @@
 package com.flora.sanctum.app.bootstrap;
 
-import com.flora.root.codec.JsonUtil;
-import com.flora.root.codec.json.model.JsonObject;
 import com.flora.root.runtime.log.Logger;
 import com.flora.root.runtime.log.LoggerFactory;
 import com.flora.sanctum.core.store.VaultProbe;
@@ -10,7 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * 仓库形态识别与仓库级配置（见设计"形态与启动"）。
+ * 仓库形态识别（见设计"形态与启动"）。
  * <p>
  * 形态由「lib/ 目录 + edit 脚本」判定（判断逻辑落在 jar 内，不依赖脚本传参）：
  * <ul>
@@ -20,8 +18,7 @@ import java.nio.file.Path;
  *   <li><b>普通仓库</b>：目录本身就是数据根（两层目录 + {@code *.md} 块文件）。</li>
  *   <li><b>非仓库</b>：无上述结构。</li>
  * </ul>
- * 独立仓库形态只读自身 {@code config.json}（仓库根），不读系统配置；其结构与应用级配置相同
- * （存储"使用习惯"内容，非机密）。
+ * 明文偏好统一走系统级配置（见 {@code UserConfig}），独立仓库根不再持有 config.json。
  */
 public final class VaultDetector {
 
@@ -39,9 +36,6 @@ public final class VaultDetector {
     /** 独立仓库判定脚本（posix / windows；与 lib/ 同目录，即仓库根）。 */
     private static final String EDIT_SCRIPT = "edit";
     private static final String EDIT_BAT = "edit.bat";
-
-    /** 独立仓库的仓库级配置（位于仓库根，与应用级 config.json 同结构）。 */
-    private static final String REPO_CONFIG = "config.json";
 
     private VaultDetector() {
     }
@@ -125,44 +119,6 @@ public final class VaultDetector {
             return Files.isDirectory(p) ? p : p.getParent();
         } catch (Exception e) {
             return null;
-        }
-    }
-
-    /** 独立仓库的仓库级配置路径（config.json）；非独立返回 null。 */
-    public static Path configFile(Path dir) {
-        if (dir != null && isStandaloneRepo(dir)) {
-            return dir.resolve(REPO_CONFIG);
-        }
-        return null;
-    }
-
-    /**
-     * 读取仓库级配置（独立仓库 config.json）。与应用级配置同结构。
-     * 返回 JSON 对象；文件不存在/损坏返回空对象（调用方按默认处理）。
-     */
-    public static JsonObject loadRepoConfig(Path dir) {
-        Path cfg = dir.resolve(REPO_CONFIG);
-        if (!Files.isRegularFile(cfg)) {
-            return new JsonObject();
-        }
-        try {
-            return JsonUtil.parseObject(Files.readString(cfg));
-        } catch (Exception e) {
-            LOG.warn("Failed to read repo config {}, returning empty: {}", cfg, e.getMessage());
-            return new JsonObject();
-        }
-    }
-
-    /** 写入独立仓库 config.json（不含密钥等加密信息）。 */
-    public static void writeRepoConfig(Path dir, JsonObject appConfig) {
-        Path cfg = dir.resolve(REPO_CONFIG);
-        LOG.info("Writing repo config to {}", cfg);
-        try {
-            Files.createDirectories(dir);
-            Files.writeString(cfg, JsonUtil.toJsonString(appConfig));
-        } catch (Exception e) {
-            LOG.error("Cannot write repo config: {}", cfg, e);
-            throw new IllegalStateException("cannot write repo config: " + cfg, e);
         }
     }
 

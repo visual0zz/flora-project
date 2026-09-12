@@ -163,15 +163,18 @@ public final class SanctumGui {
     /** 动态码刷新定时器（1s）。 */
     private javax.swing.Timer totpTimer;
 
-    /** 应用形态：读系统级配置（~/.flora-sanctum/config.json），页面从历史仓库列表开始。 */
+    /** 应用形态：读系统级配置（~/.config/flora-sanctum/config.json），页面从历史仓库列表开始。 */
     private SanctumGui() {
         this.config = new UserConfig();
         this.standalone = false;
     }
 
-    /** 独立仓库形态：读仓库级配置（仓库根 config.json），页面从该仓库解锁页开始。 */
+    /**
+     * 独立仓库形态：页面从该仓库解锁页开始。明文偏好统一走系统级配置，
+     * 仓库根不再持有 config.json（仅 lib/ + edit 脚本 + 数据块）；仓库加密配置不受影响。
+     */
     private SanctumGui(Path repoRoot) {
-        this.config = new UserConfig(repoRoot);
+        this();
         this.standalone = true;
     }
 
@@ -672,12 +675,11 @@ public final class SanctumGui {
                         Sanctum s = kdf == null
                                 ? Sanctum.createAndUnlock(root, copy)
                                 : Sanctum.createAndUnlock(root, copy, kdf[0], kdf[1], kdf[2]);
-                        // 独立仓库形态（lib/ + edit 脚本 + config.json）必须在解锁之后写入，
+                        // 独立仓库形态（lib/ + edit 脚本）必须在解锁之后写入，
                         // 否则 VaultProbe 守卫会把自己刚写的 lib/ 误判为“已是仓库”而拒绝。
                         if (standalone) {
                             try {
-                                com.flora.sanctum.app.bootstrap.RepoCreator.createStandalone(
-                                        root, configForStandalone());
+                                com.flora.sanctum.app.bootstrap.RepoCreator.createStandalone(root);
                             } catch (IOException ex) {
                                 throw new java.io.UncheckedIOException(
                                         "独立仓库形态写入失败（lib/ 与启动脚本）：" + ex.getMessage(), ex);
@@ -4512,7 +4514,7 @@ public final class SanctumGui {
         progress.setVisible(true);
     }
 
-    /** 把当前普通仓库升级为独立仓库（新增 config.json / lib/ / edit 脚本，数据不动）。 */
+    /** 把当前普通仓库升级为独立仓库（新增 lib/ 与 edit 脚本，数据不动）。 */
     private void upgradeStandalone() {
         Path root = currentRepoRoot();
         if (root == null) {
@@ -4520,12 +4522,12 @@ public final class SanctumGui {
             return;
         }
         if (JOptionPane.showConfirmDialog(frame,
-                "将当前普通仓库配置为独立运行？\n仓库根将新增 config.json、lib/ 与 edit 脚本（数据不动）。\n之后可用仓库内 edit 脚本独立启动。",
+                "将当前普通仓库配置为独立运行？\n仓库根将新增 lib/ 与 edit 脚本（数据不动）。\n之后可用仓库内 edit 脚本独立启动。",
                 "配置独立运行", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) {
             return;
         }
         try {
-            com.flora.sanctum.app.bootstrap.RepoCreator.upgradeToStandalone(root, configForStandalone());
+            com.flora.sanctum.app.bootstrap.RepoCreator.upgradeToStandalone(root);
             refreshSettingsEntries();
             showToast("已配置独立运行");
         } catch (Exception ex) {
@@ -4534,7 +4536,7 @@ public final class SanctumGui {
         }
     }
 
-    /** 把当前独立仓库降级为普通仓库（移除 config.json / lib/ / edit 脚本，数据不动）。 */
+    /** 把当前独立仓库降级为普通仓库（移除 lib/ 与 edit 脚本，数据不动）。 */
     private void downgradeStandalone() {
         Path root = currentRepoRoot();
         if (root == null) {
@@ -4550,7 +4552,7 @@ public final class SanctumGui {
             return;
         }
         if (JOptionPane.showConfirmDialog(frame,
-                "删除独立运行？\n将移除 config.json、lib/ 与 edit 脚本，仓库恢复为普通仓库（数据不动）。",
+                "删除独立运行？\n将移除 lib/ 与 edit 脚本，仓库恢复为普通仓库（数据不动）。",
                 "删除独立运行", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) {
             return;
         }
@@ -4614,14 +4616,6 @@ public final class SanctumGui {
             return Path.of(unlockedVaultPath);
         }
         return targetVaultRoot;
-    }
-
-    /**
-     * 仓库级 config.json 即系统配置的明文形态：复制当前应用级明文偏好（主题等），
-     * 与全局 config.json 保持同一组可用 key。不含仓库加密配置（自动锁定/剪贴板清空等，见 LibraryConfig）。
-     */
-    private JsonObject configForStandalone() {
-        return config.raw();
     }
 
     /** 保存已编辑的设置项到仓库。 */

@@ -168,9 +168,9 @@ final class NewVaultDialog extends JDialog {
 
     /** 独立仓库说明：鼠标悬停于勾选框时展示。 */
     private static final String STANDALONE_INFO =
-            "勾选后，仓库根会自带启动脚本与运行依赖（config.json + lib/ + edit 脚本），"
-                    + "并可把应用级配置（不含密钥）复制为仓库级配置。"
-                    + "之后该仓库可由自身的 edit 脚本独立启动。"
+            "勾选后，仓库根会自带启动脚本与运行依赖（lib/ + edit 脚本）。"
+                    + "之后该仓库可由自身的 edit 脚本独立启动；明文偏好统一走系统级配置，"
+                    + "仓库根不额外写入配置文件。"
                     + "不勾选则为普通仓库：仅建立数据块，需通过本应用打开。";
 
     private JPanel buildButtons() {

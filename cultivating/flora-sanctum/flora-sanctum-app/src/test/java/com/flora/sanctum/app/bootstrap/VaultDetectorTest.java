@@ -1,6 +1,5 @@
 package com.flora.sanctum.app.bootstrap;
 
-import com.flora.root.codec.json.model.JsonObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -32,7 +31,6 @@ class VaultDetectorTest {
         Files.writeString(repo.resolve("a.md"), "1:abc\n");
         assertEquals(VaultDetector.Type.STANDALONE, VaultDetector.detect(repo));
         assertEquals(repo, VaultDetector.dataDir(repo));
-        assertEquals(repo.resolve("config.json"), VaultDetector.configFile(repo));
     }
 
     @Test
@@ -45,30 +43,17 @@ class VaultDetectorTest {
     }
 
     @Test
-    void writeAndReadRepoConfig() throws Exception {
-        Path repo = dir.resolve("cfg");
-        Files.createDirectories(repo);
-        Files.writeString(repo.resolve("config.json"), "{}");
-        JsonObject app = new JsonObject();
-        app.put("theme", "dark");
-        VaultDetector.writeRepoConfig(repo, app);
-        JsonObject loaded = VaultDetector.loadRepoConfig(repo);
-        assertEquals("dark", loaded.getString("theme"));
-    }
-
-    @Test
-    void createStandaloneWritesLayout() throws Exception {
+    void createStandaloneWritesLayoutWithoutRepoConfig() throws Exception {
         Path repo = dir.resolve("newStandalone");
 
-        JsonObject cfg = new JsonObject();
-        cfg.put("theme", "system");
-        Path vaultRoot = RepoCreator.createStandalone(repo, cfg);
+        Path vaultRoot = RepoCreator.createStandalone(repo);
 
         assertEquals(repo, vaultRoot);
         assertTrue(Files.isDirectory(repo.resolve("lib")));
         assertTrue(Files.exists(repo.resolve("edit")));
         assertTrue(Files.exists(repo.resolve("edit.bat")));
-        assertTrue(Files.exists(repo.resolve("config.json")));
+        // 明文偏好统一走系统级配置，仓库根不再写 config.json
+        assertFalse(Files.exists(repo.resolve("config.json")));
         assertTrue(VaultDetector.isStandaloneRepo(repo));
     }
 
@@ -89,11 +74,9 @@ class VaultDetectorTest {
         Files.writeString(repo.resolve("aa").resolve("b.md"), "1:abc\n");
         assertEquals(VaultDetector.Type.NORMAL, VaultDetector.detect(repo));
 
-        JsonObject cfg = new JsonObject();
-        cfg.put("theme", "dark");
-        RepoCreator.upgradeToStandalone(repo, cfg);
+        RepoCreator.upgradeToStandalone(repo);
 
-        assertTrue(Files.exists(repo.resolve("config.json")));
+        assertFalse(Files.exists(repo.resolve("config.json")));
         assertTrue(Files.isDirectory(repo.resolve("lib")));
         assertTrue(Files.exists(repo.resolve("edit")));
         assertTrue(Files.exists(repo.resolve("edit.bat")));
@@ -101,7 +84,7 @@ class VaultDetectorTest {
         // 数据仍在仓库根（未移动）
         assertTrue(Files.exists(repo.resolve("aa").resolve("b.md")));
         // 升级已是独立仓库时拒绝重复升级
-        assertThrows(IOException.class, () -> RepoCreator.upgradeToStandalone(repo, cfg));
+        assertThrows(IOException.class, () -> RepoCreator.upgradeToStandalone(repo));
     }
 
     @Test
@@ -117,10 +100,11 @@ class VaultDetectorTest {
 
         RepoCreator.downgradeToNormal(repo);
 
-        assertFalse(Files.exists(repo.resolve("config.json")));
         assertFalse(Files.exists(repo.resolve("edit")));
         assertFalse(Files.exists(repo.resolve("edit.bat")));
         assertFalse(Files.exists(repo.resolve("lib")));
+        // 历史遗留的仓库级 config.json 已不在管理范围内：不读写也不删除
+        assertTrue(Files.exists(repo.resolve("config.json")));
         assertEquals(VaultDetector.Type.NORMAL, VaultDetector.detect(repo));
         // 数据仍在仓库根
         assertTrue(Files.exists(repo.resolve("aa").resolve("b.md")));

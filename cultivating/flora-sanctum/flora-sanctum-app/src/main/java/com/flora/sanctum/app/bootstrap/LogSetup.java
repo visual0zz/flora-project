@@ -31,7 +31,11 @@ public final class LogSetup {
 
     private static final String APP_NAME = "sanctum";
 
-    private static final String FILE_PATTERN = "%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger - %msg%n";
+    /**
+     * 行格式：时间戳、线程、级别、logger、消息，末段 {@code %ex} 追加关联异常的完整堆栈
+     * （无异常时为空）。缺了 {@code %ex} 则 {@code LOG.error(msg, throwable)} 关联的堆栈会被静默丢弃。
+     */
+    private static final String FILE_PATTERN = "%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger - %msg%n%ex";
 
     /**
      * 路径脱敏：掩盖用户主目录下的用户名段，避免日志泄露 OS 用户名与保险库位置。

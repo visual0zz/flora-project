@@ -36,10 +36,12 @@ import com.flora.sanctum.app.bootstrap.RepoCreator;
  * 同步结束后 {@code ssh-agent -k} 销毁该 agent 以清除内存中的密钥。相比写入临时文件（0600）的方案，
  * 彻底避免了密钥在磁盘/交换/休眠镜像中残留的可能。
  * <p>
- * 平台要求：git 与 ssh 命令跨平台一致。本方案的 SSH 部分依赖 {@code ssh-agent -s} / {@code ssh-add -} /
- * {@code ssh-keygen -y -f /dev/stdin}（私钥经管道而非文件传递）。在 Linux / macOS 与 Windows 的
- * <b>Git for Windows（其自带的 MSYS OpenSSH 支持上述用法）</b>下均可工作；Windows 的原生
- * {@code C:\Windows\System32\OpenSSH}（服务式 agent，无 {@code /dev/stdin}）不在支持范围内。
+ * 平台要求：git 与 ssh 命令跨平台一致。SSH 部分依赖 {@code ssh-agent -s} / {@code ssh-agent -k} /
+ * {@code ssh-add -}（私钥经管道而非文件传递）。Windows 上必须使用 <b>Git for Windows 自带的 MSYS
+ * OpenSSH</b>：本类由 {@code git --exec-path} 反推 Git 根目录下的 {@code usr/bin} 并显式调用其中的工具
+ * （见 {@link #locateGitUsrBin()}），而非按裸命令名调用——原生 {@code System32\OpenSSH} 的 agent 是
+ * 服务式的（需 ssh-agent 服务运行），不带 {@code -s}/{@code -k} 语义，且该目录在 PATH 中通常排在
+ * Git 之前，而 Git 的 MSYS 工具目录根本不在 PATH 上。
  */
 public final class SyncService {
 
@@ -160,6 +162,7 @@ public final class SyncService {
             // 1) git 可用性
             listener.markRunning(idx);
             if (!isGitAvailable()) {
+                LOG.error("Sync step failed: {}", titles.get(idx));
                 listener.markError(idx, "未检测到 git 命令");
                 listener.done(false, "未安装 git，无法同步");
                 throw new IllegalStateException("git command not found");
@@ -173,6 +176,7 @@ public final class SyncService {
                 initIfNeeded();
                 listener.markDone(idx, "仓库就绪");
             } catch (Exception e) {
+                LOG.error("Sync step failed: {}", titles.get(idx), e);
                 listener.markError(idx, e.getMessage());
                 listener.done(false, "初始化仓库失败：" + e.getMessage());
                 throw e;
@@ -192,6 +196,7 @@ public final class SyncService {
                     listener.markDone(idx, "无需 SSH 密钥");
                 }
             } catch (Exception e) {
+                LOG.error("Sync step failed: {}", titles.get(idx), e);
                 listener.markError(idx, e.getMessage());
                 listener.done(false, "启动 ssh-agent 失败：" + e.getMessage());
                 throw e;
@@ -216,10 +221,12 @@ public final class SyncService {
                     }
                     listener.markDone(idx, r.url());
                 } catch (IllegalArgumentException e) {
+                    LOG.error("Sync step failed: {}", titles.get(idx), e);
                     listener.markError(idx, e.getMessage());
                     listener.done(false, "远程 " + r.name() + " 的密钥无效：" + e.getMessage());
                     throw e;
                 } catch (Exception e) {
+                    LOG.error("Sync step failed: {}", titles.get(idx), e);
                     listener.markError(idx, e.getMessage());
                     listener.done(false, "配置远端 " + r.name() + " 失败：" + e.getMessage());
                     throw e;
@@ -234,6 +241,7 @@ public final class SyncService {
                 branch = ensureMainBranch();
                 listener.markDone(idx, "分支 " + branch);
             } catch (Exception e) {
+                LOG.error("Sync step failed: {}", titles.get(idx), e);
                 listener.markError(idx, e.getMessage());
                 listener.done(false, "准备主分支失败：" + e.getMessage());
                 throw e;
@@ -246,6 +254,7 @@ public final class SyncService {
                 commit("sanctum sync");
                 listener.markDone(idx, "已提交本地改动");
             } catch (Exception e) {
+                LOG.error("Sync step failed: {}", titles.get(idx), e);
                 listener.markError(idx, e.getMessage());
                 listener.done(false, "提交失败：" + e.getMessage());
                 throw e;
@@ -260,6 +269,7 @@ public final class SyncService {
                             "fetch", r.name());
                     listener.markDone(idx, "已拉取 " + r.name());
                 } catch (Exception e) {
+                    LOG.error("Sync step failed: {}", titles.get(idx), e);
                     listener.markError(idx, e.getMessage());
                     listener.done(false, "拉取 " + r.name() + " 失败：" + e.getMessage());
                     throw e;
@@ -286,7 +296,8 @@ public final class SyncService {
                                         "--no-verify", "-m", "sanctum merge auto-resolve");
                                 listener.markDone(idx, "合并并自动解决冲突 " + r.name());
                             } else {
-                                throw new IOException("git merge 返回 " + code);
+                                throw new IOException("git merge " + remoteBranch + " failed (exit "
+                                        + code + ")");
                             }
                         } else {
                             listener.markDone(idx, "已合并 " + r.name());
@@ -295,6 +306,7 @@ public final class SyncService {
                         listener.markDone(idx, "远端尚无 " + branch + " 分支，跳过合并");
                     }
                 } catch (Exception e) {
+                    LOG.error("Sync step failed: {}", titles.get(idx), e);
                     listener.markError(idx, e.getMessage());
                     listener.done(false, "合并 " + r.name() + " 失败：" + e.getMessage());
                     throw e;
@@ -310,6 +322,7 @@ public final class SyncService {
                             "push", r.name(), branch);
                     listener.markDone(idx, "已推送 " + r.name());
                 } catch (Exception e) {
+                    LOG.error("Sync step failed: {}", titles.get(idx), e);
                     listener.markError(idx, e.getMessage());
                     listener.done(false, "推送 " + r.name() + " 失败：" + e.getMessage());
                     throw e;
@@ -385,22 +398,85 @@ public final class SyncService {
         return new HashMap<>(agentEnv);
     }
 
+    private static boolean isWindows() {
+        return System.getProperty("os.name", "").toLowerCase().contains("win");
+    }
+
+    /**
+     * 定位 Git 自带的 MSYS OpenSSH 命令目录：由 {@code git --exec-path}（形如
+     * {@code <Git根>/mingw64/libexec/git-core}）上溯三层得到 Git 根目录，再拼 {@code usr/bin}。
+     * <p>
+     * 之所以不能按裸命令名（{@code ssh-agent}）直接调用：Windows 上 {@code System32\OpenSSH}
+     * 通常排在 PATH 更靠前，会命中原生 Windows agent；它是服务式的（要求 ssh-agent 服务处于运行状态），
+     * 不带 {@code -s}/{@code -k} 语义，会以 {@code unable to start ssh-agent service, error :1058} 失败。
+     *
+     * @return 命令目录；非 Git for Windows 布局或 git 不可用时返回 {@code null}（调用方回退 PATH）
+     */
+    private static Path locateGitUsrBin() {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("git", "--exec-path");
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+            String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+            if (p.waitFor() != 0 || out.isEmpty()) {
+                return null;
+            }
+            Path root = Path.of(out).toAbsolutePath();
+            for (int i = 0; i < 3 && root != null; i++) {
+                root = root.getParent();
+            }
+            if (root == null) {
+                return null;
+            }
+            Path dir = root.resolve("usr").resolve("bin");
+            return Files.isDirectory(dir) ? dir : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * SSH 工具命令的惰性解析缓存：优先使用 {@link #locateGitUsrBin() Git 自带}的版本，
+     * 该目录不存在时回退到裸命令名（按 PATH 解析，适用于 Linux/macOS）。
+     * <p>
+     * 用嵌套类而非静态字段，是为了把 {@code git --exec-path} 这次子进程探测推迟到真正需要 SSH 时。
+     */
+    private static final class SshTools {
+
+        private static final Path GIT_USR_BIN = locateGitUsrBin();
+
+        static final String AGENT = command("ssh-agent");
+
+        static final String ADD = command("ssh-add");
+
+        private static String command(String name) {
+            if (GIT_USR_BIN != null) {
+                Path exe = GIT_USR_BIN.resolve(isWindows() ? name + ".exe" : name);
+                if (Files.isExecutable(exe)) {
+                    return exe.toString();
+                }
+            }
+            return name;
+        }
+    }
+
     /**
      * 启动一个本次同步专用的 {@code ssh-agent}（通过 {@code ssh-agent -s} 解析其输出中的
      * {@code SSH_AUTH_SOCK} / {@code SSH_AGENT_PID}）。该 agent 仅服务于本次会话，结束后由
      * {@link #stopAgent(Map)} 销毁，密钥不会进入系统既有 agent，也不会落盘。
      */
     private static Map<String, String> startAgent() throws Exception {
-        ProcessBuilder pb = new ProcessBuilder("ssh-agent", "-s");
+        ProcessBuilder pb = new ProcessBuilder(SshTools.AGENT, "-s");
         pb.redirectErrorStream(true);
         Process p = pb.start();
         String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         int code = p.waitFor();
         if (code != 0) {
-            String hint = System.getProperty("os.name", "").toLowerCase().contains("win")
-                    ? "（Windows 需安装 Git for Windows 以使用其自带的 OpenSSH，原生 System32\\OpenSSH 不支持此用法）"
+            String hint = isWindows()
+                    ? "（需使用 Git for Windows 自带的 MSYS OpenSSH；原生 System32\\OpenSSH 为服务式 agent，"
+                            + "不支持 ssh-agent -s）"
                     : "";
-            throw new IOException("ssh-agent 启动失败: " + out.trim() + hint);
+            throw new IOException("ssh-agent 启动失败[" + SshTools.AGENT + "]: " + out.trim() + hint);
         }
         Map<String, String> env = new HashMap<>();
         Matcher m1 = Pattern.compile("SSH_AUTH_SOCK=([^;\\s]+)").matcher(out);
@@ -424,7 +500,7 @@ public final class SyncService {
      */
     private static void addKeyToAgent(String pem, Map<String, String> agentEnv) throws Exception {
         String validated = validateSshKeyPem(pem);
-        ProcessBuilder pb = new ProcessBuilder("ssh-add", "-");
+        ProcessBuilder pb = new ProcessBuilder(SshTools.ADD, "-");
         pb.environment().putAll(agentEnv);
         pb.redirectErrorStream(true);
         Process p = pb.start();
@@ -444,7 +520,7 @@ public final class SyncService {
             return;
         }
         try {
-            ProcessBuilder pb = new ProcessBuilder("ssh-agent", "-k");
+            ProcessBuilder pb = new ProcessBuilder(SshTools.AGENT, "-k");
             pb.environment().putAll(agentEnv);
             pb.redirectErrorStream(true);
             pb.start().waitFor();
@@ -501,7 +577,7 @@ public final class SyncService {
             Map<String, String> agent = startAgent();
             try {
                 addKeyToAgent(validated, agent);
-                ProcessBuilder pb = new ProcessBuilder("ssh-add", "-L");
+                ProcessBuilder pb = new ProcessBuilder(SshTools.ADD, "-L");
                 pb.environment().putAll(agent);
                 pb.redirectErrorStream(true);
                 Process p = pb.start();
@@ -546,6 +622,9 @@ public final class SyncService {
             listener.log("[" + label + "] " + text);
         }
         if (code != 0) {
+            // git 的原始输出（认证失败、权限不足等真实原因）只经 listener 进了进度窗，
+            // 这里补一条文件日志，否则异常消息里只剩退出码，事后无从回溯
+            LOG.error("git {} failed (exit {}): {}", String.join(" ", args), code, text);
             throw new IOException("git " + String.join(" ", args) + " failed (exit " + code + ")");
         }
     }

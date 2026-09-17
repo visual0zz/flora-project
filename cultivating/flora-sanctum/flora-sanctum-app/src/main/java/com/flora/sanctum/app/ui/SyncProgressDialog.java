@@ -6,6 +6,8 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -73,6 +75,13 @@ public final class SyncProgressDialog extends JDialog implements SyncStepListene
     private final JButton startBtn = new JButton("开始同步");
     private final JButton closeBtn = new JButton("关闭");
     private final JLabel summary = new JLabel("准备就绪 — 点击「开始同步」执行云同步");
+
+    /** 同步消息统一使用的时间戳格式（用于 done 摘要与日志行前缀）。 */
+    private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    private static String now() {
+        return LocalDateTime.now().format(DTF);
+    }
 
     /** 由外部注入：点击「开始同步」按钮时执行（实际同步逻辑在后台线程运行）。 */
     private Runnable startAction;
@@ -181,7 +190,12 @@ public final class SyncProgressDialog extends JDialog implements SyncStepListene
     public void log(String message) {
         SwingUtilities.invokeLater(() -> {
             if (message != null && !message.isBlank()) {
-                logArea.append(message.endsWith("\n") ? message : message + "\n");
+                String ts = now();
+                StringBuilder sb = new StringBuilder();
+                for (String line : message.split("\n")) {
+                    sb.append(ts).append("  ").append(line).append("\n");
+                }
+                logArea.append(sb.toString());
                 logArea.setCaretPosition(logArea.getDocument().getLength());
             }
         });
@@ -190,7 +204,9 @@ public final class SyncProgressDialog extends JDialog implements SyncStepListene
     @Override
     public void done(boolean ok, String message) {
         SwingUtilities.invokeLater(() -> {
-            summary.setText((ok ? "同步完成" : "同步失败") + "：" + (message == null ? "" : message));
+            String core = ok ? "同步完成" : "同步失败";
+            String body = (message == null || message.isBlank()) ? "" : "：" + message;
+            summary.setText(now() + "  " + core + body);
             summary.setForeground(ok ? new Color(60, 170, 90) : new Color(210, 70, 70));
             closeBtn.setEnabled(true);
         });

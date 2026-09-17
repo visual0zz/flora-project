@@ -317,7 +317,7 @@ public final class SyncService {
                 idx++;
             }
 
-            listener.done(true, "同步完成");
+            listener.done(true, "");
         } finally {
             // 销毁私有 ssh-agent，清除其内存中的全部密钥；即便中途异常也务必执行
             stopAgent(agentEnv);

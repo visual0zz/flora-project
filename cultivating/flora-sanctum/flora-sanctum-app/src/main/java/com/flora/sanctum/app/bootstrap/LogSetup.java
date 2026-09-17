@@ -2,8 +2,10 @@ package com.flora.sanctum.app.bootstrap;
 
 import com.flora.root.runtime.log.Level;
 import com.flora.root.runtime.log.LogConfig;
+import com.flora.root.runtime.log.LogMaskers;
 import com.flora.root.runtime.log.Logger;
 import com.flora.root.runtime.log.LoggerFactory;
+import com.flora.root.runtime.log.spi.Masker;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -31,6 +33,30 @@ public final class LogSetup {
 
     private static final String FILE_PATTERN = "%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger - %msg%n";
 
+    /**
+     * 路径脱敏：掩盖用户主目录下的用户名段，避免日志泄露 OS 用户名与保险库位置。
+     * {@link LogMaskers#DEFAULT} 已覆盖 URL 凭据/令牌/邮箱等，此处仅补足绝对路径这一缺口。
+     */
+    private static final Masker PATH_MASKER = text -> {
+        if (text == null) {
+            return null;
+        }
+        String r = text.replaceAll("([A-Za-z]:\\\\.+\\\\Users\\\\)[^\\\\]+", "$1****");
+        r = r.replaceAll("(/Users/|/home/)[^/]+", "$1****");
+        return r;
+    };
+
+    /**
+     * URL 凭据脱敏：默认规则集要求 {@code user:pass@} 两段，会漏掉 GitHub 等常用的
+     * {@code scheme://<token>@host}（令牌作用户名、无 password）形式。此处补足该高危场景。
+     */
+    private static final Masker URL_MASKER = text -> {
+        if (text == null) {
+            return null;
+        }
+        return text.replaceAll("([a-zA-Z][a-zA-Z0-9+\\-.]*)://[^\\s/@]+@", "$1://********@");
+    };
+
     private LogSetup() {
     }
 
@@ -56,6 +82,8 @@ public final class LogSetup {
             } else {
                 c.console(cc -> cc.pattern(FILE_PATTERN));
             }
+            // 开启全局日志脱敏：默认规则集 + URL 凭据（含 token@ 形式）+ 绝对路径用户名段掩盖
+            c.mask(LogMaskers.DEFAULT, URL_MASKER, PATH_MASKER);
         });
 
         installUncaughtExceptionHandler();

@@ -381,8 +381,19 @@ public class Layout {
         if (t == null) {
             return;
         }
+        // 优先使用脱敏后的堆栈文本；未脱敏（maskedThrowable 为 null）时回退原始渲染
+        String masked = event.getMaskedThrowable();
         if ("short".equals(option)) {
-            sb.append(t.toString());
+            if (masked != null) {
+                int nl = masked.indexOf('\n');
+                sb.append(nl >= 0 ? masked.substring(0, nl) : masked);
+            } else {
+                sb.append(t.toString());
+            }
+            return;
+        }
+        if (masked != null) {
+            sb.append(masked);
             return;
         }
         StringWriter sw = new StringWriter();

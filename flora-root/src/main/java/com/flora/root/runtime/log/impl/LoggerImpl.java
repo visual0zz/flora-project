@@ -346,8 +346,17 @@ public final class LoggerImpl implements Logger {
         if (masker != Masker.NONE) {
             formatted = masker.mask(formatted);
         }
+        // 异常堆栈同样可能含路径/凭据，预计算脱敏版本随事件携带，供布局渲染时使用
+        String maskedThrowable = null;
+        if (throwable != null && masker != Masker.NONE) {
+            java.io.StringWriter sw = new java.io.StringWriter();
+            try (java.io.PrintWriter pw = new java.io.PrintWriter(sw)) {
+                throwable.printStackTrace(pw);
+            }
+            maskedThrowable = masker.mask(sw.toString());
+        }
         StackTraceElement caller = needsCallerLocation() ? findCaller() : null;
-        LogEvent event = new LogEvent(name, level, msg, formatArgs, formatted, throwable, caller);
+        LogEvent event = new LogEvent(name, level, msg, formatArgs, formatted, throwable, caller, maskedThrowable);
         appendLoopOnAppenders(event);
     }
 

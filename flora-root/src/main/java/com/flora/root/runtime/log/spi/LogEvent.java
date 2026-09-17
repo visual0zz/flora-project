@@ -19,6 +19,8 @@ public class LogEvent {
     private final Thread thread;
     private final Throwable throwable;
     private final StackTraceElement callerLocation;
+    /** 脱敏后的异常堆栈文本；为 null 时由布局回退到原始堆栈渲染。 */
+    private final String maskedThrowable;
 
     /**
      * 构造日志事件（无异常、无调用位置）。
@@ -30,7 +32,7 @@ public class LogEvent {
      * @param formattedMessage 格式化后的完整消息
      */
     public LogEvent(String loggerName, Level level, String message, Object[] args, String formattedMessage) {
-        this(loggerName, level, message, args, formattedMessage, null, null);
+        this(loggerName, level, message, args, formattedMessage, null, null, null);
     }
 
     /**
@@ -44,8 +46,36 @@ public class LogEvent {
      * @param throwable        关联的异常，没有则为 null
      * @param callerLocation   触发日志调用的代码位置，未捕获则为 null
      */
+    /**
+     * 构造日志事件（脱敏堆栈使用 null，由布局回退到原始堆栈渲染）。
+     *
+     * @param loggerName       日志记录器名称
+     * @param level            日志级别
+     * @param message          原始日志消息（含占位符）
+     * @param args             消息参数
+     * @param formattedMessage 格式化后的完整消息
+     * @param throwable        关联的异常，没有则为 null
+     * @param callerLocation   触发日志调用的代码位置，未捕获则为 null
+     */
     public LogEvent(String loggerName, Level level, String message, Object[] args, String formattedMessage,
                     Throwable throwable, StackTraceElement callerLocation) {
+        this(loggerName, level, message, args, formattedMessage, throwable, callerLocation, null);
+    }
+
+    /**
+     * 构造日志事件。
+     *
+     * @param loggerName       日志记录器名称
+     * @param level            日志级别
+     * @param message          原始日志消息（含占位符）
+     * @param args             消息参数
+     * @param formattedMessage 格式化后的完整消息
+     * @param throwable        关联的异常，没有则为 null
+     * @param callerLocation   触发日志调用的代码位置，未捕获则为 null
+     * @param maskedThrowable  脱敏后的异常堆栈文本，未脱敏则为 null
+     */
+    public LogEvent(String loggerName, Level level, String message, Object[] args, String formattedMessage,
+                    Throwable throwable, StackTraceElement callerLocation, String maskedThrowable) {
         this.loggerName = loggerName;
         this.level = level;
         this.message = message;
@@ -55,6 +85,7 @@ public class LogEvent {
         this.thread = Thread.currentThread();
         this.throwable = throwable;
         this.callerLocation = callerLocation;
+        this.maskedThrowable = maskedThrowable;
     }
 
     /**
@@ -111,6 +142,13 @@ public class LogEvent {
      */
     public Throwable getThrowable() {
         return throwable;
+    }
+
+    /**
+     * @return 脱敏后的异常堆栈文本（若脱敏器生效）；未脱敏时为 null
+     */
+    public String getMaskedThrowable() {
+        return maskedThrowable;
     }
 
     /**

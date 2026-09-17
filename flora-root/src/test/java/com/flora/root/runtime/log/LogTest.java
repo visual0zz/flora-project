@@ -663,6 +663,40 @@ class LogTest {
     }
 
     /**
+     * 测试 %ex 优先渲染脱敏后的堆栈文本，敏感字段不会随异常堆栈落到输出。
+     * <p>直接构造携带 maskedThrowable 的事件（与 LoggerImpl 预计算脱敏堆栈的行为一致），
+     * 验证布局渲染使用脱敏版本而非原始 printStackTrace。</p>
+     */
+    @Test
+    void testLayoutThrowableConverterUsesMaskedStack() {
+        // 异常消息含敏感凭据，模拟真实场景中的泄漏点
+        Throwable t = new IllegalStateException("auth failed api_key=abcdef12345678");
+
+        StringWriter sw = new StringWriter();
+        try (PrintWriter pw = new PrintWriter(sw)) {
+            t.printStackTrace(pw);
+        }
+        String rawStack = sw.toString();
+        assertTrue(rawStack.contains("abcdef12345678"), "原始堆栈应含敏感值用于对照");
+
+        // LoggerImpl 会将脱敏后的完整堆栈随事件携带
+        String maskedStack = LogMasker.DEFAULT.mask(rawStack);
+        assertFalse(maskedStack.contains("abcdef12345678"), "脱敏后不应再含敏感值: " + maskedStack);
+
+        LogEvent masked = new LogEvent("t", Level.ERROR, "m", null, "m", t, null, maskedStack);
+
+        Layout full = new Layout("%ex");
+        String out = full.format(masked);
+        assertFalse(out.contains("abcdef12345678"), "完整堆栈不应泄漏敏感值: " + out);
+        assertTrue(out.contains("api_key=********"), "完整堆栈应使用脱敏版本: " + out);
+
+        Layout shortFmt = new Layout("%ex{short}");
+        String shortOut = shortFmt.format(masked);
+        assertFalse(shortOut.contains("abcdef12345678"), "short 堆栈不应泄漏敏感值: " + shortOut);
+        assertTrue(shortOut.contains("api_key=********"), "short 堆栈应使用脱敏版本: " + shortOut);
+    }
+
+    /**
      * 测试调用位置转换符 %C/%M/%L/%F 输出捕获到的位置，且 requiresCallerLocation 正确识别。
      */
     @Test

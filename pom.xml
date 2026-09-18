@@ -22,6 +22,7 @@
         <module>flora-tangle/testbed</module>
         <module>cultivating/flora-hanako</module>
         <module>cultivating/flora-sanctum</module>
+        <module>cultivating/flora-honey</module>
     </modules>
 
     <properties>

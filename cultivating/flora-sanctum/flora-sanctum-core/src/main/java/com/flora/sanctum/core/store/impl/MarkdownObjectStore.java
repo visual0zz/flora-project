@@ -8,6 +8,7 @@ import com.flora.sanctum.core.store.ObjectStore;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -110,20 +111,75 @@ public final class MarkdownObjectStore implements ObjectStore {
         try {
             Files.createDirectories(file.getParent());
             Files.writeString(tmp, timestamp + ":" + Base64.getEncoder().encodeToString(toWrite) + "\n", StandardCharsets.UTF_8);
-            try {
-                Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (AtomicMoveNotSupportedException e) {
-                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
-            }
+            atomicReplace(tmp, file);
             return new Block(file, 1, timestamp, toWrite, toWrite, blockUuid);
         } catch (IOException e) {
             throw new IllegalStateException("write failed: " + file, e);
         } finally {
-            // 任何异常路径下都清理可能残留的临时文件（scan 仅匹配 .md，残留 .tmp 不会被误读）。
+            // 任何异常路径下都清理可能残留的临时文件（scan 只匹配块扩展名，残留 .tmp / .bak 不会被误读）。
             try {
                 Files.deleteIfExists(tmp);
             } catch (IOException ignore) {
             }
+        }
+    }
+
+    /**
+     * 把 {@code tmp} 落盘为 {@code target}，跨平台安全。
+     * <p>
+     * POSIX 的 {@code rename} 允许覆盖一个仍被打开的目标文件，因此 {@code ATOMIC_MOVE + REPLACE_EXISTING}
+     * 直接可用；但 Windows 禁止「替换」一个仍被占用（如被防病毒/系统短暂持有）的目标，会抛
+     * {@link AccessDeniedException}。此时改用 {@link #safeReplace} 的「先把目标改名让位、再把 tmp 落位」
+     * 旁路——Windows 允许重命名打开的文件，只是不允许替换它。
+     */
+    private void atomicReplace(Path tmp, Path target) throws IOException {
+        try {
+            Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException | AccessDeniedException e) {
+            safeReplace(tmp, target);
+        }
+    }
+
+    /**
+     * 非原子但 Windows 安全的替换：先把已存在目标改名为 {@code .bak} 让开位置，再把 tmp 移入，
+     * 最后删除备份。对 Windows 上偶发的句柄占用做有限重试；仍失败则尝试把备份还原，避免目标丢失。
+     */
+    private void safeReplace(Path tmp, Path target) throws IOException {
+        Path backup = target.resolveSibling(target.getFileName().toString() + ".bak");
+        IOException last = null;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                if (Files.exists(target)) {
+                    // 重命名打开的文件在 Windows 上允许；被禁止的是「替换」打开的文件。
+                    Files.move(target, backup, StandardCopyOption.REPLACE_EXISTING);
+                }
+                Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+                last = null;
+                break;
+            } catch (AccessDeniedException e) {
+                last = e;
+                // 让出时间等待占用方释放句柄后重试。
+                try {
+                    Thread.sleep(10L);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        if (last != null) {
+            // 若已把目标让位但 tmp 未落盘成功，把备份还原，避免目标丢失。
+            if (Files.exists(backup) && !Files.exists(target)) {
+                try {
+                    Files.move(backup, target, StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException ignore) {
+                }
+            }
+            throw last;
+        }
+        try {
+            Files.deleteIfExists(backup);
+        } catch (IOException ignore) {
         }
     }
 

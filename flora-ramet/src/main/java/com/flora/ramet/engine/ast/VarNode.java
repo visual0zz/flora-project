@@ -1,6 +1,7 @@
 package com.flora.ramet.engine.ast;
 
 import com.flora.ramet.engine.model.Lson;
+import com.flora.ramet.engine.TemplateUtils;
 import com.flora.ramet.engine.runtime.Context;
 import com.flora.ramet.engine.runtime.RefResolver;
 
@@ -33,6 +34,13 @@ public class VarNode extends Node {
     public void render(Context ctx, StringBuilder out) throws IOException {
         Object lsonVal = Lson.parse(expr, line);
         Object v = RefResolver.evalCtx(lsonVal, ctx);
-        out.append(v == null ? "" : v.toString());
+        if (v == null) {
+            if (ctx.strictNull) {
+                throw TemplateUtils.err(line, "插值结果为 null（strictNull）：表达式 " + expr
+                        + " 未解析出值，请检查 @Param 或改用 @Config{ strictNull: false } 容错");
+            }
+            return;
+        }
+        out.append(v.toString());
     }
 }

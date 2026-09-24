@@ -135,6 +135,169 @@ class NodeTest {
         assertTrue(content.contains("Hi "), content);
     }
 
+    // ---- 宏默认参数（= 默认值） ----
+
+    @Test
+    void macroDefaultParamUsedWhenArgOmitted() throws IOException {
+        String tpl = """
+                <#meta>@Path{ "C.java" }</#meta>
+                <#macro greet:who="Guest">Hi ${who}</#macro>
+                <@greet/>
+                """;
+        String content = gen(tpl).get(0).content();
+        assertTrue(content.contains("Hi Guest"), content);
+    }
+
+    @Test
+    void macroDefaultParamOverriddenByArg() throws IOException {
+        String tpl = """
+                <#meta>@Path{ "C.java" }</#meta>
+                <#macro greet:who="Guest">Hi ${who}</#macro>
+                <@greet "Bob"/>
+                """;
+        String content = gen(tpl).get(0).content();
+        assertTrue(content.contains("Hi Bob"), content);
+        assertEquals(-1, content.indexOf("Guest"));
+    }
+
+    // ---- 跨文件宏引用（include 一个定义宏的库后调用） ----
+
+    @Test
+    void crossFileMacroIncludeThenCall() throws IOException {
+        String lib = "<#macro greet:who>Hi ${who}</#macro>";
+        String host = "<#meta>@Path{ \"H.java\" }</#meta><#include \"lib.ftl\"><@greet \"Bob\"/>";
+        String content = TemplateEngine.generate(host,
+                        TemplateRepository.from(Map.of("lib.ftl", TemplateEngine.precompile(lib))))
+                .get(0).content();
+        assertTrue(content.contains("Hi Bob"), content);
+    }
+
+    @Test
+    void crossFileMacroWithDefaultParam() throws IOException {
+        String lib = "<#macro greet:who=\"Guest\">Hi ${who}</#macro>";
+        String host = "<#meta>@Path{ \"H.java\" }</#meta><#include \"lib.ftl\"><@greet/><@greet \"Bob\"/>";
+        String content = TemplateEngine.generate(host,
+                        TemplateRepository.from(Map.of("lib.ftl", TemplateEngine.precompile(lib))))
+                .get(0).content();
+        assertTrue(content.contains("Hi Guest"), content);
+        assertTrue(content.contains("Hi Bob"), content);
+    }
+
+    @Test
+    void nestedCrossFileMacroHostCallsLibMacro() throws IOException {
+        String lib = "<#macro wrap:x>[${x}]</#macro>";
+        String host = """
+                <#meta>@Path{ "H.java" }</#meta>
+                <#macro use:y><@wrap y/></#macro>
+                <#include "lib.ftl">
+                <@use "Z"/>
+                """;
+        String content = TemplateEngine.generate(host,
+                        TemplateRepository.from(Map.of("lib.ftl", TemplateEngine.precompile(lib))))
+                .get(0).content();
+        assertTrue(content.contains("[Z]"), content);
+    }
+
+    @Test
+    void callingCrossFileMacroBeforeIncludeThrows() {
+        String lib = "<#macro greet:who>Hi ${who}</#macro>";
+        String host = "<#meta>@Path{ \"H.java\" }</#meta><@greet \"Bob\"/><#include \"lib.ftl\">";
+        CodeGenException ex = assertThrows(CodeGenException.class,
+                () -> TemplateEngine.generate(host,
+                        TemplateRepository.from(Map.of("lib.ftl", TemplateEngine.precompile(lib)))));
+        assertTrue(ex.getMessage().contains("未定义"), ex.getMessage());
+    }
+
+    // ---- 循环控制：break / continue 实际渲染 ----
+
+    @Test
+    void forLoopBreakRendersOnlyFirstItem() throws IOException {
+        String tpl = """
+                <#meta>@Param{ items: ["a", "b", "c"] } @Path{ "C.txt" }</#meta>
+                <#for it:items>${it}<#break></#for>
+                """;
+        String content = gen(tpl).get(0).content().trim();
+        assertEquals("a", content);
+    }
+
+    @Test
+    void forLoopContinueSkipsMatchedItem() throws IOException {
+        String tpl = """
+                <#meta>@Param{ items: ["a", "b", "c"] } @Path{ "C.txt" }</#meta>
+                <#for it:items><#if it equals "b"><#continue></#if>${it}</#for>
+                """;
+        String content = gen(tpl).get(0).content().trim();
+        assertEquals("ac", content);
+    }
+
+    // ---- 循环控制：break / continue 的 depth 与条件参数 ----
+
+    @Test
+    void forLoopBreakWithDepthExitsNestedLoops() throws IOException {
+        String tpl = "<#meta>@Param{ outer: [1, 2], inner: [\"a\", \"b\"] } @Path{ \"C.txt\" }</#meta>"
+                + "<#for i:outer>[${i}<#for j:inner>${j}<#break 2></#for>]</#for>";
+        String content = gen(tpl).get(0).content().trim();
+        assertEquals("[1a", content);
+    }
+
+    @Test
+    void forLoopContinueWithDepthSkipsBothLevels() throws IOException {
+        String tpl = "<#meta>@Param{ outer: [1, 2], inner: [\"a\", \"b\"] } @Path{ \"C.txt\" }</#meta>"
+                + "<#for i:outer><#for j:inner>${i}${j}<#continue 2></#for></#for>";
+        String content = gen(tpl).get(0).content().trim();
+        assertEquals("1a2a", content);
+    }
+
+    @Test
+    void forLoopBreakWithCondition() throws IOException {
+        String tpl = """
+                <#meta>@Param{ items: ["a", "b", "c"] } @Path{ "C.txt" }</#meta>
+                <#for it:items>${it}<#if it equals "b"><#break></#if></#for>
+                """;
+        String content = gen(tpl).get(0).content().trim();
+        assertEquals("ab", content);
+    }
+
+    // ---- 宏体内部包含控制结构 / 同文件宏互相调用 ----
+
+    @Test
+    void macroBodyContainsForLoop() throws IOException {
+        String tpl = """
+                <#meta>@Param{ items: ["a", "b"] } @Path{ "C.java" }</#meta>
+                <#macro list:xs><#for x:xs>-${x}-</#for></#macro>
+                <@list items/>
+                """;
+        String content = gen(tpl).get(0).content();
+        assertTrue(content.contains("-a-"), content);
+        assertTrue(content.contains("-b-"), content);
+    }
+
+    @Test
+    void sameFileMacroCallsAnotherMacro() throws IOException {
+        String tpl = """
+                <#meta>@Path{ "C.java" }</#meta>
+                <#macro inner:x>(${x})</#macro>
+                <#macro outer:y><@inner y/></#macro>
+                <@outer "Z"/>
+                """;
+        String content = gen(tpl).get(0).content();
+        assertTrue(content.contains("(Z)"), content);
+    }
+
+    @Test
+    void twoLevelCrossFileMacroChain() throws IOException {
+        String lib1 = "<#macro A:x>[${x}]</#macro>";
+        String lib2 = "<#macro B:y><@A y/></#macro>";
+        String host = "<#meta>@Path{ \"H.java\" }</#meta>"
+                + "<#include \"lib1.ftl\"><#include \"lib2.ftl\"><@B \"Z\"/>";
+        String content = TemplateEngine.generate(host,
+                        TemplateRepository.from(Map.of(
+                                "lib1.ftl", TemplateEngine.precompile(lib1),
+                                "lib2.ftl", TemplateEngine.precompile(lib2))))
+                .get(0).content();
+        assertTrue(content.contains("[Z]"), content);
+    }
+
     @Test
     void includeResolvesViaLeadingSlash() throws IOException {
         String included = "[${v}]";
@@ -257,6 +420,65 @@ class NodeTest {
                 """;
         String content = gen(tpl).get(0).content();
         assertTrue(content.contains("DD"), content);
+    }
+
+    // ---- @Config{ strictNull } 严格 null 求值 ----
+
+    @Test
+    void strictNullEnabledThrowsOnNullInterpolation() {
+        String tpl = "<#meta>@Config{ strictNull: true } @Path{ \"C.java\" }</#meta>${missing}";
+        CodeGenException ex = assertThrows(CodeGenException.class, () -> gen(tpl));
+        assertTrue(ex.getMessage().contains("null"), ex.getMessage());
+    }
+
+    @Test
+    void strictNullDisabledToleratesNull() throws IOException {
+        String tpl = "<#meta>@Config{ strictNull: false } @Path{ \"C.java\" }</#meta>${missing}";
+        List<TemplateEngine.Generated> results = gen(tpl);
+        assertEquals(1, results.size());
+        // 容错：null 输出为空串，不抛异常，且字面 "missing" 不应出现在输出
+        assertEquals(-1, results.get(0).content().indexOf("missing"));
+    }
+
+    // ---- 转义函数 html / xml / js（仅转义插值，不转义字面代码） ----
+
+    @Test
+    void escapeFunctionHtmlEscapesInterpolatedValue() throws IOException {
+        String tpl = """
+                <#meta>@Param{ x: "a<b&c" } @Path{ "C.java" }</#meta>
+                ${html(x)}
+                """;
+        String content = gen(tpl).get(0).content();
+        assertTrue(content.contains("a&lt;b&amp;c"), content);
+    }
+
+    @Test
+    void escapeFunctionXmlEscapesInterpolatedValue() throws IOException {
+        String tpl = """
+                <#meta>@Param{ x: "<b>'x'</b>" } @Path{ "C.java" }</#meta>
+                ${xml(x)}
+                """;
+        String content = gen(tpl).get(0).content();
+        assertTrue(content.contains("&lt;b&gt;&apos;x&apos;&lt;/b&gt;"), content);
+    }
+
+    @Test
+    void escapeFunctionJsEscapesInterpolatedValue() throws IOException {
+        String tpl = """
+                <#meta>@Param{ x: "a'b" } @Path{ "C.java" }</#meta>
+                ${js(x)}
+                """;
+        String content = gen(tpl).get(0).content();
+        assertTrue(content.contains("a\\'b"), content);
+    }
+
+    @Test
+    void escapeFunctionOnlyEscapesInterpolatedValueNotLiteral() throws IOException {
+        // 字面 <div> 不应被转义；只有 ${html(x)} 的插值被转义
+        String tpl = "<#meta>@Param{ x: \"a<b\" } @Path{ \"C.html\" }</#meta><div>${html(x)}</div>";
+        String content = gen(tpl).get(0).content();
+        assertTrue(content.contains("<div>"), "字面 <div> 不应被转义: " + content);
+        assertTrue(content.contains("a&lt;b"), "插值应被转义: " + content);
     }
 
     @Test

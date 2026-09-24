@@ -3,6 +3,7 @@ package com.flora.ramet.engine.runtime;
 import com.flora.ramet.engine.LazyArg;
 import com.flora.ramet.TemplateFunction;
 import com.flora.ramet.engine.CodeGenException;
+import com.flora.ramet.engine.OutputEscaper;
 import com.flora.ramet.engine.model.LsonNumber;
 
 import java.util.ArrayList;
@@ -88,6 +89,9 @@ enum BuiltinFunc {
                 .replace("\r", "\\r")
                 .replace("\t", "\\t") + "\"";
     })),
+    HTML(fn("html", 1, args -> OutputEscaper.escapeHtml(str(args.get(0).eval())))),
+    XML(fn("xml", 1, args -> OutputEscaper.escapeXml(str(args.get(0).eval())))),
+    JS(fn("js", 1, args -> OutputEscaper.escapeJs(str(args.get(0).eval())))),
     CONCAT(fn("concat", -1, args -> {
         StringBuilder sb = new StringBuilder();
         for (LazyArg a : args) {

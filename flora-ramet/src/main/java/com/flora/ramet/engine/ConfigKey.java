@@ -18,19 +18,10 @@ public enum ConfigKey {
     /**
      * 是否启用严格的 null 求值：当 {@code ${表达式}} 求值为 {@code null} 时直接抛错。
      * <p>类型: {@code boolean}
-     * <br>默认值: {@code true}（默认严格，null 即报错）
-     * <br>设为 {@code false} 时恢复为容错行为：{@code null} 输出为空串。
+     * <br>默认值: {@code false}（默认容错，null 输出为空串，保持既有行为）
+     * <br>设为 {@code true} 时开启严格模式：{@code null} 即抛错，便于尽早暴露缺失数据/参数。
      */
-    STRICT_NULL("strictNull"),
-
-    /**
-     * 输出转义方案：对渲染后的「最终输出」整体按指定方案转义。
-     * <p>类型: {@code String}
-     * <br>支持值: {@code html} / {@code xml} / {@code js} / {@code none}
-     * <br>默认值: 不设置（即不转义）。显式设为 {@code none} 也等同于不转义。
-     * <br>该转义作用于模板渲染产物，警告注释在转义之后注入，不会被二次转义。
-     */
-    ESCAPE("escape");
+    STRICT_NULL("strictNull");
 
     private final String key;
 

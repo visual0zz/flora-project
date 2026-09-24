@@ -25,6 +25,12 @@ import java.util.*;
 public final class Context {
     private final Map<String, Object> vars = new HashMap<>();
     public final Map<String, Object> params;
+    /**
+     * 严格 null 求值开关：为 true 时，{@code ${表达式}} 求值为 null 直接抛错；
+     * 为 false 时容错输出空串。默认容错（false），可在 {@code @Config{ strictNull: true }} 开启。
+     * 子上下文继承父上下文的取值。
+     */
+    public boolean strictNull = false;
     private Map<String, MacroDefNode> macros;
     public final TemplateRepository repo;
     /**
@@ -79,6 +85,7 @@ public final class Context {
         Context c = new Context(params, repo, source);
         c.parent = this;
         c.macros = this.macros;
+        c.strictNull = this.strictNull;
         c.includeChain = this.includeChain; // 共享引用，保证跨层检测
         c.macroCallChain = this.macroCallChain; // 共享引用，宏调用跨上下文
         return c;

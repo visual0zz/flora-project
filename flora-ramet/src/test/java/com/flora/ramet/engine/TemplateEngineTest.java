@@ -262,6 +262,22 @@ class TemplateEngineTest {
         assertEquals(2, results.size(), "不同路径应生成多个文件");
     }
 
+    // ---- @SkipWhen 元数据 ----
+
+    @Test
+    void skipWhenTrueSkipsGeneration() throws IOException {
+        String tpl = "<#meta>@Param{ skip: true } @SkipWhen{ skip } @Path{ \"S.java\" }</#meta>body";
+        assertTrue(TemplateEngine.generate(tpl, TemplateRepository.none()).isEmpty());
+    }
+
+    @Test
+    void skipWhenFalseKeepsGeneration() throws IOException {
+        String tpl = "<#meta>@Param{ skip: false } @SkipWhen{ skip } @Path{ \"S.java\" }</#meta>body";
+        List<TemplateEngine.Generated> results = TemplateEngine.generate(tpl, TemplateRepository.none());
+        assertEquals(1, results.size());
+        assertTrue(results.get(0).content().contains("body"));
+    }
+
     @Test
     void actualFactoryTemplateProducesSingleFile() throws IOException {
         // 使用实际的 FastTupleFactory.ramet 模板内容

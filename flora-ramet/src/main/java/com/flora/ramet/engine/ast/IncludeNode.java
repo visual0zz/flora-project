@@ -48,6 +48,11 @@ public class IncludeNode extends Node {
         try {
             // 被 include 模板的 source 更新为其 key，使其内部的 include 继续以正确基准解析。
             Context ic = ctx.child(key);
+            // 预注册被包含模板中定义的宏到共享宏表，使其对宿主及后续渲染可见
+            // （MacroDefNode.render 为 no-op，注册工作必须在此统一完成，与 TemplateBody.render 一致）。
+            for (Node n : compiled.nodes()) {
+                if (n instanceof MacroDefNode m) ic.putMacro(m.name, m);
+            }
             for (Node n : compiled.nodes()) {
                 n.render(ic, out);
             }

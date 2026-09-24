@@ -3,40 +3,34 @@ package com.flora.ramet.engine;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * 验证 {@link OutputEscaper} 的各转义方案与默认（不转义）行为。
+ * 验证 {@link OutputEscaper} 的按值转义原语（被内置函数 html / xml / js 复用）。
  */
 class OutputEscaperTest {
 
     @Test
     void htmlEscapesSpecialChars() {
         assertEquals("&amp;&lt;&gt;&quot;&#39;",
-                OutputEscaper.escape("&<>\"'", "html"));
+                OutputEscaper.escapeHtml("&<>\"'"));
     }
 
     @Test
     void xmlUsesAposForSingleQuote() {
         assertEquals("&lt;b&gt;&apos;x&apos;&lt;/b&gt;",
-                OutputEscaper.escape("<b>'x'</b>", "xml"));
+                OutputEscaper.escapeXml("<b>'x'</b>"));
     }
 
     @Test
     void jsEscapesQuotesAndControlChars() {
         assertEquals("\\\"a\\\"\\nb\\n\\'",
-                OutputEscaper.escape("\"a\"\nb\n'", "js"));
+                OutputEscaper.escapeJs("\"a\"\nb\n'"));
     }
 
     @Test
-    void nullOrEmptySchemeLeavesUnchanged() {
-        assertEquals("<a>&", OutputEscaper.escape("<a>&", null));
-        assertEquals("<a>&", OutputEscaper.escape("<a>&", ""));
-        assertEquals("<a>&", OutputEscaper.escape("<a>&", "none"));
-    }
-
-    @Test
-    void unknownSchemeThrows() {
-        assertThrows(CodeGenException.class, () -> OutputEscaper.escape("x", "foo"));
+    void emptyStringEscapesToEmpty() {
+        assertEquals("", OutputEscaper.escapeHtml(""));
+        assertEquals("", OutputEscaper.escapeXml(""));
+        assertEquals("", OutputEscaper.escapeJs(""));
     }
 }

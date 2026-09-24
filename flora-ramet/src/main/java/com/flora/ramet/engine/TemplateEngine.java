@@ -1,6 +1,7 @@
 package com.flora.ramet.engine;
 
 import com.flora.ramet.engine.ast.Node;
+import com.flora.ramet.engine.ConfigKey;
 import com.flora.ramet.engine.model.TemplateMeta;
 import com.flora.ramet.engine.runtime.Context;
 import com.flora.ramet.engine.runtime.TemplateBody;
@@ -83,7 +84,7 @@ public final class TemplateEngine {
                     mergedParams.put(entry.getKey(), entry.getValue());
                 }
             }
-            String content = renderBody(tpl.nodes(), mergedParams, repo, srcName);
+            String content = renderBody(tpl.nodes(), mergedParams, repo, srcName, meta.config());
             content = OutputDecorator.decorate(content, variants.get(0).outputPath(), meta.config(), srcName);
             results.add(new Generated(content, variants.get(0).outputPath()));
         } else {
@@ -91,7 +92,7 @@ public final class TemplateEngine {
             Map<String, List<String>> merged = new LinkedHashMap<>();
             String lastPath = null;
             for (TemplateMeta.Variant v : variants) {
-                String rawContent = renderBody(tpl.nodes(), v.params(), repo, srcName);
+                String rawContent = renderBody(tpl.nodes(), v.params(), repo, srcName, meta.config());
                 String content;
                 if (!v.outputPath().equals(lastPath)) {
                     lastPath = v.outputPath();
@@ -110,9 +111,14 @@ public final class TemplateEngine {
 
     /** 渲染 Node 列表。 */
     private static String renderBody(List<Node> nodes, Map<String, Object> params,
-                                      TemplateRepository repo, String source) {
+                                      TemplateRepository repo, String source,
+                                      Map<String, Object> config) {
         try {
-            return TemplateBody.of(nodes).render(Context.of(params, repo, source));
+            Context ctx = Context.of(params, repo, source);
+            if (config != null && Boolean.TRUE.equals(config.get(ConfigKey.STRICT_NULL.key()))) {
+                ctx.strictNull = true;
+            }
+            return TemplateBody.of(nodes).render(ctx);
         } catch (java.io.IOException e) {
             throw new CodeGenException("渲染失败: " + e.getMessage(), e);
         }

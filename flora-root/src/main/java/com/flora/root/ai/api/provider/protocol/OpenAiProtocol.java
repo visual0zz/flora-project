@@ -221,7 +221,10 @@ public final class OpenAiProtocol {
         if (usage == null) {
             return TokenUsage.ZERO;
         }
-        return new TokenUsage(JsonHelper.intOf(usage.get("prompt_tokens")), JsonHelper.intOf(usage.get("completion_tokens")),
-                JsonHelper.intOf(usage.get("prompt_tokens_details")), 0);
+        // prompt_tokens_details 是对象（含 cached_tokens / audio_tokens 等），需取其 cached_tokens
+        Map<?, ?> details = JsonHelper.asMap(usage.get("prompt_tokens_details"));
+        int cacheRead = details == null ? 0 : JsonHelper.intOf(details.get("cached_tokens"));
+        return new TokenUsage(JsonHelper.intOf(usage.get("prompt_tokens")),
+                JsonHelper.intOf(usage.get("completion_tokens")), cacheRead, 0);
     }
 }

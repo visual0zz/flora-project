@@ -217,6 +217,10 @@ public final class DeepSeekProtocol {
     public record Delta(String text, boolean thinking) {
     }
 
+    /** 流式工具调用碎片（OpenAI 兼容格式，按 index 分片）。 */
+    public record ToolCallFragment(int index, String id, String name, String arguments) {
+    }
+
     /** 从 SSE data 提取流式增量（choices[0].delta）。 */
     public static Delta extractStreamDelta(String data) {
         Map<String, Object> root = JsonParser.parseObject(data).toMap();
@@ -234,5 +238,24 @@ public final class DeepSeekProtocol {
             return new Delta(thinking, true);
         }
         return null;
+    }
+
+    /** 从 SSE data 提取流式工具调用碎片（choices[0].delta.tool_calls）。 */
+    public static List<ToolCallFragment> extractStreamToolCalls(String data) {
+        Map<String, Object> root = JsonParser.parseObject(data).toMap();
+        List<?> choices = JsonHelper.asList(root.get("choices"));
+        if (choices.isEmpty()) {
+            return List.of();
+        }
+        Map<String, Object> delta = JsonHelper.asMap(JsonHelper.asMap(choices.get(0)).get("delta"));
+        List<ToolCallFragment> out = new ArrayList<>();
+        for (Object tc : JsonHelper.asList(delta.get("tool_calls"))) {
+            Map<String, Object> call = JsonHelper.asMap(tc);
+            int index = JsonHelper.intOf(call.get("index"));
+            Map<String, Object> fn = JsonHelper.asMap(call.get("function"));
+            out.add(new ToolCallFragment(index, JsonHelper.str(call.get("id")),
+                    JsonHelper.str(fn.get("name")), JsonHelper.str(fn.get("arguments"))));
+        }
+        return out;
     }
 }

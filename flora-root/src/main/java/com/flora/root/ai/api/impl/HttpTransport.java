@@ -1,5 +1,9 @@
 package com.flora.root.ai.api.impl;
 
+import com.flora.root.concurrent.retry.Backoff;
+import com.flora.root.concurrent.retry.RetryPolicy;
+import com.flora.root.concurrent.retry.Retryer;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -12,6 +16,9 @@ import java.util.function.Consumer;
  * 轻量 HTTP 传输层：封装 JDK {@code HttpClient}。
  * <p>提供 JSON POST（返回字符串）与 SSE 流式 POST（事件回调）。
  * 仅 JDK，零外部依赖。</p>
+ * <p>JSON POST 复用 {@code concurrent.retry} 做退避重试：对网络异常与可重试状态码
+ * （429 / 5xx）重试，最多 3 次、指数退避。流式 POST 不重试（请求体已流式消费，
+ * 重试会导致重复发送）。</p>
  *
  * <pre>{@code
  * HttpTransport t = HttpTransport.create();
@@ -22,25 +29,53 @@ import java.util.function.Consumer;
 public final class HttpTransport {
 
     private final HttpClient client;
+    private final Retryer retryer;
 
-    private HttpTransport(HttpClient client) {
+    private HttpTransport(HttpClient client, Retryer retryer) {
         this.client = client;
+        this.retryer = retryer;
     }
 
-    /** 创建默认传输层。 */
+    /** 创建默认传输层（带默认重试策略）。 */
     public static HttpTransport create() {
         return new HttpTransport(HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(30))
+                .build(), defaultRetryer());
+    }
+
+    /** 创建自定义传输层（注入配置好的 HttpClient，带默认重试策略）。 */
+    public static HttpTransport of(HttpClient client) {
+        return new HttpTransport(client, defaultRetryer());
+    }
+
+    /** 创建自定义传输层（注入配置好的 HttpClient 与重试策略）。 */
+    public static HttpTransport of(HttpClient client, Retryer retryer) {
+        return new HttpTransport(client, retryer);
+    }
+
+    /** 默认重试策略：3 次、指数退避（200ms→5s），重试网络异常与 429/5xx。 */
+    private static Retryer defaultRetryer() {
+        return Retryer.of(RetryPolicy.builder()
+                .maxAttempts(3)
+                .backoff(Backoff.exponential(Duration.ofMillis(200), 2.0, Duration.ofSeconds(5)))
+                .retryOn(t -> t instanceof HttpTransportException
+                        || (t instanceof HttpStatusException he
+                        && (he.status() == 429 || he.status() >= 500)))
                 .build());
     }
 
-    /** 创建自定义传输层（注入配置好的 HttpClient）。 */
-    public static HttpTransport of(HttpClient client) {
-        return new HttpTransport(client);
+    /** POST JSON 请求，返回响应体字符串（带退避重试）。 */
+    public String postJson(String url, Map<String, String> headers, String jsonBody) {
+        try {
+            return retryer.call(() -> doPostJson(url, headers, jsonBody));
+        } catch (HttpStatusException | HttpTransportException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new HttpTransportException("HTTP 请求失败: " + url, e);
+        }
     }
 
-    /** POST JSON 请求，返回响应体字符串。 */
-    public String postJson(String url, Map<String, String> headers, String jsonBody) {
+    private String doPostJson(String url, Map<String, String> headers, String jsonBody) {
         HttpRequest request = buildRequest(url, headers, jsonBody);
         try {
             HttpResponse<String> resp = client.send(request, HttpResponse.BodyHandlers.ofString());

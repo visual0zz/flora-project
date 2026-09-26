@@ -116,5 +116,6 @@ module com.flora.root {
     uses AiProvider;
 
     requires java.net.http;
+    requires jdk.httpserver;
     requires static org.jetbrains.annotations;
 }

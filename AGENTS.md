@@ -11,7 +11,8 @@ flora-project/            -- 根 POM（pom 打包类型，Java 26）
 │   ├── codereview/       -- 代码审查报告
 │   ├── decision/         -- 决策记录
 │   ├── design/           -- 方案/设计文档
-│   └── exploration/      -- 算法/协议/技术的详细剖析笔记
+│   ├── exploration/      -- 算法/协议/技术的详细剖析笔记
+│   └── reverse-engineer/ -- 第三方项目逆向分析（推测其设计思路与构建顺序）
 ├── flora-internal-evaluation/ -- JMH 微基准测试与内部评测
 ├── flora-garden/         -- 占位模块
 ├── flora-osmetes/        -- 源码分析与校验库
@@ -49,6 +50,7 @@ flora-project/            -- 根 POM（pom 打包类型，Java 26）
   - 修改`plugins/idea-plugins/ramet-language-support/gradle.properties`里的`version`字段，数值从上一个版本作为基准，对末位加一（版本号只写在该配置文件里，不再依赖 git tag）。
   - 然后执行脚本`action/deploy/idea-plugin.cmd`来进行发布
 - **技术探索**：将 AI 撰写的算法/协议/技术详细剖析笔记保存在 `addition/exploration/` 中。命名格式：`explore{YYYYMMDD}-{编号}-{主题}.md`。
+- **逆向分析**：将 AI 对第三方项目（位于 `absent/otherprojects/`）的逆向分析结果保存在 `addition/reverse-engineer/` 中，记录推测出的设计思路与构建顺序。命名格式：`reverse{YYYYMMDD}-{编号}-{项目名}-{分析主题}.md`（以 `reverse` 为前缀）。此类文档为基于代码与文档的推测，不是项目作者的公开记录；正文须明确标注"推断"与"确证"的边界，并列出参考的仓库内文件。不得把第三方项目代码当作本仓库模块修改或引用。
 - **所有脚本文件（扩展名为 `.sh`、`.cmd`、`.bat`、`.ps1`，以及 Makefile / CI 配置中内嵌的命令行）必须使用纯英文（ASCII）**，包括注释和打印输出（echo / printf / Write-Output 等）。Windows `cmd` 读取含中文注释的 `.cmd` 文件可能因代码页不匹配导致整个文件解析失败。
 - **`addition/config/` 下的所有文件必须使用纯英文**（仅 ASCII），包括 `remoteRepoList.txt`、`pushConfig.txt`、
   `tagPrefixes.txt` 等文件中的注释。同样的代码页陷阱：被 `cmd` 读取的配置文件中的中文注释可能导致整个文件读取失败。键、值和注释全部使用英文。
